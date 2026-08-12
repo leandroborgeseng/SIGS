@@ -136,12 +136,29 @@ async function downloadZip(batchId: string, mode: 'current' | 'conformant') {
   URL.revokeObjectURL(url);
 }
 
+function severityLabel(sev?: string) {
+  if (sev === 'BLOCKER') return 'Bloqueio';
+  if (sev === 'MONEY_RISK') return 'Risco $';
+  if (sev === 'QUALITY_WARN') return 'Atenção';
+  if (sev === 'INFO') return 'Info';
+  return sev || '';
+}
+
+function codesToFriendly(codes: string[]): string {
+  if (!codes.length) return '—';
+  return codes
+    .slice(0, 4)
+    .map((c) => lookupRepair(c)?.title || c)
+    .join(' · ');
+}
+
 function barTone(severity?: string, channel?: string) {
   if (severity === 'BLOCKER' || severity === 'MONEY_RISK') return 'danger';
   if (severity === 'QUALITY_WARN') return 'warn';
   if (channel === 'PREVINE') return 'previne';
   return '';
 }
+
 
 export default function OdontoLotePage() {
   const [batches, setBatches] = useState<BatchListRow[]>([]);
@@ -276,7 +293,7 @@ export default function OdontoLotePage() {
     if (!batch) return;
     const hasProb = !!(bulkCiap.trim() || bulkCid.trim());
     if (!confirmSt && !ineDefault.trim() && !hasProb) {
-      setError('Marque ao menos uma correção (stNaoPossuiCpf, INE ou CIAP/CID).');
+      setError('Marque ao menos uma correção (campo de CPF, código da equipe ou diagnóstico).');
       return;
     }
     setBusy(true);
@@ -679,11 +696,11 @@ export default function OdontoLotePage() {
                         title={guide?.how || c.code}
                       >
                         <span>
-                          <code>{c.code}</code>
-                          {guide ? (
+                          <strong style={{ fontSize: 13 }}>{guide?.title || c.code}</strong>
+                          {guide?.why ? (
                             <div className="muted">
-                              {guide.title}
-                              {guide.why ? ` — ${guide.why.slice(0, 90)}${guide.why.length > 90 ? '…' : ''}` : ''}
+                              {guide.why.slice(0, 110)}
+                              {guide.why.length > 110 ? '…' : ''}
                             </div>
                           ) : null}
                         </span>
@@ -778,14 +795,15 @@ export default function OdontoLotePage() {
                             type="button"
                             className={`lote-bar-row ${codeFilter === c.code ? 'active' : ''}`}
                             onClick={() => filterByCode(c.code)}
+                            title={guide?.how || c.code}
                           >
                             <span>
-                              <code>{c.code}</code>
+                              <strong style={{ fontSize: 13 }}>{guide?.title || c.code}</strong>
                               <div className="muted">
-                                {c.indicator} · {guide?.title || c.severity}
+                                {c.indicator ? `${c.indicator} · ` : ''}
                                 {guide?.why
-                                  ? ` — ${guide.why.slice(0, 80)}${guide.why.length > 80 ? '…' : ''}`
-                                  : ''}
+                                  ? `${guide.why.slice(0, 100)}${guide.why.length > 100 ? '…' : ''}`
+                                  : c.severity}
                               </div>
                             </span>
                             <span className="lote-bar-track">
@@ -811,7 +829,8 @@ export default function OdontoLotePage() {
             {codeFilter ? (
               <div className="lote-toolbar" style={{ marginTop: 14 }}>
                 <span>
-                  Filtro ativo: <code>{codeFilter}</code>
+                  Filtro:{' '}
+                  <strong>{activeRepair?.title || codeFilter}</strong>
                   {activeRepair ? (
                     <>
                       {' '}
@@ -822,7 +841,6 @@ export default function OdontoLotePage() {
                             ? 'Individual'
                             : 'Info'}
                       </span>
-                      — {activeRepair.title}
                     </>
                   ) : null}
                 </span>
@@ -876,11 +894,11 @@ export default function OdontoLotePage() {
             </p>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
               <input type="checkbox" checked={confirmSt} onChange={(e) => setConfirmSt(e.target.checked)} />
-              Aplicar <code>stNaoPossuiCpf</code> automaticamente
+              Aplicar automaticamente: “informar se o cidadão tem CPF”
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
               <div className="field">
-                <label>INE padrão</label>
+                <label>Código da equipe (INE)</label>
                 <input
                   value={ineDefault}
                   onChange={(e) => setIneDefault(e.target.value)}
@@ -888,11 +906,11 @@ export default function OdontoLotePage() {
                 />
               </div>
               <div className="field">
-                <label>CIAP padrão</label>
+                <label>Problema/diagnóstico (CIAP)</label>
                 <input value={bulkCiap} onChange={(e) => setBulkCiap(e.target.value)} placeholder="D82" />
               </div>
               <div className="field">
-                <label>CID-10 padrão</label>
+                <label>Diagnóstico (CID-10)</label>
                 <input value={bulkCid} onChange={(e) => setBulkCid(e.target.value)} placeholder="K02.1" />
               </div>
             </div>
@@ -954,7 +972,7 @@ export default function OdontoLotePage() {
                       <th>Tipo</th>
                       <th>Siaps</th>
                       <th>Previne</th>
-                      <th align="left">Códigos</th>
+                      <th align="left">Problemas</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -984,10 +1002,8 @@ export default function OdontoLotePage() {
                         </td>
                         <td align="center">{it.siapsReady ? 'ok' : 'falha'}</td>
                         <td align="center">{it.previneReady ? 'ok' : `risco(${it.previneMoneyRisks ?? 0})`}</td>
-                        <td>
-                          <code style={{ fontSize: 11 }}>
-                            {[...it.topCodes, ...(it.previneTopCodes || [])].slice(0, 5).join(', ') || '—'}
-                          </code>
+                        <td style={{ fontSize: 12 }}>
+                          {codesToFriendly([...it.topCodes, ...(it.previneTopCodes || [])])}
                         </td>
                       </tr>
                     ))}
@@ -1046,21 +1062,23 @@ export default function OdontoLotePage() {
                           const code = 'code' in f ? f.code : '';
                           const guide = lookupRepair(code);
                           const mode = guide?.mode || 'individual';
+                          const sev = 'severity' in f ? String(f.severity) : '';
                           return (
                             <tr key={`${code}-${i}`}>
                               <td>
                                 <span className={`lote-mode ${mode}`}>
                                   {mode === 'auto' ? 'Auto' : mode === 'individual' ? 'Individual' : 'Info'}
                                 </span>
-                                <span className={`lote-sev ${'severity' in f ? f.severity : ''}`}>
-                                  {'severity' in f ? f.severity : ''}
-                                </span>{' '}
-                                <code>{code}</code>
-                                <div>{'message' in f ? f.message : ''}</div>
+                                <span className={`lote-sev ${sev}`}>{severityLabel(sev)}</span>
+                                <div style={{ marginTop: 4 }}>
+                                  <strong>{guide?.title || code}</strong>
+                                </div>
                                 {guide?.why ? (
                                   <div className="muted" style={{ marginTop: 4 }}>
                                     <strong>O que isso significa:</strong> {guide.why}
                                   </div>
+                                ) : 'message' in f && f.message ? (
+                                  <div className="muted">{f.message}</div>
                                 ) : null}
                                 {guide ? (
                                   <div className="muted">

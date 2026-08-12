@@ -8,6 +8,7 @@ import { api, ApiError, getToken } from '@/lib/api';
 import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
 import { formatUploadError } from '@/lib/format-upload-error';
 import { FileDropZone } from '@/components/ui/FileDropZone';
+import { explainError } from '@/app/odonto/lote/error-catalog';
 
 type LoteTipo = 'FAI' | 'PROCEDIMENTOS';
 
@@ -317,10 +318,10 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             <h3 style={{ marginTop: 0 }}>3. Auto-correção em massa</h3>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
               <input type="checkbox" checked={confirmSt} onChange={(e) => setConfirmSt(e.target.checked)} />
-              Aplicar <code>stNaoPossuiCpf</code> (blocker universal neste lote)
+              Corrigir automaticamente: “informar se o cidadão tem CPF” (campo obrigatório do Ministério)
             </label>
             <div className="field">
-              <label>INE padrão (se ausente)</label>
+              <label>Código da equipe (INE), se estiver faltando</label>
               <input value={ineDefault} onChange={(e) => setIneDefault(e.target.value)} placeholder="0002321246" />
             </div>
             <button className="btn btn-primary" type="submit" disabled={busy}>
@@ -352,8 +353,11 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                       >
                         <td>{it.fileName}</td>
                         <td align="center">{it.siapsReady ? 'ok' : 'falha'}</td>
-                        <td>
-                          <code style={{ fontSize: 11 }}>{it.topCodes.slice(0, 4).join(', ') || '—'}</code>
+                        <td style={{ fontSize: 12 }}>
+                          {it.topCodes
+                            .slice(0, 4)
+                            .map((c) => explainError(c)?.title || c)
+                            .join(' · ') || '—'}
                         </td>
                       </tr>
                     ))}
@@ -373,19 +377,33 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                     </span>
                   </p>
                   <ul style={{ paddingLeft: 18, fontSize: 13 }}>
-                    {selected.findings.map((f, i) => (
-                      <li key={`${f.code}-${i}`}>
-                        <code>{f.code}</code> — {f.message}
-                        {f.hint ? <div className="muted">{f.hint}</div> : null}
-                      </li>
-                    ))}
+                    {selected.findings.map((f, i) => {
+                      const guide = explainError(f.code);
+                      return (
+                        <li key={`${f.code}-${i}`} style={{ marginBottom: 8 }}>
+                          <strong>{guide?.title || f.code}</strong>
+                          {guide?.why ? (
+                            <div className="muted">{guide.why}</div>
+                          ) : (
+                            <div className="muted">{f.message}</div>
+                          )}
+                          {guide?.how ? (
+                            <div className="muted">
+                              <strong>O que fazer:</strong> {guide.how}
+                            </div>
+                          ) : f.hint ? (
+                            <div className="muted">{f.hint}</div>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ul>
                   {selected.findings.some((f) => f.code === 'ST_NAO_POSSUI_CPF') ? (
                     <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void fixSelectedSt()}>
-                      Auto: stNaoPossuiCpf nesta ficha
+                      Corrigir: informar se o cidadão tem CPF
                     </button>
                   ) : (
-                    <p className="muted">Sem blocker stNaoPossuiCpf nesta ficha.</p>
+                    <p className="muted">Nenhum bloqueio de “informar se tem CPF” nesta ficha.</p>
                   )}
                 </>
               ) : (
