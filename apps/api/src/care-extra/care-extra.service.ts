@@ -4,18 +4,33 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
 import { resolveLotacaoHeader } from '../ledi/lotacao.resolver';
 import {
+  LEDI_CONDUTA_ODONTO,
+  LEDI_LOCAL_ATENDIMENTO,
+  LEDI_TIPO_ATENDIMENTO,
+  LEDI_TIPO_CONSULTA_ODONTO,
+  LEDI_TURNO,
+} from '../ledi/db-enums';
+import {
   CreateDentalEncounterDto,
   CreateHomeCareVisitDto,
   CreateCollectiveActivityDto,
   FinishDentalEncounterDto,
   FinishHomeCareVisitDto,
   FinishCollectiveActivityDto,
+  PatchDentalEncounterDto,
   ValidateDentalFaoDto,
 } from './dto';
 import { buildDentalLediPayload } from './ledi-dental.mapper';
 import { buildHomeCareLediPayload } from './ledi-homecare.mapper';
 import { buildCollectiveLediPayload } from './ledi-collective.mapper';
 import { validateFaoJson, validateFaoXml } from './ledi-fao.validator';
+import {
+  defaultDentalCareDraft,
+  dentalMunicipioIbgeFallback,
+  requireIneOnDentalOpen,
+  type DentalCareDraft,
+} from './dental-care.draft';
+import { FRANCA_LEDI_DEFAULTS } from './ledi-autofix.pipeline';
 
 @Injectable()
 export class CareExtraService {
@@ -60,12 +75,30 @@ export class CareExtraService {
 
   catalogDental() {
     return {
-      tipoAtendimento: [
-        { id: 2, label: 'Consulta agendada' },
-        { id: 4, label: 'Escuta inicial / orientação' },
-        { id: 5, label: 'Consulta no dia' },
-        { id: 6, label: 'Atendimento de urgência' },
-      ],
+      config: {
+        requireIneOnDentalOpen: requireIneOnDentalOpen(),
+        defaultTipoAtendimento: defaultDentalCareDraft().tipoAtendimento,
+        defaultLocalAtendimento: defaultDentalCareDraft().localAtendimento,
+        defaultTurno: defaultDentalCareDraft().turno,
+        municipioIbgeFallback: dentalMunicipioIbgeFallback(),
+        francaDefaults: FRANCA_LEDI_DEFAULTS,
+      },
+      tipoAtendimento: LEDI_TIPO_ATENDIMENTO.filter((t) => [2, 4, 5, 6].includes(t.id)).map((t) => ({
+        id: t.id,
+        code: t.code,
+        label: t.label,
+      })),
+      tiposConsultaOdonto: LEDI_TIPO_CONSULTA_ODONTO.map((t) => ({
+        id: t.id,
+        code: t.code,
+        label: t.label,
+      })),
+      localAtendimento: LEDI_LOCAL_ATENDIMENTO.filter((t) => t.id >= 1 && t.id <= 10).map((t) => ({
+        id: t.id,
+        code: t.code,
+        label: t.label,
+      })),
+      turno: LEDI_TURNO.map((t) => ({ id: t.id, code: t.code, label: t.label })),
       vigilanciaSaudeBucal: [
         { id: 1, label: 'Abscesso dentoalveolar' },
         { id: 2, label: 'Alteração em tecidos moles' },
@@ -75,18 +108,23 @@ export class CareExtraService {
         { id: 6, label: 'Fluorose' },
         { id: 7, label: 'Outro' },
       ],
-      condutas: [
-        { id: 'ALTA', label: 'Alta do episódio', lediId: 17 },
-        { id: 'TRATAMENTO_CONCLUIDO', label: 'Tratamento concluído', lediId: 15 },
-        { id: 'RETORNO', label: 'Retorno para consulta agendada', lediId: 16 },
-      ],
+      condutas: LEDI_CONDUTA_ODONTO.map((c) => ({
+        id: c.code,
+        label: c.label,
+        lediId: c.id,
+      })),
       fornecimentos: [
         { id: 'ESCOVA', label: 'Escova dental', lediId: 1 },
         { id: 'CREME', label: 'Creme dental', lediId: 2 },
         { id: 'FIO', label: 'Fio dental', lediId: 3 },
       ],
+      justificativaNaoPossuiCpf: [
+        { id: 1, label: 'Não possui CPF' },
+        { id: 2, label: 'Aguardando emissão' },
+        { id: 99, label: 'Outro' },
+      ],
       channelNote:
-        'Conformidade de envio odonto APS/CEO→Siaps/RNDS: LEDI FAO (XML|Thrift), não Bundle FHIR RIA neste fluxo (Portaria GM/MS 10.192/2026).',
+        'Conformidade de envio odonto APS/CEO→Siaps/RNDS: LEDI FAO (XML|Thrift), não Bundle FHIR RIA neste fluxo.',
     };
   }
 
@@ -118,18 +156,53 @@ export class CareExtraService {
     });
   }
 
+  private parseCare(raw: string | null | undefined): DentalCareDraft {
+    try {
+      return defaultDentalCareDraft(JSON.parse(raw || '{}') as Partial<DentalCareDraft>);
+    } catch {
+      return defaultDentalCareDraft();
+    }
+  }
+
+  private serializeDental(row: {
+    id: string;
+    patientId: string;
+    facilityId: string;
+    professionalId: string | null;
+    assignmentId?: string | null;
+    encounterType: string;
+    status: string;
+    anamnese: string | null;
+    proceduresJson: string;
+    odontogramJson: string;
+    outcomesJson: string;
+    careJson?: string | null;
+    startedAt: Date;
+    finishedAt: Date | null;
+    productionBatchId: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    patient?: unknown;
+    facility?: unknown;
+    professional?: unknown;
+  }) {
+    const care = this.parseCare(row.careJson);
+    return {
+      ...row,
+      procedures: JSON.parse(row.proceduresJson || '[]'),
+      odontogram: JSON.parse(row.odontogramJson || '{}'),
+      outcomes: JSON.parse(row.outcomesJson || '[]'),
+      care,
+    };
+  }
+
   async getDental(id: string) {
     const row = await this.prisma.dentalEncounter.findUnique({
       where: { id },
       include: { patient: true, facility: true, professional: true },
     });
     if (!row) throw new NotFoundException('Atendimento odontológico não encontrado');
-    return {
-      ...row,
-      procedures: JSON.parse(row.proceduresJson || '[]'),
-      odontogram: JSON.parse(row.odontogramJson || '{}'),
-      outcomes: JSON.parse(row.outcomesJson || '[]'),
-    };
+    return this.serializeDental(row);
   }
 
   async openDental(dto: CreateDentalEncounterDto) {
@@ -139,64 +212,194 @@ export class CareExtraService {
     const facility = await this.prisma.facility.findUnique({ where: { id: dto.facilityId } });
     if (!facility) throw new BadRequestException('facilityId inválido');
 
+    const lotacao = await this.resolveLotacao({
+      professionalId: dto.professionalId,
+      facilityId: dto.facilityId,
+      facilityCnes: facility.cnes,
+      assignmentId: dto.assignmentId,
+      cbo: dto.cbo || FRANCA_LEDI_DEFAULTS.cboOdontoPadrao,
+    });
+    if (requireIneOnDentalOpen() && !lotacao.ine) {
+      throw new BadRequestException(
+        'INE obrigatório na abertura do atendimento odonto (param REQUIRE_INE_DENTAL_OPEN). Informe assignmentId/equipe com INE.',
+      );
+    }
+    if (!facility.ibgeCode && !dentalMunicipioIbgeFallback()) {
+      throw new BadRequestException('Unidade sem IBGE e sem MUNICIPIO_IBGE configurado.');
+    }
+
+    const care = defaultDentalCareDraft({
+      assignmentId: dto.assignmentId || null,
+      cbo: dto.cbo || lotacao.cboCodigo_2002,
+    });
+
     const row = await this.prisma.dentalEncounter.create({
       data: {
         patientId: dto.patientId,
         facilityId: dto.facilityId,
         professionalId: dto.professionalId,
+        assignmentId: dto.assignmentId,
         encounterType: dto.encounterType || 'CONSULTA',
         anamnese: dto.anamnese,
         proceduresJson: JSON.stringify(dto.procedures || []),
         odontogramJson: JSON.stringify(dto.odontogram || {}),
+        careJson: JSON.stringify(care),
         status: 'IN_PROGRESS',
       },
-      include: { patient: true, facility: true },
+      include: { patient: true, facility: true, professional: true },
     });
-    await this.prisma.audit('open', 'dental_encounter', row.id, [RF.ODONTO.id]);
-    return row;
+    await this.prisma.audit('open', 'dental_encounter', row.id, [RF.ODONTO.id], {
+      requireIne: requireIneOnDentalOpen(),
+      tipoAtendimento: care.tipoAtendimento,
+    });
+    return this.serializeDental(row);
   }
 
-  async finishDental(id: string, dto: FinishDentalEncounterDto) {
+  async patchDental(id: string, dto: PatchDentalEncounterDto) {
+    const row = await this.prisma.dentalEncounter.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Atendimento odontológico não encontrado');
+    if (row.status !== 'IN_PROGRESS') {
+      throw new BadRequestException('Só é possível editar atendimento em andamento');
+    }
+
+    const care = this.parseCare(row.careJson);
+    const nextCare: DentalCareDraft = {
+      ...care,
+      ...(dto.tipoAtendimento != null ? { tipoAtendimento: dto.tipoAtendimento } : {}),
+      ...(dto.tiposConsultaOdonto ? { tiposConsultaOdonto: dto.tiposConsultaOdonto } : {}),
+      ...(dto.localAtendimento != null ? { localAtendimento: dto.localAtendimento } : {}),
+      ...(dto.turno != null ? { turno: dto.turno } : {}),
+      ...(dto.gestante != null ? { gestante: dto.gestante } : {}),
+      ...(dto.necessidadesEspeciais != null
+        ? { necessidadesEspeciais: dto.necessidadesEspeciais }
+        : {}),
+      ...(dto.outcomes ? { outcomes: dto.outcomes } : {}),
+      ...(dto.vigilanciaSaudeBucal ? { vigilanciaSaudeBucal: dto.vigilanciaSaudeBucal } : {}),
+      ...(dto.fornecimentos ? { fornecimentos: dto.fornecimentos } : {}),
+      ...(dto.problemasCondicoes ? { problemasCondicoes: dto.problemasCondicoes } : {}),
+      ...(dto.stNaoPossuiCpf != null ? { stNaoPossuiCpf: dto.stNaoPossuiCpf } : {}),
+      ...(dto.justificativaNaoPossuiCpf !== undefined
+        ? { justificativaNaoPossuiCpf: dto.justificativaNaoPossuiCpf }
+        : {}),
+      ...(dto.dataHoraInicialAtendimento !== undefined
+        ? { dataHoraInicialAtendimento: dto.dataHoraInicialAtendimento }
+        : {}),
+      ...(dto.dataHoraFinalAtendimento !== undefined
+        ? { dataHoraFinalAtendimento: dto.dataHoraFinalAtendimento }
+        : {}),
+      ...(dto.assignmentId !== undefined ? { assignmentId: dto.assignmentId } : {}),
+      ...(dto.cbo !== undefined ? { cbo: dto.cbo } : {}),
+    };
+
+    const updated = await this.prisma.dentalEncounter.update({
+      where: { id },
+      data: {
+        anamnese: dto.anamnese !== undefined ? dto.anamnese : undefined,
+        professionalId: dto.professionalId !== undefined ? dto.professionalId : undefined,
+        assignmentId: dto.assignmentId !== undefined ? dto.assignmentId : undefined,
+        proceduresJson:
+          dto.procedures !== undefined ? JSON.stringify(dto.procedures) : undefined,
+        odontogramJson:
+          dto.odontogram !== undefined ? JSON.stringify(dto.odontogram) : undefined,
+        careJson: JSON.stringify(nextCare),
+        outcomesJson: dto.outcomes ? JSON.stringify(dto.outcomes) : undefined,
+      },
+      include: { patient: true, facility: true, professional: true },
+    });
+    return this.serializeDental(updated);
+  }
+
+  /** Monta payload + valida sem gravar finish (painel ao vivo). */
+  async previewDentalFao(id: string) {
+    const built = await this.buildPayloadForEncounter(id, {});
+    const fao = validateFaoJson(built.payload as unknown as Record<string, unknown>);
+    return {
+      encounterId: id,
+      lotacao: built.lotacao,
+      fao,
+      siapsReady: fao.summary.blockers === 0,
+      payload: built.payload,
+    };
+  }
+
+  private async buildPayloadForEncounter(id: string, dto: FinishDentalEncounterDto) {
     const row = await this.prisma.dentalEncounter.findUnique({
       where: { id },
       include: { patient: true, facility: true, professional: true },
     });
     if (!row) throw new NotFoundException('Atendimento odontológico não encontrado');
-    if (row.status === 'COMPLETED') throw new BadRequestException('Já finalizado');
-    if (!dto.outcomes?.length) throw new BadRequestException('outcomes obrigatórias');
+    const care = this.parseCare(row.careJson);
 
+    const outcomes = dto.outcomes?.length ? dto.outcomes : care.outcomes;
+    if (!outcomes?.length) throw new BadRequestException('outcomes (condutas) obrigatórias');
+
+    const assignmentId = dto.assignmentId || care.assignmentId || row.assignmentId;
+    const cbo = dto.cbo || care.cbo || undefined;
     const lotacao = await this.resolveLotacao({
       professionalId: row.professionalId,
       facilityId: row.facilityId,
       facilityCnes: row.facility.cnes,
       professionalCns: row.professional?.cns,
-      assignmentId: dto.assignmentId,
-      cbo: dto.cbo,
+      assignmentId: assignmentId || undefined,
+      cbo: cbo || FRANCA_LEDI_DEFAULTS.cboOdontoPadrao,
     });
+    if (requireIneOnDentalOpen() && !lotacao.ine) {
+      throw new BadRequestException('INE obrigatório para faturar (param REQUIRE_INE_DENTAL_OPEN).');
+    }
 
-    const finishedAt = dto.finishedAt ? new Date(dto.finishedAt) : new Date();
+    const tipoAtendimento = dto.tipoAtendimento ?? care.tipoAtendimento ?? 5;
+    const vigilancia = dto.vigilanciaSaudeBucal?.length
+      ? dto.vigilanciaSaudeBucal
+      : care.vigilanciaSaudeBucal;
+    const problemas = dto.problemasCondicoes?.length
+      ? dto.problemasCondicoes
+      : care.problemasCondicoes;
+    const fornecimentos = dto.fornecimentos?.length ? dto.fornecimentos : care.fornecimentos;
+    const tiposConsultaOdonto = dto.tiposConsultaOdonto?.length
+      ? dto.tiposConsultaOdonto
+      : care.tiposConsultaOdonto;
+    const localAtendimento = dto.localAtendimento ?? care.localAtendimento;
+    const turno = dto.turno ?? care.turno;
+    const gestante = dto.gestante ?? care.gestante;
+    const necessidadesEspeciais = dto.necessidadesEspeciais ?? care.necessidadesEspeciais;
+    const stNaoPossuiCpf = dto.stNaoPossuiCpf ?? care.stNaoPossuiCpf;
+    const justificativaNaoPossuiCpf =
+      dto.justificativaNaoPossuiCpf !== undefined
+        ? dto.justificativaNaoPossuiCpf
+        : care.justificativaNaoPossuiCpf;
+
+    const startedAt = care.dataHoraInicialAtendimento
+      ? new Date(care.dataHoraInicialAtendimento)
+      : row.startedAt;
+    const finishedAt = dto.finishedAt
+      ? new Date(dto.finishedAt)
+      : care.dataHoraFinalAtendimento
+        ? new Date(care.dataHoraFinalAtendimento)
+        : new Date();
+
     const uuidFicha = randomUUID();
     let payload;
     try {
       payload = buildDentalLediPayload({
         uuidFicha,
         lotacao,
-        codigoIbgeMunicipio: row.facility.ibgeCode,
-        startedAt: row.startedAt,
+        codigoIbgeMunicipio: row.facility.ibgeCode || dentalMunicipioIbgeFallback(),
+        startedAt,
         finishedAt,
         patient: row.patient,
-        careLocation: dto.careLocation || 'UBS',
-        shift: dto.shift || 'MANHA',
         encounterType: row.encounterType,
-        tipoAtendimento: dto.tipoAtendimento,
-        outcomes: dto.outcomes,
-        vigilanciaSaudeBucal: dto.vigilanciaSaudeBucal,
-        fornecimentos: dto.fornecimentos,
-        problemasCondicoes: dto.problemasCondicoes,
-        gestante: dto.gestante,
-        necessidadesEspeciais: dto.necessidadesEspeciais,
-        stNaoPossuiCpf: dto.stNaoPossuiCpf,
-        justificativaNaoPossuiCpf: dto.justificativaNaoPossuiCpf,
+        tipoAtendimento,
+        tiposConsultaOdonto,
+        outcomes,
+        vigilanciaSaudeBucal: vigilancia,
+        fornecimentos,
+        problemasCondicoes: problemas,
+        gestante,
+        necessidadesEspeciais,
+        stNaoPossuiCpf,
+        justificativaNaoPossuiCpf,
+        localAtendimento,
+        turno,
         procedures: JSON.parse(row.proceduresJson || '[]'),
         odontogram: JSON.parse(row.odontogramJson || '{}'),
       });
@@ -204,7 +407,16 @@ export class CareExtraService {
       throw new BadRequestException((e as Error).message);
     }
 
-    const faoReport = validateFaoJson(payload as unknown as Record<string, unknown>);
+    return { row, care, lotacao, payload, outcomes, finishedAt };
+  }
+
+  async finishDental(id: string, dto: FinishDentalEncounterDto) {
+    const rowCheck = await this.prisma.dentalEncounter.findUnique({ where: { id } });
+    if (!rowCheck) throw new NotFoundException('Atendimento odontológico não encontrado');
+    if (rowCheck.status === 'COMPLETED') throw new BadRequestException('Já finalizado');
+
+    const built = await this.buildPayloadForEncounter(id, dto);
+    const faoReport = validateFaoJson(built.payload as unknown as Record<string, unknown>);
     if (dto.enforceFaoConformity !== false && faoReport.summary.blockers > 0) {
       throw new BadRequestException({
         message: 'Ficha odontológica não conforme para envio Siaps/RNDS (LEDI FAO).',
@@ -226,7 +438,7 @@ export class CareExtraService {
             : null,
         statusChangedAt: new Date(),
         rfIdsCsv: [RF.ODONTO.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id].join(','),
-        payloadJson: JSON.stringify({ ...payload, faoValidation: faoReport }),
+        payloadJson: JSON.stringify({ ...built.payload, faoValidation: faoReport }),
       },
     });
 
@@ -234,17 +446,22 @@ export class CareExtraService {
       where: { id },
       data: {
         status: 'COMPLETED',
-        finishedAt,
-        outcomesJson: JSON.stringify(dto.outcomes),
+        finishedAt: built.finishedAt,
+        outcomesJson: JSON.stringify(built.outcomes),
+        careJson: JSON.stringify(built.care),
         productionBatchId: batch.id,
       },
-      include: { patient: true, facility: true },
+      include: { patient: true, facility: true, professional: true },
     });
     await this.prisma.audit('finish', 'dental_encounter', id, [RF.ODONTO.id, RF.PROD.id], {
       productionBatchId: batch.id,
       faoConformant: faoReport.conformant,
     });
-    return { encounter: updated, productionBatch: { ...batch, payload }, fao: faoReport };
+    return {
+      encounter: this.serializeDental(updated),
+      productionBatch: { ...batch, payload: built.payload },
+      fao: faoReport,
+    };
   }
 
   listHomeCare(facilityId?: string) {

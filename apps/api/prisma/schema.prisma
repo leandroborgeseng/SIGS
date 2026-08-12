@@ -304,13 +304,16 @@ model ProductionBatch {
   @@map("production_batches")
 }
 
-/// Odontologia — stub MVP (RF-12.x / RF-3.56)
+/// Odontologia — atendimento clínico + rascunho LEDI FAO (RF-12.x)
 model DentalEncounter {
   id                String    @id @default(uuid())
   patientId         String    @map("patient_id")
   facilityId        String    @map("facility_id")
   professionalId    String?   @map("professional_id")
+  /// Lotação usada (CNS+CBO+CNES+INE)
+  assignmentId      String?   @map("assignment_id")
   encounterType     String    @default("CONSULTA") @map("encounter_type")
+  /// IN_PROGRESS | COMPLETED | VOID
   status            String    @default("IN_PROGRESS")
   anamnese          String?
   /// JSON: [{ tooth?, region?, code, label, done }]
@@ -318,6 +321,8 @@ model DentalEncounter {
   /// JSON simplificado odontograma { "11": "C", ... }
   odontogramJson    String    @default("{}") @map("odontogram_json")
   outcomesJson      String    @default("[]") @map("outcomes_json")
+  /// Rascunho clínico/LEDI enquanto OPEN (tipoAtendimento, vigilância, problemas, fornecimentos…)
+  careJson          String    @default("{}") @map("care_json")
   startedAt         DateTime  @default(now()) @map("started_at")
   finishedAt        DateTime? @map("finished_at")
   productionBatchId String?   @map("production_batch_id")

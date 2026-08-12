@@ -24,6 +24,8 @@ export class CreateDentalEncounterDto {
   @IsString() patientId!: string;
   @IsString() facilityId!: string;
   @IsOptional() @IsString() professionalId?: string;
+  @IsOptional() @IsString() assignmentId?: string;
+  @IsOptional() @IsString() cbo?: string;
   @IsOptional() @IsString() encounterType?: string;
   @IsOptional() @IsString() anamnese?: string;
   @IsOptional()
@@ -39,18 +41,25 @@ export class DentalProblemaDto {
   @IsOptional() @IsString() cid10?: string;
 }
 
-export class FinishDentalEncounterDto {
-  @IsArray() @IsString({ each: true }) outcomes!: string[];
-  @IsOptional() @IsDateString() finishedAt?: string;
+export class PatchDentalEncounterDto {
+  @IsOptional() @IsString() anamnese?: string;
   @IsOptional() @IsString() assignmentId?: string;
   @IsOptional() @IsString() cbo?: string;
-  /** 2|4|5|6 — LEDI tipoAtendimento */
+  @IsOptional() @IsString() professionalId?: string;
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DentalProcedureDto)
+  procedures?: DentalProcedureDto[];
+  @IsOptional() @IsObject() odontogram?: Record<string, string>;
+  /** Campos LEDI do rascunho (merge parcial) */
   @IsOptional() @IsInt() tipoAtendimento?: number;
-  @IsOptional() @IsString() shift?: string;
-  @IsOptional() @IsString() careLocation?: string;
+  @IsOptional() @IsArray() tiposConsultaOdonto?: number[];
+  @IsOptional() @IsInt() localAtendimento?: number;
+  @IsOptional() @IsInt() turno?: number;
   @IsOptional() @IsBoolean() gestante?: boolean;
   @IsOptional() @IsBoolean() necessidadesEspeciais?: boolean;
-  /** Códigos vigilância saúde bucal (FAO#10) — obrigatório para conformidade */
+  @IsOptional() @IsArray() @IsString({ each: true }) outcomes?: string[];
   @IsOptional() @IsArray() vigilanciaSaudeBucal?: number[];
   @IsOptional() @IsArray() @IsString({ each: true }) fornecimentos?: string[];
   @IsOptional()
@@ -60,7 +69,35 @@ export class FinishDentalEncounterDto {
   problemasCondicoes?: DentalProblemaDto[];
   @IsOptional() @IsBoolean() stNaoPossuiCpf?: boolean;
   @IsOptional() @IsInt() justificativaNaoPossuiCpf?: number;
-  /** Se true, bloqueia finish quando validador FAO achar BLOCKER */
+  @IsOptional() @IsString() dataHoraInicialAtendimento?: string;
+  @IsOptional() @IsString() dataHoraFinalAtendimento?: string;
+}
+
+export class FinishDentalEncounterDto {
+  /** Se omitido, usa careJson.outcomes */
+  @IsOptional() @IsArray() @IsString({ each: true }) outcomes?: string[];
+  @IsOptional() @IsDateString() finishedAt?: string;
+  @IsOptional() @IsString() assignmentId?: string;
+  @IsOptional() @IsString() cbo?: string;
+  /** 2|4|5|6 — LEDI tipoAtendimento */
+  @IsOptional() @IsInt() tipoAtendimento?: number;
+  @IsOptional() @IsArray() tiposConsultaOdonto?: number[];
+  @IsOptional() @IsInt() localAtendimento?: number;
+  @IsOptional() @IsInt() turno?: number;
+  @IsOptional() @IsString() shift?: string;
+  @IsOptional() @IsString() careLocation?: string;
+  @IsOptional() @IsBoolean() gestante?: boolean;
+  @IsOptional() @IsBoolean() necessidadesEspeciais?: boolean;
+  @IsOptional() @IsArray() vigilanciaSaudeBucal?: number[];
+  @IsOptional() @IsArray() @IsString({ each: true }) fornecimentos?: string[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DentalProblemaDto)
+  problemasCondicoes?: DentalProblemaDto[];
+  @IsOptional() @IsBoolean() stNaoPossuiCpf?: boolean;
+  @IsOptional() @IsInt() justificativaNaoPossuiCpf?: number;
+  /** Default true — bloqueia finish com BLOCKER FAO */
   @IsOptional() @IsBoolean() enforceFaoConformity?: boolean;
 }
 

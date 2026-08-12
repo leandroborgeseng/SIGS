@@ -1,0 +1,257 @@
+# Desenho — Atendimento odontológico (SIGS)
+
+**Status:** proposta para aprovação (sem implementação nesta fatia)  
+**Atualizado:** 2026-08-12  
+**Contexto:** uso solo → faturamento Siaps primeiro → depois UI clínica completa  
+**Fontes:** Thrift FAO 5.5.24 · `ledi-fao.validator.ts` · `ledi-dental.mapper.ts` · `dental-encounter-mapping.md` · RF-12 Anexo I · docs/conhecimento/15 · lote Franca
+
+---
+
+## 1. Objetivo do desenho
+
+Substituir o stub `/odonto` por um **fluxo clínico** que:
+
+1. Consulta o **comportamento legado e-SUS** (ficha odonto / FAO tipo 5) como spec, sem copiar código.
+2. Garante **todos os campos obrigatórios de faturamento (eixo A — Siaps)** no momento do **fechamento**.
+3. Orienta (sem bloquear envio) os campos de **qualidade Previne ESB (eixo B)**.
+4. Reusa o motor já existente: `buildDentalLediPayload` → `validateFaoJson` → `ProductionBatch` (+ futuro ZIP LEDI).
+
+**Não-objetivo nesta fase:** agenda avançada, prótese, telemonitoramento, atestados, odontograma rico (RF-12.10–20) — entram em ondas posteriores.
+
+---
+
+## 2. Dois eixos (contrato de produto)
+
+| Eixo | Gate | Onde |
+|---|---|---|
+| **A — Envio / Siaps** | zero `BLOCKER` no validador FAO | botão **Finalizar e faturar** |
+| **B — Previne ESB** | avisos B1–B6 / INE / vigilância ≠ 99 | painel lateral; não impede ZIP se A ok |
+
+Regra: *enviar bem (A) é pré-requisito de pontuar (B).*
+
+---
+
+## 3. Fluxo clínico (legado → SIGS)
+
+```text
+┌─────────────┐    ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐
+│ 1. Identificar │ → │ 2. Abrir     │ → │ 3. Registrar     │ → │ 4. Fechar     │
+│ paciente     │    │ atendimento │    │ clínico + LEDI  │    │ + faturar     │
+└─────────────┘    └──────────────┘    └─────────────────┘    └──────────────┘
+        │                  │                      │                     │
+   Paciente Mestre    Lotação ativa         Seções da tela         validateFaoJson
+   CPF/CNS/st CPF     CNES+CBO+INE+CNS      (ver §5)               ProductionBatch
+```
+
+### Estados do `DentalEncounter`
+
+| Status | Significado |
+|---|---|
+| `OPEN` | Em atendimento |
+| `FINISHED` | Fechado clinicamente + payload LEDI gerado |
+| `VOID` | Anulado (não fatura; audit) |
+
+Não há “rascunho LEDI” separado: o **finish** é o momento de serializar a FAO.
+
+---
+
+## 4. Mapa de campos — obrigatórios de faturamento (eixo A)
+
+Fonte canônica: `ledi-fao.validator.ts` + Thrift `FichaAtendimentoOdontologico*`.  
+Tela deve **impedir finish** se qualquer item A faltar (mesma mensagem do registry).
+
+### 4.1 Contexto (header / lotação) — preenchido na abertura ou sessão
+
+| Campo LEDI | UI | Obrigatório A | Origem / regra |
+|---|---|---|---|
+| `uuidFicha` | gerado | sim | `CNES(7)-UUID` 36–44 |
+| `tpCdsOrigem` | oculto | sim | sempre `3` |
+| `profissionalCNS` | lotação | sim | CNS válido |
+| `cboCodigo_2002` | lotação | sim | CBO odonto/ASB/TSB (`FAO_ALLOWED_CBOS`) |
+| `cnes` | unidade | sim | 7 dígitos |
+| `ine` | lotação | **recomendado A / forte B** | obrigar se equipe eSB Franca |
+| `codigoIbgeMunicipio` | unidade | sim | Franca `3516200` |
+| `dataAtendimento` | data | sim | date do atendimento |
+
+### 4.2 Cidadão — bloco identificação
+
+| Campo LEDI | UI | Obrigatório A |
+|---|---|---|
+| `cpfCidadao` **XOR** `cnsCidadao` | paciente | sim (ou st + justificativa) |
+| `stNaoPossuiCpf` | checkbox | sim (boolean) |
+| `justificativaNaoPossuiCpf` | select 1–13,99 | se st=true |
+| `dtNascimento` | paciente | sim |
+| `sexo` | paciente | sim (`0`/`1`) |
+
+### 4.3 Atendimento — bloco principal (equivalente tela e-SUS)
+
+| Campo LEDI | UI | Obrigatório A | Notas |
+|---|---|---|---|
+| `tipoAtendimento` | select 2\|4\|5\|6 | sim | Default operacional Franca/consulta: **5** |
+| `tiposConsultaOdonto` | multi/select | **condicional** | Obrigatório se tipo=**2**; proibido se tipo=**4**; máx 1 |
+| `localAtendimento` | select 1–10 | sim | Default `1` UBS |
+| `turno` | 1\|2\|3 | sim | Default `2` tarde |
+| `gestante` | sim/não | sim | Bloquear true se sexo M |
+| `dataHoraInicialAtendimento` | hora | sim | |
+| `dataHoraFinalAtendimento` | hora | sim | ≥ inicial |
+| `necessidadesEspeciais` | sim/não | não BLOCKER | mapear se UI expuser |
+
+### 4.4 Condutas (`tiposEncamOdonto`) — ≥1
+
+Usar catálogo API `LEDI_CONDUTA_ODONTO` (não o catálogo desalinhado da UI lote).
+
+| Código | Label (API) | Regra cruzada |
+|---|---|---|
+| 15 | Tratamento concluído | exige `tiposConsultaOdonto` ∈ {1,2} |
+| 16 | Retorno agendado | — |
+| 17 | Alta do episódio | incompatível com consulta 1 ou 2 |
+| … | demais do enum | ≥1, ≤17 itens |
+
+### 4.5 Vigilância saúde bucal — ≥1 (RF-12.7)
+
+| id | Label |
+|---|---|
+| 1–7 | Abscesso … Outro (catálogo dental) |
+
+Evitar default **99** em massa (qualidade Previne / lote Franca).
+
+### 4.6 Problemas/condições — ≥1 (FAO#26)
+
+Cada item: **CIAP e/ou CID-10**. UI: busca (já existe `CodeSearchSelect` no lote).
+
+### 4.7 Procedimentos SIGTAP
+
+| Regra | Severidade A |
+|---|---|
+| Lista vazia | não BLOCKER (recomendado) |
+| Código `0301040079` (escuta) | **BLOCKER** — usar tipo=4 |
+| Duplicata | **BLOCKER** |
+| `quantidade` ≥ 1 | MONEY_RISK |
+
+### 4.8 Checklist mínimo “Finalizar e faturar” (tipo 5)
+
+1. Lotação completa (CNS + CBO odonto + CNES + IBGE; INE se eSB)  
+2. Paciente identificável (CPF XOR CNS + st coerente; nasc; sexo)  
+3. tipo=5 (ou outro válido com regras), local, turno, gestante, horas  
+4. ≥1 conduta · ≥1 vigilância · ≥1 problema  
+5. Procedimentos sem escuta/duplicata  
+6. `validateFaoJson` → 0 BLOCKER → grava `FINISHED` + `ProductionBatch`
+
+---
+
+## 5. Layout de telas (fase clínica mínima)
+
+### Tela A — Lista / fila do dia
+- Filtro unidade + profissional  
+- Atendimentos `OPEN` / `FINISHED` do dia  
+- CTA **Novo atendimento**
+
+### Tela B — Atendimento (uma página, seções colapsáveis)
+
+| Seção | Conteúdo | Gate |
+|---|---|---|
+| **Cabeçalho** | Paciente, unidade, lotação, data | A |
+| **Identificação** | CPF/CNS/st/justificativa (editar se gap) | A |
+| **Tipo e contexto** | tipoAtendimento, consulta (se 2), local, turno, gestante, horas | A |
+| **Clínico leve** | Anamnese (texto) · procedimentos SIGTAP · (odontograma stub opcional) | A parcial |
+| **Problemas** | CIAP/CID (≥1) | A |
+| **Vigilância** | multi 1–7 (≥1) | A |
+| **Condutas / desfecho** | multi enum odonto (≥1) + regras 15/17 | A |
+| **Fornecimentos** | opcional (RF-12.8; não BLOCKER hoje) | depois |
+| **Painel LEDI** | contagem BLOCKER / WARN / Previne ao vivo | A+B |
+| **Ações** | Salvar rascunho (só domínio) · **Finalizar e faturar** · Anular | |
+
+Validação **ao vivo** (mesmo validador do lote) enquanto preenche — UX igual ao “guia de erros”, mas na origem.
+
+### Tela C — Pós-fechamento
+- Resumo Siaps-ready  
+- Link para incluir em lote ZIP / production batch  
+- Audit trail
+
+---
+
+## 6. Domínio de dados (evolução do Prisma)
+
+**Manter** `DentalEncounter` como agregado, mas **sair de JSON cego** no finish:
+
+| Hoje | Proposta (onda 1) |
+|---|---|
+| `proceduresJson` | tipar DTO + validar SIGTAP no finish |
+| `outcomesJson` | persistir `tiposEncamOdonto[]` + vigilância + problemas no encounter **antes** do finish |
+| Campos LEDI só no `FinishDto` | campos A editáveis durante `OPEN` (patch) |
+| Lotação implícita | `assignmentId` / CNS+CBO+INE obrigatórios na abertura |
+
+Onda 2 (TR): tabelas/odontograma, prótese, patologias — sem bloquear faturamento.
+
+---
+
+## 7. Alinhamento RF-12 (Obrigatório TR)
+
+| RF | No desenho onda 1? | Nota |
+|---|---|---|
+| 12.2 Profissional | sim | lotação |
+| 12.3 Paciente | sim | identificação |
+| 12.4 Início tratamento | parcial | status OPEN |
+| 12.5 Tipo atendimento | sim | |
+| 12.6 Conduta/desfecho | sim | |
+| 12.7 Vigilância | sim | |
+| 12.8 Fornecimentos | depois | não BLOCKER |
+| 12.9 Anamnese | sim (texto) | |
+| 12.1 Agenda | depois | |
+| 12.10–20 | depois | tele, odontograma rico, prótese, exames, atestados |
+
+---
+
+## 8. Legado e-SUS (o que consultar na implementação)
+
+| Artefato | Uso |
+|---|---|
+| Thrift `FichaAtendimentoOdontologicoMaster/Child` | schema de campos |
+| ValidationGroups / enums odonto (functional map) | listas canônicas |
+| Spec `dental-encounter-mapping.md` | domínio → JSON |
+| Tela PEC odonto (comportamento) | ordem de campos / obrigatoriedade condicional |
+| Lote Franca 5974691 | defaults e anti-padrões (st CPF, problemas, vigilância 99) |
+
+Princípio: **specs + validadores SIGS** como fonte de verdade; legado só para paridade de enums e regras.
+
+---
+
+## 9. Ondas de entrega
+
+### Onda 1 — “Atendimento que fatura” (prioridade)
+1. Persistência dos campos A no encounter (patch enquanto OPEN)  
+2. UI `/odonto/[id]` com seções §5 + painel validador ao vivo  
+3. Finish → 0 BLOCKER obrigatório (`enforceFaoConformity=true` default)  
+4. Catálogo único de condutas (alinhar UI lote × `LEDI_CONDUTA_ODONTO`)  
+5. Defaults Franca na abertura (IBGE, turno, local, CBO)  
+6. Manual usuário stub + matriz RF-12.2–12.7 / 12.9  
+
+### Onda 2 — Qualidade Previne na origem
+- Alertas B1–B6, INE obrigatório eSB, desencorajar vigilância 99  
+- Procedimento 1ª consulta programada quando fluxo “primeira consulta”
+
+### Onda 3 — TR clínico rico + design fase 2
+- Agenda, odontograma, prótese, patologias, atestados  
+- Entrega Claude Design
+
+---
+
+## 10. Critérios de aceite (onda 1)
+
+- [ ] Abrir atendimento com lotação e paciente válidos  
+- [ ] Preencher só campos A e obter `validateFaoJson` sem BLOCKER  
+- [ ] Finish cria `ProductionBatch` e XML/JSON FAO espelhável no validador do lote  
+- [ ] Tentativa de finish incompleto lista códigos do registry (mesmos do `/odonto/lote`)  
+- [ ] Sem dados reais de paciente em fixtures  
+
+---
+
+## 11. Decisões aprovadas (2026-08-12)
+
+| # | Decisão | Valor |
+|---|---|---|
+| 1 | Default `tipoAtendimento` na abertura | **5** (consulta no dia) |
+| 2 | INE na abertura | **Obrigatório agora (Franca)**; depois **parametrizável** por município/instalação (`requireIneOnDentalOpen` / config org) para outras cidades |
+| 3 | Fornecimentos (`tiposFornecimOdonto`) | **Entram na Onda 1** (RF-12.8) |
+
+**Status:** Onda 1 **aprovada para implementação**.

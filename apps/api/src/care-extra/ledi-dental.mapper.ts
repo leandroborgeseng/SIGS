@@ -98,6 +98,8 @@ export function buildDentalLediPayload(input: {
   encounterType?: string | null;
   /** LEDI: 2,4,5,6 — default 5 (consulta no dia) */
   tipoAtendimento?: number;
+  /** Se informado, prevalece sobre encounterType */
+  tiposConsultaOdonto?: number[];
   outcomes: string[];
   vigilanciaSaudeBucal?: number[];
   fornecimentos?: string[];
@@ -106,6 +108,10 @@ export function buildDentalLediPayload(input: {
   necessidadesEspeciais?: boolean;
   stNaoPossuiCpf?: boolean;
   justificativaNaoPossuiCpf?: number | null;
+  /** LEDI local 1–10 — se setado, prevalece sobre careLocation */
+  localAtendimento?: number;
+  /** LEDI turno 1–3 — se setado, prevalece sobre shift */
+  turno?: number;
   procedures: DentalProcedureInput[];
   odontogram?: Record<string, string>;
 }): LediDentalMaster {
@@ -122,8 +128,12 @@ export function buildDentalLediPayload(input: {
   const encams = resolveCondutasOdonto(input.outcomes);
   const sexo = resolveSexo(input.patient.sex);
   if (!sexo) throw new Error(`sexo inválido: "${input.patient.sex}"`);
-  const turno = resolveTurno(input.shift);
-  const local = resolveLocalAtendimento(input.careLocation ?? 'UBS');
+  const turnoResolved = input.turno
+    ? { id: input.turno }
+    : resolveTurno(input.shift);
+  const localResolved = input.localAtendimento
+    ? { id: input.localAtendimento }
+    : resolveLocalAtendimento(input.careLocation ?? 'UBS');
   const tipoConsulta = resolveTipoConsultaOdonto(input.encounterType ?? 'CONSULTA');
   const tipoAtendimento = input.tipoAtendimento ?? 5;
   if (![2, 4, 5, 6].includes(tipoAtendimento)) {
@@ -168,7 +178,14 @@ export function buildDentalLediPayload(input: {
 
   const encamIds = encams.map((e) => e.id);
   let tiposConsultaOdonto =
-    tipoAtendimento === 4 ? [] : tipoConsulta ? [tipoConsulta.id] : [];
+    input.tiposConsultaOdonto?.length
+      ? [...input.tiposConsultaOdonto]
+      : tipoAtendimento === 4
+        ? []
+        : tipoConsulta
+          ? [tipoConsulta.id]
+          : [];
+  if (tipoAtendimento === 4) tiposConsultaOdonto = [];
   // FAO#8: alta do episódio (17) incompatível com consulta 1/2; tratamento concluído (15) exige 1/2
   if (encamIds.includes(17)) {
     tiposConsultaOdonto = tiposConsultaOdonto.filter((id) => id !== 1 && id !== 2);
@@ -185,9 +202,9 @@ export function buildDentalLediPayload(input: {
     sexoLabel: sexo.label,
     gestante,
     necessidadesEspeciais: input.necessidadesEspeciais ?? false,
-    localAtendimento: local?.id ?? 1,
+    localAtendimento: localResolved?.id ?? 1,
     tipoAtendimento,
-    turno: turno?.id ?? 1,
+    turno: turnoResolved?.id ?? 1,
     tiposConsultaOdonto,
     tiposEncamOdonto: encamIds,
     tiposEncamOdontoLabels: encams.map((e) => e.label),
