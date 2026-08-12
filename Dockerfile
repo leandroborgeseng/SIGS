@@ -33,16 +33,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends tini openssl ca
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /data
 
+# npm workspaces hoist deps em /app/node_modules (não há apps/*/node_modules)
 COPY --from=build /app/package.json /app/package-lock.json* ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/prisma ./apps/api/prisma
-COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/web/package.json ./apps/web/
 COPY --from=build /app/apps/web/.next ./apps/web/.next
 COPY --from=build /app/apps/web/public ./apps/web/public
-COPY --from=build /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=build /app/apps/web/next.config.ts ./apps/web/
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
