@@ -1,0 +1,21 @@
+services:
+  sigs:
+    build: .
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    environment:
+      DATABASE_URL: file:/data/sigs.db
+      PORT: "3001"
+      WEB_PORT: "3000"
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET:-dev-change-me}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@sigs.local}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin123}
+    volumes:
+      - sigs-data:/data
+    restart: unless-stopped
+
+volumes:
+  sigs-data:

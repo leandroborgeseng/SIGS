@@ -1,0 +1,326 @@
+# Mapa de domínio preliminar — e-SUS APS 5.5.24
+
+## Núcleo de packages
+
+- `br.gov.esus.ad.common.thrift`
+- `br.gov.saude.esus`
+- `br.gov.saude.esus.accesscontrol`
+- `br.gov.saude.esus.annotation`
+- `br.gov.saude.esus.async`
+- `br.gov.saude.esus.atencaodomiciliar`
+- `br.gov.saude.esus.atendimento.acompanhamento`
+- `br.gov.saude.esus.atendimento.dto`
+- `br.gov.saude.esus.atendimento.ivcf`
+- `br.gov.saude.esus.atendimento.prenatal`
+- `br.gov.saude.esus.atendimento.puericultura`
+- `br.gov.saude.esus.atendimento.sinan`
+- `br.gov.saude.esus.atendimentodomiciliar`
+- `br.gov.saude.esus.atendimentoindividual`
+- `br.gov.saude.esus.atendimentoodontologico`
+- `br.gov.saude.esus.atendimentopec`
+- `br.gov.saude.esus.atividadecoletiva`
+- `br.gov.saude.esus.avaliacaoelegibilidade`
+- `br.gov.saude.esus.business.api`
+- `br.gov.saude.esus.business.impl`
+- `br.gov.saude.esus.cadastrodomiciliar`
+- `br.gov.saude.esus.cadastroindividual`
+- `br.gov.saude.esus.cds.common`
+- `br.gov.saude.esus.cds.domain`
+- `br.gov.saude.esus.cds.filter`
+- `br.gov.saude.esus.cds.presentation`
+- `br.gov.saude.esus.cds.presenter`
+- `br.gov.saude.esus.cds.presenters`
+- `br.gov.saude.esus.cds.rowaction`
+- `br.gov.saude.esus.cds.services`
+- `br.gov.saude.esus.cds.territorio`
+- `br.gov.saude.esus.cds.thrift`
+- `br.gov.saude.esus.cds.transport`
+- `br.gov.saude.esus.cds.util`
+- `br.gov.saude.esus.cds.v1200`
+- `br.gov.saude.esus.cds.v1300`
+- `br.gov.saude.esus.cds.v2000`
+- `br.gov.saude.esus.cds.v220`
+- `br.gov.saude.esus.cds.v300`
+- `br.gov.saude.esus.cds.v301`
+- `br.gov.saude.esus.cds.v320`
+- `br.gov.saude.esus.cds.v321`
+- `br.gov.saude.esus.cds.v324`
+- `br.gov.saude.esus.cds.v412`
+- `br.gov.saude.esus.cds.v413`
+- `br.gov.saude.esus.cds.v415`
+- `br.gov.saude.esus.cds.v420`
+- `br.gov.saude.esus.cds.v421`
+- `br.gov.saude.esus.cds.v422`
+- `br.gov.saude.esus.cds.v433`
+- `br.gov.saude.esus.cds.v434`
+- `br.gov.saude.esus.cds.v436`
+- `br.gov.saude.esus.cds.v439`
+- `br.gov.saude.esus.cds.v440`
+- `br.gov.saude.esus.cds.v442`
+- `br.gov.saude.esus.cds.v505`
+- `br.gov.saude.esus.cds.v521`
+- `br.gov.saude.esus.cds.v530`
+- `br.gov.saude.esus.cds.v540`
+- `br.gov.saude.esus.cds.v550`
+- `br.gov.saude.esus.cds.v562`
+- `br.gov.saude.esus.cds.v563`
+- `br.gov.saude.esus.cds.v564`
+- `br.gov.saude.esus.cds.v600`
+- `br.gov.saude.esus.cds.v611`
+- `br.gov.saude.esus.cds.v620`
+- `br.gov.saude.esus.cds.v630`
+- `br.gov.saude.esus.cds.v631`
+- `br.gov.saude.esus.cds.v634`
+- `br.gov.saude.esus.cds.v636`
+- `br.gov.saude.esus.cds.v638`
+- `br.gov.saude.esus.cds.v639`
+- `br.gov.saude.esus.cds.v701`
+- `br.gov.saude.esus.cds.v710`
+- `br.gov.saude.esus.cds.v711`
+- `br.gov.saude.esus.cds.v721`
+- `br.gov.saude.esus.cds.v723`
+- `br.gov.saude.esus.cds.v731`
+- `br.gov.saude.esus.cds.v732`
+- `br.gov.saude.esus.cds.v733`
+- `br.gov.saude.esus.cds.v804`
+- `br.gov.saude.esus.cds.v811`
+- `br.gov.saude.esus.cds.v820`
+- `br.gov.saude.esus.cds.v821`
+- `br.gov.saude.esus.cds.v830`
+- `br.gov.saude.esus.cds.v840`
+- `br.gov.saude.esus.cds.v841`
+- `br.gov.saude.esus.cds.v842`
+- `br.gov.saude.esus.cds.validator`
+- `br.gov.saude.esus.cds.vcurrent`
+- `br.gov.saude.esus.centralizador.servlet`
+- `br.gov.saude.esus.cep.filter`
+- `br.gov.saude.esus.cep.select`
+- `br.gov.saude.esus.ciap.seletor`
+- `br.gov.saude.esus.cidadao`
+- `br.gov.saude.esus.cidadao.vinculacaocidadao`
+- `br.gov.saude.esus.cidadaovinculacaoequipe`
+- `br.gov.saude.esus.client.bootstrap`
+- `br.gov.saude.esus.command`
+- `br.gov.saude.esus.command.load`
+- `br.gov.saude.esus.command.save`
+- `br.gov.saude.esus.constants`
+- `br.gov.saude.esus.consumoalimentar`
+- `br.gov.saude.esus.cuidadocompartilhado`
+- `br.gov.saude.esus.dose`
+- `br.gov.saude.esus.dto.transport`
+- `br.gov.saude.esus.endereco`
+- `br.gov.saude.esus.endereco.bairro`
+- `br.gov.saude.esus.endereco.filter`
+- `br.gov.saude.esus.endereco.localidade`
+- `br.gov.saude.esus.enderecoindigena`
+- `br.gov.saude.esus.enums`
+- `br.gov.saude.esus.escolaridade.select`
+- `br.gov.saude.esus.estadocivil.select`
+- `br.gov.saude.esus.estrategia`
+- `br.gov.saude.esus.etnia.select`
+- `br.gov.saude.esus.event`
+- `br.gov.saude.esus.exception`
+- `br.gov.saude.esus.extension`
+- `br.gov.saude.esus.extension.initialization`
+- `br.gov.saude.esus.extension.interfaces`
+- `br.gov.saude.esus.extension.settings`
+- `br.gov.saude.esus.faces`
+- `br.gov.saude.esus.filter.seletor`
+- `br.gov.saude.esus.fonte`
+- `br.gov.saude.esus.generated.thrift`
+- `br.gov.saude.esus.handler`
+- `br.gov.saude.esus.helper`
+- `br.gov.saude.esus.historico`
+- `br.gov.saude.esus.historico.utils`
+- `br.gov.saude.esus.importarcidadao`
+- `br.gov.saude.esus.importarcidadao.adapter`
+- `br.gov.saude.esus.importarcidadao.exception`
+- `br.gov.saude.esus.importarcidadao.parser`
+- `br.gov.saude.esus.importarcidadao.thrift`
+- `br.gov.saude.esus.importarcidadao.type`
+- `br.gov.saude.esus.imunobiologico`
+- `br.gov.saude.esus.inep`
+- `br.gov.saude.esus.labels`
+- `br.gov.saude.esus.localidade.filter`
+- `br.gov.saude.esus.lotacao.seletor`
+- `br.gov.saude.esus.mobile`
+- `br.gov.saude.esus.model`
+- `br.gov.saude.esus.model.atencaodomiciliar`
+- `br.gov.saude.esus.model.cds`
+- `br.gov.saude.esus.model.common`
+- `br.gov.saude.esus.model.helper`
+- `br.gov.saude.esus.model.log`
+- `br.gov.saude.esus.model.q4`
+- `br.gov.saude.esus.model.res`
+- `br.gov.saude.esus.model.transport`
+- `br.gov.saude.esus.pais`
+- `br.gov.saude.esus.pec.business`
+- `br.gov.saude.esus.persistence.model`
+- `br.gov.saude.esus.persistence.querydslsql`
+- `br.gov.saude.esus.povocomunidadetradicional`
+- `br.gov.saude.esus.procedimento.filter`
+- `br.gov.saude.esus.procedimento.select`
+- `br.gov.saude.esus.procedimentos`
+- `br.gov.saude.esus.processamento`
+- `br.gov.saude.esus.processamento.command`
+- `br.gov.saude.esus.processamento.historicoclinico`
+- `br.gov.saude.esus.prontuario`
+- `br.gov.saude.esus.questionario`
+- `br.gov.saude.esus.racacor.select`
+- `br.gov.saude.esus.racionalidadesaude`
+- `br.gov.saude.esus.release`
+- `br.gov.saude.esus.sexo.select`
+- `br.gov.saude.esus.sql`
+- `br.gov.saude.esus.sql.q4`
+- `br.gov.saude.esus.sql.query`
+- `br.gov.saude.esus.sync.common`
+- `br.gov.saude.esus.syncserver.common`
+- `br.gov.saude.esus.tipoequipe`
+- `br.gov.saude.esus.transport`
+- `br.gov.saude.esus.transport.common`
+- `br.gov.saude.esus.transport.converter`
+- `br.gov.saude.esus.transport.exception`
+- `br.gov.saude.esus.transport.filter`
+- `br.gov.saude.esus.transport.form`
+- `br.gov.saude.esus.transport.model`
+- `br.gov.saude.esus.transport.processor`
+- `br.gov.saude.esus.transport.service`
+- `br.gov.saude.esus.transport.sync`
+- `br.gov.saude.esus.transport.thrift`
+- `br.gov.saude.esus.transport.transmissible`
+- `br.gov.saude.esus.transport.upload`
+- `br.gov.saude.esus.transport.user`
+- `br.gov.saude.esus.transport.validator`
+- `br.gov.saude.esus.transport.zip`
+- `br.gov.saude.esus.typedcombopresenter`
+- `br.gov.saude.esus.types`
+- `br.gov.saude.esus.types.material`
+- `br.gov.saude.esus.unificacaocadastro`
+- `br.gov.saude.esus.user`
+- `br.gov.saude.esus.user.acompanhamento`
+- `br.gov.saude.esus.user.async`
+- `br.gov.saude.esus.user.cidadao`
+- `br.gov.saude.esus.user.command`
+- `br.gov.saude.esus.user.converter`
+- ... (+234 packages)
+
+## Contagens técnicas (candidatos)
+
+- ENTITY/DOMAIN_MODEL: 2964
+- ENUM: 592
+- SERVICE: 1567
+
+## Entidades candidatas (amostra)
+
+- `br.gov.saude.componente.pixpdq.model.CNS` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.Certidao` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.Cnh` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.Comunicacao` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.Ctps` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.DadosWsPixPdq` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.Endereco` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.IdentificadorSistema` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.LocalNascimento` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.Naturalizado` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.Passaporte` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.RG` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.componente.pixpdq.model.TituloEleitor` ← ws-client-pdq-1.10.jar
+- `br.gov.saude.esus.cds.domain.CdsPerguntaId` ← ras.transport-5.5.24.jar
+- `br.gov.saude.esus.cds.domain.SaveDomicilioResponse` ← ras.transport-5.5.24.jar
+- `br.gov.saude.esus.cds.domain.TerritorioDefaultValues` ← cds.common.api-5.5.24.jar
+- `br.gov.saude.esus.importarcidadao.adapter.TransportEntity` ← pec.common.api-5.5.24.jar
+- `br.gov.saude.esus.importarcidadao.adapter.TransportFieldAdapterEntity` ← pec.common.api-5.5.24.jar
+- `br.gov.saude.esus.importarcidadao.adapter.TransportFieldAdapterListEntity` ← pec.common.api-5.5.24.jar
+- `br.gov.saude.esus.model.ProcessamentoHistoricoContext` ← cds.service.api-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.AdTransmissaoSession` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.AtencaoDomiciliarCidadao` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.AtencaoDomiciliarQuestao` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.AtencaoDomiciliarResposta` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.AtencaoDomiciliarSyncEntity` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.AtendimentoProfissionalAtencaoDomiciliar` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.AtendimentoProfissionalAtencaoDomiciliarQuestao` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.RlAtendimentoProfissionalAtencaoDomiciliarTipoInelegibilidade` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.TipoElegivel` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.TipoMotivoInegibilidade` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.q4.QAdTransmissaoSession` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.q4.QAtencaoDomiciliarCidadao` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.q4.QAtencaoDomiciliarQuestao` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.q4.QAtencaoDomiciliarResposta` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.q4.QAtencaoDomiciliarSyncEntity` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.q4.QAtendimentoProfissionalAtencaoDomiciliar` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.q4.QAtendimentoProfissionalAtencaoDomiciliarQuestao` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.q4.QRlAtendimentoProfissionalAtencaoDomiciliarTipoInelegibilidade` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.q4.QTipoElegivel` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.atencaodomiciliar.q4.QTipoMotivoInegibilidade` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.CdsPergunta` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.CdsProfissional` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.CdsTurno` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.CidadaoResposta` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.ContextoPergunta` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.PerguntaDetalhe` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.ProcedimentoFiltroCombo` ← cds.persistence.impl.jpa-5.5.24.jar
+- `br.gov.saude.esus.model.cds.StatusFichaEnumConverter` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.TipoPergunta` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.atenddomiciliar.CdsAtendimentoDomiciliar` ← cds.persistence.impl.jpa-5.5.24.jar
+- `br.gov.saude.esus.model.cds.atenddomiciliar.CdsMapaAtendDomiciliar` ← cds.persistence.impl.jpa-5.5.24.jar
+- `br.gov.saude.esus.model.cds.atenddomiciliar.CdsSituacaoPresente` ← cds.persistence.impl.jpa-5.5.24.jar
+- `br.gov.saude.esus.model.cds.atenddomiciliar.q4.QCdsAtendimentoDomiciliar` ← cds.persistence.impl.jpa-5.5.24.jar
+- `br.gov.saude.esus.model.cds.atenddomiciliar.q4.QCdsMapaAtendDomiciliar` ← cds.persistence.impl.jpa-5.5.24.jar
+- `br.gov.saude.esus.model.cds.atenddomiciliar.q4.QCdsSituacaoPresente` ← cds.persistence.impl.jpa-5.5.24.jar
+- `br.gov.saude.esus.model.cds.atendindividual.CdsAleitamentoMaterno` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.atendindividual.CdsAtendIndividualExamesPK` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.atendindividual.CdsAtendimento` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.atendindividual.CdsAtendimentoIndividualExames` ← model-5.5.24.jar
+- `br.gov.saude.esus.model.cds.atendindividual.CdsMapaAtendIndividual` ← model-5.5.24.jar
+
+## Enums candidatos (amostra)
+
+- `br.gov.core.common.enums.accesscontrol.Action`
+- `br.gov.core.common.enums.date.MonthDbEnum`
+- `br.gov.core.common.enums.mode.ModePath`
+- `br.gov.core.common.enums.mode.ModoOperacao`
+- `br.gov.core.common.enums.style.EsusImage`
+- `br.gov.core.common.enums.validation.DateOperator`
+- `br.gov.core.common.enums.validation.DateOperator$1`
+- `br.gov.core.presentation.api.enums.action.DetailAction`
+- `br.gov.core.view.impl.enums.style.EsusBorder`
+- `br.gov.core.view.impl.enums.style.EsusButton`
+- `br.gov.core.view.impl.enums.style.EsusCSS`
+- `br.gov.core.view.impl.enums.style.EsusFonte`
+- `br.gov.core.view.impl.widget.combo.ComboLookUpEnum`
+- `br.gov.esus.ad.business.impl.ProtocolEnum`
+- `br.gov.esus.ad.common.enums.TipoAtencaoDomiciliarSync`
+- `br.gov.esus.ad.common.enums.style.AtencaoDomiciliarImage`
+- `br.gov.saude.componente.pixpdq.enuns.TipoCertidaoEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoComunicacaoEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoConfidencialidadeEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoConsultaEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoCorRacaEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoEnderecoEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoEtniaEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoLogradouroEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoModeloCertidaoEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoNacionalidadeEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoOrgaoEmissorEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoPaisEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoSanguineoEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoSexoEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoTelefoneEnum`
+- `br.gov.saude.componente.pixpdq.enuns.TipoUfEnum`
+- `br.gov.saude.esus.atendimento.puericultura.PuericulturaGestacaoCiapCidEnum`
+- `br.gov.saude.esus.atendimento.sinan.GrupoFichaSinanEnum`
+- `br.gov.saude.esus.cds.common.api.enums.atendimentoindividual.AleitamentoMaternoDbEnum`
+- `br.gov.saude.esus.cds.common.api.enums.atendimentoindividual.NasfDbEnum`
+- `br.gov.saude.esus.cds.common.api.enums.atendimentoindividual.StatusExameDbEnum`
+- `br.gov.saude.esus.cds.common.api.enums.atendimentoindividual.TipoEncaminhamentoEnum`
+- `br.gov.saude.esus.cds.common.api.enums.atendimentoodontologico.CboCodigo2002ToTipoEncaminhamentoOdontoMapping`
+- `br.gov.saude.esus.cds.common.api.enums.atendimentoodontologico.ProcedimentoOdontologicoExtraEnum`
+
+## Próxima extração de entidades (ordem)
+
+1. Cidadão / paciente
+2. Profissional / equipe / unidade
+3. Território / domicílio / família
+4. Agenda / atendimento
+5. Procedimento / vacinação / odontologia
+6. LEDI / transmissão

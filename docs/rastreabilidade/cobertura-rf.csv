@@ -1,0 +1,600 @@
+modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
+1,Especificações Gerais do Sistema,1,RF-1.1,Obrigatório,TR,não iniciado,P0-P6,,n/a,"O Sistema pode ser entregue como solução única, em módulos separados ou como conjunto de sistemas interoperáveis, contanto que atenda integralmente aos critério"
+1,Especificações Gerais do Sistema,2,RF-1.2,Obrigatório,TR,parcial,P0-P6,apps/api/src/auth,n/a,"Banco de Dados singular, hospedado em servidor de alta performance em data center, permitindo que todos os usuários interajam em tempo real (inclusão/alteração/"
+1,Especificações Gerais do Sistema,3,RF-1.3,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Usuários somente acessam as informações do Banco de Dados através da aplicação, de forma on-line."
+1,Especificações Gerais do Sistema,4,RF-1.4,Obrigatório,TR,parcial,P0-P6,apps/api/src/auth#users,n/a,"Proteção dos dados assegurada pelo sistema aplicativo, sem depender de ferramentas do banco de dados para gerenciamento de acesso."
+1,Especificações Gerais do Sistema,5,RF-1.5,Desejável,TR,não iniciado,P0-P6,,n/a,"Interfaces de usuário padronizadas (tela de acesso, botões, navegação), exceto interfaces específicas de configuração de ambiente."
+1,Especificações Gerais do Sistema,6,RF-1.6,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Acesso obrigatório via navegadores: no mínimo Firefox, Chrome, Edge, Opera e Safari."
+1,Especificações Gerais do Sistema,7,RF-1.7,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Ambiente multiusuário, com uso simultâneo por diversos usuários."
+1,Especificações Gerais do Sistema,8,RF-1.8,Desejável,TR,não iniciado,P0-P6,,n/a,"Suporte a múltiplos exercícios, permitindo consulta a dados de qualquer exercício de forma integrada, sem uso de múltiplos executáveis por módulo."
+1,Especificações Gerais do Sistema,9,RF-1.9,Desejável,TR,não iniciado,P0-P6,,n/a,"Criação de favoritos para tarefas/telas específicas, reduzindo navegação por menus."
+1,Especificações Gerais do Sistema,10,RF-1.10,Obrigatório,TR,não iniciado,P0-P6,,n/a,Emissão de relatórios com opção de campos para assinatura ao final do documento.
+1,Especificações Gerais do Sistema,11,RF-1.11,Desejável,TR,não iniciado,P0-P6,,n/a,"Relatórios com personalização de layout, incluindo impressão de brasões."
+1,Especificações Gerais do Sistema,12,RF-1.12,Obrigatório,TR,não iniciado,P0-P6,,n/a,Envio de relatórios por e-mail diretamente da tela de visualização/geração.
+1,Especificações Gerais do Sistema,13,RF-1.13,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Acesso ao gerador (designer) de relatórios para customização, com opção de restaurar modelos padrão."
+1,Especificações Gerais do Sistema,14,RF-1.14,Obrigatório,TR,parcial,P0-P6,apps/api/.../audit + auth,n/a,"Log histórico detalhado de todas as operações por usuário (alterações, exclusões, visualizações), disponível para consulta e impressão (auditoria)."
+1,Especificações Gerais do Sistema,15,RF-1.15,Desejável,TR,não iniciado,P0-P6,,n/a,"Armazenamento temporal de relatórios, acessível depois via menu de acesso rápido."
+1,Especificações Gerais do Sistema,16,RF-1.16,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Solicitação de cadastro por ""Primeiro Acesso"" (matrícula funcional, CPF, data de nascimento), com envio de senha por e-mail após validação."
+1,Especificações Gerais do Sistema,17,RF-1.17,Desejável,TR,não iniciado,P0-P6,,n/a,Manuais de orientação (documentos ou videoaulas) sobre funcionalidades e uso das telas.
+1,Especificações Gerais do Sistema,18,RF-1.18,Obrigatório,TR,não iniciado,P0-P6,,n/a,Quantidade ilimitada de usuários cadastrados.
+1,Especificações Gerais do Sistema,19,RF-1.19,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Sem limitação de usuários simultâneos, mesmo em tarefas/telas iguais com registros distintos, mantendo integridade dos dados."
+1,Especificações Gerais do Sistema,20,RF-1.20,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Acesso com senha única por usuário, dando acesso a todas as funcionalidades permitidas."
+1,Especificações Gerais do Sistema,21,RF-1.21,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Interface para solicitação de senha pelo usuário e interface de aprovação para gestores, com envio automático de e-mail informando liberação de acesso."
+1,Especificações Gerais do Sistema,22,RF-1.22,Obrigatório,TR,não iniciado,P0-P6,,n/a,Interface para criação de grupos de usuários com perfis específicos.
+1,Especificações Gerais do Sistema,23,RF-1.23,Obrigatório,TR,não iniciado,P0-P6,,n/a,Cadastramento de grupos de usuários com atribuições e direitos semelhantes.
+1,Especificações Gerais do Sistema,24,RF-1.24,Obrigatório,TR,não iniciado,P0-P6,,n/a,Grupos de usuários com associação de funcionalidades e definição de níveis de comando no banco (alterar/excluir/visualizar).
+1,Especificações Gerais do Sistema,25,RF-1.25,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Associação de usuário a grupo existente, herdando características de segurança do grupo."
+1,Especificações Gerais do Sistema,26,RF-1.26,Obrigatório,TR,não iniciado,P0-P6,,n/a,Especialização dos direitos de acesso de um usuário vinculado a qualquer grupo.
+1,Especificações Gerais do Sistema,27,RF-1.27,Obrigatório,TR,não iniciado,P0-P6,,n/a,Inclusão de usuários sem senha prévia; senha definida pelo próprio usuário no primeiro acesso.
+1,Especificações Gerais do Sistema,28,RF-1.28,Desejável,TR,não iniciado,P0-P6,,n/a,"Troca de senha pelo próprio usuário, sem depender de TI, mantendo histórico de acesso por usuário (não por senha)."
+1,Especificações Gerais do Sistema,29,RF-1.29,Desejável,TR,não iniciado,P0-P6,,n/a,"Cadastramento de todos os usuários desejados, com indicação de direito de acesso por funcionalidade."
+1,Especificações Gerais do Sistema,30,RF-1.30,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Definição de acessos por nível de comando no banco: alterações, exclusões, visualizações."
+1,Especificações Gerais do Sistema,31,RF-1.31,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Gerador de consultas padrão SQL para pesquisas (somente consulta, sem permissão de alteração no BD)."
+1,Especificações Gerais do Sistema,32,RF-1.32,Obrigatório,TR,não iniciado,P0-P6,,n/a,Gerador de consultas para geração de resultados específicos não contratados no certame.
+1,Especificações Gerais do Sistema,33,RF-1.33,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Busca de registros de auditoria por palavra, intervalo de datas e usuário."
+1,Especificações Gerais do Sistema,34,RF-1.34,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Ferramenta de avaliação do nível de uso do sistema (inclusões, alterações, exclusões, consultas, relatórios impressos) por usuário, por sistema, por lotação/dep"
+1,Especificações Gerais do Sistema,35,RF-1.35,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Compatibilidade com bancos de dados padrão SQL-ANSI, demonstrada em ao menos 2 bancos diferentes, permitindo futura migração."
+1,Especificações Gerais do Sistema,36,RF-1.36,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Ferramenta de definição de calendário da Secretaria, com inclusão de diversos eventos por dia."
+1,Especificações Gerais do Sistema,37,RF-1.37,Obrigatório,TR,não iniciado,P0-P6,,n/a,Emissão de relatórios do calendário com eventos lançados por data.
+1,Especificações Gerais do Sistema,38,RF-1.38,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Relatórios de acessos permitidos a usuários (por tela/tarefa, por área, por perfil)."
+1,Especificações Gerais do Sistema,39,RF-1.39,Obrigatório,TR,não iniciado,P0-P6,,n/a,Ferramenta integrada de abertura de chamados de suporte técnico pela interface do sistema.
+1,Especificações Gerais do Sistema,40,RF-1.40,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Monitoramento de todas as etapas de resolução de chamado, da abertura até o ""de acordo"" final do usuário."
+1,Especificações Gerais do Sistema,41,RF-1.41,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Relatórios estatísticos de chamados (abertos, fechados, pendentes)."
+1,Especificações Gerais do Sistema,42,RF-1.42,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Endereços de pessoas físicas/jurídicas conectados ao Google Maps (ou equivalente), com visualização de localização e imagens de satélite na própria tela."
+1,Especificações Gerais do Sistema,43,RF-1.43,Desejável,TR,não iniciado,P0-P6,,n/a,Mínimo de 10 gráficos com visão gerencial dos dados movimentados.
+1,Especificações Gerais do Sistema,44,RF-1.44,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Integração com plataforma OpenSource de monitoração de TI (métricas em séries temporais em tempo real: CPU, RAM, SWAP, carga do sistema, disco, tráfego de rede)"
+1,Especificações Gerais do Sistema,45,RF-1.45,Obrigatório,TR,não iniciado,P0-P6,,n/a,Desenvolvimento em linguagem de programação de mercado que garanta portabilidade e manutenção.
+1,Especificações Gerais do Sistema,46,RF-1.46,Obrigatório,TR,não iniciado,P0-P6,,n/a,Chat para comunicação entre usuários cadastrados e logados.
+1,Especificações Gerais do Sistema,47,RF-1.47,Desejável,TR,não iniciado,P0-P6,,n/a,"Acesso via Gov.br, restrito a usuários previamente autorizados."
+1,Especificações Gerais do Sistema,48,RF-1.48,Obrigatório,TR,não iniciado,P0-P6,,n/a,Autenticação em dois fatores no login (senha adicional enviada ao usuário).
+1,Especificações Gerais do Sistema,49,RF-1.49,Obrigatório,TR,não iniciado,P0-P6,,n/a,"Dashboard inicial por usuário: gráfico de utilização do sistema, agenda de atividades, atalhos para telas mais usadas."
+1,Especificações Gerais do Sistema,50,RF-1.50,Desejável,TR,não iniciado,P0-P6,,n/a,"Execução em Linux, Windows e macOS."
+2,Módulo de Cadastros,1,RF-2.1,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro das unidades de saúde: nome/razão social, CNES/INE, tipo de estabelecimento, demanda padrão, procedimentos permitidos, tipos de atendimento, profission"
+2,Módulo de Cadastros,2,RF-2.2,Obrigatório,ambos,parcial,P0-P6,apps/api/.../organization.py#professionals,n/a,"Cadastro de profissionais: CNS/CPF, nome, conselho profissional, UF do conselho, número do conselho, matrícula, documentos pessoais, origem, endereços, assinatu"
+2,Módulo de Cadastros,3,RF-2.3,Obrigatório,ambos,parcial,P0-P6,,n/a,Cadastro de complexo regulador e tipo.
+2,Módulo de Cadastros,4,RF-2.4,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de tipos de plantão.
+2,Módulo de Cadastros,5,RF-2.5,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de campos de formulário para atendimento.
+2,Módulo de Cadastros,6,RF-2.6,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de fichas de saúde vinculando campos previamente cadastrados.
+2,Módulo de Cadastros,7,RF-2.7,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro/alteração/exclusão de cotas de procedimentos com distribuição pelas unidades de saúde e geração de relatórios.
+2,Módulo de Cadastros,8,RF-2.8,Desejável,ambos,não iniciado,P0-P6,,n/a,Cadastro de crachás com tipos determinados pela gestão.
+2,Módulo de Cadastros,9,RF-2.9,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de tipos de cardápios para CND.
+2,Módulo de Cadastros,10,RF-2.10,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de cardápios para distribuição na unidade de internação.
+2,Módulo de Cadastros,11,RF-2.11,Obrigatório,ambos,parcial,P0-P6,,n/a,"Cadastro de parâmetros de medicamentos: tipo de receita, controle especial, notificação de receita, via de administração."
+2,Módulo de Cadastros,13,RF-2.13,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de fichas de notificação e agravo, com preenchimento obrigatório conforme o CID informado no atendimento."
+2,Módulo de Cadastros,14,RF-2.14,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de procedimentos não padronizados no SUS.
+2,Módulo de Cadastros,15,RF-2.15,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de protocolos de atendimento.
+2,Módulo de Cadastros,16,RF-2.16,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de vínculo do profissional aos plantões disponíveis.
+2,Módulo de Cadastros,17,RF-2.17,Obrigatório,ambos,parcial,P0-P6,apps/api/src/appointments,n/a,Cadastro de agendas profissionais com tipos de atendimento por agenda.
+2,Módulo de Cadastros,18,RF-2.18,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de procedimentos agendáveis.
+2,Módulo de Cadastros,19,RF-2.19,Obrigatório,ambos,parcial,P0-P6,apps/api/.../organization.py#teams,n/a,Cadastro de equipes de saúde vinculadas às regras do SUS e da gestão.
+2,Módulo de Cadastros,20,RF-2.20,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de vacinas.
+2,Módulo de Cadastros,21,RF-2.21,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de estratégias das doses de vacinas.
+2,Módulo de Cadastros,22,RF-2.22,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de doses de vacinas.
+2,Módulo de Cadastros,23,RF-2.23,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de local de aplicação da dose.
+2,Módulo de Cadastros,24,RF-2.24,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de ficha de exames: nome, natureza, forma de exibição, sigilo, procedimento, agrupamento, CBOs permitidos, modelo de impressão com variáveis, permissão"
+2,Módulo de Cadastros,26,RF-2.26,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de scripts de resultado de exames.
+2,Módulo de Cadastros,27,RF-2.27,Obrigatório,ambos,parcial,P0-P6,apps/api/.../patients.py,n/a,"Cadastro de pacientes: nome, mãe, data de nascimento, CPF, CNS, endereço completo, contatos, raça/cor, deficiência, naturalidade, nacionalidade, vínculo com uni"
+2,Módulo de Cadastros,28,RF-2.28,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro das equipes de saúde conforme exigências do SUS.
+2,Módulo de Cadastros,29,RF-2.29,Obrigatório,ambos,parcial,P0-P6,apps/api/.../territory.py,n/a,Cadastro domiciliar e territorial conforme regras da APS.
+2,Módulo de Cadastros,30,RF-2.30,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro individual conforme regras da APS.
+2,Módulo de Cadastros,31,RF-2.31,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de protocolos de acesso por grupo, subgrupo, forma de organização ou procedimento, apoiando decisão da regulação."
+2,Módulo de Cadastros,32,RF-2.32,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de etapas do atendimento.
+2,Módulo de Cadastros,33,RF-2.33,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro e listagem dos tipos de atendimento.
+2,Módulo de Cadastros,34,RF-2.34,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de contratos e serviços de saúde.
+2,Módulo de Cadastros,35,RF-2.35,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de pactuações municipais de procedimentos.
+2,Módulo de Cadastros,36,RF-2.36,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de tipos de item de agenda.
+2,Módulo de Cadastros,37,RF-2.37,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de informativos exibidos na abertura do sistema (mensagem, jpg, etc.)."
+2,Módulo de Cadastros,38,RF-2.38,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de indicadores de saúde: nome, período, descrição, objetivo, definição do script, escopo do contexto, área de resultado, parâmetros."
+2,Módulo de Cadastros,39,RF-2.39,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de numeração de APAC conforme portarias, com geração automática de quantidades."
+2,Módulo de Cadastros,40,RF-2.40,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de fichas de atestado no padrão do município.
+2,Módulo de Cadastros,41,RF-2.41,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Atualização das fichas do e-SUS no modelo padronizado atual.
+2,Módulo de Cadastros,42,RF-2.42,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de filas de atendimento (tipos e status).
+2,Módulo de Cadastros,43,RF-2.43,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Criação de grupos de procedimentos para tratamentos propostos, conforme gestão."
+2,Módulo de Cadastros,44,RF-2.44,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de numeração de AIH conforme portarias, com geração automática de quantidades."
+2,Módulo de Cadastros,45,RF-2.45,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Relatório de CIDs por descrição, código e/ou tipo de agravo."
+2,Módulo de Cadastros,46,RF-2.46,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Listagem de CIAPs.
+2,Módulo de Cadastros,47,RF-2.47,Obrigatório,ambos,parcial,P0-P6,apps/api/.../facilities + ibgeCode + UI /unidades,n/a,Listagem de unidades de saúde.
+2,Módulo de Cadastros,48,RF-2.48,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Listagem de procedimentos.
+2,Módulo de Cadastros,49,RF-2.49,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Listagem de procedimentos por unidade.
+2,Módulo de Cadastros,50,RF-2.50,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Listagem de vacinas.
+2,Módulo de Cadastros,51,RF-2.51,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Listagem de situação de leitos.
+2,Módulo de Cadastros,52,RF-2.52,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Listagem de dependências físicas por unidade de saúde.
+2,Módulo de Cadastros,53,RF-2.53,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Listagem dos tipos de atendimento.
+2,Módulo de Cadastros,54,RF-2.54,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Listagem das etapas de atendimento.
+2,Módulo de Cadastros,55,RF-2.55,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Listagem dos tipos de leito.
+2,Módulo de Cadastros,56,RF-2.56,Obrigatório,ambos,parcial,P0-P6,apps/api/.../patients.py#search,n/a,Listagem de pacientes.
+2,Módulo de Cadastros,57,RF-2.57,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Acesso ao prontuário eletrônico do paciente sem necessidade de criar atendimento, com todos os atendimentos já realizados, independente do período."
+2,Módulo de Cadastros,58,RF-2.58,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Digitalização e anexo de arquivos digitais por paciente.
+2,Módulo de Cadastros,59,RF-2.59,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Emissão de plantões de saúde.
+2,Módulo de Cadastros,60,RF-2.60,Obrigatório,ambos,parcial,P0-P6,apps/api/.../assignments + ledi header,n/a,Listagem de profissionais por unidade de saúde.
+2,Módulo de Cadastros,61,RF-2.61,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Listagem das equipes de saúde com filtros de unidade, equipe e tipo."
+3,Módulo Ambulatorial,1,RF-3.1,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters,n/a,"Registro de entrada de pacientes com pesquisa em única tela (nome, data de nascimento, nome da mãe, CPF, CNS, cartão cidadão)."
+3,Módulo Ambulatorial,2,RF-3.2,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Definição de serviço a ser executado no ato da entrada do paciente.
+3,Módulo Ambulatorial,3,RF-3.3,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Identificação do responsável pelo paciente, vinculado ao cadastro de pacientes."
+3,Módulo Ambulatorial,4,RF-3.4,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Localização do paciente registrado na entrada por tipo de atendimento, etapas, nível de urgência, período, situação, dados do paciente."
+3,Módulo Ambulatorial,5,RF-3.5,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Entrada do paciente a partir da agenda prévia.
+3,Módulo Ambulatorial,6,RF-3.6,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Encaminhamento para etapa pré-cadastrada na entrada do paciente.
+3,Módulo Ambulatorial,7,RF-3.7,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Marcação de não comparecimento de paciente agendado, com registro automático."
+3,Módulo Ambulatorial,8,RF-3.8,Desejável,ambos,não iniciado,P0-P6,,previsto,Informar CBO no ato da entrada do paciente.
+3,Módulo Ambulatorial,9,RF-3.9,Desejável,ambos,não iniciado,P0-P6,,previsto,Informar profissional no ato da entrada do paciente.
+3,Módulo Ambulatorial,10,RF-3.10,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Chamada do paciente em painel por voz/texto (nome, profissional, local, senha, procedimento)."
+3,Módulo Ambulatorial,11,RF-3.11,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Uso de totem para retirada de senha com dados do serviço da unidade.
+3,Módulo Ambulatorial,12,RF-3.12,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Filtro de pacientes aguardando triagem por etapa(s).
+3,Módulo Ambulatorial,13,RF-3.13,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Classificação de risco por protocolos diversos definidos pela gestão.
+3,Módulo Ambulatorial,14,RF-3.14,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Classificação por cor no processo de classificação de risco.
+3,Módulo Ambulatorial,15,RF-3.15,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Lançamento de dados vitais na pré-consulta.
+3,Módulo Ambulatorial,16,RF-3.16,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Preenchimento de ficha de saúde na pré-consulta.
+3,Módulo Ambulatorial,17,RF-3.17,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Preenchimento de fichas exigidas pela Vigilância em Saúde.
+3,Módulo Ambulatorial,18,RF-3.18,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Informar procedimentos na pré-consulta.
+3,Módulo Ambulatorial,19,RF-3.19,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Identificar profissional que realizou o procedimento.
+3,Módulo Ambulatorial,20,RF-3.20,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Solicitar exames na pré-consulta.
+3,Módulo Ambulatorial,21,RF-3.21,Desejável,ambos,não iniciado,P0-P6,,previsto,Visualizar lembretes na pré-consulta.
+3,Módulo Ambulatorial,22,RF-3.22,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Salvar pré-consulta encaminhando o paciente à próxima etapa.
+3,Módulo Ambulatorial,23,RF-3.23,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Chamada do paciente pelo painel.
+3,Módulo Ambulatorial,24,RF-3.24,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters#clinical,automatizado,"Lista de pacientes aguardando consulta médica (cor de classificação, etapa, dados do paciente, tempo de atendimento)."
+3,Módulo Ambulatorial,25,RF-3.25,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Visualizar etapas já ocorridas com o paciente no ato do atendimento.
+3,Módulo Ambulatorial,26,RF-3.26,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Preenchimento da ficha padrão da unidade como primeiro processo do atendimento, com campos editáveis."
+3,Módulo Ambulatorial,27,RF-3.27,Desejável,ambos,não iniciado,P0-P6,,previsto,Visualizar vacinas registradas do paciente.
+3,Módulo Ambulatorial,28,RF-3.28,Desejável,ambos,não iniciado,P0-P6,,previsto,Preenchimento de outras fichas disponibilizadas para o atendimento.
+3,Módulo Ambulatorial,29,RF-3.29,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Lançamento dos procedimentos realizados ao paciente.
+3,Módulo Ambulatorial,30,RF-3.30,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Histórico completo de atendimentos no atendimento médico/multidisciplinar (atendimentos anteriores, medicamentos prescritos, exames e resultados, atendimentos o"
+3,Módulo Ambulatorial,31,RF-3.31,Desejável,ambos,não iniciado,P0-P6,,previsto,"A partir de um CID/CIAP, direcionar preenchimento dos próximos passos para indicadores."
+3,Módulo Ambulatorial,32,RF-3.32,Desejável,ambos,não iniciado,P0-P6,,previsto,Lançamento de lembretes para atendimento posterior.
+3,Módulo Ambulatorial,33,RF-3.33,Obrigatório,ambos,parcial,P0-P6,,previsto,"Prescrição de medicamentos (receituário ou prescrição interna), com medicamentos padrão do município ou digitação de medicamento fora do padrão com alerta e ger"
+3,Módulo Ambulatorial,34,RF-3.34,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Geração de receituários.
+3,Módulo Ambulatorial,35,RF-3.35,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Geração de atestados médicos no atendimento, com validação no portal da prefeitura."
+3,Módulo Ambulatorial,36,RF-3.36,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Solicitação de procedimentos informando procedimento, CID e CBO."
+3,Módulo Ambulatorial,37,RF-3.37,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Visualização de dados vitais da triagem e lançamento de novos, com histórico."
+3,Módulo Ambulatorial,38,RF-3.38,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Preenchimento de laudo médico para emissão de AIH, no padrão SUS, reaproveitando dados já lançados."
+3,Módulo Ambulatorial,39,RF-3.39,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Atendimentos remotos por videoconferência com outros profissionais e registro em tempo real.
+3,Módulo Ambulatorial,40,RF-3.40,Desejável,ambos,não iniciado,P0-P6,,previsto,"Definir próxima consulta por telemedicina, se necessário."
+3,Módulo Ambulatorial,41,RF-3.41,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Médico solicitar exames internos gerando demanda para o laboratório, com chamada em painel de senha."
+3,Módulo Ambulatorial,42,RF-3.42,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Acionamento pela interface quando exames/medicação/procedimentos forem checados, evitando espera desnecessária."
+3,Módulo Ambulatorial,43,RF-3.43,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Início de tratamento com definição de etapas, tipo, início e fim."
+3,Módulo Ambulatorial,44,RF-3.44,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Definição de conduta e encerramento do atendimento conforme padrões da gestão.
+3,Módulo Ambulatorial,45,RF-3.45,Desejável,ambos,não iniciado,P0-P6,,previsto,Assinatura eletrônica com validação no portal da prefeitura via ICP-Brasil.
+3,Módulo Ambulatorial,46,RF-3.46,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Encaminhamento do paciente a outras etapas definidas no atendimento médico.
+3,Módulo Ambulatorial,47,RF-3.47,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Geração de documentos de todo o atendimento para impressão seletiva.
+3,Módulo Ambulatorial,48,RF-3.48,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Geração de lembretes determinados pela gestão conforme regras de indicadores do SUS.
+3,Módulo Ambulatorial,49,RF-3.49,Desejável,ambos,não iniciado,P0-P6,,previsto,"Alocação de paciente em leitos de observação, com indicadores por setor."
+3,Módulo Ambulatorial,50,RF-3.50,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Lançamento da escala de Glasgow com cálculos automáticos.
+3,Módulo Ambulatorial,51,RF-3.51,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Checagem de prescrições (CID, dados do paciente, medicamentos) com lançamento de evolução de enfermagem."
+3,Módulo Ambulatorial,52,RF-3.52,Obrigatório,ambos,parcial,P0-P6,,previsto,"Solicitação de procedimentos gerando demanda na central de regulação, com protocolos da gestão."
+3,Módulo Ambulatorial,53,RF-3.53,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-collective-v2,automatizado,"Atendimentos por fichas de atendimento coletivo, conforme regras da APS."
+3,Módulo Ambulatorial,54,RF-3.54,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-homecare-v2,automatizado,Atendimentos domiciliares conforme regras da APS.
+3,Módulo Ambulatorial,55,RF-3.55,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Registro de atendimentos da APS por fichas contemplando todos os campos exigidos pelo modelo de financiamento vigente.
+3,Módulo Ambulatorial,56,RF-3.56,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Atendimentos odontológicos com odontograma e próteses.
+3,Módulo Ambulatorial,57,RF-3.57,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Informações de patologias odontológicas no atendimento.
+3,Módulo Ambulatorial,58,RF-3.58,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Geração automática de procedimentos em todos os processos de produção ambulatorial, quando pertinente."
+3,Módulo Ambulatorial,59,RF-3.59,Obrigatório,ambos,parcial,P0-P6,,previsto,Alertar/bloquear solicitações fora do protocolo cadastrado pelo município.
+3,Módulo Ambulatorial,60,RF-3.60,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Monitor com filtros de pesquisa (tipo/etapa de atendimento, nível de urgência, agendados, espontâneos, situação), visualização em lista/tabela dinâmica com arra"
+3,Módulo Ambulatorial,61,RF-3.61,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Monitor de checagens (tipo de prescrição, período, alertas de atraso), com checagem por clique."
+3,Módulo Ambulatorial,62,RF-3.62,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Programação de checagens com prazo e horários.
+3,Módulo Ambulatorial,63,RF-3.63,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Painel de informações gerais da unidade (totais por período, quantidade por CID/CIAP, profissionais, tempo médio por etapa, nível de urgência, faixa etária e se"
+3,Módulo Ambulatorial,64,RF-3.64,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Monitor de dispensações internas (dados do paciente e período das prescrições).
+3,Módulo Ambulatorial,65,RF-3.65,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Monitor de situação de exames.
+3,Módulo Ambulatorial,66,RF-3.66,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Monitor de acompanhamento de tratamentos.
+3,Módulo Ambulatorial,67,RF-3.67,Obrigatório,ambos,parcial,P0-P6,,previsto,Emissão de receitas.
+3,Módulo Ambulatorial,68,RF-3.68,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Listagem de tratamentos de saúde.
+3,Módulo Ambulatorial,69,RF-3.69,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Listagem de atendimentos por CID.
+3,Módulo Ambulatorial,70,RF-3.70,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Consolidado de atendimento por CID/CIAP.
+3,Módulo Ambulatorial,71,RF-3.71,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Relatório de classificação de risco por etapa de atendimento (sintético e analítico).
+3,Módulo Ambulatorial,72,RF-3.72,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Listagem de internações.
+3,Módulo Ambulatorial,73,RF-3.73,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Ocupação de leitos.
+4,Módulo de Contratualizações,1,RF-4.1,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro de contratos de prestação de serviços.
+4,Módulo de Contratualizações,2,RF-4.2,Obrigatório,TR,não iniciado,depois,,n/a,"Informar procedimentos existentes no contrato, com valores SUS e acréscimos contratuais por procedimento."
+4,Módulo de Contratualizações,3,RF-4.3,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro por períodos definidos pela gestão.
+4,Módulo de Contratualizações,4,RF-4.4,Obrigatório,TR,não iniciado,depois,,n/a,Visualização de saldo disponível de procedimentos no prestador.
+4,Módulo de Contratualizações,5,RF-4.5,Obrigatório,TR,não iniciado,depois,,n/a,Visualização de valor gasto do contrato e saldo disponível conforme atendimento.
+4,Módulo de Contratualizações,6,RF-4.6,Obrigatório,TR,não iniciado,depois,,n/a,Cotas de procedimentos ou valor do contrato.
+4,Módulo de Contratualizações,7,RF-4.7,Obrigatório,TR,não iniciado,depois,,n/a,Exigência de documentação no agendamento no prestador de serviços.
+4,Módulo de Contratualizações,8,RF-4.8,Obrigatório,TR,não iniciado,depois,,n/a,Prestador de serviços recepcionar o paciente agendado.
+4,Módulo de Contratualizações,9,RF-4.9,Obrigatório,TR,não iniciado,depois,,n/a,"Prestador anexar resultados de exames do paciente, disponíveis no prontuário eletrônico."
+4,Módulo de Contratualizações,10,RF-4.10,Obrigatório,TR,não iniciado,depois,,n/a,"Evolução do paciente pelo prestador, com ficha específica definida pela gestão/prestador."
+4,Módulo de Contratualizações,11,RF-4.11,Obrigatório,TR,não iniciado,depois,,n/a,"Faturamento dos procedimentos confirmados nos prestadores, gerando fatura e autorização de pagamento."
+4,Módulo de Contratualizações,12,RF-4.12,Obrigatório,TR,não iniciado,depois,,n/a,Controle de vigência do contrato.
+5,Módulo de SAMU,1,RF-5.1,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Cadastro de unidades de transporte de urgência/emergência nos moldes do CNES.
+5,Módulo de SAMU,2,RF-5.2,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Cadastro de tipo de plantão (tipo de escala, data início/fim, hora início/fim, dias da semana válidos)."
+5,Módulo de SAMU,3,RF-5.3,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Cadastro de fichas de saúde.
+5,Módulo de SAMU,4,RF-5.4,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Cadastro dos campos para fichas de saúde.
+5,Módulo de SAMU,5,RF-5.5,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Cadastro de equipes de saúde (nome, tipo, INE, carga horária, profissionais)."
+5,Módulo de SAMU,6,RF-5.6,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Cadastro de plantão de saúde (tipo de plantão, profissionais, equipes)."
+5,Módulo de SAMU,7,RF-5.7,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Registro de atendimentos: usuário solicitante, data/hora, tipo de prestador, dados do solicitante/paciente, telefone, endereço, ponto de referência, plantão, eq"
+5,Módulo de SAMU,8,RF-5.8,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Visualização do endereço de embarque no mapa.
+5,Módulo de SAMU,9,RF-5.9,Desejável,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Acesso à localização via SMS com link.
+5,Módulo de SAMU,10,RF-5.10,Desejável,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Registro de dados clínicos do paciente durante a viagem (fichas de saúde da gestão).
+5,Módulo de SAMU,11,RF-5.11,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Procedimentos dos atendimentos em trânsito, vinculados aos profissionais."
+5,Módulo de SAMU,12,RF-5.12,Desejável,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Visualização das situações do atendimento.
+5,Módulo de SAMU,13,RF-5.13,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Encerramento do atendimento.
+5,Módulo de SAMU,14,RF-5.14,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Solicitar agendamento de transporte vinculando procedimentos à necessidade.
+5,Módulo de SAMU,15,RF-5.15,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Monitor de atendimentos em andamento, aguardando equipe, equipe definida, iniciado, finalizado."
+5,Módulo de SAMU,16,RF-5.16,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Monitor de duração de atendimentos por classificação, com edição, definição de equipe, start, cancelamento, encerramento e impressão."
+5,Módulo de SAMU,17,RF-5.17,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Monitor de solicitações de transporte eletivo com direcionamento.
+5,Módulo de SAMU,18,RF-5.18,Desejável,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Mapa em tempo real dos atendimentos e trânsito, com projeção contínua em telas/painéis da Central de Regulação (viatura, status operacional, recursos configuráv"
+5,Módulo de SAMU,19,RF-5.19,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Cadastro de pacientes validado pelas obrigações municipais de cadastro de cidadão.
+5,Módulo de SAMU,20,RF-5.20,Desejável,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Aplicativo móvel obrigatório (tablets/smartphones) embarcado nas ambulâncias, integrado ao sistema, com funcionamento off-line e sincronização automática ao res"
+5,Módulo de SAMU,21,RF-5.21,Desejável,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Preenchimento da ficha de atendimento pré-hospitalar eletrônica por toda a equipe (médica, enfermagem, condutores), com perfis de acesso e rastreabilidade."
+5,Módulo de SAMU,22,RF-5.22,Desejável,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Registro de tempos operacionais mínimos no app com toque simples (chamada, saída da base, chegada ao local, saída do local, chegada à unidade, retorno à base)."
+5,Módulo de SAMU,23,RF-5.23,Desejável,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Checklist eletrônico das ambulâncias pelo app (itens assistenciais/operacionais, responsável, data, hora, veículo)."
+5,Módulo de SAMU,24,RF-5.24,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Painel em tempo real de disponibilidade/ocupação de leitos das unidades para o médico regulador.
+5,Módulo de SAMU,25,RF-5.25,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Decisão do médico regulador (orientação ou despacho), classificação de risco por cores, tipo/natureza do chamado, CID, tipo de veículo, via campos estruturados "
+5,Módulo de SAMU,26,RF-5.26,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Reclassificação do paciente no encerramento (classificação de risco final, desfecho, destino), com geração automática de indicadores."
+5,Módulo de SAMU,27,RF-5.27,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Registro de todos os chamados recebidos, classificados por desfecho (interrompidos, trotes, regulados, orientações, despachos), com estatísticas consolidadas."
+5,Módulo de SAMU,28,RF-5.28,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Estatísticas e relatórios gerenciais (picos de atendimento, dias/horários de maior demanda, perfil de pacientes, distribuição geográfica)."
+5,Módulo de SAMU,29,RF-5.29,Obrigatório,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,Acompanhamento em tempo real de todos os tempos operacionais obrigatórios na Central de Regulação.
+5,Módulo de SAMU,30,RF-5.30,Desejável,TR,não iniciado,samu-backlog,Samu/ + docs/conhecimento/12,n/a,"Registro eletrônico do Processo de Enfermagem pelo enfermeiro da USA (histórico, diagnóstico, planejamento, implementação, avaliação), conforme COFEN/COREN."
+6,Módulo Laboratorial,1,RF-6.1,Desejável,TR,adiado,adiado,,adiado,Agendar exames por grupo.
+6,Módulo Laboratorial,2,RF-6.2,Desejável,TR,adiado,adiado,,adiado,Agendar exames por tipo de exame.
+6,Módulo Laboratorial,3,RF-6.3,Obrigatório,TR,adiado,adiado,,adiado,"Coleta do exame informando dados do paciente, com geração de checagem."
+6,Módulo Laboratorial,4,RF-6.4,Obrigatório,TR,adiado,adiado,,adiado,Recebimento da coleta no setor de processamento da unidade.
+6,Módulo Laboratorial,5,RF-6.5,Obrigatório,TR,adiado,adiado,,adiado,Lançamento de laudos dos exames.
+6,Módulo Laboratorial,6,RF-6.6,Desejável,TR,adiado,adiado,,adiado,"Integração com equipamentos (rede ou arquivos), quando disponível."
+6,Módulo Laboratorial,7,RF-6.7,Desejável,TR,adiado,adiado,,adiado,Liberação de resultado de exames.
+6,Módulo Laboratorial,8,RF-6.8,Desejável,TR,adiado,adiado,,adiado,Acesso aos resultados pelo portal do cidadão.
+6,Módulo Laboratorial,9,RF-6.9,Desejável,TR,adiado,adiado,,adiado,Contabilizar entrega de laudo ao paciente.
+6,Módulo Laboratorial,10,RF-6.10,Desejável,TR,adiado,adiado,,adiado,Monitoramento de vagas disponíveis dos exames.
+6,Módulo Laboratorial,11,RF-6.11,Obrigatório,TR,adiado,adiado,,adiado,"Encaixe de exames para pacientes com necessidades diversas, com justificativa."
+6,Módulo Laboratorial,12,RF-6.12,Obrigatório,TR,adiado,adiado,,adiado,Consultar situação do exame.
+6,Módulo Laboratorial,13,RF-6.13,Obrigatório,TR,adiado,adiado,,adiado,Alerta de exame pronto no prontuário do paciente.
+6,Módulo Laboratorial,14,RF-6.14,Obrigatório,TR,adiado,adiado,,adiado,Gestão Laboratorial (LIS — Laboratory Information System).
+6,Módulo Laboratorial,15,RF-6.15,Obrigatório,TR,adiado,adiado,,adiado,"Configuração e organização do laboratório: seções técnicas, tipos de recipientes de coleta, exames por área."
+6,Módulo Laboratorial,16,RF-6.16,Obrigatório,TR,adiado,adiado,,adiado,Gestão de perfis de exames (grupos/perfis para agilizar solicitação).
+6,Módulo Laboratorial,17,RF-6.17,Obrigatório,TR,adiado,adiado,,adiado,"Gestão do fluxo de trabalho laboratorial: pedido, coleta, triagem, etiquetagem por código de barras, distribuição às áreas técnicas."
+6,Módulo Laboratorial,18,RF-6.18,Obrigatório,TR,adiado,adiado,,adiado,"Rastreabilidade completa da amostra e soroteca (status em tempo real, data/hora/profissional em cada etapa)."
+6,Módulo Laboratorial,19,RF-6.19,Obrigatório,TR,adiado,adiado,,adiado,Interfaceamento com equipamentos de automação (uni ou bidirecional).
+6,Módulo Laboratorial,20,RF-6.20,Obrigatório,TR,adiado,adiado,,adiado,"Gestão de laudos: inserção/alteração manual, valores de referência por idade/sexo, alertas de valores críticos, histórico gráfico."
+6,Módulo Laboratorial,21,RF-6.21,Obrigatório,TR,adiado,adiado,,adiado,"Parametrização de valores de referência por localidade (altitude, população, etc.)."
+6,Módulo Laboratorial,22,RF-6.22,Obrigatório,TR,adiado,adiado,,adiado,"Integração direta com a tela de pedido médico, com disponibilização automática dos dados do paciente e geração de número de guia."
+6,Módulo Laboratorial,23,RF-6.23,Obrigatório,TR,adiado,adiado,,adiado,Integração com o prontuário eletrônico unificado (laudos liberados visíveis na rede).
+6,Módulo Laboratorial,24,RF-6.24,Obrigatório,TR,adiado,adiado,,adiado,Portal de resultados para o paciente com notificação via WhatsApp quando exame disponível.
+6,Módulo Laboratorial,25,RF-6.25,Desejável,TR,adiado,adiado,,adiado,Gestão de laboratórios de apoio/terceirizados — **ferramenta não utilizada** (fora de escopo para este município).
+6,Módulo Laboratorial,26,RF-6.26,Obrigatório,TR,adiado,adiado,,adiado,"Faturamento da produção laboratorial (BPA-C automático, vinculado à tabela de procedimentos)."
+6,Módulo Laboratorial,27,RF-6.27,Obrigatório,TR,adiado,adiado,,adiado,"Relatórios gerenciais e epidemiológicos (produção, tempo de atendimento, pendências, BI, indicadores epidemiológicos)."
+6,Módulo Laboratorial,28,RF-6.28,Obrigatório,TR,adiado,adiado,,adiado,Atendimento ambulatorial (posto de coleta no novo NGA).
+6,Módulo Laboratorial,29,RF-6.29,Obrigatório,TR,adiado,adiado,,adiado,Infraestrutura e tecnologia do sistema.
+6,Módulo Laboratorial,30,RF-6.30,Obrigatório,TR,adiado,adiado,,adiado,Sistema desenvolvido em plataforma WEB.
+6,Módulo Laboratorial,31,RF-6.31,Obrigatório,TR,adiado,adiado,,adiado,Geração de arquivos em formato PDF.
+6,Módulo Laboratorial,32,RF-6.32,Obrigatório,TR,adiado,adiado,,adiado,Evolução constante conforme legislação e sugestões dos usuários.
+6,Módulo Laboratorial,33,RF-6.33,Obrigatório,TR,adiado,adiado,,adiado,Vários acessos simultâneos às mesmas ou diferentes rotinas.
+6,Módulo Laboratorial,34,RF-6.34,Obrigatório,TR,adiado,adiado,,adiado,Interação via totem e painel de chamada.
+6,Módulo Laboratorial,35,RF-6.35,Obrigatório,TR,adiado,adiado,,adiado,Impressão de senha por totem.
+6,Módulo Laboratorial,36,RF-6.36,Obrigatório,TR,adiado,adiado,,adiado,"Senhas para diversos tipos de atendimento, com controle normal/prioridade."
+6,Módulo Laboratorial,37,RF-6.37,Obrigatório,TR,adiado,adiado,,adiado,Rastreamento de senha.
+6,Módulo Laboratorial,38,RF-6.38,Obrigatório,TR,adiado,adiado,,adiado,Recepção.
+6,Módulo Laboratorial,39,RF-6.39,Obrigatório,TR,adiado,adiado,,adiado,"Checagem automática das informações obrigatórias para faturamento SUS, com alerta de faltantes."
+6,Módulo Laboratorial,40,RF-6.40,Obrigatório,TR,adiado,adiado,,adiado,"Tabelas para consulta (CID, Tabela SUS, etc.)."
+6,Módulo Laboratorial,41,RF-6.41,Obrigatório,TR,adiado,adiado,,adiado,Registro de data/hora de chegada e saída do paciente do laboratório.
+6,Módulo Laboratorial,42,RF-6.42,Obrigatório,TR,adiado,adiado,,adiado,Atendimento e controle de pacientes de cada recepção da unidade.
+6,Módulo Laboratorial,43,RF-6.43,Obrigatório,TR,adiado,adiado,,adiado,"Consulta de agenda por paciente, com todos os agendamentos."
+6,Módulo Laboratorial,44,RF-6.44,Obrigatório,TR,adiado,adiado,,adiado,Correio eletrônico entre usuários.
+6,Módulo Laboratorial,45,RF-6.45,Obrigatório,TR,adiado,adiado,,adiado,Relatórios de tempo de espera do paciente e atendimentos por operador.
+6,Módulo Laboratorial,46,RF-6.46,Obrigatório,TR,adiado,adiado,,adiado,Verificação de similaridade de nome do paciente por busca fonética.
+6,Módulo Laboratorial,47,RF-6.47,Obrigatório,TR,adiado,adiado,,adiado,Inserir/tirar foto do paciente vinculada ao cadastro.
+6,Módulo Laboratorial,48,RF-6.48,Obrigatório,TR,adiado,adiado,,adiado,Cadastro de endereço por busca de CEP.
+6,Módulo Laboratorial,49,RF-6.49,Obrigatório,TR,adiado,adiado,,adiado,Impressão de etiquetas diversas.
+6,Módulo Laboratorial,50,RF-6.50,Obrigatório,TR,adiado,adiado,,adiado,Visualizar atendimentos anteriores do paciente.
+6,Módulo Laboratorial,51,RF-6.51,Obrigatório,TR,adiado,adiado,,adiado,Inserir paciente na fila de espera.
+6,Módulo Laboratorial,52,RF-6.52,Obrigatório,TR,adiado,adiado,,adiado,"Anexar documentos no cadastro do paciente, com observação ao documento."
+6,Módulo Laboratorial,53,RF-6.53,Obrigatório,TR,adiado,adiado,,adiado,Uso do nome social no atendimento.
+6,Módulo Laboratorial,54,RF-6.54,Obrigatório,TR,adiado,adiado,,adiado,Dupla digitação de exames para conferência de laudos.
+6,Módulo Laboratorial,55,RF-6.55,Obrigatório,TR,adiado,adiado,,adiado,Assinatura eletrônica no corpo do laudo.
+6,Módulo Laboratorial,56,RF-6.56,Obrigatório,TR,adiado,adiado,,adiado,Uso de teclado para entrada de resultados de atributos do hemograma.
+6,Módulo Laboratorial,57,RF-6.57,Obrigatório,TR,adiado,adiado,,adiado,Registro do flebotomista responsável pela coleta.
+6,Módulo Laboratorial,58,RF-6.58,Obrigatório,TR,adiado,adiado,,adiado,Sinalizar e questionar duplicidades de exames no atendimento.
+6,Módulo Laboratorial,59,RF-6.59,Obrigatório,TR,adiado,adiado,,adiado,Informar medicações em uso pelo paciente.
+6,Módulo Laboratorial,60,RF-6.60,Obrigatório,TR,adiado,adiado,,adiado,Sinalizar locais de entrega distintos para emissão do laudo.
+6,Módulo Laboratorial,61,RF-6.61,Obrigatório,TR,adiado,adiado,,adiado,"Sinalização de urgência em coletas/liberação, mensurando tempo em fila de processamento."
+6,Módulo Laboratorial,62,RF-6.62,Obrigatório,TR,adiado,adiado,,adiado,Notificação/direcionamento de valores críticos ou não conformidades à área responsável.
+6,Módulo Laboratorial,63,RF-6.63,Obrigatório,TR,adiado,adiado,,adiado,"Integração para recebimento de requisições e exportação de resultados (PDF base64, RTF), atuando como laboratório de apoio via webservice/troca de arquivos."
+6,Módulo Laboratorial,64,RF-6.64,Obrigatório,TR,adiado,adiado,,adiado,"Integração com sistemas terceiros de laboratório para requisitar/receber resultados, com rastreabilidade e protocolo padrão nacional."
+6,Módulo Laboratorial,65,RF-6.65,Obrigatório,TR,adiado,adiado,,adiado,Pedidos de exames do prontuário compõem lista de espera tratada pelo laboratório.
+6,Módulo Laboratorial,66,RF-6.66,Obrigatório,TR,adiado,adiado,,adiado,"Integração de resultados de exames ao prontuário do paciente, acessível de qualquer setor."
+6,Módulo Laboratorial,67,RF-6.67,Obrigatório,TR,adiado,adiado,,adiado,"Pesquisa de exames cadastrados por nome, mnemônico ou tipo."
+6,Módulo Laboratorial,68,RF-6.68,Obrigatório,TR,adiado,adiado,,adiado,Anexar laudos externos/documentos de análise; laboratório pode incluir exames não previamente incluídos pelo médico solicitante.
+6,Módulo Laboratorial,69,RF-6.69,Obrigatório,TR,adiado,adiado,,adiado,"Retirar amostra de pendência por localização, configurável por setor(es)."
+6,Módulo Laboratorial,70,RF-6.70,Obrigatório,TR,adiado,adiado,,adiado,"Definir bancadas de trabalho por setor (nome, responsável, tipo de folha: grade ou lista)."
+6,Módulo Laboratorial,71,RF-6.71,Obrigatório,TR,adiado,adiado,,adiado,Configurar bancada por exames realizados e usuários habilitados.
+6,Módulo Laboratorial,72,RF-6.72,Obrigatório,TR,adiado,adiado,,adiado,Definir nível de crítica do exame (resultado dentro do limite ou aceitação de qualquer resultado).
+6,Módulo Laboratorial,73,RF-6.73,Obrigatório,TR,adiado,adiado,,adiado,"Configurar tipo de acesso do usuário na bancada (ver, digitar, liberar, digitar/liberar, digitar/avaliar)."
+6,Módulo Laboratorial,74,RF-6.74,Obrigatório,TR,adiado,adiado,,adiado,Configurar folhas de trabalho por bancada e setor.
+6,Módulo Laboratorial,75,RF-6.75,Obrigatório,TR,adiado,adiado,,adiado,Reimpressão da estrutura de folha de trabalho.
+6,Módulo Laboratorial,76,RF-6.76,Obrigatório,TR,adiado,adiado,,adiado,"Impressão de folha de trabalho por período, cópias, urgência, procedência (ambulatorial/internado), ordenação (guia, alfabética, resultado, posição na galeria)."
+6,Módulo Laboratorial,77,RF-6.77,Obrigatório,TR,adiado,adiado,,adiado,"Na impressão da folha de trabalho: visualizar paciente, consultar outros resultados/repetições, visualizar questionários aplicados."
+6,Módulo Laboratorial,78,RF-6.78,Obrigatório,TR,adiado,adiado,,adiado,Gerar resultados via folha de trabalho.
+6,Módulo Laboratorial,79,RF-6.79,Obrigatório,TR,adiado,adiado,,adiado,"Buscar amostras na tela de resultado via folha de trabalho, com pendência de repetição e rastreabilidade a partir da 2ª coleta."
+6,Módulo Laboratorial,80,RF-6.80,Obrigatório,TR,adiado,adiado,,adiado,Acompanhar e visualizar o andamento da cultura.
+6,Módulo Laboratorial,81,RF-6.81,Obrigatório,TR,adiado,adiado,,adiado,Bloquear um ou todos os resultados de um atendimento para impressão/disponibilização na plataforma de laudos.
+6,Módulo Laboratorial,82,RF-6.82,Obrigatório,TR,adiado,adiado,,adiado,Configurar liberação de leucograma com contagem diferencial de 100%.
+6,Módulo Laboratorial,83,RF-6.83,Obrigatório,TR,adiado,adiado,,adiado,Registrar exames terceirizados.
+6,Módulo Laboratorial,84,RF-6.84,Obrigatório,TR,adiado,adiado,,adiado,Gerar gráficos.
+6,Módulo Laboratorial,85,RF-6.85,Obrigatório,TR,adiado,adiado,,adiado,Gerar relatório de resultados.
+7,Módulo de Farmácia,1,RF-7.1,Obrigatório,TR,não iniciado,depois,,n/a,Dispensar medicamentos a partir do almoxarifado da unidade.
+7,Módulo de Farmácia,2,RF-7.2,Obrigatório,TR,não iniciado,depois,,n/a,Identificação do paciente no ato da dispensação.
+7,Módulo de Farmácia,3,RF-7.3,Obrigatório,TR,não iniciado,depois,,n/a,Dispensar medicamentos a partir de receituário lançado em atendimento clínico.
+7,Módulo de Farmácia,4,RF-7.4,Obrigatório,TR,não iniciado,depois,,n/a,"Informar CID no atendimento, se obrigatório nos parâmetros de dispensação."
+7,Módulo de Farmácia,5,RF-7.5,Obrigatório,TR,não iniciado,depois,,n/a,Validade de receita.
+7,Módulo de Farmácia,6,RF-7.6,Obrigatório,TR,não iniciado,depois,,n/a,Bloquear/desbloquear dispensação fora da validade da receita.
+7,Módulo de Farmácia,7,RF-7.7,Obrigatório,TR,não iniciado,depois,,n/a,Digitação de observação de dispensação.
+7,Módulo de Farmácia,8,RF-7.8,Obrigatório,TR,não iniciado,depois,,n/a,Identificar origem de receita.
+7,Módulo de Farmácia,9,RF-7.9,Obrigatório,TR,não iniciado,depois,,n/a,Identificação de notificação de receita com tipos de medicamentos dispensados.
+7,Módulo de Farmácia,10,RF-7.10,Obrigatório,TR,não iniciado,depois,,n/a,Identificação vinda da definição de parâmetro.
+7,Módulo de Farmácia,11,RF-7.11,Obrigatório,TR,não iniciado,depois,,n/a,Identificar unidade de dispensação.
+7,Módulo de Farmácia,12,RF-7.12,Obrigatório,TR,não iniciado,depois,,n/a,Visualização de dispensações anteriores.
+7,Módulo de Farmácia,13,RF-7.13,Obrigatório,TR,não iniciado,depois,,n/a,Dispensação de medicamento avulso a partir de receita impressa.
+7,Módulo de Farmácia,14,RF-7.14,Obrigatório,TR,não iniciado,depois,,n/a,Dispensação por código de barras.
+7,Módulo de Farmácia,15,RF-7.15,Obrigatório,TR,não iniciado,depois,,n/a,"Definir quantidade retirada, identificando uso contínuo."
+7,Módulo de Farmácia,16,RF-7.16,Obrigatório,TR,não iniciado,depois,,n/a,"Informar uso diário do medicamento, permitindo nova retirada."
+7,Módulo de Farmácia,17,RF-7.17,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro de controle especial de ordem judicial (paciente + mercadoria).
+7,Módulo de Farmácia,18,RF-7.18,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro de controle especial por determinação do estado (paciente + mercadoria).
+7,Módulo de Farmácia,19,RF-7.19,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro de controle especial de outras instâncias (paciente + mercadoria).
+7,Módulo de Farmácia,20,RF-7.20,Obrigatório,TR,não iniciado,depois,,n/a,Escolha de lote de validade.
+7,Módulo de Farmácia,21,RF-7.21,Obrigatório,TR,não iniciado,depois,,n/a,Visualização de histórico de retiradas e prescrições.
+7,Módulo de Farmácia,22,RF-7.22,Obrigatório,TR,não iniciado,depois,,n/a,Relatório de dispensação por tipo de dispensação.
+7,Módulo de Farmácia,23,RF-7.23,Obrigatório,TR,não iniciado,depois,,n/a,Relatório de dispensação por lote e validade.
+7,Módulo de Farmácia,24,RF-7.24,Obrigatório,TR,não iniciado,depois,,n/a,Relatório de dispensação por tipo de medicamento.
+7,Módulo de Farmácia,25,RF-7.25,Obrigatório,TR,não iniciado,depois,,n/a,Relatório por programa de farmácia.
+7,Módulo de Farmácia,26,RF-7.26,Obrigatório,TR,não iniciado,depois,,n/a,Cadastramento de unidades de mercadorias e embalagens.
+7,Módulo de Farmácia,27,RF-7.27,Obrigatório,TR,não iniciado,depois,,n/a,"Cadastramento de unidades de farmácia e de controle de estoque, com responsável por unidade."
+7,Módulo de Farmácia,28,RF-7.28,Obrigatório,TR,não iniciado,depois,,n/a,Definição de acesso dos usuários às unidades de farmácia e de controle de estoque.
+7,Módulo de Farmácia,29,RF-7.29,Obrigatório,TR,não iniciado,depois,,n/a,"Vinculação entre unidades de farmácia/estoque (existentes e novas), com opção de subordinação."
+7,Módulo de Farmácia,30,RF-7.30,Desejável,TR,não iniciado,depois,,n/a,Cadastro de locais de entrega para requisições de medicamentos/materiais.
+7,Módulo de Farmácia,31,RF-7.31,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro de medicamentos/materiais em ao menos 3 níveis (formato de unidade/embalagem e quantidade por embalagem).
+7,Módulo de Farmácia,32,RF-7.32,Obrigatório,TR,não iniciado,depois,,n/a,Inclusão de estoques iniciais nas unidades (quantidade e valor contábil).
+7,Módulo de Farmácia,33,RF-7.33,Obrigatório,TR,não iniciado,depois,,n/a,"Monitoramento de requisições entre unidades (itens, requerente, data, unidades envolvidas)."
+7,Módulo de Farmácia,34,RF-7.34,Obrigatório,TR,não iniciado,depois,,n/a,"Saída de medicamentos/materiais do estoque por dispensação/uso nas unidades, vinculada ao paciente."
+7,Módulo de Farmácia,35,RF-7.35,Obrigatório,TR,não iniciado,depois,,n/a,Transferência de medicamentos/materiais entre unidades de farmácia/estoque.
+7,Módulo de Farmácia,36,RF-7.36,Obrigatório,TR,não iniciado,depois,,n/a,"Saída por baixa de estoque, com justificativa."
+7,Módulo de Farmácia,37,RF-7.37,Obrigatório,TR,não iniciado,depois,,n/a,"Relatório de unidades de farmácia/estoque cadastradas (descrição, data de criação, tipo)."
+7,Módulo de Farmácia,38,RF-7.38,Obrigatório,TR,não iniciado,depois,,n/a,Relatório de medicamentos/materiais cadastrados.
+7,Módulo de Farmácia,39,RF-7.39,Obrigatório,TR,não iniciado,depois,,n/a,Relatório mensal/anual de entradas (medicamentos/materiais e quantidades).
+7,Módulo de Farmácia,40,RF-7.40,Obrigatório,TR,não iniciado,depois,,n/a,"Relatório de entradas com seleção por código, descrição, quantidade, valor unitário/total, histórico."
+7,Módulo de Farmácia,41,RF-7.41,Obrigatório,TR,não iniciado,depois,,n/a,Relatório mensal/anual de saídas (quantidades).
+7,Módulo de Farmácia,42,RF-7.42,Obrigatório,TR,não iniciado,depois,,n/a,"Relatório de saídas por baixa no estoque (intervalo de data/código; código, descrição, data da baixa, quantidade, valor unitário/total)."
+7,Módulo de Farmácia,43,RF-7.43,Obrigatório,TR,não iniciado,depois,,n/a,Relatório de transferências entre unidades.
+7,Módulo de Farmácia,44,RF-7.44,Desejável,TR,não iniciado,depois,,n/a,Entrada de medicamentos/materiais sem número da Nota Fiscal.
+7,Módulo de Farmácia,45,RF-7.45,Obrigatório,TR,não iniciado,depois,,n/a,"Central de Abastecimento Farmacêutico monitora requisições e estoques mínimos (itens, quantitativo, requerente, data, unidades), com pedidos apenas quando estoq"
+8,Módulo Hospitalar e Pronto Atendimento,1,RF-8.1,Obrigatório,TR,não iniciado,depois,,n/a,"Registro de entrada de pacientes com pesquisa em única tela (nome, data de nascimento, mãe, CPF, CNS, cartão cidadão)."
+8,Módulo Hospitalar e Pronto Atendimento,2,RF-8.2,Obrigatório,TR,não iniciado,depois,,n/a,Definição de serviço a ser executado na entrada do paciente.
+8,Módulo Hospitalar e Pronto Atendimento,3,RF-8.3,Obrigatório,TR,não iniciado,depois,,n/a,"Classificação de risco por protocolos, com registro estruturado de sinais vitais, queixa principal, informações clínicas prévias, comorbidades/alergias (campos "
+8,Módulo Hospitalar e Pronto Atendimento,4,RF-8.4,Obrigatório,TR,não iniciado,depois,,n/a,"Histórico completo de atendimentos (outros profissionais, medicamentos, exames/resultados, odontograma, arquivos anexados, terceirizados, histórico via RNDS)."
+8,Módulo Hospitalar e Pronto Atendimento,5,RF-8.5,Obrigatório,TR,não iniciado,depois,,n/a,Preenchimento de fichas de saúde definidas pela gestão.
+8,Módulo Hospitalar e Pronto Atendimento,6,RF-8.6,Desejável,TR,não iniciado,depois,,n/a,"A partir de um CID, direcionar preenchimento dos próximos passos para indicadores hospitalares."
+8,Módulo Hospitalar e Pronto Atendimento,7,RF-8.7,Desejável,TR,não iniciado,depois,,n/a,Lançamento de lembretes para atendimento posterior.
+8,Módulo Hospitalar e Pronto Atendimento,8,RF-8.8,Obrigatório,TR,não iniciado,depois,,n/a,"Prescrição de medicamentos (receituário/interna), padrão do município ou digitação com alerta."
+8,Módulo Hospitalar e Pronto Atendimento,9,RF-8.9,Obrigatório,TR,não iniciado,depois,,n/a,Geração de receituários simples ou controlados.
+8,Módulo Hospitalar e Pronto Atendimento,10,RF-8.10,Obrigatório,TR,não iniciado,depois,,n/a,"Geração de atestados médicos, com validação no portal da prefeitura."
+8,Módulo Hospitalar e Pronto Atendimento,11,RF-8.11,Obrigatório,TR,não iniciado,depois,,n/a,"Encaminhamento por referência/contrarreferência, com ficha de saúde no padrão do município."
+8,Módulo Hospitalar e Pronto Atendimento,12,RF-8.12,Obrigatório,TR,não iniciado,depois,,n/a,"Visualização de dados vitais e lançamento de novos, com histórico."
+8,Módulo Hospitalar e Pronto Atendimento,13,RF-8.13,Obrigatório,TR,não iniciado,depois,,n/a,"Preenchimento de laudo médico para AIH, padrão SUS, reaproveitando dados para possível transferência."
+8,Módulo Hospitalar e Pronto Atendimento,14,RF-8.14,Desejável,TR,não iniciado,depois,,n/a,"Lançamento de dados ""a quatro mãos"" do atendimento."
+8,Módulo Hospitalar e Pronto Atendimento,15,RF-8.15,Obrigatório,TR,não iniciado,depois,,n/a,"Solicitação de exames internos, gerando demanda ao laboratório e chamada em painel."
+8,Módulo Hospitalar e Pronto Atendimento,16,RF-8.16,Obrigatório,TR,não iniciado,depois,,n/a,Acionamento pela interface quando exames/medicação/procedimentos forem checados.
+8,Módulo Hospitalar e Pronto Atendimento,17,RF-8.17,Obrigatório,TR,não iniciado,depois,,n/a,Definição de conduta e encerramento do atendimento.
+8,Módulo Hospitalar e Pronto Atendimento,18,RF-8.18,Desejável,TR,não iniciado,depois,,n/a,Assinatura eletrônica com validação via ICP-Brasil.
+8,Módulo Hospitalar e Pronto Atendimento,19,RF-8.19,Obrigatório,TR,não iniciado,depois,,n/a,Transferência do paciente a outro serviço.
+8,Módulo Hospitalar e Pronto Atendimento,20,RF-8.20,Obrigatório,TR,não iniciado,depois,,n/a,Geração de documentos do atendimento para impressão seletiva.
+8,Módulo Hospitalar e Pronto Atendimento,21,RF-8.21,Obrigatório,TR,não iniciado,depois,,n/a,Geração de lembretes conforme regras de indicadores do SUS.
+8,Módulo Hospitalar e Pronto Atendimento,22,RF-8.22,Obrigatório,TR,não iniciado,depois,,n/a,"Alocação de paciente em leitos, com indicadores por setor."
+8,Módulo Hospitalar e Pronto Atendimento,23,RF-8.23,Obrigatório,TR,não iniciado,depois,,n/a,Lançamento de sessões de fisioterapia na internação.
+8,Módulo Hospitalar e Pronto Atendimento,24,RF-8.24,Obrigatório,TR,não iniciado,depois,,n/a,"Checagem de prescrições (CID, paciente, medicamentos) com evolução de enfermagem."
+8,Módulo Hospitalar e Pronto Atendimento,25,RF-8.25,Obrigatório,TR,não iniciado,depois,,n/a,"Alerta de alergias registradas em prontuário conforme característica do medicamento, com possibilidade de composições alternativas."
+8,Módulo Hospitalar e Pronto Atendimento,26,RF-8.26,Obrigatório,TR,não iniciado,depois,,n/a,Solicitação de procedimentos gerando demanda na central de regulação.
+8,Módulo Hospitalar e Pronto Atendimento,27,RF-8.27,Obrigatório,TR,não iniciado,depois,,n/a,Atendimentos por fichas de atendimento coletivo conforme regras do município.
+8,Módulo Hospitalar e Pronto Atendimento,28,RF-8.28,Obrigatório,TR,não iniciado,depois,,n/a,"Atendimentos odontológicos com odontograma/próteses em internados, com procedimentos por dente."
+8,Módulo Hospitalar e Pronto Atendimento,29,RF-8.29,Desejável,TR,não iniciado,depois,,n/a,Informações de patologias odontológicas no atendimento.
+8,Módulo Hospitalar e Pronto Atendimento,30,RF-8.30,Obrigatório,TR,não iniciado,depois,,n/a,"Geração automática de procedimentos em processos ambulatoriais/hospitalares, quando pertinente."
+8,Módulo Hospitalar e Pronto Atendimento,31,RF-8.31,Obrigatório,TR,não iniciado,depois,,n/a,Lançamento de procedimentos pós-atendimento.
+8,Módulo Hospitalar e Pronto Atendimento,32,RF-8.32,Obrigatório,TR,não iniciado,depois,,n/a,Lançar kit de procedimentos.
+8,Módulo Hospitalar e Pronto Atendimento,33,RF-8.33,Obrigatório,TR,não iniciado,depois,,n/a,Lançamento de ocupação de leitos.
+8,Módulo Hospitalar e Pronto Atendimento,34,RF-8.34,Obrigatório,TR,não iniciado,depois,,n/a,Escolha do leito na internação.
+8,Módulo Hospitalar e Pronto Atendimento,35,RF-8.35,Obrigatório,TR,não iniciado,depois,,n/a,Mudança de procedimento por identificação de necessidade médica.
+8,Módulo Hospitalar e Pronto Atendimento,36,RF-8.36,Obrigatório,TR,não iniciado,depois,,n/a,Interconsulta com profissionais disponíveis na unidade.
+8,Módulo Hospitalar e Pronto Atendimento,37,RF-8.37,Obrigatório,TR,não iniciado,depois,,n/a,Prescrição de entrega de nutrições a pacientes internados.
+8,Módulo Hospitalar e Pronto Atendimento,38,RF-8.38,Obrigatório,TR,não iniciado,depois,,n/a,Sumário de alta.
+8,Módulo Hospitalar e Pronto Atendimento,39,RF-8.39,Obrigatório,TR,não iniciado,depois,,n/a,"Boletim médico diário, disponível em portal cidadão e aplicativo."
+8,Módulo Hospitalar e Pronto Atendimento,40,RF-8.40,Obrigatório,TR,não iniciado,depois,,n/a,Alta ao paciente com fechamento para faturamento hospitalar.
+8,Módulo Hospitalar e Pronto Atendimento,41,RF-8.41,Desejável,TR,não iniciado,depois,,n/a,"Parametrização/uso de protocolos clínicos tempo-dependentes no acolhimento: Sepse, IAM, AVC (mínimo)."
+8,Módulo Hospitalar e Pronto Atendimento,42,RF-8.42,Desejável,TR,não iniciado,depois,,n/a,"Linha do tempo assistencial automática por protocolo iniciado (ações obrigatórias, responsáveis, tempos decorrido/limite), com alertas visuais no prontuário."
+8,Módulo Hospitalar e Pronto Atendimento,43,RF-8.43,Desejável,TR,não iniciado,depois,,n/a,"Alerta obrigatório na consulta médica sobre protocolo clínico iniciado no acolhimento, exigindo manifestação (continuidade/encerramento com justificativa e CID "
+8,Módulo Hospitalar e Pronto Atendimento,44,RF-8.44,Obrigatório,TR,não iniciado,depois,,n/a,"Gestão integrada de leitos do Pronto Atendimento em tempo real (vagos, ocupados, bloqueados), vinculada à classificação de risco e fluxo assistencial."
+8,Módulo Hospitalar e Pronto Atendimento,45,RF-8.45,Obrigatório,TR,não iniciado,depois,,n/a,"Integração/visualização dos leitos do PA para apoio ao SAMU e regulação, em tempo real."
+8,Módulo Hospitalar e Pronto Atendimento,46,RF-8.46,Obrigatório,TR,não iniciado,depois,,n/a,"Geração de solicitação de regulação SIRESP para média/alta complexidade, reaproveitando dados clínicos já registrados."
+8,Módulo Hospitalar e Pronto Atendimento,47,RF-8.47,Obrigatório,TR,não iniciado,depois,,n/a,"Acompanhamento de tempos assistenciais no PA (espera, atendimento médico, observação, permanência total)."
+8,Módulo Hospitalar e Pronto Atendimento,48,RF-8.48,Desejável,TR,não iniciado,depois,,n/a,"Relatórios e indicadores dos protocolos tempo-dependentes (qualidade, desempenho, exigências do MS)."
+8,Módulo Hospitalar e Pronto Atendimento,49,RF-8.49,Obrigatório,TR,não iniciado,depois,,n/a,"Classificação do grau de dependência do paciente (COFEN/COREN) no leito, com reavaliação e indicadores assistenciais/gerenciais."
+8,Módulo Hospitalar e Pronto Atendimento,50,RF-8.50,Desejável,TR,não iniciado,depois,,n/a,"Dupla checagem obrigatória para medicamentos de alta vigilância, com registro de profissionais/data/hora."
+8,Módulo Hospitalar e Pronto Atendimento,51,RF-8.51,Desejável,TR,não iniciado,depois,,n/a,"Alertas automáticos no prontuário/módulos assistenciais para risco de medicação (dose, via, tempo, interação, alergia)."
+8,Módulo Hospitalar e Pronto Atendimento,52,RF-8.52,Desejável,TR,não iniciado,depois,,n/a,"Registro, execução e acompanhamento do Processo de Enfermagem nas UPAs (5 etapas), conforme COFEN/COREN."
+9,Módulo de Faturamento,1,RF-9.1,Obrigatório,ambos,não iniciado,depois,,previsto,Importação e atualização da tabela SIGTAP para lançamento de procedimentos.
+9,Módulo de Faturamento,2,RF-9.2,Obrigatório,ambos,não iniciado,depois,,previsto,Faturar procedimentos lançados em ambulatório (lançamento posterior em caso de inoperância; BPA e APAC).
+9,Módulo de Faturamento,3,RF-9.3,Obrigatório,ambos,não iniciado,depois,,previsto,Faturar procedimentos realizados no hospital.
+9,Módulo de Faturamento,4,RF-9.4,Obrigatório,ambos,não iniciado,depois,,previsto,Faturar procedimentos realizados em CAPS.
+9,Módulo de Faturamento,5,RF-9.5,Obrigatório,ambos,não iniciado,depois,,previsto,Validação de procedimentos conforme tabela SIGTAP.
+9,Módulo de Faturamento,6,RF-9.6,Desejável,ambos,não iniciado,depois,,previsto,Consistência do cadastro de unidade/profissionais vinculados com base do CNES.
+9,Módulo de Faturamento,7,RF-9.7,Obrigatório,ambos,não iniciado,depois,,previsto,Divisão física e financeira dos laboratórios terceirizados para atender ao TAC.
+10,Módulo de Integração com o e-SUS,1,RF-10.1,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,SIGTAP.
+10,Módulo de Integração com o e-SUS,2,RF-10.2,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,CNES.
+10,Módulo de Integração com o e-SUS,3,RF-10.3,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/ledi + encounters/vaccinations finish,automatizado,e-SUS.
+10,Módulo de Integração com o e-SUS,4,RF-10.4,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,BPA.
+10,Módulo de Integração com o e-SUS,5,RF-10.5,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,RAAS.
+10,Módulo de Integração com o e-SUS,6,RF-10.6,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,SISAIH01.
+10,Módulo de Integração com o e-SUS,7,RF-10.7,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,RIA RNDS.
+10,Módulo de Integração com o e-SUS,8,RF-10.8,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,SI-BNAFAR RNDS.
+10,Módulo de Integração com o e-SUS,9,RF-10.9,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,SOA – CNES RNDS.
+10,Módulo de Integração com o e-SUS,10,RF-10.10,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,RIRA RNDS.
+10,Módulo de Integração com o e-SUS,11,RF-10.11,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,APAC.
+10,Módulo de Integração com o e-SUS,12,RF-10.12,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,e-SUS Reg.
+10,Módulo de Integração com o e-SUS,13,RF-10.13,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,SENIOR.
+10,Módulo de Integração com o e-SUS,14,RF-10.14,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,EDY DATA.
+10,Módulo de Integração com o e-SUS,15,RF-10.15,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,WORK LAB.
+10,Módulo de Integração com o e-SUS,16,RF-10.16,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Interfaceamento com máquinas de análises clínicas.
+10,Módulo de Integração com o e-SUS,17,RF-10.17,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Resultados de exames laboratoriais (hoje HTML).
+10,Módulo de Integração com o e-SUS,18,RF-10.18,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,"Resultados de ECG, EEG."
+10,Módulo de Integração com o e-SUS,19,RF-10.19,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,"Programas PET Saúde Digital (totem, vacina, chatbot)."
+10,Módulo de Integração com o e-SUS,20,RF-10.20,Obrigatório,e-SUS,parcial,P0-P6,apps/api/.../production + finish,automatizado,Envio diário e automático dos dados gerados às bases nacionais.
+11,Módulo de PPI (Programação Pactuada Integrada),1,RF-11.1,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro de regiões de saúde.
+11,Módulo de PPI (Programação Pactuada Integrada),2,RF-11.2,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro de microrregiões de saúde.
+11,Módulo de PPI (Programação Pactuada Integrada),3,RF-11.3,Obrigatório,TR,não iniciado,depois,,n/a,Definição das cotas de PPI.
+11,Módulo de PPI (Programação Pactuada Integrada),4,RF-11.4,Obrigatório,TR,não iniciado,depois,,n/a,Definição de cotas extras anuais.
+11,Módulo de PPI (Programação Pactuada Integrada),5,RF-11.5,Obrigatório,TR,não iniciado,depois,,n/a,Definir cotas financeiras.
+11,Módulo de PPI (Programação Pactuada Integrada),6,RF-11.6,Obrigatório,TR,não iniciado,depois,,n/a,Autorização de procedimentos a partir da PPI.
+11,Módulo de PPI (Programação Pactuada Integrada),7,RF-11.7,Obrigatório,TR,não iniciado,depois,,n/a,Acompanhamento das cotas de PPI pelos municípios.
+11,Módulo de PPI (Programação Pactuada Integrada),8,RF-11.8,Obrigatório,TR,não iniciado,depois,,n/a,Agendamento de procedimentos por PPI.
+12,Módulo de Odontologia,1,RF-12.1,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra#ledi-dental-v2,automatizado,Agendamento de atendimentos odontológicos.
+12,Módulo de Odontologia,2,RF-12.2,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra;apps/web/src/app/odonto,automatizado,Definição de profissional para atendimento odontológico.
+12,Módulo de Odontologia,3,RF-12.3,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra;apps/web/src/app/odonto,automatizado,Identificação do paciente para atendimento odontológico.
+12,Módulo de Odontologia,4,RF-12.4,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra/ledi-dental.mapper.ts,previsto,Informação do início do tratamento.
+12,Módulo de Odontologia,5,RF-12.5,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra (tipoAtendimento),automatizado,Escolha do tipo de atendimento a ser realizado.
+12,Módulo de Odontologia,6,RF-12.6,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra (tiposEncamOdonto),automatizado,Definição de conduta e desfecho do atendimento.
+12,Módulo de Odontologia,7,RF-12.7,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra/ledi-fao.validator.ts,automatizado,Finalizar tratamento com informações de vigilância em saúde bucal.
+12,Módulo de Odontologia,8,RF-12.8,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra (tiposFornecimOdonto),previsto,Informação de fornecimentos ao paciente.
+12,Módulo de Odontologia,9,RF-12.9,Obrigatório,e-SUS,parcial,P0-P6,apps/web/src/app/odonto (anamnese),previsto,Anamnese de atendimentos em odontologia.
+12,Módulo de Odontologia,10,RF-12.10,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Roteiro de telemonitoramento.
+12,Módulo de Odontologia,11,RF-12.11,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Visualização de odontogramas anteriores.
+12,Módulo de Odontologia,12,RF-12.12,Obrigatório,e-SUS,parcial,P0-P6,apps/web/src/app/odonto (tooth/proc),previsto,"Procedimentos em odontograma por dente, quadrante, sextante e boca."
+12,Módulo de Odontologia,13,RF-12.13,Obrigatório,e-SUS,parcial,P0-P6,apps/api DentalProcedure.done,previsto,"Procedimentos predefinidos no odontograma, marcáveis como concluídos."
+12,Módulo de Odontologia,14,RF-12.14,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Informar próteses.
+12,Módulo de Odontologia,15,RF-12.15,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Serviços protéticos.
+12,Módulo de Odontologia,16,RF-12.16,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra (problemasCondicoes),automatizado,Informações de patologias odontológicas.
+12,Módulo de Odontologia,17,RF-12.17,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Solicitação de exames e prescrição de medicamentos.
+12,Módulo de Odontologia,18,RF-12.18,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Acesso ao histórico do paciente/prontuário.
+12,Módulo de Odontologia,19,RF-12.19,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Emissão de declaração e atestados.
+12,Módulo de Odontologia,20,RF-12.20,Obrigatório,e-SUS,parcial,P0-P6,apps/web/src/app/odonto lista cronológica,previsto,Acompanhamento de atendimentos em ordem cronológica.
+13,Módulo de Regulação,1,RF-13.1,Obrigatório,TR,não iniciado,depois,,n/a,Solicitações de procedimentos em todas as áreas de atendimento.
+13,Módulo de Regulação,2,RF-13.2,Obrigatório,TR,parcial,depois,,n/a,Definição de procedimentos pré-regulados.
+13,Módulo de Regulação,3,RF-13.3,Obrigatório,TR,não iniciado,depois,,n/a,Definição de procedimentos com exigências específicas.
+13,Módulo de Regulação,4,RF-13.4,Obrigatório,TR,parcial,depois,,n/a,Visualização da fila em tempo real.
+13,Módulo de Regulação,5,RF-13.5,Obrigatório,TR,não iniciado,depois,,n/a,Movimentação da fila por classificação.
+13,Módulo de Regulação,6,RF-13.6,Obrigatório,TR,não iniciado,depois,,n/a,Classificar solicitações de procedimentos.
+13,Módulo de Regulação,7,RF-13.7,Obrigatório,TR,não iniciado,depois,,n/a,Preenchimento de fichas de regulação.
+13,Módulo de Regulação,8,RF-13.8,Obrigatório,TR,parcial,depois,,n/a,"Regular paciente solicitado, definindo classificação."
+13,Módulo de Regulação,9,RF-13.9,Obrigatório,TR,não iniciado,depois,,n/a,Negar atendimento/procedimento por questões clínicas.
+13,Módulo de Regulação,10,RF-13.10,Obrigatório,TR,não iniciado,depois,,n/a,Edição de solicitação após devolução de ficha por falta de dados.
+13,Módulo de Regulação,11,RF-13.11,Obrigatório,TR,não iniciado,depois,,n/a,Acompanhamento por motivo de devolução.
+13,Módulo de Regulação,12,RF-13.12,Obrigatório,TR,não iniciado,depois,,n/a,Direcionamento de fila para agendamento posterior.
+13,Módulo de Regulação,13,RF-13.13,Obrigatório,TR,não iniciado,depois,,n/a,Agendar procedimentos para prestadores contratados.
+13,Módulo de Regulação,14,RF-13.14,Obrigatório,TR,não iniciado,depois,,n/a,Disponibilização de fila no portal do cidadão.
+13,Módulo de Regulação,15,RF-13.15,Obrigatório,TR,não iniciado,depois,,n/a,Acompanhamento de fila em aplicativo.
+13,Módulo de Regulação,16,RF-13.16,Desejável,TR,não iniciado,depois,,n/a,Encerramento de solicitações.
+13,Módulo de Regulação,17,RF-13.17,Obrigatório,TR,não iniciado,depois,,n/a,Monitoramento de fila por CID.
+13,Módulo de Regulação,18,RF-13.18,Obrigatório,TR,não iniciado,depois,,n/a,Monitoramento de fila por procedimento.
+13,Módulo de Regulação,19,RF-13.19,Obrigatório,TR,não iniciado,depois,,n/a,Monitoramento de fila por unidade solicitante.
+13,Módulo de Regulação,20,RF-13.20,Obrigatório,TR,não iniciado,depois,,n/a,Monitoramento de fila por profissional solicitante.
+13,Módulo de Regulação,21,RF-13.21,Obrigatório,TR,não iniciado,depois,,n/a,"Cadastro de solicitações de unidades externas (ex.: AME, APAE)."
+13,Módulo de Regulação,22,RF-13.22,Obrigatório,TR,não iniciado,depois,,n/a,Reimpressão de solicitações de procedimentos.
+13,Módulo de Regulação,23,RF-13.23,Desejável,TR,não iniciado,depois,,n/a,Integração com WhatsApp para envio de mensagens automáticas.
+14,Módulo de Vacinação,1,RF-14.1,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations,automatizado,Cadastro das dosagens de vacina.
+14,Módulo de Vacinação,2,RF-14.2,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations,n/a,Cadastro de vacinas.
+14,Módulo de Vacinação,3,RF-14.3,Desejável,ambos,não iniciado,P0-P6,,previsto,Cadastro de equipamentos frios.
+14,Módulo de Vacinação,4,RF-14.4,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Vinculação de vacinas com insumos do almoxarifado.
+14,Módulo de Vacinação,5,RF-14.5,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Determinar número de doses no cadastro da vacina.
+14,Módulo de Vacinação,6,RF-14.6,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Utilização de outros insumos para aplicação da vacina.
+14,Módulo de Vacinação,7,RF-14.7,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Definição de faixa etária para aplicação.
+14,Módulo de Vacinação,8,RF-14.8,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Bloquear vacinação fora da faixa etária permitida.
+14,Módulo de Vacinação,9,RF-14.9,Desejável,ambos,não iniciado,P0-P6,,previsto,Registro retroativo de doses de vacinas.
+14,Módulo de Vacinação,10,RF-14.10,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Informar equivalências no cadastro de vacinas.
+14,Módulo de Vacinação,11,RF-14.11,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations,n/a,Aplicação de vacina por paciente.
+14,Módulo de Vacinação,12,RF-14.12,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Agendamento de vacinação com controle de vacinas atrasadas.
+14,Módulo de Vacinação,13,RF-14.13,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Geração do cartão de vacina.
+14,Módulo de Vacinação,14,RF-14.14,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations,n/a,Lançamento de vacina por lote e validade.
+14,Módulo de Vacinação,15,RF-14.15,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Entrada de estoque de vacinas em salas criadas pela gestão.
+14,Módulo de Vacinação,16,RF-14.16,Desejável,ambos,não iniciado,P0-P6,,previsto,Controle de estoques de vacinas.
+14,Módulo de Vacinação,17,RF-14.17,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Controle de equipamentos frios.
+14,Módulo de Vacinação,18,RF-14.18,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Controle de caixa térmica.
+14,Módulo de Vacinação,19,RF-14.19,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Controle de temperatura.
+15,Módulo de Transporte,1,RF-15.1,Desejável,TR,adiado,adiado,,adiado,Programação de tempo em TFD.
+15,Módulo de Transporte,2,RF-15.2,Obrigatório,TR,adiado,adiado,,adiado,Solicitação de atendimento TFD.
+15,Módulo de Transporte,3,RF-15.3,Obrigatório,TR,adiado,adiado,,adiado,Parecer de comissão médica para TFD.
+15,Módulo de Transporte,4,RF-15.4,Desejável,TR,adiado,adiado,,adiado,Reavaliação de solicitações negadas.
+15,Módulo de Transporte,5,RF-15.5,Obrigatório,TR,adiado,adiado,,adiado,Lançamento de laudo médico.
+15,Módulo de Transporte,6,RF-15.6,Obrigatório,TR,adiado,adiado,,adiado,Autorização de transporte.
+15,Módulo de Transporte,7,RF-15.7,Obrigatório,TR,adiado,adiado,,adiado,Lançamento de retorno de viagem.
+15,Módulo de Transporte,8,RF-15.8,Desejável,TR,adiado,adiado,,adiado,Gerar demanda no setor de frotas.
+15,Módulo de Transporte,9,RF-15.9,Obrigatório,TR,adiado,adiado,,adiado,Definir veículo por local de TFD.
+15,Módulo de Transporte,10,RF-15.10,Obrigatório,TR,adiado,adiado,,adiado,Informar motorista no agendamento.
+15,Módulo de Transporte,11,RF-15.11,Desejável,TR,adiado,adiado,,adiado,Informar data e hora do atendimento do paciente.
+15,Módulo de Transporte,12,RF-15.12,Obrigatório,TR,adiado,adiado,,adiado,Agendar outras viagens dentro do mesmo atendimento.
+15,Módulo de Transporte,13,RF-15.13,Desejável,TR,adiado,adiado,,adiado,Informar acompanhante.
+15,Módulo de Transporte,14,RF-15.14,Desejável,TR,adiado,adiado,,adiado,Escolha de assento.
+15,Módulo de Transporte,15,RF-15.15,Obrigatório,TR,adiado,adiado,,adiado,Lançamento de procedimentos.
+15,Módulo de Transporte,16,RF-15.16,Desejável,TR,adiado,adiado,,adiado,Recibo de diárias.
+15,Módulo de Transporte,17,RF-15.17,Desejável,TR,adiado,adiado,,adiado,Encerramento de TFD.
+15,Módulo de Transporte,18,RF-15.18,Obrigatório,TR,adiado,adiado,,adiado,Agendamento de viagens.
+15,Módulo de Transporte,19,RF-15.19,Obrigatório,TR,adiado,adiado,,adiado,Cadastro de vagas em agendamento de viagens (remoção interna).
+15,Módulo de Transporte,20,RF-15.20,Obrigatório,TR,adiado,adiado,,adiado,Relatório de pacientes agendados.
+15,Módulo de Transporte,21,RF-15.21,Obrigatório,TR,adiado,adiado,,adiado,Cadastrar condições de transporte.
+15,Módulo de Transporte,22,RF-15.22,Obrigatório,TR,adiado,adiado,,adiado,Selecionar condições de transporte.
+15,Módulo de Transporte,23,RF-15.23,Obrigatório,TR,adiado,adiado,,adiado,Cadastrar pontos de embarque.
+15,Módulo de Transporte,24,RF-15.24,Obrigatório,TR,adiado,adiado,,adiado,Selecionar pontos de embarque.
+15,Módulo de Transporte,25,RF-15.25,Obrigatório,TR,adiado,adiado,,adiado,Cadastrar procedimentos.
+15,Módulo de Transporte,26,RF-15.26,Obrigatório,TR,adiado,adiado,,adiado,Selecionar procedimentos.
+15,Módulo de Transporte,27,RF-15.27,Obrigatório,TR,adiado,adiado,,adiado,Geração e exportação de dados para BPA.
+15,Módulo de Transporte,28,RF-15.28,Obrigatório,TR,adiado,adiado,,adiado,Consulta de guias de TFD.
+15,Módulo de Transporte,29,RF-15.29,Obrigatório,TR,adiado,adiado,,adiado,Solicitação de vagas (pré-agendamento).
+16,Módulo de Análises,1,RF-16.1,Obrigatório,ambos,parcial,depois,apps/api/src/reports,n/a,Acompanhamento de atendimentos por unidade de saúde.
+16,Módulo de Análises,2,RF-16.2,Obrigatório,ambos,não iniciado,depois,,n/a,Análises por profissional.
+16,Módulo de Análises,3,RF-16.3,Obrigatório,ambos,não iniciado,depois,,n/a,Análises por especialidade.
+16,Módulo de Análises,4,RF-16.4,Desejável,ambos,não iniciado,depois,,n/a,Análises de viagens.
+16,Módulo de Análises,5,RF-16.5,Obrigatório,ambos,não iniciado,depois,,n/a,Análises de atendimentos por bairro.
+16,Módulo de Análises,6,RF-16.6,Obrigatório,ambos,não iniciado,depois,,n/a,Análises por sexo e idade.
+16,Módulo de Análises,7,RF-16.7,Obrigatório,ambos,parcial,depois,apps/api/src/reports#vaccinations,n/a,Relatórios de atendimentos ambulatoriais.
+16,Módulo de Análises,8,RF-16.8,Obrigatório,ambos,não iniciado,depois,,n/a,"Relatórios de agendamentos (consultas, exames, procedimentos)."
+16,Módulo de Análises,9,RF-16.9,Desejável,ambos,não iniciado,depois,,n/a,Relatórios de atendimentos por prestador.
+16,Módulo de Análises,10,RF-16.10,Obrigatório,ambos,não iniciado,depois,,n/a,Relatórios de internações.
+16,Módulo de Análises,11,RF-16.11,Obrigatório,ambos,não iniciado,depois,,n/a,"Indicadores de internações: taxa de ocupação, tempo médio de permanência, taxa de rotatividade."
+16,Módulo de Análises,12,RF-16.12,Obrigatório,ambos,não iniciado,depois,,n/a,Relatórios de regulação.
+16,Módulo de Análises,13,RF-16.13,Obrigatório,ambos,não iniciado,depois,,n/a,"Análises de indicadores em tempo real, incluindo indicadores da APS."
+16,Módulo de Análises,14,RF-16.14,Obrigatório,ambos,não iniciado,depois,,n/a,Dashboards de atendimentos ambulatoriais.
+16,Módulo de Análises,15,RF-16.15,Obrigatório,ambos,não iniciado,depois,,n/a,Dashboards de atendimentos hospitalares.
+16,Módulo de Análises,16,RF-16.16,Obrigatório,ambos,não iniciado,depois,,n/a,Dashboards de atenção primária.
+16,Módulo de Análises,17,RF-16.17,Obrigatório,ambos,não iniciado,depois,,n/a,Dashboards de farmácia.
+16,Módulo de Análises,18,RF-16.18,Obrigatório,ambos,não iniciado,depois,,n/a,Dashboards laboratoriais.
+16,Módulo de Análises,19,RF-16.19,Obrigatório,ambos,não iniciado,depois,,n/a,Dashboards de vacinas.
+16,Módulo de Análises,20,RF-16.20,Obrigatório,ambos,não iniciado,depois,,n/a,Relatórios gerenciais de toda a estrutura da saúde municipal.
+16,Módulo de Análises,21,RF-16.21,Obrigatório,ambos,não iniciado,depois,,n/a,Relatórios de capacidade instalada.
+16,Módulo de Análises,22,RF-16.22,Obrigatório,ambos,não iniciado,depois,,n/a,Relatório de demandas reprimidas.
+16,Módulo de Análises,23,RF-16.23,Obrigatório,ambos,não iniciado,depois,,n/a,Relatórios de todas as telas com filtros configuráveis e exportação para Excel.
+17,Módulo de Aplicativos e Transparência,1,RF-17.1,Obrigatório,TR,não iniciado,depois,,n/a,Acompanhamento de consultas e exames pelo paciente.
+17,Módulo de Aplicativos e Transparência,2,RF-17.2,Obrigatório,TR,não iniciado,depois,,n/a,Cartão cidadão disponível no app.
+17,Módulo de Aplicativos e Transparência,3,RF-17.3,Obrigatório,TR,não iniciado,depois,,n/a,Cadastrar dependentes para acompanhamento de saúde.
+17,Módulo de Aplicativos e Transparência,4,RF-17.4,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar resultados de exames lançados na estrutura própria do sistema.
+17,Módulo de Aplicativos e Transparência,5,RF-17.5,Obrigatório,TR,não iniciado,depois,,n/a,Baixar resultado do exame em PDF.
+17,Módulo de Aplicativos e Transparência,6,RF-17.6,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar arquivos anexados no prontuário por prestador de serviços.
+17,Módulo de Aplicativos e Transparência,7,RF-17.7,Obrigatório,TR,não iniciado,depois,,n/a,Acompanhamento de vacinas aplicadas e cartão de vacina.
+17,Módulo de Aplicativos e Transparência,8,RF-17.8,Obrigatório,TR,não iniciado,depois,,n/a,Acompanhar fila de cirurgias eletivas com status.
+17,Módulo de Aplicativos e Transparência,9,RF-17.9,Obrigatório,TR,não iniciado,depois,,n/a,"Visualizar boletim médico do paciente internado, via senha da internação."
+17,Módulo de Aplicativos e Transparência,10,RF-17.10,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar unidades de atendimento com geração de rota no app.
+17,Módulo de Aplicativos e Transparência,11,RF-17.11,Obrigatório,TR,não iniciado,depois,,n/a,Registro de visita domiciliar do agente comunitário de saúde.
+17,Módulo de Aplicativos e Transparência,12,RF-17.12,Obrigatório,TR,não iniciado,depois,,n/a,Informar latitude/longitude na visita domiciliar.
+17,Módulo de Aplicativos e Transparência,13,RF-17.13,Obrigatório,TR,não iniciado,depois,,n/a,"Cadastro do paciente pelo app, com validação posterior na unidade e possível unificação."
+17,Módulo de Aplicativos e Transparência,14,RF-17.14,Obrigatório,TR,não iniciado,depois,,n/a,Registro de cadastro individual do paciente com fichas conforme Ministério da Saúde.
+17,Módulo de Aplicativos e Transparência,15,RF-17.15,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro domiciliar conforme regras do MS.
+17,Módulo de Aplicativos e Transparência,16,RF-17.16,Obrigatório,TR,não iniciado,depois,,n/a,Pesquisas determinadas pela gestão para o ACS.
+17,Módulo de Aplicativos e Transparência,17,RF-17.17,Obrigatório,TR,não iniciado,depois,,n/a,Controle do atendimento com visualização situacional da unidade (pacientes aguardando).
+17,Módulo de Aplicativos e Transparência,18,RF-17.18,Obrigatório,TR,não iniciado,depois,,n/a,Registrar vacinação conforme regras do SUS.
+17,Módulo de Aplicativos e Transparência,19,RF-17.19,Obrigatório,TR,não iniciado,depois,,n/a,ACS visualizar consultas/exames/procedimentos agendados e status via app.
+17,Módulo de Aplicativos e Transparência,20,RF-17.20,Obrigatório,TR,não iniciado,depois,,n/a,Acesso do paciente ao portal do cidadão para visualizar consultas agendadas.
+17,Módulo de Aplicativos e Transparência,21,RF-17.21,Obrigatório,TR,não iniciado,depois,,n/a,Cidadão acompanhar autorizações de solicitações médicas pelo portal.
+17,Módulo de Aplicativos e Transparência,22,RF-17.22,Obrigatório,TR,não iniciado,depois,,n/a,"Acompanhamento de boletins médicos de pacientes internados na rede, pelo portal."
+17,Módulo de Aplicativos e Transparência,23,RF-17.23,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar/baixar grade horária dos médicos por unidade.
+17,Módulo de Aplicativos e Transparência,24,RF-17.24,Obrigatório,TR,não iniciado,depois,,n/a,Listagem das filas de espera do município no portal.
+17,Módulo de Aplicativos e Transparência,25,RF-17.25,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar filas de cirurgias eletivas.
+17,Módulo de Aplicativos e Transparência,26,RF-17.26,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar filas de consultas agendadas.
+17,Módulo de Aplicativos e Transparência,27,RF-17.27,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar filas de exames agendados.
+17,Módulo de Aplicativos e Transparência,28,RF-17.28,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar leitos disponíveis no município.
+17,Módulo de Aplicativos e Transparência,29,RF-17.29,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar listagem de medicamentos disponíveis no município pelo portal.
+17,Módulo de Aplicativos e Transparência,30,RF-17.30,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar relação de médicos do município.
+17,Módulo de Aplicativos e Transparência,31,RF-17.31,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar listagem de TFD do município em diferentes status.
+17,Módulo de Aplicativos e Transparência,32,RF-17.32,Obrigatório,TR,não iniciado,depois,,n/a,Acompanhar resultados de exames por paciente no portal.
+17,Módulo de Aplicativos e Transparência,33,RF-17.33,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar cartão de vacinas no portal do cidadão.
+17,Módulo de Aplicativos e Transparência,34,RF-17.34,Obrigatório,TR,não iniciado,depois,,n/a,Validação da receita médica quando assinada digitalmente.
+17,Módulo de Aplicativos e Transparência,35,RF-17.35,Obrigatório,TR,não iniciado,depois,,n/a,"Notificações de lembretes de consultas, exames, vacinas etc."
+18,Módulo de Vigilância em Saúde,1,RF-18.1,Obrigatório,ambos,não iniciado,depois,,n/a,Emissão de receituário especial (azul) pela Vigilância Sanitária.
+18,Módulo de Vigilância em Saúde,2,RF-18.2,Obrigatório,ambos,não iniciado,depois,,n/a,Emissão de relatório de agravos de notificação compulsória.
+18,Módulo de Vigilância em Saúde,3,RF-18.3,Obrigatório,ambos,não iniciado,depois,,n/a,Alerta de doença de notificação compulsória conforme CID no atendimento médico.
+18,Módulo de Vigilância em Saúde,4,RF-18.4,Obrigatório,ambos,não iniciado,depois,,n/a,"Alerta para emissão de RAAT em acidente/doença de trabalho, conforme CID."
+18,Módulo de Vigilância em Saúde,5,RF-18.5,Obrigatório,ambos,não iniciado,depois,,n/a,Emissão e preenchimento de RAAT.
+18,Módulo de Vigilância em Saúde,6,RF-18.6,Obrigatório,ambos,não iniciado,depois,,n/a,"Relatório de RAAT pesquisável por nome do paciente, data, agravo e empresa."
+18,Módulo de Vigilância em Saúde,7,RF-18.7,Obrigatório,ambos,não iniciado,depois,,n/a,Campo específico no cadastro do usuário para sinalizar falecimento e data.
+18,Módulo de Vigilância em Saúde,8,RF-18.8,Obrigatório,ambos,não iniciado,depois,,n/a,Acesso à lista atualizada de doenças de notificação compulsória (protocolos do MS).
+18,Módulo de Vigilância em Saúde,9,RF-18.9,Obrigatório,ambos,não iniciado,depois,,n/a,"Relatório de vacinas aplicadas por vacina, paciente, mãe, CPF, data."

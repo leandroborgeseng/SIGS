@@ -1,0 +1,9 @@
+articles:
+  - id: plataforma.central-ajuda
+    path: plataforma/central-ajuda.md
+    version: 1.0.0
+    status: draft
+  - id: plataforma.ui-fase2
+    path: plataforma/ui-fase2.md
+    version: 1.0.0
+    status: draft

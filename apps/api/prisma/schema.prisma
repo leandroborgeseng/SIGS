@@ -1,0 +1,609 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Facility {
+  id        String   @id @default(uuid())
+  cnes      String
+  name      String
+  active    Boolean  @default(true)
+  cnpj      String?
+  typeId    String?  @map("type_id")
+  /// Código IBGE do município (7 dígitos) — header LEDI codigoIbgeMunicipio
+  ibgeCode  String?  @map("ibge_code")
+  createdAt DateTime @default(now()) @map("created_at")
+  teams     Team[]
+  encounters Encounter[]
+  vaccinations VaccinationRecord[]
+  dentalEncounters DentalEncounter[]
+  homeCareVisits HomeCareVisit[]
+  collectiveActivities CollectiveActivity[]
+  appointmentSlots AppointmentSlot[]
+  queueTickets QueueTicket[]
+  prescriptions Prescription[]
+  regulationRequests RegulationRequest[]
+  assignments ProfessionalAssignment[]
+
+  @@map("facilities")
+}
+
+model Professional {
+  id         String   @id @default(uuid())
+  civilName  String   @map("civil_name")
+  socialName String?  @map("social_name")
+  cpf        String?
+  cns        String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  slots      AppointmentSlot[]
+  encounters Encounter[]
+  vaccinations VaccinationRecord[]
+  dentalEncounters DentalEncounter[]
+  homeCareVisits HomeCareVisit[]
+  collectiveActivities CollectiveActivity[]
+  queueTickets QueueTicket[]
+  prescriptions Prescription[]
+  regulationRequests RegulationRequest[]
+  assignments ProfessionalAssignment[]
+
+  @@map("professionals")
+}
+
+model Team {
+  id         String   @id @default(uuid())
+  facilityId String   @map("facility_id")
+  name       String
+  teamTypeId String   @map("team_type_id")
+  active     Boolean  @default(true)
+  ine        String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  facility   Facility @relation(fields: [facilityId], references: [id])
+  microAreas MicroArea[]
+  links      PatientTeamLink[]
+  assignments ProfessionalAssignment[]
+
+  @@map("teams")
+}
+
+/// Lotação do profissional na unidade (RF-2.2 / RF-2.60)
+model ProfessionalAssignment {
+  id             String    @id @default(uuid())
+  professionalId String    @map("professional_id")
+  facilityId     String    @map("facility_id")
+  teamId         String?   @map("team_id")
+  /// CBO ocupação (ex.: 225125)
+  cbo            String
+  roleLabel      String?   @map("role_label")
+  active         Boolean   @default(true)
+  startedAt      DateTime  @default(now()) @map("started_at")
+  endedAt        DateTime? @map("ended_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  professional Professional @relation(fields: [professionalId], references: [id])
+  facility     Facility     @relation(fields: [facilityId], references: [id])
+  team         Team?        @relation(fields: [teamId], references: [id])
+
+  @@index([facilityId, active])
+  @@index([professionalId, active])
+  @@map("professional_assignments")
+}
+
+model Patient {
+  id                 String    @id @default(uuid())
+  civilName          String    @map("civil_name")
+  socialName         String?   @map("social_name")
+  cpf                String?
+  cns                String?
+  birthDate          DateTime  @map("birth_date")
+  sex                String
+  raceColor          String?   @map("race_color")
+  motherName         String?   @map("mother_name")
+  motherNameUnknown  Boolean   @default(false) @map("mother_name_unknown")
+  fatherName         String?   @map("father_name")
+  fatherNameUnknown  Boolean   @default(false) @map("father_name_unknown")
+  isDeceased         Boolean   @default(false) @map("is_deceased")
+  deathDate          DateTime? @map("death_date")
+  deathCertificate   String?   @map("death_certificate")
+  phone              String?
+  notes              String?
+  addressStreet      String?   @map("address_street")
+  addressNumber      String?   @map("address_number")
+  addressComplement  String?   @map("address_complement")
+  addressNeighborhood String?  @map("address_neighborhood")
+  addressCity        String?   @map("address_city")
+  addressState       String?   @map("address_state")
+  addressZip         String?   @map("address_zip")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  links PatientTeamLink[]
+  slots AppointmentSlot[]
+  encounters Encounter[]
+  vaccinations VaccinationRecord[]
+  dentalEncounters DentalEncounter[]
+  homeCareVisits HomeCareVisit[]
+  queueTickets QueueTicket[]
+  prescriptions Prescription[]
+  regulationRequests RegulationRequest[]
+
+  @@map("patients")
+}
+
+model MicroArea {
+  id        String   @id @default(uuid())
+  teamId    String   @map("team_id")
+  code      String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  team  Team @relation(fields: [teamId], references: [id])
+  links PatientTeamLink[]
+
+  @@map("micro_areas")
+}
+
+model PatientTeamLink {
+  id          String   @id @default(uuid())
+  patientId   String   @map("patient_id")
+  teamId      String   @map("team_id")
+  microAreaId String?  @map("micro_area_id")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  patient   Patient    @relation(fields: [patientId], references: [id])
+  team      Team       @relation(fields: [teamId], references: [id])
+  microArea MicroArea? @relation(fields: [microAreaId], references: [id])
+
+  @@map("patient_team_links")
+}
+
+/// Agenda — status alinhados ao design handoff
+model AppointmentSlot {
+  id             String   @id @default(uuid())
+  facilityId     String?  @map("facility_id")
+  professionalId String   @map("professional_id")
+  patientId      String?  @map("patient_id")
+  startsAt       DateTime @map("starts_at")
+  endsAt         DateTime @map("ends_at")
+  status         String   @default("SCHEDULED")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  facility     Facility?    @relation(fields: [facilityId], references: [id])
+  professional Professional @relation(fields: [professionalId], references: [id])
+  patient      Patient?     @relation(fields: [patientId], references: [id])
+  encounter    Encounter?
+
+  @@index([facilityId, startsAt])
+  @@map("appointment_slots")
+}
+
+/// Totem / painel de senha (RF-3.10, RF-3.11, RF-3.23)
+model QueueTicket {
+  id             String    @id @default(uuid())
+  facilityId     String    @map("facility_id")
+  /// NORMAL | PRIORITARIO | VACINA | ODONTO | OUTRO
+  serviceType    String    @default("NORMAL") @map("service_type")
+  /// Ex.: N042, P003
+  code           String
+  seq            Int
+  status         String    @default("WAITING") /// WAITING | CALLED | COMPLETED | NO_SHOW | CANCELLED
+  patientId      String?   @map("patient_id")
+  displayName    String?   @map("display_name")
+  deskLabel      String?   @map("desk_label") /// consultório / guichê
+  professionalId String?   @map("professional_id")
+  encounterId    String?   @map("encounter_id")
+  calledAt       DateTime? @map("called_at")
+  finishedAt     DateTime? @map("finished_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  facility     Facility     @relation(fields: [facilityId], references: [id])
+  patient      Patient?     @relation(fields: [patientId], references: [id])
+  professional Professional? @relation(fields: [professionalId], references: [id])
+
+  @@index([facilityId, status, createdAt])
+  @@index([facilityId, createdAt])
+  @@map("queue_tickets")
+}
+
+/// Atendimento APS — status da fila (design D2)
+model Encounter {
+  id               String    @id @default(uuid())
+  patientId        String    @map("patient_id")
+  facilityId       String    @map("facility_id")
+  professionalId   String?   @map("professional_id")
+  teamId           String?   @map("team_id")
+  appointmentId    String?   @unique @map("appointment_id")
+  status           String    @default("WAITING")
+  startedAt        DateTime  @default(now()) @map("started_at")
+  finishedAt       DateTime? @map("finished_at")
+  statusChangedAt  DateTime  @default(now()) @map("status_changed_at")
+  careLocation     String?   @map("care_location")
+  shift            String?
+  encounterType    String?   @map("encounter_type")
+  lateRegistration Boolean   @default(false) @map("late_registration")
+  /// JSON clínico: SOAP, CIAP, CID, procedimentos, antropometria, outcomes
+  clinicalJson     String    @default("{}") @map("clinical_json")
+  productionBatchId String?  @map("production_batch_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  patient      Patient          @relation(fields: [patientId], references: [id])
+  facility     Facility         @relation(fields: [facilityId], references: [id])
+  professional Professional?    @relation(fields: [professionalId], references: [id])
+  appointment  AppointmentSlot? @relation(fields: [appointmentId], references: [id])
+  prescriptions Prescription[]
+  regulationRequests RegulationRequest[]
+
+  @@index([patientId, status])
+  @@index([facilityId, status])
+  @@map("encounters")
+}
+
+model VaccinationRecord {
+  id                String   @id @default(uuid())
+  patientId         String   @map("patient_id")
+  facilityId        String   @map("facility_id")
+  professionalId    String?  @map("professional_id")
+  shift             String
+  careLocation      String   @map("care_location")
+  status            String   @default("DRAFT") // DRAFT | READY | SENT
+  appliedAt         DateTime @default(now()) @map("applied_at")
+  /// JSON array de aplicações (imuno, estratégia, dose, lote, flags…)
+  applicationsJson  String   @map("applications_json")
+  productionBatchId String?  @map("production_batch_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  facility     Facility      @relation(fields: [facilityId], references: [id])
+  professional Professional? @relation(fields: [professionalId], references: [id])
+
+  @@index([patientId])
+  @@map("vaccination_records")
+}
+
+model ProductionBatch {
+  id              String    @id @default(uuid())
+  kind            String
+  /// draft | ready | sent | error
+  status          String    @default("draft")
+  rfIdsCsv        String    @default("") @map("rf_ids_csv")
+  payloadJson     String    @default("{}") @map("payload_json")
+  /// Motivo do status error (ou último bloqueio no reprocessamento)
+  errorMessage    String?   @map("error_message")
+  statusChangedAt DateTime? @map("status_changed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@map("production_batches")
+}
+
+/// Odontologia — stub MVP (RF-12.x / RF-3.56)
+model DentalEncounter {
+  id                String    @id @default(uuid())
+  patientId         String    @map("patient_id")
+  facilityId        String    @map("facility_id")
+  professionalId    String?   @map("professional_id")
+  encounterType     String    @default("CONSULTA") @map("encounter_type")
+  status            String    @default("IN_PROGRESS")
+  anamnese          String?
+  /// JSON: [{ tooth?, region?, code, label, done }]
+  proceduresJson    String    @default("[]") @map("procedures_json")
+  /// JSON simplificado odontograma { "11": "C", ... }
+  odontogramJson    String    @default("{}") @map("odontogram_json")
+  outcomesJson      String    @default("[]") @map("outcomes_json")
+  startedAt         DateTime  @default(now()) @map("started_at")
+  finishedAt        DateTime? @map("finished_at")
+  productionBatchId String?   @map("production_batch_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  facility     Facility      @relation(fields: [facilityId], references: [id])
+  professional Professional? @relation(fields: [professionalId], references: [id])
+
+  @@index([facilityId, status])
+  @@map("dental_encounters")
+}
+
+/// Atenção domiciliar APS — stub MVP (RF-3.54)
+model HomeCareVisit {
+  id                String    @id @default(uuid())
+  patientId         String    @map("patient_id")
+  facilityId        String    @map("facility_id")
+  professionalId    String?   @map("professional_id")
+  careType          String    @default("AD1") @map("care_type")
+  shift             String    @default("MANHA")
+  status            String    @default("SCHEDULED")
+  notes             String?
+  proceduresJson    String    @default("[]") @map("procedures_json")
+  visitedAt         DateTime  @default(now()) @map("visited_at")
+  finishedAt        DateTime? @map("finished_at")
+  productionBatchId String?   @map("production_batch_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  facility     Facility      @relation(fields: [facilityId], references: [id])
+  professional Professional? @relation(fields: [professionalId], references: [id])
+
+  @@index([facilityId, status])
+  @@map("home_care_visits")
+}
+
+/// Atividade coletiva APS — stub MVP (RF-3.53)
+model CollectiveActivity {
+  id                String    @id @default(uuid())
+  facilityId        String    @map("facility_id")
+  professionalId    String?   @map("professional_id")
+  teamId            String?   @map("team_id")
+  /// EDUCACAO_SAUDE | REUNIAO | OUTRO
+  activityType      String    @map("activity_type")
+  /// Tema / prática em saúde (texto ou código catálogo)
+  theme             String
+  /// Público-alvo (texto ou código)
+  audience          String
+  shift             String    @default("MANHA")
+  status            String    @default("DRAFT")
+  participantCount  Int       @default(0) @map("participant_count")
+  /// JSON array de patientIds (opcional, lista parcial)
+  participantsJson  String    @default("[]") @map("participants_json")
+  /// JSON array de procedimentos SIGTAP stub
+  proceduresJson    String    @default("[]") @map("procedures_json")
+  notes             String?
+  heldAt            DateTime  @default(now()) @map("held_at")
+  finishedAt        DateTime? @map("finished_at")
+  productionBatchId String?   @map("production_batch_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  facility     Facility      @relation(fields: [facilityId], references: [id])
+  professional Professional? @relation(fields: [professionalId], references: [id])
+
+  @@index([facilityId, status])
+  @@map("collective_activities")
+}
+
+/// Catálogo SIGTAP local (seed/import stub — não substitui tabela MS completa)
+model SigtapProcedure {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  complex     String?  /// Atenção Básica / Média / Alta (texto livre stub)
+  groupCode   String?  @map("group_code")
+  groupName   String?  @map("group_name")
+  active      Boolean  @default(true)
+  source      String   @default("seed") /// seed | import
+  competencia String?  /// YYYYMM da competência importada
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([name])
+  @@map("sigtap_procedures")
+}
+
+/// Catálogo municipal mínimo de medicamentos (RF-2.11 / RF-3.33)
+model Medication {
+  id             String   @id @default(uuid())
+  code           String   @unique
+  name           String
+  activePrinciple String? @map("active_principle")
+  form           String?  /// comprimido, xarope…
+  concentration  String?
+  /// ORAL | IM | IV | TOPICA | OUTRO
+  defaultRoute   String?  @map("default_route")
+  /// COMUM | ESPECIAL | CONTROLE
+  recipeType     String   @default("COMUM") @map("recipe_type")
+  controlled     Boolean  @default(false)
+  active         Boolean  @default(true)
+  source         String   @default("seed") /// seed | manual
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  items PrescriptionItem[]
+
+  @@index([name])
+  @@map("medications")
+}
+
+/// Prescrição / receituário APS (RF-3.33, RF-3.67)
+model Prescription {
+  id             String    @id @default(uuid())
+  patientId      String    @map("patient_id")
+  facilityId     String    @map("facility_id")
+  professionalId String?   @map("professional_id")
+  encounterId    String?   @map("encounter_id")
+  /// DRAFT | ISSUED | CANCELLED
+  status         String    @default("DRAFT")
+  /// COMUM | ESPECIAL | CONTROLE
+  recipeType     String    @default("COMUM") @map("recipe_type")
+  notes          String?
+  validUntil     DateTime? @map("valid_until")
+  issuedAt       DateTime? @map("issued_at")
+  /// alerta se algum item fora do catálogo municipal
+  hasOffCatalog  Boolean   @default(false) @map("has_off_catalog")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  facility     Facility      @relation(fields: [facilityId], references: [id])
+  professional Professional? @relation(fields: [professionalId], references: [id])
+  encounter    Encounter?    @relation(fields: [encounterId], references: [id])
+  items        PrescriptionItem[]
+
+  @@index([patientId, createdAt])
+  @@index([facilityId, status])
+  @@index([encounterId])
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             String  @id @default(uuid())
+  prescriptionId String  @map("prescription_id")
+  medicationId   String? @map("medication_id")
+  /// Nome livre quando fora do padrão municipal
+  freeTextName   String? @map("free_text_name")
+  dose           String
+  frequency      String
+  duration       String?
+  quantity       String?
+  route          String?
+  instructions   String?
+  offCatalog     Boolean @default(false) @map("off_catalog")
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medication   Medication?  @relation(fields: [medicationId], references: [id])
+
+  @@map("prescription_items")
+}
+
+/// Complexo regulador (RF-2.3) — stub municipal
+model RegulationComplex {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  /// MUNICIPAL | REGIONAL
+  type      String   @default("MUNICIPAL")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("regulation_complexes")
+}
+
+/// Procedimentos pré-regulados / protocolo municipal (RF-13.2, RF-2.31 stub)
+model RegulationProcedure {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  specialty   String?
+  requiresCid Boolean  @default(false) @map("requires_cid")
+  active      Boolean  @default(true)
+  source      String   @default("seed")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([name])
+  @@map("regulation_procedures")
+}
+
+/// Solicitação / demanda na central de regulação (RF-3.52, RF-13.*)
+model RegulationRequest {
+  id               String    @id @default(uuid())
+  patientId        String    @map("patient_id")
+  facilityId       String    @map("facility_id")
+  professionalId   String?   @map("professional_id")
+  encounterId      String?   @map("encounter_id")
+  procedureCode    String    @map("procedure_code")
+  procedureName    String    @map("procedure_name")
+  /// true se código não está no catálogo pré-regulado
+  offProtocol      Boolean   @default(false) @map("off_protocol")
+  cid              String?
+  clinicalSummary  String?   @map("clinical_summary")
+  /// ELETIVO | PRIORITARIO | URGENTE
+  priority         String    @default("ELETIVO")
+  /// DRAFT | SUBMITTED | CLASSIFIED | AUTHORIZED | DENIED | RETURNED | SCHEDULED | CLOSED
+  status           String    @default("DRAFT")
+  /// VERDE | AMARELO | VERMELHO | AZUL (classificação reguladora)
+  classification   String?
+  denialReason     String?   @map("denial_reason")
+  returnReason     String?   @map("return_reason")
+  regulatorNotes   String?   @map("regulator_notes")
+  scheduledHint    DateTime? @map("scheduled_hint")
+  decidedAt        DateTime? @map("decided_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  facility     Facility      @relation(fields: [facilityId], references: [id])
+  professional Professional? @relation(fields: [professionalId], references: [id])
+  encounter    Encounter?    @relation(fields: [encounterId], references: [id])
+
+  @@index([facilityId, status])
+  @@index([patientId, createdAt])
+  @@index([status, priority])
+  @@index([encounterId])
+  @@map("regulation_requests")
+}
+
+model AuditEvent {
+  id           String   @id @default(uuid())
+  action       String
+  resourceType String   @map("resource_type")
+  resourceId   String   @map("resource_id")
+  rfIdsCsv     String   @default("") @map("rf_ids_csv")
+  detailJson   String   @default("{}") @map("detail_json")
+  at           DateTime @default(now())
+
+  @@map("audit_events")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  /// JSON array de chaves de permissão
+  permissions String   @default("[]")
+  createdAt   DateTime @default(now()) @map("created_at")
+  users       User[]
+
+  @@map("roles")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  roleId       String   @map("role_id")
+  facilityId   String?  @map("facility_id")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@map("users")
+}
+
+/// Lote de XMLs LEDI FAO para validação / correção (Siaps/RNDS)
+model LediFaoBatch {
+  id          String   @id @default(uuid())
+  name        String
+  /// uploaded | analyzed | partially_fixed | ready
+  status      String   @default("uploaded")
+  summaryJson String   @default("{}") @map("summary_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  items LediFaoBatchItem[]
+
+  @@map("ledi_fao_batches")
+}
+
+model LediFaoBatchItem {
+  id                 String   @id @default(uuid())
+  batchId            String   @map("batch_id")
+  fileName           String   @map("file_name")
+  /// conformant | blocker | warn | fixed | error
+  status             String   @default("blocker")
+  originalXml        String   @map("original_xml")
+  currentXml         String   @map("current_xml")
+  findingsJson       String   @default("[]") @map("findings_json")
+  masterJson         String?  @map("master_json")
+  /// Códigos elegíveis a auto-correção neste item (CSV)
+  autoFixableCodes   String   @default("") @map("auto_fixable_codes")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  batch LediFaoBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, status])
+  @@map("ledi_fao_batch_items")
+}

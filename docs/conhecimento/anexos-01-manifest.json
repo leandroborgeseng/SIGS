@@ -1,0 +1,13 @@
+{
+  "source": "esus",
+  "artifact": "eSUS-AB-PEC-5.5.24-Linux64.jar",
+  "artifact_path": "e-SUS/eSUS-AB-PEC-5.5.24-Linux64.jar",
+  "version": "5.5.24",
+  "sha256": "69e2ccd9e17f40fe260ae10ceb641b8b69be84c3e48b60e42264c086008f9b52",
+  "size": 737144580,
+  "processed_at": "2026-08-10T15:14:16Z",
+  "nested_primary": "container/webserver/pec-bundle.jar",
+  "build_commit": "e0f81a969f97bf4e92bfbb1a2c5c7aab2681153b",
+  "vendor": "Laboratório Bridge / Ministério da Saúde",
+  "notes": "JAR externo é instalador; aplicação principal em pec-bundle.jar (Spring Boot)."
+}

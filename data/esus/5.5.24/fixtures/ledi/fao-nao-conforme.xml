@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture deliberadamente NÃO conforme — para testes do validador FAO / caminho Siaps-RNDS -->
+<FichaAtendimentoOdontologicoMaster>
+  <uuidFicha>curto</uuidFicha>
+  <tpCdsOrigem>1</tpCdsOrigem>
+  <headerTransport>
+    <lotacaoFormPrincipal>
+      <profissionalCNS>000000000000000</profissionalCNS>
+      <cboCodigo_2002>225125</cboCodigo_2002>
+      <cnes>123</cnes>
+    </lotacaoFormPrincipal>
+    <codigoIbgeMunicipio>35162</codigoIbgeMunicipio>
+  </headerTransport>
+  <atendimentosOdontologicos>
+    <FichaAtendimentoOdontologicoChild>
+      <cpfCidadao>11111111111</cpfCidadao>
+      <cnsCidadao>898001160660321</cnsCidadao>
+      <sexo>0</sexo>
+      <gestante>true</gestante>
+      <localAtendimento>99</localAtendimento>
+      <tipoAtendimento>1</tipoAtendimento>
+      <tiposEncamOdonto>17</tiposEncamOdonto>
+      <tiposEncamOdonto>15</tiposEncamOdonto>
+      <tiposConsultaOdonto>1</tiposConsultaOdonto>
+      <procedimentosRealizados>
+        <ProcedimentoQuantidade>
+          <coMsProcedimento>0301040079</coMsProcedimento>
+          <quantidade>1</quantidade>
+        </ProcedimentoQuantidade>
+      </procedimentosRealizados>
+    </FichaAtendimentoOdontologicoChild>
+  </atendimentosOdontologicos>
+</FichaAtendimentoOdontologicoMaster>

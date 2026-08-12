@@ -1,0 +1,1287 @@
+openapi: 3.1.0
+info:
+  title: SGS MVP API
+  version: 0.1.0-mvp
+  description: |
+    Contratos preliminares do Sistema de Gestão em Saúde (Franca/SP) — MVP.
+    Tecnologicamente neutros. Alinhados às specs em data/esus/5.5.24/spec/.
+    NÃO implementar UI aqui; design ainda pendente.
+  contact:
+    name: SIGS
+servers:
+  - url: /api/v1
+    description: API local/homologação
+tags:
+  - name: platform
+  - name: facilities
+  - name: professionals
+  - name: teams
+  - name: patients
+  - name: appointments
+  - name: encounters
+  - name: vaccinations
+  - name: help
+
+paths:
+  /auth/login:
+    post:
+      tags: [platform]
+      summary: Autenticar usuário
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Sessão criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me:
+    get:
+      tags: [platform]
+      summary: Usuário autenticado e contexto (unidade/equipe)
+      operationId: getMe
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+
+  /patients:
+    get:
+      tags: [patients]
+      summary: Buscar cidadãos/pacientes
+      operationId: searchPatients
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Nome, CPF, CNS, nome da mãe
+        - name: birthDate
+          in: query
+          schema: { type: string, format: date }
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/pageSize'
+      responses:
+        '200':
+          description: Página de resultados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientPage'
+    post:
+      tags: [patients]
+      summary: Criar cidadão
+      operationId: createPatient
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientWrite'
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /patients/{patientId}:
+    get:
+      tags: [patients]
+      summary: Obter cidadão
+      operationId: getPatient
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/patientId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [patients]
+      summary: Atualizar cidadão
+      operationId: updatePatient
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/patientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientWrite'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+
+  /patients/{patientId}/timeline:
+    get:
+      tags: [patients]
+      summary: Linha do tempo (atendimentos/vacinas) somente leitura
+      operationId: getPatientTimeline
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/patientId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientTimeline'
+
+  /appointments:
+    get:
+      tags: [appointments]
+      summary: Listar agenda do dia/período
+      operationId: listAppointments
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+        - name: professionalId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Appointment'
+    post:
+      tags: [appointments]
+      summary: Agendar
+      operationId: createAppointment
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentWrite'
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+
+  /appointments/{appointmentId}/check-in:
+    post:
+      tags: [appointments]
+      summary: Marcar presença / iniciar fluxo de fila
+      operationId: checkInAppointment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/appointmentId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Encounter'
+
+  /appointments/{appointmentId}/no-show:
+    post:
+      tags: [appointments]
+      summary: Marcar não comparecimento
+      operationId: markNoShow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/appointmentId'
+      responses:
+        '204':
+          description: Sem conteúdo
+
+  /encounters/queue:
+    get:
+      tags: [encounters]
+      summary: Fila de atendimento da unidade
+      operationId: getEncounterQueue
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/EncounterStatus'
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EncounterQueueItem'
+
+  /encounters:
+    post:
+      tags: [encounters]
+      summary: Abrir atendimento (espontâneo ou a partir de agenda)
+      operationId: openEncounter
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EncounterOpen'
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Encounter'
+        '409':
+          description: Cidadão já na fila do dia
+
+  /encounters/{encounterId}:
+    get:
+      tags: [encounters]
+      summary: Detalhe do atendimento
+      operationId: getEncounter
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/encounterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Encounter'
+
+  /encounters/{encounterId}/status:
+    patch:
+      tags: [encounters]
+      summary: Atualizar status da fila
+      operationId: updateEncounterStatus
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/encounterId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/EncounterStatus'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Encounter'
+
+  /encounters/{encounterId}/clinical:
+    put:
+      tags: [encounters]
+      summary: Registrar dados clínicos APS (SOAP/CIAP/procedimentos/desfecho)
+      operationId: saveEncounterClinical
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/encounterId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EncounterClinical'
+      responses:
+        '200':
+          description: OK
+
+  /encounters/{encounterId}/finish:
+    post:
+      tags: [encounters]
+      summary: Finalizar atendimento
+      operationId: finishEncounter
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/encounterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Encounter'
+
+  /vaccinations:
+    post:
+      tags: [vaccinations]
+      summary: Registrar vacinação
+      operationId: createVaccination
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VaccinationWrite'
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VaccinationRecord'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /vaccinations/{vaccinationId}:
+    get:
+      tags: [vaccinations]
+      summary: Obter registro de vacinação
+      operationId: getVaccination
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/vaccinationId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VaccinationRecord'
+
+  /patients/{patientId}/vaccination-card:
+    get:
+      tags: [vaccinations]
+      summary: Cartão de vacina do paciente
+      operationId: getVaccinationCard
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/patientId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VaccinationCard'
+
+  /catalog/immunobiologicals:
+    get:
+      tags: [vaccinations]
+      summary: Catálogo de imunobiológicos
+      operationId: listImmunobiologicals
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CatalogItem'
+
+  /facilities:
+    get:
+      tags: [facilities]
+      summary: Listar/buscar unidades de saúde
+      operationId: searchFacilities
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Nome ou CNES
+        - name: active
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/pageSize'
+      responses:
+        '200':
+          description: Página de unidades
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacilityPage'
+    post:
+      tags: [facilities]
+      summary: Criar unidade de saúde
+      operationId: createFacility
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacilityWrite'
+      responses:
+        '201':
+          description: Criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Facility'
+
+  /facilities/{facilityId}:
+    get:
+      tags: [facilities]
+      summary: Detalhe da unidade
+      operationId: getFacility
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/facilityId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Facility'
+    put:
+      tags: [facilities]
+      summary: Atualizar unidade
+      operationId: updateFacility
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/facilityId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacilityWrite'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Facility'
+
+  /professionals:
+    get:
+      tags: [professionals]
+      summary: Listar/buscar profissionais
+      operationId: searchProfessionals
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Nome, CPF ou CNS
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/pageSize'
+      responses:
+        '200':
+          description: Página de profissionais
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfessionalPage'
+    post:
+      tags: [professionals]
+      summary: Criar profissional
+      operationId: createProfessional
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfessionalWrite'
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Professional'
+
+  /professionals/{professionalId}:
+    get:
+      tags: [professionals]
+      summary: Detalhe do profissional
+      operationId: getProfessional
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/professionalId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Professional'
+    put:
+      tags: [professionals]
+      summary: Atualizar profissional
+      operationId: updateProfessional
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/professionalId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfessionalWrite'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Professional'
+
+  /professionals/{professionalId}/allocations:
+    get:
+      tags: [professionals]
+      summary: Lotações do profissional (unidade + CBO + equipe)
+      operationId: listProfessionalAllocations
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/professionalId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProfessionalAllocation'
+    post:
+      tags: [professionals]
+      summary: Criar lotação
+      operationId: createProfessionalAllocation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/professionalId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfessionalAllocationWrite'
+      responses:
+        '201':
+          description: Criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfessionalAllocation'
+
+  /teams:
+    get:
+      tags: [teams]
+      summary: Listar/buscar equipes
+      operationId: searchTeams
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Nome ou INE
+        - name: facilityId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: active
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/pageSize'
+      responses:
+        '200':
+          description: Página de equipes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamPage'
+    post:
+      tags: [teams]
+      summary: Criar equipe
+      operationId: createTeam
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamWrite'
+      responses:
+        '201':
+          description: Criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+
+  /teams/{teamId}:
+    get:
+      tags: [teams]
+      summary: Detalhe da equipe
+      operationId: getTeam
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/teamId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+    put:
+      tags: [teams]
+      summary: Atualizar equipe
+      operationId: updateTeam
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/teamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamWrite'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+
+  /help/articles:
+    get:
+      tags: [help]
+      summary: Listar artigos de ajuda publicados
+      operationId: listHelpArticles
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: module
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [user, technical]
+        - name: q
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HelpArticleSummary'
+
+  /help/articles/{articleId}:
+    get:
+      tags: [help]
+      summary: Ler artigo (versão corrente ou específica)
+      operationId: getHelpArticle
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: articleId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: version
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelpArticle'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    pageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    patientId:
+      name: patientId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    appointmentId:
+      name: appointmentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    encounterId:
+      name: encounterId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    vaccinationId:
+      name: vaccinationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    facilityId:
+      name: facilityId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    professionalId:
+      name: professionalId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    teamId:
+      name: teamId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    NotFound:
+      description: Não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Não autenticado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Erro de validação de domínio
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        fields:
+          type: object
+          additionalProperties: { type: string }
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string, format: password }
+
+    LoginResponse:
+      type: object
+      required: [accessToken, user]
+      properties:
+        accessToken: { type: string }
+        user:
+          $ref: '#/components/schemas/CurrentUser'
+
+    CurrentUser:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        roles:
+          type: array
+          items: { type: string }
+        facilityId: { type: string, format: uuid }
+        teamId: { type: string, format: uuid }
+
+    Patient:
+      type: object
+      required: [id, fullName, birthDate, sex]
+      properties:
+        id: { type: string, format: uuid }
+        cpf: { type: string }
+        cns: { type: string }
+        fullName: { type: string }
+        socialName: { type: string }
+        birthDate: { type: string, format: date }
+        sex:
+          $ref: '#/components/schemas/Sex'
+        motherName: { type: string }
+        motherNameUnknown: { type: boolean }
+        deceased: { type: boolean }
+        deathDate: { type: string, format: date }
+        active: { type: boolean }
+
+    PatientWrite:
+      type: object
+      required: [fullName, birthDate, sex]
+      properties:
+        cpf: { type: string }
+        cns: { type: string }
+        fullName: { type: string }
+        socialName: { type: string }
+        birthDate: { type: string, format: date }
+        sex:
+          $ref: '#/components/schemas/Sex'
+        raceColorId: { type: string }
+        motherName: { type: string }
+        motherNameUnknown: { type: boolean }
+        fatherName: { type: string }
+        fatherNameUnknown: { type: boolean }
+        email: { type: string, format: email }
+        mobilePhone: { type: string }
+        address:
+          $ref: '#/components/schemas/Address'
+
+    PatientPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Patient'
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+
+    PatientTimeline:
+      type: object
+      properties:
+        encounters:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineItem'
+        vaccinations:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineItem'
+
+    TimelineItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        date: { type: string, format: date-time }
+        summary: { type: string }
+
+    Address:
+      type: object
+      properties:
+        postalCode: { type: string }
+        street: { type: string }
+        number: { type: string }
+        complement: { type: string }
+        neighborhood: { type: string }
+        cityIbge: { type: string }
+        state: { type: string }
+
+    Sex:
+      type: string
+      enum: [MALE, FEMALE, IGNORED]
+
+    AppointmentSituation:
+      type: string
+      enum:
+        - SCHEDULED
+        - PRESENT
+        - NO_SHOW
+        - LEFT
+        - CANCELLED
+        - COMPLETED
+        - DELETED
+
+    Appointment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        patientId: { type: string, format: uuid }
+        professionalId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        situation:
+          $ref: '#/components/schemas/AppointmentSituation'
+
+    AppointmentWrite:
+      type: object
+      required: [patientId, professionalId, startsAt]
+      properties:
+        patientId: { type: string, format: uuid }
+        professionalId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        notes: { type: string }
+
+    EncounterStatus:
+      type: string
+      enum:
+        - WAITING
+        - INITIAL_LISTENING
+        - IN_PROGRESS
+        - COMPLETED
+        - LEFT_WITHOUT_CARE
+        - WAITING_OBSERVATION
+        - IN_OBSERVATION
+        - LEFT_OBSERVATION
+
+    Encounter:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        patientId: { type: string, format: uuid }
+        facilityId: { type: string, format: uuid }
+        appointmentId: { type: string, format: uuid }
+        status:
+          $ref: '#/components/schemas/EncounterStatus'
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+
+    EncounterQueueItem:
+      type: object
+      properties:
+        encounterId: { type: string, format: uuid }
+        patientName: { type: string }
+        status:
+          $ref: '#/components/schemas/EncounterStatus'
+        waitingMinutes: { type: integer }
+        riskColor: { type: string }
+
+    EncounterOpen:
+      type: object
+      required: [patientId]
+      properties:
+        patientId: { type: string, format: uuid }
+        appointmentId: { type: string, format: uuid }
+        spontaneous: { type: boolean, default: true }
+
+    EncounterClinical:
+      type: object
+      required: [outcomes]
+      properties:
+        shift: { type: string }
+        careLocationId: { type: string }
+        encounterType: { type: string }
+        weightKg: { type: number }
+        heightCm: { type: number }
+        ciapCodes:
+          type: array
+          items: { type: string }
+        cidCodes:
+          type: array
+          items: { type: string }
+        procedures:
+          type: array
+          items: { type: string }
+        soapSubjective: { type: string }
+        soapObjective: { type: string }
+        soapAssessment: { type: string }
+        soapPlan: { type: string }
+        outcomes:
+          type: array
+          items: { type: string }
+          minItems: 1
+
+    VaccinationStrategy:
+      type: string
+      description: Códigos alinhados a EstrategiaVacinacaoDbEnum / LEDI
+      enum:
+        - ROUTINE
+        - SPECIAL
+        - BLOCK
+        - INTENSIFICATION
+        - CAMPAIGN_INDISCRIMINATE
+        - CAMPAIGN_SELECTIVE
+        - SEROTHERAPY
+        - PRIVATE
+        - MEV
+        - MULTIVACCINATION
+        - RESEARCH
+        - PRE_EXPOSURE
+        - POST_EXPOSURE
+        - REEXPOSURE
+        - SCHOOL
+
+    VaccineApplication:
+      type: object
+      required: [immunobiologicalId, attendanceGroupId, lot, manufacturerId, routeId, siteId]
+      properties:
+        immunobiologicalId: { type: string }
+        strategy:
+          $ref: '#/components/schemas/VaccinationStrategy'
+        attendanceGroupId: { type: string }
+        doseId: { type: string }
+        lot: { type: string, maxLength: 30 }
+        manufacturerId: { type: string }
+        routeId: { type: string }
+        siteId: { type: string }
+        prescriberCboId: { type: string }
+        indicationCid10: { type: string }
+        leprosyContact: { type: boolean }
+        isClinicalResearch: { type: boolean }
+        anvisaStudyProtocol: { type: string, maxLength: 10 }
+        anvisaProtocolVersion: { type: string, maxLength: 10 }
+        anvisaRegistrationNumber: { type: string, maxLength: 10 }
+
+    VaccinationWrite:
+      type: object
+      required: [patientId, applications]
+      properties:
+        patientId: { type: string, format: uuid }
+        shift: { type: string }
+        careLocationId: { type: string }
+        applications:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/VaccineApplication'
+
+    VaccinationRecord:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        patientId: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [DRAFT, NOT_SENT, SENT]
+        applications:
+          type: array
+          items:
+            $ref: '#/components/schemas/VaccineApplication'
+        createdAt: { type: string, format: date-time }
+
+    VaccinationCard:
+      type: object
+      properties:
+        patientId: { type: string, format: uuid }
+        patientName: { type: string }
+        doses:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              immunobiological: { type: string }
+              dose: { type: string }
+              lot: { type: string }
+              strategy: { type: string }
+
+    CatalogItem:
+      type: object
+      properties:
+        id: { type: string }
+        code: { type: string }
+        label: { type: string }
+
+    HelpArticleSummary:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        module: { type: string }
+        type: { type: string, enum: [user, technical] }
+        version: { type: string }
+
+    HelpArticle:
+      allOf:
+        - $ref: '#/components/schemas/HelpArticleSummary'
+        - type: object
+          properties:
+            bodyMarkdown: { type: string }
+            updatedAt: { type: string, format: date-time }
+            versions:
+              type: array
+              items: { type: string }
+
+    FacilityWrite:
+      type: object
+      required: [cnes, name, active]
+      properties:
+        cnes: { type: string, maxLength: 20, description: CNES (legado NU_CNES) }
+        cnpj: { type: string, maxLength: 14 }
+        name: { type: string, description: Nome da unidade }
+        typeId: { type: string, description: TipoUnidadeSaude }
+        subtypeId: { type: string, description: SubtipoUnidadeSaude }
+        active: { type: boolean }
+        phone1: { type: string }
+        phone2: { type: string }
+        fax: { type: string }
+        email: { type: string, format: email }
+        address:
+          $ref: '#/components/schemas/Address'
+
+    Facility:
+      allOf:
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string, format: uuid }
+        - $ref: '#/components/schemas/FacilityWrite'
+
+    FacilityPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Facility'
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+
+    ProfessionalWrite:
+      type: object
+      required: [civilName]
+      properties:
+        cpf: { type: string, maxLength: 11 }
+        cns: { type: string, maxLength: 16 }
+        civilName: { type: string }
+        socialName: { type: string }
+        sex: { type: string, enum: [MALE, FEMALE, UNKNOWN] }
+        birthDate: { type: string, format: date }
+        phone: { type: string }
+        email: { type: string, format: email }
+        councilNumber: { type: string, maxLength: 10 }
+        councilId: { type: string }
+        councilIssuerUfId: { type: string }
+        address:
+          $ref: '#/components/schemas/Address'
+
+    Professional:
+      allOf:
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string, format: uuid }
+            displayName:
+              type: string
+              description: Nome social se houver, senão civil (espelha PostLoad do e-SUS)
+        - $ref: '#/components/schemas/ProfessionalWrite'
+
+    ProfessionalPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Professional'
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+
+    ProfessionalAllocationWrite:
+      type: object
+      required: [facilityId, cboId]
+      properties:
+        facilityId: { type: string, format: uuid }
+        teamId: { type: string, format: uuid }
+        cboId: { type: string, description: CBO da lotação }
+        active: { type: boolean, default: true }
+        deactivatedAt: { type: string, format: date-time }
+
+    ProfessionalAllocation:
+      allOf:
+        - type: object
+          required: [id, professionalId]
+          properties:
+            id: { type: string, format: uuid }
+            professionalId: { type: string, format: uuid }
+            facilityCnes: { type: string }
+            teamIne: { type: string }
+            cboCode2002: { type: string }
+        - $ref: '#/components/schemas/ProfessionalAllocationWrite'
+
+    TeamWrite:
+      type: object
+      required: [facilityId, name, teamTypeId, active]
+      properties:
+        ine: { type: string, maxLength: 255, description: INE }
+        facilityId: { type: string, format: uuid }
+        name: { type: string }
+        area: { type: string }
+        teamTypeId: { type: string, description: TipoEquipe }
+        active: { type: boolean }
+        uniqueCode: { type: string, description: CO_UNICO_EQUIPE }
+
+    Team:
+      allOf:
+        - type: object
+          required: [id]
+          properties:
+            id: { type: string, format: uuid }
+        - $ref: '#/components/schemas/TeamWrite'
+
+    TeamPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Team'
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+
+    Address:
+      type: object
+      description: Endereço embutido (legado Endereco)
+      properties:
+        street: { type: string }
+        number: { type: string }
+        complement: { type: string }
+        neighborhood: { type: string }
+        postalCode: { type: string }
+        localityId: { type: string }

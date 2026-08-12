@@ -1,0 +1,21 @@
+{
+  "name": "sigs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SIGS — Sistema de Gestão em Saúde (Franca/SP)",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev --workspace=@sigs/api",
+    "dev:web": "npm run dev --workspace=@sigs/web",
+    "start:faturamento": "bash scripts/start-faturamento-odonto.sh",
+    "build": "npm run build --workspace=@sigs/api && npm run build --workspace=@sigs/web",
+    "test": "npm run test --workspace=@sigs/api",
+    "db:migrate": "npm run db:migrate --workspace=@sigs/api",
+    "db:generate": "npm run db:generate --workspace=@sigs/api"
+  },
+  "engines": { "node": ">=20" },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
+}

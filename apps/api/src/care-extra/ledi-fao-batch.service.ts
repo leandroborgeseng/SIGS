@@ -1,0 +1,445 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  StreamableFile,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { RF } from '../common/rf';
+import { validateFaoXml, type FaoFinding, type FaoValidationReport } from './ledi-fao.validator';
+import { extractFaoMasterFromXml } from './ledi-fao-xml.parser';
+import {
+  applyAutoFixes,
+  classifyAutoFixable,
+  fixIne,
+  fixProblemasCondicoes,
+  fixStNaoPossuiCpf,
+  fixTiposConsultaOdonto,
+  type AutoFixOptions,
+} from './ledi-fao-xml.fixer';
+import { buildStoreZip } from './zip-store';
+import {
+  CreateLediFaoBatchDto,
+  PatchLediFaoBatchItemDto,
+  AutoFixLediFaoBatchDto,
+} from './dto';
+
+type ItemSummary = {
+  id: string;
+  fileName: string;
+  status: string;
+  blockers: number;
+  moneyRisks: number;
+  qualityWarns: number;
+  autoFixableCodes: string[];
+  topCodes: string[];
+};
+
+@Injectable()
+export class LediFaoBatchService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  private reportFromXml(xml: string): FaoValidationReport {
+    return validateFaoXml(xml);
+  }
+
+  private findingsStatus(findings: FaoFinding[]): string {
+    if (findings.some((f) => f.severity === 'BLOCKER' || f.severity === 'MONEY_RISK')) {
+      return 'blocker';
+    }
+    if (findings.some((f) => f.severity === 'QUALITY_WARN')) return 'warn';
+    return 'conformant';
+  }
+
+  private summarizeBatch(items: Array<{ status: string; findingsJson: string; autoFixableCodes: string }>) {
+    const codeFiles = new Map<string, number>();
+    let conformant = 0;
+    let withBlockers = 0;
+    let withWarn = 0;
+    let autoFixableItems = 0;
+
+    for (const it of items) {
+      if (it.status === 'conformant' || it.status === 'fixed') conformant += 1;
+      if (it.status === 'blocker') withBlockers += 1;
+      if (it.status === 'warn') withWarn += 1;
+      const codes = it.autoFixableCodes
+        ? it.autoFixableCodes.split(',').filter(Boolean)
+        : [];
+      if (codes.length) autoFixableItems += 1;
+      const findings = JSON.parse(it.findingsJson || '[]') as FaoFinding[];
+      const seen = new Set<string>();
+      for (const f of findings) {
+        if (seen.has(f.code)) continue;
+        seen.add(f.code);
+        codeFiles.set(f.code, (codeFiles.get(f.code) || 0) + 1);
+      }
+    }
+
+    const topCodes = [...codeFiles.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([code, files]) => ({ code, files, pct: Math.round((files / items.length) * 1000) / 10 }));
+
+    return {
+      total: items.length,
+      conformant,
+      withBlockers,
+      withWarn,
+      autoFixableItems,
+      topCodes,
+    };
+  }
+
+  async create(dto: CreateLediFaoBatchDto) {
+    if (!dto.files?.length) {
+      throw new BadRequestException('Envie ao menos um arquivo XML.');
+    }
+    if (dto.files.length > 5000) {
+      throw new BadRequestException('Limite de 5000 arquivos por lote.');
+    }
+
+    const prepared = dto.files.map((f) => {
+      const xml = f.xml?.trim();
+      if (!xml) throw new BadRequestException(`Arquivo sem conteúdo: ${f.name}`);
+      const report = this.reportFromXml(xml);
+      const findings = report.findings;
+      const auto = classifyAutoFixable(findings);
+      let masterJson: string | null = null;
+      try {
+        const extracted = extractFaoMasterFromXml(xml);
+        if (extracted.master) masterJson = JSON.stringify(extracted.master);
+      } catch {
+        masterJson = null;
+      }
+      return {
+        fileName: f.name.slice(0, 255),
+        status: this.findingsStatus(findings),
+        originalXml: xml,
+        currentXml: xml,
+        findingsJson: JSON.stringify(findings),
+        masterJson,
+        autoFixableCodes: auto.join(','),
+      };
+    });
+
+    const summary = this.summarizeBatch(prepared);
+    const batch = await this.prisma.lediFaoBatch.create({
+      data: {
+        name: dto.name?.trim() || `Lote FAO ${new Date().toISOString().slice(0, 16)}`,
+        status: summary.withBlockers === 0 && summary.withWarn === 0 ? 'ready' : 'analyzed',
+        summaryJson: JSON.stringify(summary),
+        items: { create: prepared },
+      },
+      include: { items: { select: { id: true } } },
+    });
+
+    void this.prisma.audit('ledi_fao_batch_create', 'ledi_fao_batch', batch.id, [RF.ODONTO.id, RF.ESUS.id], {
+      total: summary.total,
+      withBlockers: summary.withBlockers,
+    });
+
+    return this.get(batch.id);
+  }
+
+  async list() {
+    const rows = await this.prisma.lediFaoBatch.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: { _count: { select: { items: true } } },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      status: r.status,
+      createdAt: r.createdAt,
+      itemCount: r._count.items,
+      summary: JSON.parse(r.summaryJson || '{}'),
+    }));
+  }
+
+  async get(id: string) {
+    const batch = await this.prisma.lediFaoBatch.findUnique({ where: { id } });
+    if (!batch) throw new NotFoundException('Lote não encontrado');
+    const counts = await this.prisma.lediFaoBatchItem.groupBy({
+      by: ['status'],
+      where: { batchId: id },
+      _count: true,
+    });
+    return {
+      id: batch.id,
+      name: batch.name,
+      status: batch.status,
+      createdAt: batch.createdAt,
+      updatedAt: batch.updatedAt,
+      summary: JSON.parse(batch.summaryJson || '{}'),
+      statusCounts: Object.fromEntries(counts.map((c) => [c.status, c._count])),
+    };
+  }
+
+  async listItems(
+    batchId: string,
+    opts: { status?: string; q?: string; offset?: number; limit?: number } = {},
+  ) {
+    await this.ensureBatch(batchId);
+    const limit = Math.min(opts.limit ?? 100, 500);
+    const offset = opts.offset ?? 0;
+    const where = {
+      batchId,
+      ...(opts.status ? { status: opts.status } : {}),
+      ...(opts.q ? { fileName: { contains: opts.q } } : {}),
+    };
+    const [total, rows] = await Promise.all([
+      this.prisma.lediFaoBatchItem.count({ where }),
+      this.prisma.lediFaoBatchItem.findMany({
+        where,
+        orderBy: [{ status: 'asc' }, { fileName: 'asc' }],
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          fileName: true,
+          status: true,
+          findingsJson: true,
+          autoFixableCodes: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    const items: ItemSummary[] = rows.map((r) => {
+      const findings = JSON.parse(r.findingsJson || '[]') as FaoFinding[];
+      return {
+        id: r.id,
+        fileName: r.fileName,
+        status: r.status,
+        blockers: findings.filter((f) => f.severity === 'BLOCKER').length,
+        moneyRisks: findings.filter((f) => f.severity === 'MONEY_RISK').length,
+        qualityWarns: findings.filter((f) => f.severity === 'QUALITY_WARN').length,
+        autoFixableCodes: r.autoFixableCodes ? r.autoFixableCodes.split(',').filter(Boolean) : [],
+        topCodes: [...new Set(findings.map((f) => f.code))].slice(0, 6),
+      };
+    });
+
+    return { total, offset, limit, items };
+  }
+
+  async getItem(batchId: string, itemId: string) {
+    const item = await this.prisma.lediFaoBatchItem.findFirst({
+      where: { id: itemId, batchId },
+    });
+    if (!item) throw new NotFoundException('Item não encontrado');
+    const findings = JSON.parse(item.findingsJson || '[]') as FaoFinding[];
+    let master: unknown = null;
+    try {
+      master = item.masterJson
+        ? JSON.parse(item.masterJson)
+        : extractFaoMasterFromXml(item.currentXml).master;
+    } catch {
+      master = null;
+    }
+    return {
+      id: item.id,
+      batchId: item.batchId,
+      fileName: item.fileName,
+      status: item.status,
+      findings,
+      autoFixableCodes: item.autoFixableCodes
+        ? item.autoFixableCodes.split(',').filter(Boolean)
+        : [],
+      master,
+      currentXml: item.currentXml,
+      originalXml: item.originalXml,
+      updatedAt: item.updatedAt,
+    };
+  }
+
+  async autoFix(batchId: string, dto: AutoFixLediFaoBatchDto) {
+    await this.ensureBatch(batchId);
+    const opts: AutoFixOptions = {
+      stNaoPossuiCpf: dto.stNaoPossuiCpf !== false,
+      stNaoPossuiCpfWhenAbsent: dto.stNaoPossuiCpfWhenAbsent !== false,
+      ine: dto.ine,
+    };
+
+    const items = await this.prisma.lediFaoBatchItem.findMany({
+      where: {
+        batchId,
+        ...(dto.onlyItemIds?.length ? { id: { in: dto.onlyItemIds } } : {}),
+      },
+    });
+
+    let touched = 0;
+    for (const item of items) {
+      const findings = JSON.parse(item.findingsJson || '[]') as FaoFinding[];
+      let xml = item.currentXml;
+      let changed = false;
+
+      const result = applyAutoFixes(xml, findings, opts);
+      if (result.applied.length) {
+        xml = result.xml;
+        changed = true;
+      }
+
+      const codes = new Set(findings.map((f) => f.code));
+      if (
+        dto.problemasCondicoesDefault?.length &&
+        (codes.has('PROBLEMAS_MISSING') || codes.has('PROBLEMA_SEM_CODIGO'))
+      ) {
+        const r = fixProblemasCondicoes(xml, dto.problemasCondicoesDefault);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
+      if (!changed) continue;
+      await this.persistXml(item.id, xml);
+      touched += 1;
+    }
+
+    await this.refreshBatchSummary(batchId);
+    void this.prisma.audit('ledi_fao_batch_auto_fix', 'ledi_fao_batch', batchId, [RF.ODONTO.id], {
+      touched,
+      opts,
+    });
+    return { ...(await this.get(batchId)), touched };
+  }
+
+  async patchItem(batchId: string, itemId: string, dto: PatchLediFaoBatchItemDto) {
+    const item = await this.prisma.lediFaoBatchItem.findFirst({
+      where: { id: itemId, batchId },
+    });
+    if (!item) throw new NotFoundException('Item não encontrado');
+
+    let xml = item.currentXml;
+    const applied: string[] = [];
+
+    if (dto.ine?.trim()) {
+      const r = fixIne(xml, dto.ine);
+      xml = r.xml;
+      if (r.changed) applied.push('INE');
+    }
+
+    if (dto.stNaoPossuiCpf !== undefined) {
+      xml = xml.replace(/<stNaoPossuiCpf\b[^>]*>[\s\S]*?<\/stNaoPossuiCpf>\s*/gi, '');
+      const r = fixStNaoPossuiCpf(xml, dto.stNaoPossuiCpf);
+      xml = r.xml.replace(
+        /<stNaoPossuiCpf>\s*(true|false)\s*<\/stNaoPossuiCpf>/gi,
+        `<stNaoPossuiCpf>${dto.stNaoPossuiCpf}</stNaoPossuiCpf>`,
+      );
+      applied.push('ST_NAO_POSSUI_CPF');
+    }
+
+    if (dto.problemasCondicoes?.length) {
+      const r = fixProblemasCondicoes(xml, dto.problemasCondicoes);
+      xml = r.xml;
+      if (r.changed) applied.push('PROBLEMAS');
+    }
+
+    if (dto.tiposConsultaOdonto?.length) {
+      const r = fixTiposConsultaOdonto(xml, dto.tiposConsultaOdonto);
+      xml = r.xml;
+      if (r.changed) applied.push('TIPOS_CONSULTA');
+    }
+
+    if (dto.xml?.trim()) {
+      xml = dto.xml.trim();
+      applied.push('RAW_XML');
+    }
+
+    if (!applied.length) {
+      throw new BadRequestException('Nenhuma alteração informada.');
+    }
+
+    await this.persistXml(item.id, xml);
+    await this.refreshBatchSummary(batchId);
+    return this.getItem(batchId, itemId);
+  }
+
+  async exportZip(batchId: string, mode: 'current' | 'conformant' = 'current') {
+    await this.ensureBatch(batchId);
+    const items = await this.prisma.lediFaoBatchItem.findMany({
+      where: {
+        batchId,
+        ...(mode === 'conformant'
+          ? { OR: [{ status: 'conformant' }, { status: 'warn' }] }
+          : {}),
+      },
+      select: { fileName: true, currentXml: true, status: true },
+      orderBy: { fileName: 'asc' },
+    });
+    if (!items.length) throw new BadRequestException('Nenhum arquivo para exportar.');
+
+    const zip = buildStoreZip(
+      items.map((it) => ({
+        name: it.fileName.endsWith('.xml') ? it.fileName : `${it.fileName}.xml`,
+        data: it.currentXml,
+      })),
+    );
+
+    void this.prisma.audit('ledi_fao_batch_export', 'ledi_fao_batch', batchId, [RF.ODONTO.id], {
+      count: items.length,
+      mode,
+    });
+
+    return new StreamableFile(zip, {
+      type: 'application/zip',
+      disposition: `attachment; filename="ledi-fao-lote-${batchId.slice(0, 8)}.zip"`,
+    });
+  }
+
+  async delete(batchId: string) {
+    await this.ensureBatch(batchId);
+    await this.prisma.lediFaoBatch.delete({ where: { id: batchId } });
+    return { ok: true };
+  }
+
+  private async ensureBatch(id: string) {
+    const b = await this.prisma.lediFaoBatch.findUnique({ where: { id }, select: { id: true } });
+    if (!b) throw new NotFoundException('Lote não encontrado');
+  }
+
+  private async persistXml(itemId: string, xml: string) {
+    const report = this.reportFromXml(xml);
+    const findings = report.findings;
+    const auto = classifyAutoFixable(findings);
+    const status = this.findingsStatus(findings);
+
+    let masterJson: string | null = null;
+    try {
+      const extracted = extractFaoMasterFromXml(xml);
+      if (extracted.master) masterJson = JSON.stringify(extracted.master);
+    } catch {
+      masterJson = null;
+    }
+
+    await this.prisma.lediFaoBatchItem.update({
+      where: { id: itemId },
+      data: {
+        currentXml: xml,
+        findingsJson: JSON.stringify(findings),
+        autoFixableCodes: auto.join(','),
+        masterJson,
+        status,
+      },
+    });
+  }
+
+  private async refreshBatchSummary(batchId: string) {
+    const items = await this.prisma.lediFaoBatchItem.findMany({
+      where: { batchId },
+      select: { status: true, findingsJson: true, autoFixableCodes: true },
+    });
+    const summary = this.summarizeBatch(items);
+    const status =
+      summary.withBlockers === 0
+        ? 'ready'
+        : summary.conformant > 0 || summary.autoFixableItems < summary.total
+          ? 'partially_fixed'
+          : 'analyzed';
+    await this.prisma.lediFaoBatch.update({
+      where: { id: batchId },
+      data: { summaryJson: JSON.stringify(summary), status },
+    });
+  }
+}

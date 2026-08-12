@@ -1,0 +1,260 @@
+/**
+ * Catálogo SIGTAP local (piloto APS Franca) — sem zip MS.
+ * Códigos estáveis usados no BPA stub, demos e fluxos TR parciais.
+ * Nomes alinhados à nomenclatura SUS usual; confirmar na competência oficial quando o download voltar.
+ */
+
+export type SigtapSeedItem = {
+  code: string;
+  name: string;
+  complex: string;
+  groupCode: string;
+  groupName: string;
+  /** tags internas (não vão ao banco) */
+  tags?: string[];
+};
+
+export const SIGTAP_SEED_COMPETENCIA = '202608';
+
+export const SIGTAP_SEED: SigtapSeedItem[] = [
+  // —— BPA stub / produção LEDI (obrigatórios no preflight) ——
+  {
+    code: '0301010064',
+    name: 'Consulta médica em atenção básica',
+    complex: 'Atenção Básica',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['bpa', 'individual'],
+  },
+  {
+    code: '0301010030',
+    name: 'Administração de imunobiológicos',
+    complex: 'Atenção Básica',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['bpa', 'vacina'],
+  },
+  {
+    code: '0101020010',
+    name: 'Consulta odontológica',
+    complex: 'Atenção Básica',
+    groupCode: '01',
+    groupName: 'Ações de promoção e prevenção',
+    tags: ['bpa', 'odonto'],
+  },
+  {
+    code: '0101040024',
+    name: 'Atendimento / visita domiciliar',
+    complex: 'Atenção Básica',
+    groupCode: '01',
+    groupName: 'Ações de promoção e prevenção',
+    tags: ['bpa', 'ad'],
+  },
+  {
+    code: '0101050011',
+    name: 'Ação coletiva de educação em saúde',
+    complex: 'Atenção Básica',
+    groupCode: '01',
+    groupName: 'Ações de promoção e prevenção',
+    tags: ['bpa', 'coletivo'],
+  },
+
+  // —— Consultas / acolhimento APS ——
+  {
+    code: '0301010072',
+    name: 'Consulta de profissionais de nível superior na atenção básica (exceto médico)',
+    complex: 'Atenção Básica',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['aps', 'consulta'],
+  },
+  {
+    code: '0301010048',
+    name: 'Atendimento de profissionais de nível médio na atenção básica',
+    complex: 'Atenção Básica',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['aps', 'consulta'],
+  },
+  {
+    code: '0301100039',
+    name: 'Atendimento de urgência em atenção básica',
+    complex: 'Atenção Básica',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['aps', 'urgencia'],
+  },
+  {
+    code: '0301040079',
+    name: 'Consulta de enfermagem',
+    complex: 'Atenção Básica',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['aps', 'enfermagem'],
+  },
+  {
+    code: '0301060061',
+    name: 'Acolhimento com classificação de risco',
+    complex: 'Atenção Básica',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['aps', 'acolhimento'],
+  },
+
+  // —— Coletivo / educação / ACS ——
+  {
+    code: '0101010010',
+    name: 'Atividade educativa / orientação em grupo',
+    complex: 'Atenção Básica',
+    groupCode: '01',
+    groupName: 'Ações de promoção e prevenção',
+    tags: ['coletivo'],
+  },
+  {
+    code: '0101030019',
+    name: 'Visita domiciliar por profissional de nível superior',
+    complex: 'Atenção Básica',
+    groupCode: '01',
+    groupName: 'Ações de promoção e prevenção',
+    tags: ['ad', 'acs'],
+  },
+  {
+    code: '0101030027',
+    name: 'Visita domiciliar por profissional de nível médio / ACS',
+    complex: 'Atenção Básica',
+    groupCode: '01',
+    groupName: 'Ações de promoção e prevenção',
+    tags: ['ad', 'acs'],
+  },
+
+  // —— Odontologia APS ——
+  {
+    code: '0101020029',
+    name: 'Aplicação tópica de flúor',
+    complex: 'Atenção Básica',
+    groupCode: '01',
+    groupName: 'Ações de promoção e prevenção',
+    tags: ['odonto'],
+  },
+  {
+    code: '0101020037',
+    name: 'Evidenciamento de placa bacteriana',
+    complex: 'Atenção Básica',
+    groupCode: '01',
+    groupName: 'Ações de promoção e prevenção',
+    tags: ['odonto'],
+  },
+  {
+    code: '0101020045',
+    name: 'Selante de fóssulas e fissuras',
+    complex: 'Atenção Básica',
+    groupCode: '01',
+    groupName: 'Ações de promoção e prevenção',
+    tags: ['odonto'],
+  },
+  {
+    code: '0101020061',
+    name: 'Orientação de higiene bucal',
+    complex: 'Atenção Básica',
+    groupCode: '01',
+    groupName: 'Ações de promoção e prevenção',
+    tags: ['odonto'],
+  },
+  {
+    code: '0307010015',
+    name: 'Restauração de dente permanente anterior',
+    complex: 'Atenção Básica',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['odonto'],
+  },
+  {
+    code: '0307010031',
+    name: 'Restauração de dente permanente posterior',
+    complex: 'Atenção Básica',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['odonto'],
+  },
+  {
+    code: '0307020025',
+    name: 'Exodontia de dente permanente',
+    complex: 'Atenção Básica',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['odonto'],
+  },
+
+  // —— Procedimentos / monitoramento APS ——
+  {
+    code: '0301100012',
+    name: 'Aferição de pressão arterial',
+    complex: 'Atenção Básica',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['procedimento', 'aps'],
+  },
+  {
+    code: '0214010015',
+    name: 'Eletrocardiograma',
+    complex: 'Média Complexidade',
+    groupCode: '02',
+    groupName: 'Procedimentos com finalidade diagnóstica',
+    tags: ['diagnostico'],
+  },
+  {
+    code: '0211020036',
+    name: 'Dosagem de glicose',
+    complex: 'Média Complexidade',
+    groupCode: '02',
+    groupName: 'Procedimentos com finalidade diagnóstica',
+    tags: ['diagnostico', 'lab'],
+  },
+  {
+    code: '0202030080',
+    name: 'Ultrassonografia de abdome total',
+    complex: 'Média Complexidade',
+    groupCode: '02',
+    groupName: 'Procedimentos com finalidade diagnóstica',
+    tags: ['diagnostico', 'regulacao'],
+  },
+  {
+    code: '0205020023',
+    name: 'Tomografia computadorizada de crânio',
+    complex: 'Alta Complexidade',
+    groupCode: '02',
+    groupName: 'Procedimentos com finalidade diagnóstica',
+    tags: ['diagnostico', 'regulacao'],
+  },
+
+  // —— Especialidades (gancho regulação / BPA futuro) ——
+  {
+    code: '0301010110',
+    name: 'Consulta médica em atenção especializada',
+    complex: 'Média Complexidade',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['regulacao', 'especializado'],
+  },
+  {
+    code: '0301010129',
+    name: 'Consulta médica em atenção especializada (retorno)',
+    complex: 'Média Complexidade',
+    groupCode: '03',
+    groupName: 'Procedimentos clínicos',
+    tags: ['regulacao', 'especializado'],
+  },
+];
+
+/** Códigos BPA stub — devem existir no seed. */
+export const SIGTAP_BPA_STUB_CODES = [
+  '0301010064',
+  '0301010030',
+  '0101020010',
+  '0101040024',
+  '0101050011',
+] as const;
+
+export function sigtapSeedByTag(tag: string): SigtapSeedItem[] {
+  return SIGTAP_SEED.filter((s) => s.tags?.includes(tag));
+}

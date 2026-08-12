@@ -1,0 +1,64 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtualenv
+.venv/
+venv/
+
+# Node
+node_modules/
+apps/api/dist/
+apps/web/.next/
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# Runtime / local
+*.log
+tmp/
+tools/node/
+tools/node-home/
+tools/jdk-*/
+tools/*.jar
+tools/cfr-*/
+
+# Dados / engenharia reversa (não sobem ao GitHub — limite de tamanho)
+e-SUS/
+cache/
+Samu/
+Handoff\ Cursor/
+Handoff Cursor/
+
+# Inventário e-SUS pesado
+01-manifest.json
+02-all-jars.txt
+03-jar-classification.csv
+04-package-tree.txt
+05-relevant-jars.txt
+06-relevant-classes.txt
+data/esus/**/inventory/
+data/esus/**/reports/
+data/esus/**/extracted/
+data/esus/**/jars/
+data/esus/**/*.jar
+*.esus.xml
+
+# Binários
+*.psd
+*.dll
+*.jmod
+*.jar
+!apps/**/*.jar
+apps/api-python/.data/

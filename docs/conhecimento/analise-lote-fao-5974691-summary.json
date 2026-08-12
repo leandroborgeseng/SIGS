@@ -1,0 +1,156 @@
+{
+  "generatedAt": "2026-08-12T13:24:28.513Z",
+  "dir": "/Users/leandroborges/Downloads/5974691",
+  "tipoLedi": 5,
+  "total": 1131,
+  "conformant": 0,
+  "withBlockers": 1131,
+  "withMoneyRisk": 0,
+  "onlyWarn": 0,
+  "ineMissingEnvelope": 166,
+  "severityCounts": {
+    "BLOCKER": 2267,
+    "QUALITY_WARN": 166
+  },
+  "topCodes": [
+    {
+      "code": "PROBLEMAS_MISSING",
+      "files": 1131,
+      "pct": 100,
+      "sample": "atendimentoodontologico-1208260958-126090861660005-006738044001.esus.xml",
+      "message": "problemasCondicoes obrigatório (≥1) — CIAP e/ou CID10."
+    },
+    {
+      "code": "ST_NAO_POSSUI_CPF",
+      "files": 1131,
+      "pct": 100,
+      "sample": "atendimentoodontologico-1208260958-126090861660005-006738044001.esus.xml",
+      "message": "stNaoPossuiCpf é obrigatório (boolean)."
+    },
+    {
+      "code": "INE_MISSING",
+      "files": 166,
+      "pct": 14.7,
+      "sample": "atendimentoodontologico-1208260958-126090861660005-349911142002.esus.xml",
+      "message": "INE da equipe ausente (recomendado em APS)."
+    },
+    {
+      "code": "TIPO_CONSULTA_REQUIRED",
+      "files": 3,
+      "pct": 0.3,
+      "sample": "atendimentoodontologico-1208260958-207274330610009-865445017002.esus.xml",
+      "message": "tiposConsultaOdonto obrigatório quando tipoAtendimento=2 (consulta agendada)."
+    },
+    {
+      "code": "TRATAMENTO_CONCLUIDO_RULE",
+      "files": 2,
+      "pct": 0.2,
+      "sample": "atendimentoodontologico-1208260958-700007947579304-552955062001.esus.xml",
+      "message": "Conduta 15 (tratamento concluído) exige tiposConsultaOdonto 1 ou 2."
+    }
+  ],
+  "cboDist": {
+    "223208": 1131
+  },
+  "tipoAtendDist": {
+    "2": 795,
+    "4": 29,
+    "5": 104,
+    "6": 203
+  },
+  "consultaDist": {
+    "1": 257,
+    "2": 520,
+    "4": 263,
+    "null": 91
+  },
+  "vigilanciaDist": {
+    "1": 7,
+    "2": 6,
+    "3": 150,
+    "4": 1,
+    "6": 3,
+    "99": 973
+  },
+  "encamDist": {
+    "1": 1,
+    "2": 15,
+    "3": 42,
+    "4": 3,
+    "5": 1,
+    "6": 131,
+    "8": 6,
+    "9": 7,
+    "10": 5,
+    "11": 545,
+    "12": 7,
+    "15": 177,
+    "16": 319,
+    "17": 85
+  },
+  "topProcs": [
+    [
+      "0301010030",
+      645
+    ],
+    [
+      "0101020104",
+      390
+    ],
+    [
+      "0301010153",
+      285
+    ],
+    [
+      "0301060037",
+      202
+    ],
+    [
+      "0307010120",
+      181
+    ],
+    [
+      "0307030040",
+      141
+    ],
+    [
+      "0101020090",
+      134
+    ],
+    [
+      "0101020040",
+      107
+    ],
+    [
+      "0307030059",
+      102
+    ],
+    [
+      "0101020031",
+      96
+    ],
+    [
+      "0307020010",
+      85
+    ],
+    [
+      "0307010104",
+      83
+    ],
+    [
+      "0101020082",
+      64
+    ],
+    [
+      "0204010225",
+      63
+    ],
+    [
+      "0307020029",
+      63
+    ]
+  ],
+  "originVersion": {
+    "3.3.186": 1131
+  }
+}
