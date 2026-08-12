@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError, getToken } from '@/lib/api';
+import { readTextFilesBatched } from '@/lib/read-text-file';
 
 type LoteTipo = 'FAI' | 'PROCEDIMENTOS';
 
@@ -72,27 +73,19 @@ const META: Record<
   },
 };
 
-async function downloadZip(batchId: string, mode: 'current' | 'conformant') {
+function downloadZip(batchId: string, mode: 'current' | 'conformant') {
   const token = getToken();
-  const res = await fetch(`${API_BASE}/v1/dental/ledi/batches/${batchId}/export.zip?mode=${mode}`, {
+  return fetch(`${API_BASE}/v1/dental/ledi/batches/${batchId}/export.zip?mode=${mode}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new Error(`Exportação falhou (${res.status})`);
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `ledi-lote-${batchId.slice(0, 8)}.zip`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function readFileAsText(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(reader.error || new Error('Falha ao ler arquivo'));
-    reader.readAsText(file);
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`Exportação falhou (${res.status})`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ledi-lote-${batchId.slice(0, 8)}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
   });
 }
 
@@ -140,10 +133,11 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       const list = Array.from(files).filter((f) => f.name.toLowerCase().endsWith('.xml'));
       if (!list.length) throw new Error('Selecione arquivos .xml');
       setUploadProgress(`Lendo ${list.length}…`);
-      const payload = [];
-      for (const f of list) {
-        payload.push({ name: f.name, xml: await readFileAsText(f) });
-      }
+      const read = await readTextFilesBatched(list, {
+        concurrency: 8,
+        onProgress: (done, total) => setUploadProgress(`Lidos ${done}/${total}…`),
+      });
+      const payload = read.map((r) => ({ name: r.name, xml: r.text }));
       setUploadProgress(`Validando lote ${meta.label}…`);
       const created = await api<Batch>('/v1/dental/ledi/batches', {
         method: 'POST',

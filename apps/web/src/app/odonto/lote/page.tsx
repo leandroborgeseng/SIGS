@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError, getToken } from '@/lib/api';
+import { readTextFilesBatched } from '@/lib/read-text-file';
 import { bodyForRepairUi, lookupRepair, type AlertRepair } from './repair-catalog';
 
 type BatchSummary = {
@@ -133,15 +134,6 @@ async function downloadZip(batchId: string, mode: 'current' | 'conformant') {
   URL.revokeObjectURL(url);
 }
 
-function readFileAsText(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(reader.error || new Error('Falha ao ler arquivo'));
-    reader.readAsText(file);
-  });
-}
-
 function barTone(severity?: string, channel?: string) {
   if (severity === 'BLOCKER' || severity === 'MONEY_RISK') return 'danger';
   if (severity === 'QUALITY_WARN') return 'warn';
@@ -252,21 +244,17 @@ export default function OdontoLotePage() {
       const list = Array.from(files).filter((f) => f.name.toLowerCase().endsWith('.xml'));
       if (!list.length) throw new Error('Selecione arquivos .xml');
       setUploadProgress(`Lendo ${list.length} arquivos…`);
-      const payload: Array<{ name: string; xml: string }> = [];
-      const chunk = 40;
-      for (let i = 0; i < list.length; i += chunk) {
-        const slice = list.slice(i, i + chunk);
-        const parts = await Promise.all(
-          slice.map(async (f) => ({ name: f.name, xml: await readFileAsText(f) })),
-        );
-        payload.push(...parts);
-        setUploadProgress(`Lidos ${payload.length}/${list.length}…`);
-      }
+      const read = await readTextFilesBatched(list, {
+        concurrency: 8,
+        onProgress: (done, total) => setUploadProgress(`Lidos ${done}/${total}…`),
+      });
+      const payload = read.map((r) => ({ name: r.name, xml: r.text }));
       setUploadProgress(`Validando lote (${payload.length} fichas)…`);
       const created = await api<Batch>('/v1/dental/ledi/batches', {
         method: 'POST',
         json: {
           name: batchName.trim() || `FAO ${new Date().toLocaleString('pt-BR')}`,
+          expectedTipo: 'FAO',
           files: payload,
         },
       });
