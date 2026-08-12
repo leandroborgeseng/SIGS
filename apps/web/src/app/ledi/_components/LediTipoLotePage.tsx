@@ -8,7 +8,7 @@ import { api, ApiError, getToken } from '@/lib/api';
 import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
 import { formatUploadError } from '@/lib/format-upload-error';
 import { FileDropZone } from '@/components/ui/FileDropZone';
-import { explainError } from '@/app/odonto/lote/error-catalog';
+import { explainError, resolveSeverity, severityLabel, severityRank, severityTone } from '@/app/odonto/lote/error-catalog';
 
 type LoteTipo = 'FAI' | 'PROCEDIMENTOS';
 
@@ -285,12 +285,33 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
               Total {batch.summary.total} · blockers {batch.summary.withBlockers} · Siaps ok{' '}
               {batch.summary.siapsReady ?? '—'} · prontas {batch.summary.readyForFinalSend ?? '—'}
             </p>
+            <div className="lote-priority" style={{ marginTop: 0 }}>
+              <div className="lote-priority-card blocker">
+                <div className="step">1º · Vermelho</div>
+                <strong>Bloqueia envio</strong>
+              </div>
+              <div className="lote-priority-card money">
+                <div className="step">2º · Laranja</div>
+                <strong>Risco de faturamento</strong>
+              </div>
+              <div className="lote-priority-card quality">
+                <div className="step">3º · Verde</div>
+                <strong>Indicadores / info</strong>
+              </div>
+            </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {(batch.summary.topCodes || []).slice(0, 8).map((c) => (
-                <span key={c.code} className="muted" style={{ fontSize: 13 }}>
-                  {explainError(c.code)?.title || c.code} ({c.files})
-                </span>
-              ))}
+              {(batch.summary.topCodes || [])
+                .map((c) => ({
+                  ...c,
+                  severity: resolveSeverity(c.code, 'BLOCKER'),
+                }))
+                .sort((a, b) => severityRank(a.severity) - severityRank(b.severity) || b.files - a.files)
+                .slice(0, 8)
+                .map((c) => (
+                  <span key={c.code} className={`lote-sev ${c.severity}`} style={{ fontSize: 12 }}>
+                    {severityLabel(c.severity)} · {explainError(c.code)?.title || c.code} ({c.files})
+                  </span>
+                ))}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
               <button
@@ -376,27 +397,41 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                       {selected.fichaTipo} · {selected.status} · Siaps {selected.siapsReady ? 'ok' : 'bloquear'}
                     </span>
                   </p>
-                  <ul style={{ paddingLeft: 18, fontSize: 13 }}>
-                    {selected.findings.map((f, i) => {
-                      const guide = explainError(f.code);
-                      return (
-                        <li key={`${f.code}-${i}`} style={{ marginBottom: 8 }}>
-                          <strong>{guide?.title || f.code}</strong>
-                          {guide?.why ? (
-                            <div className="muted">{guide.why}</div>
-                          ) : (
-                            <div className="muted">{f.message}</div>
-                          )}
-                          {guide?.how ? (
-                            <div className="muted">
-                              <strong>O que fazer:</strong> {guide.how}
-                            </div>
-                          ) : f.hint ? (
-                            <div className="muted">{f.hint}</div>
-                          ) : null}
-                        </li>
-                      );
-                    })}
+                  <ul style={{ paddingLeft: 0, listStyle: 'none', fontSize: 13 }}>
+                    {[...selected.findings]
+                      .map((f) => ({
+                        f,
+                        sev: String(f.severity || resolveSeverity(f.code)),
+                      }))
+                      .sort((a, b) => severityRank(a.sev) - severityRank(b.sev))
+                      .map(({ f, sev }, i) => {
+                        const guide = explainError(f.code);
+                        const tone = severityTone(sev);
+                        return (
+                          <li
+                            key={`${f.code}-${i}`}
+                            className={`lote-alert-row ${tone}`}
+                            style={{ marginBottom: 8, padding: '8px 10px', borderRadius: 6 }}
+                          >
+                            <span className={`lote-sev ${sev}`}>{severityLabel(sev)}</span>
+                            <strong style={{ display: 'block', marginTop: 4 }}>
+                              {guide?.title || f.code}
+                            </strong>
+                            {guide?.why ? (
+                              <div className="muted">{guide.why}</div>
+                            ) : (
+                              <div className="muted">{f.message}</div>
+                            )}
+                            {guide?.how ? (
+                              <div className="muted">
+                                <strong>O que fazer:</strong> {guide.how}
+                              </div>
+                            ) : f.hint ? (
+                              <div className="muted">{f.hint}</div>
+                            ) : null}
+                          </li>
+                        );
+                      })}
                   </ul>
                   {selected.findings.some((f) => f.code === 'ST_NAO_POSSUI_CPF') ? (
                     <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void fixSelectedSt()}>

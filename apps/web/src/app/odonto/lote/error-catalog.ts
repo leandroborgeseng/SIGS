@@ -616,3 +616,43 @@ export function explainError(code: string): ErrorExplain | undefined {
 export function allErrorExplanations(): ErrorExplain[] {
   return Object.values(ERROR_CATALOG).sort((a, b) => a.code.localeCompare(b.code));
 }
+
+/** Prioridade de tratamento: 1 bloqueio → 2 faturamento → 3 indicadores → 4 info. */
+export function severityRank(sev?: string): number {
+  if (sev === 'BLOCKER') return 1;
+  if (sev === 'MONEY_RISK') return 2;
+  if (sev === 'QUALITY_WARN') return 3;
+  if (sev === 'INFO') return 4;
+  return 9;
+}
+
+export function resolveSeverity(code: string, fallback?: string): ErrorSeverity | string {
+  return ERROR_CATALOG[code]?.severity || fallback || '';
+}
+
+/** Rótulo curto para badge na UI. */
+export function severityLabel(sev?: string): string {
+  if (sev === 'BLOCKER') return 'Bloqueia envio';
+  if (sev === 'MONEY_RISK') return 'Risco faturamento';
+  if (sev === 'QUALITY_WARN') return 'Indicadores';
+  if (sev === 'INFO') return 'Info governo';
+  return sev || '';
+}
+
+/** Classe CSS da barra / badge (cores distintas por prioridade). */
+export function severityTone(sev?: string): string {
+  if (sev === 'BLOCKER') return 'blocker';
+  if (sev === 'MONEY_RISK') return 'money';
+  if (sev === 'QUALITY_WARN') return 'quality';
+  if (sev === 'INFO') return 'info';
+  return '';
+}
+
+export function compareBySeverityThenCount(
+  a: { severity?: string; files?: number },
+  b: { severity?: string; files?: number },
+): number {
+  const bySev = severityRank(a.severity) - severityRank(b.severity);
+  if (bySev !== 0) return bySev;
+  return (b.files || 0) - (a.files || 0);
+}

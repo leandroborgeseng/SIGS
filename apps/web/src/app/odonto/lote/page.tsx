@@ -9,6 +9,13 @@ import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
 import { formatUploadError } from '@/lib/format-upload-error';
 import { FileDropZone } from '@/components/ui/FileDropZone';
 import { bodyForRepairUi, lookupRepair, type AlertRepair } from './repair-catalog';
+import {
+  compareBySeverityThenCount,
+  resolveSeverity,
+  severityLabel,
+  severityRank,
+  severityTone,
+} from './error-catalog';
 
 type BatchSummary = {
   total: number;
@@ -136,27 +143,12 @@ async function downloadZip(batchId: string, mode: 'current' | 'conformant') {
   URL.revokeObjectURL(url);
 }
 
-function severityLabel(sev?: string) {
-  if (sev === 'BLOCKER') return 'Bloqueio';
-  if (sev === 'MONEY_RISK') return 'Risco $';
-  if (sev === 'QUALITY_WARN') return 'Atenção';
-  if (sev === 'INFO') return 'Info';
-  return sev || '';
-}
-
 function codesToFriendly(codes: string[]): string {
   if (!codes.length) return '—';
   return codes
     .slice(0, 4)
     .map((c) => lookupRepair(c)?.title || c)
     .join(' · ');
-}
-
-function barTone(severity?: string, channel?: string) {
-  if (severity === 'BLOCKER' || severity === 'MONEY_RISK') return 'danger';
-  if (severity === 'QUALITY_WARN') return 'warn';
-  if (channel === 'PREVINE') return 'previne';
-  return '';
 }
 
 
@@ -609,9 +601,33 @@ export default function OdontoLotePage() {
           <div className="card" style={{ marginBottom: 16 }}>
             <h3 style={{ marginTop: 0 }}>2. Diagnóstico — {batch.name}</h3>
             <p className="muted" style={{ marginTop: 0 }}>
-              Fluxo: corrigir blockers LEDI → reduzir MONEY_RISK Previne → exportar ZIP só quando “Envio final”
-              estiver alto.
+              Ordem de trabalho: primeiro liberar o envio, depois proteger o faturamento/Previne, por último
+              melhorar indicadores e informação ao governo.
             </p>
+
+            <div className="lote-priority">
+              <div className="lote-priority-card blocker">
+                <div className="step">1º · Vermelho</div>
+                <strong>Bloqueia envio</strong>
+                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                  Sem corrigir, a ficha não passa no Siaps/Ministério. Produção não entra.
+                </div>
+              </div>
+              <div className="lote-priority-card money">
+                <div className="step">2º · Laranja</div>
+                <strong>Risco de faturamento</strong>
+                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                  Envia, mas pode perder ponto/repasse (Previne e produção que não pontua).
+                </div>
+              </div>
+              <div className="lote-priority-card quality">
+                <div className="step">3º · Verde</div>
+                <strong>Indicadores / info</strong>
+                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                  Qualidade dos indicadores e dados para o governo — tratar depois dos dois acima.
+                </div>
+              </div>
+            </div>
 
             <div className="lote-funnel">
               <div className="lote-funnel-item">
@@ -685,37 +701,47 @@ export default function OdontoLotePage() {
                   produção não “entra” até corrigir.
                 </p>
                 <div className="lote-bars">
-                  {(batch.summary.topCodes || []).map((c) => {
-                    const guide = lookupRepair(c.code);
-                    return (
-                      <button
-                        key={c.code}
-                        type="button"
-                        className={`lote-bar-row ${codeFilter === c.code ? 'active' : ''}`}
-                        onClick={() => filterByCode(c.code)}
-                        title={guide?.how || c.code}
-                      >
-                        <span>
-                          <strong style={{ fontSize: 13 }}>{guide?.title || c.code}</strong>
-                          {guide?.why ? (
-                            <div className="muted">
-                              {guide.why.slice(0, 110)}
-                              {guide.why.length > 110 ? '…' : ''}
-                            </div>
-                          ) : null}
-                        </span>
-                        <span className="lote-bar-track">
-                          <span
-                            className={`lote-bar-fill ${barTone('BLOCKER')}`}
-                            style={{ width: `${Math.max(6, (c.files / maxLedi) * 100)}%` }}
-                          />
-                        </span>
-                        <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                          {c.files}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {[...(batch.summary.topCodes || [])]
+                    .map((c) => ({
+                      ...c,
+                      severity: resolveSeverity(c.code, 'BLOCKER'),
+                    }))
+                    .sort(compareBySeverityThenCount)
+                    .map((c) => {
+                      const guide = lookupRepair(c.code);
+                      const sev = c.severity;
+                      return (
+                        <button
+                          key={c.code}
+                          type="button"
+                          className={`lote-bar-row ${codeFilter === c.code ? 'active' : ''}`}
+                          onClick={() => filterByCode(c.code)}
+                          title={guide?.how || c.code}
+                        >
+                          <span>
+                            <span className={`lote-sev ${sev}`}>{severityLabel(sev)}</span>
+                            <strong style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
+                              {guide?.title || c.code}
+                            </strong>
+                            {guide?.why ? (
+                              <div className="muted">
+                                {guide.why.slice(0, 110)}
+                                {guide.why.length > 110 ? '…' : ''}
+                              </div>
+                            ) : null}
+                          </span>
+                          <span className="lote-bar-track">
+                            <span
+                              className={`lote-bar-fill ${severityTone(sev)}`}
+                              style={{ width: `${Math.max(6, (c.files / maxLedi) * 100)}%` }}
+                            />
+                          </span>
+                          <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                            {c.files}
+                          </span>
+                        </button>
+                      );
+                    })}
                   {!batch.summary.topCodes?.length ? <p className="muted">Nenhum alerta LEDI.</p> : null}
                 </div>
               </div>
@@ -787,37 +813,45 @@ export default function OdontoLotePage() {
                       </div>
                     </div>
                     <div className="lote-bars">
-                      {(batch.summary.previne.codeCounts || []).slice(0, 10).map((c) => {
-                        const guide = lookupRepair(c.code);
-                        return (
-                          <button
-                            key={c.code}
-                            type="button"
-                            className={`lote-bar-row ${codeFilter === c.code ? 'active' : ''}`}
-                            onClick={() => filterByCode(c.code)}
-                            title={guide?.how || c.code}
-                          >
-                            <span>
-                              <strong style={{ fontSize: 13 }}>{guide?.title || c.code}</strong>
-                              <div className="muted">
-                                {c.indicator ? `${c.indicator} · ` : ''}
-                                {guide?.why
-                                  ? `${guide.why.slice(0, 100)}${guide.why.length > 100 ? '…' : ''}`
-                                  : c.severity}
-                              </div>
-                            </span>
-                            <span className="lote-bar-track">
-                              <span
-                                className={`lote-bar-fill ${barTone(c.severity, 'PREVINE')}`}
-                                style={{ width: `${Math.max(6, (c.files / maxPrev) * 100)}%` }}
-                              />
-                            </span>
-                            <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                              {c.files}
-                            </span>
-                          </button>
-                        );
-                      })}
+                      {[...(batch.summary.previne.codeCounts || [])]
+                        .slice()
+                        .sort(compareBySeverityThenCount)
+                        .slice(0, 10)
+                        .map((c) => {
+                          const guide = lookupRepair(c.code);
+                          const sev = c.severity || resolveSeverity(c.code, 'MONEY_RISK');
+                          return (
+                            <button
+                              key={c.code}
+                              type="button"
+                              className={`lote-bar-row ${codeFilter === c.code ? 'active' : ''}`}
+                              onClick={() => filterByCode(c.code)}
+                              title={guide?.how || c.code}
+                            >
+                              <span>
+                                <span className={`lote-sev ${sev}`}>{severityLabel(sev)}</span>
+                                <strong style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
+                                  {guide?.title || c.code}
+                                </strong>
+                                <div className="muted">
+                                  {c.indicator ? `${c.indicator} · ` : ''}
+                                  {guide?.why
+                                    ? `${guide.why.slice(0, 100)}${guide.why.length > 100 ? '…' : ''}`
+                                    : ''}
+                                </div>
+                              </span>
+                              <span className="lote-bar-track">
+                                <span
+                                  className={`lote-bar-fill ${severityTone(sev)}`}
+                                  style={{ width: `${Math.max(6, (c.files / maxPrev) * 100)}%` }}
+                                />
+                              </span>
+                              <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                {c.files}
+                              </span>
+                            </button>
+                          );
+                        })}
                     </div>
                   </>
                 ) : (
@@ -925,9 +959,9 @@ export default function OdontoLotePage() {
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                 <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                   <option value="">Todos status</option>
-                  <option value="blocker">blocker</option>
-                  <option value="warn">warn</option>
-                  <option value="conformant">conformant</option>
+                  <option value="blocker">Com bloqueio de envio</option>
+                  <option value="warn">Com aviso / risco</option>
+                  <option value="conformant">Conformes</option>
                 </select>
                 <input
                   value={q}
@@ -1041,8 +1075,10 @@ export default function OdontoLotePage() {
 
                   <h4 style={{ marginBottom: 8 }}>Alertas — em linguagem simples</h4>
                   <p className="muted" style={{ marginTop: 0, fontSize: 12 }}>
-                    <strong>Bloqueio</strong> = não envia · <strong>Risco $</strong> = envia mas pode perder ponto/repasse
-                    no Previne · <strong>Atenção</strong> = qualidade · <strong>Info</strong> = só orientação.
+                    Ordem na lista: <span className="lote-sev BLOCKER">Bloqueia envio</span> →{' '}
+                    <span className="lote-sev MONEY_RISK">Risco faturamento</span> →{' '}
+                    <span className="lote-sev QUALITY_WARN">Indicadores</span> →{' '}
+                    <span className="lote-sev INFO">Info governo</span>
                   </p>
                   <div style={{ maxHeight: 280, overflow: 'auto', marginBottom: 12 }}>
                     <table style={{ width: '100%', fontSize: 12 }}>
@@ -1058,61 +1094,70 @@ export default function OdontoLotePage() {
                           ...(selected.previneXray?.gaps.filter(
                             (g) => g.severity !== 'INFO' || g.code !== 'PREVINE_B4_NOT_IN_FAO',
                           ) || []),
-                        ].map((f, i) => {
-                          const code = 'code' in f ? f.code : '';
-                          const guide = lookupRepair(code);
-                          const mode = guide?.mode || 'individual';
-                          const sev = 'severity' in f ? String(f.severity) : '';
-                          return (
-                            <tr key={`${code}-${i}`}>
-                              <td>
-                                <span className={`lote-mode ${mode}`}>
-                                  {mode === 'auto' ? 'Auto' : mode === 'individual' ? 'Individual' : 'Info'}
-                                </span>
-                                <span className={`lote-sev ${sev}`}>{severityLabel(sev)}</span>
-                                <div style={{ marginTop: 4 }}>
-                                  <strong>{guide?.title || code}</strong>
-                                </div>
-                                {guide?.why ? (
-                                  <div className="muted" style={{ marginTop: 4 }}>
-                                    <strong>O que isso significa:</strong> {guide.why}
+                        ]
+                          .map((f) => {
+                            const code = 'code' in f ? f.code : '';
+                            const sev =
+                              ('severity' in f && f.severity
+                                ? String(f.severity)
+                                : resolveSeverity(code)) || '';
+                            return { f, code, sev };
+                          })
+                          .sort((a, b) => severityRank(a.sev) - severityRank(b.sev))
+                          .map(({ f, code, sev }, i) => {
+                            const guide = lookupRepair(code);
+                            const mode = guide?.mode || 'individual';
+                            const tone = severityTone(sev);
+                            return (
+                              <tr key={`${code}-${i}`} className={`lote-alert-row ${tone}`}>
+                                <td>
+                                  <span className={`lote-mode ${mode}`}>
+                                    {mode === 'auto' ? 'Auto' : mode === 'individual' ? 'Individual' : 'Info'}
+                                  </span>
+                                  <span className={`lote-sev ${sev}`}>{severityLabel(sev)}</span>
+                                  <div style={{ marginTop: 4 }}>
+                                    <strong>{guide?.title || code}</strong>
                                   </div>
-                                ) : 'message' in f && f.message ? (
-                                  <div className="muted">{f.message}</div>
-                                ) : null}
-                                {guide ? (
-                                  <div className="muted">
-                                    <strong>O que fazer:</strong> {guide.how}
-                                  </div>
-                                ) : null}
-                              </td>
-                              <td>
-                                {mode === 'auto' && guide?.button ? (
-                                  <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    disabled={busy}
-                                    style={{ fontSize: 12 }}
-                                    onClick={() => void applyGapRepair(code)}
-                                  >
-                                    {guide.button}
-                                  </button>
-                                ) : mode === 'individual' ? (
-                                  <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    style={{ fontSize: 12 }}
-                                    onClick={() => focusIndividualEdit(guide?.focusField)}
-                                  >
-                                    Editar ficha
-                                  </button>
-                                ) : (
-                                  <span className="muted">só orientação</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                  {guide?.why ? (
+                                    <div className="muted" style={{ marginTop: 4 }}>
+                                      <strong>O que isso significa:</strong> {guide.why}
+                                    </div>
+                                  ) : 'message' in f && f.message ? (
+                                    <div className="muted">{f.message}</div>
+                                  ) : null}
+                                  {guide ? (
+                                    <div className="muted">
+                                      <strong>O que fazer:</strong> {guide.how}
+                                    </div>
+                                  ) : null}
+                                </td>
+                                <td>
+                                  {mode === 'auto' && guide?.button ? (
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary"
+                                      disabled={busy}
+                                      style={{ fontSize: 12 }}
+                                      onClick={() => void applyGapRepair(code)}
+                                    >
+                                      {guide.button}
+                                    </button>
+                                  ) : mode === 'individual' ? (
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary"
+                                      style={{ fontSize: 12 }}
+                                      onClick={() => focusIndividualEdit(guide?.focusField)}
+                                    >
+                                      Editar ficha
+                                    </button>
+                                  ) : (
+                                    <span className="muted">só orientação</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>

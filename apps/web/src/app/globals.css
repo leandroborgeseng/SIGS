@@ -941,14 +941,84 @@ a.search-chip:hover {
   border-radius: 99px;
   background: var(--brand);
 }
-.lote-bar-fill.warn {
-  background: var(--warn);
-}
+.lote-bar-fill.blocker,
 .lote-bar-fill.danger {
   background: var(--danger);
 }
+.lote-bar-fill.money,
+.lote-bar-fill.warn {
+  background: var(--warn);
+}
+.lote-bar-fill.quality,
 .lote-bar-fill.previne {
   background: #0f766e;
+}
+.lote-bar-fill.info {
+  background: #64748b;
+}
+.lote-priority {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+@media (max-width: 900px) {
+  .lote-priority {
+    grid-template-columns: 1fr;
+  }
+}
+.lote-priority-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  background: var(--surface-1);
+  border-left-width: 4px;
+}
+.lote-priority-card.blocker {
+  border-left-color: var(--danger);
+  background: var(--danger-bg);
+}
+.lote-priority-card.money {
+  border-left-color: var(--warn);
+  background: var(--warn-bg);
+}
+.lote-priority-card.quality {
+  border-left-color: #0f766e;
+  background: #ecfdf8;
+}
+.lote-priority-card .step {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.lote-priority-card.blocker .step {
+  color: var(--danger);
+}
+.lote-priority-card.money .step {
+  color: var(--warn);
+}
+.lote-priority-card.quality .step {
+  color: #0f766e;
+}
+.lote-alert-row {
+  border-left: 4px solid transparent;
+}
+.lote-alert-row.blocker {
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger-bg) 55%, transparent);
+}
+.lote-alert-row.money {
+  border-left-color: var(--warn);
+  background: color-mix(in srgb, var(--warn-bg) 55%, transparent);
+}
+.lote-alert-row.quality {
+  border-left-color: #0f766e;
+  background: color-mix(in srgb, #ecfdf8 70%, transparent);
+}
+.lote-alert-row.info {
+  border-left-color: #64748b;
 }
 .lote-split {
   display: grid;
@@ -984,22 +1054,31 @@ a.search-chip:hover {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  text-transform: uppercase;
+  text-transform: none;
   padding: 2px 8px;
   border-radius: 99px;
+  margin-right: 6px;
+  vertical-align: middle;
 }
 .lote-sev.BLOCKER,
-.lote-sev.MONEY_RISK {
+.lote-sev.blocker {
   background: var(--danger-bg);
   color: var(--danger);
 }
-.lote-sev.QUALITY_WARN {
+.lote-sev.MONEY_RISK,
+.lote-sev.money {
   background: var(--warn-bg);
   color: var(--warn);
 }
-.lote-sev.INFO {
-  background: var(--muted-bg);
-  color: var(--muted);
+.lote-sev.QUALITY_WARN,
+.lote-sev.quality {
+  background: #d1fae5;
+  color: #0f766e;
+}
+.lote-sev.INFO,
+.lote-sev.info {
+  background: #e2e8f0;
+  color: #475569;
 }
 .lote-mode {
   display: inline-block;
