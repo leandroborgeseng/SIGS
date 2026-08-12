@@ -134,7 +134,7 @@ export default function FaturamentoOdontoPage() {
     <AppShell>
       <PageHeader
         title="Fila de faturamento odonto"
-        subtitle="Validação + produção do mês — mesmas cores do lote LEDI FAO"
+        description="Validação + produção do mês — mesmas cores do lote LEDI FAO"
         actions={
           <>
             <Link className="btn ghost" href="/odonto">

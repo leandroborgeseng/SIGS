@@ -205,7 +205,7 @@ export default function OdontoAtendimentoPage() {
   if (!enc || !care || !catalog) {
     return (
       <AppShell>
-        <PageHeader title="Atendimento odonto" subtitle="Carregando…" />
+        <PageHeader title="Atendimento odonto" description="Carregando…" />
         <ErrorBox message={error} />
       </AppShell>
     );
@@ -217,7 +217,7 @@ export default function OdontoAtendimentoPage() {
     <AppShell>
       <PageHeader
         title={displayPatientName(enc.patient)}
-        subtitle={`${enc.facility.name} · CNES ${enc.facility.cnes} · ${enc.status}`}
+        description={`${enc.facility.name} · CNES ${enc.facility.cnes} · ${enc.status}`}
         actions={
           <>
             <Link className="btn ghost" href="/odonto">

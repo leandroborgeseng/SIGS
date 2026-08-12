@@ -79,7 +79,7 @@ export default function OdontoPage() {
     <AppShell>
       <PageHeader
         title="Odontologia"
-        subtitle="Atendimento clínico Siaps-ready (LEDI FAO) · Onda 1"
+        description="Atendimento clínico Siaps-ready (LEDI FAO) · Onda 1"
         actions={
           <>
             <HelpLink id="odonto.atendimento" />
