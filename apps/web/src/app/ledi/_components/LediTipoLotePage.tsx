@@ -227,7 +227,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     <AppShell helpId="odonto.lote-ledi">
       <PageHeader
         title={meta.title}
-        subtitle={meta.help}
+        description={meta.help}
         actions={
           <>
             <Link className="btn btn-secondary" href="/odonto/lote">
