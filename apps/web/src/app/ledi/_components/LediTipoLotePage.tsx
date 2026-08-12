@@ -62,14 +62,14 @@ const META: Record<
 > = {
   FAI: {
     title: 'Lote LEDI FAI',
-    help: 'Atendimento Individual (tipo 4). Correção prioritária: stNaoPossuiCpf e INE.',
+    help: 'Atendimento Individual (tipo 4). Prioridade: informar se o cidadão tem CPF e código da equipe (INE).',
     label: 'FAI',
     siblingHref: '/procedimentos/lote',
     siblingLabel: 'Lote Procedimentos',
   },
   PROCEDIMENTOS: {
     title: 'Lote LEDI Procedimentos',
-    help: 'Ficha de Procedimentos (tipo 7). Correção prioritária: stNaoPossuiCpf; rejeita ABPG.',
+    help: 'Ficha de Procedimentos (tipo 7). Prioridade: informar se o cidadão tem CPF; procedimentos ABPG são rejeitados.',
     label: 'Procedimentos',
     siblingHref: '/aps/lote',
     siblingLabel: 'Lote FAI',
@@ -165,7 +165,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     e.preventDefault();
     if (!batch) return;
     if (!confirmSt && !ineDefault.trim()) {
-      setError('Marque stNaoPossuiCpf e/ou informe INE.');
+      setError('Marque “informar se o cidadão tem CPF” e/ou informe o código da equipe (INE).');
       return;
     }
     setBusy(true);
@@ -208,7 +208,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
         json: { stNaoPossuiCpf: true },
       });
       setSelected(detail);
-      setOk(`stNaoPossuiCpf aplicado em ${selected.fileName}`);
+      setOk(`Campo “informar se o cidadão tem CPF” aplicado em ${selected.fileName}`);
       await loadBatch(batch.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha');
@@ -287,9 +287,9 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {(batch.summary.topCodes || []).slice(0, 8).map((c) => (
-                <code key={c.code}>
-                  {c.code} ({c.files})
-                </code>
+                <span key={c.code} className="muted" style={{ fontSize: 13 }}>
+                  {explainError(c.code)?.title || c.code} ({c.files})
+                </span>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
@@ -338,7 +338,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                     <tr>
                       <th align="left">Arquivo</th>
                       <th>Siaps</th>
-                      <th align="left">Códigos</th>
+                      <th align="left">Problemas</th>
                     </tr>
                   </thead>
                   <tbody>
