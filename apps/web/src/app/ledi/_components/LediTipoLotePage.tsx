@@ -19,6 +19,7 @@ import { TreatmentDashboard, type TreatBucket } from '@/app/odonto/lote/Treatmen
 import type { TreatmentProgress } from '@/app/odonto/lote/treatment-types';
 import { ErrorGuideModal } from '@/app/odonto/lote/ErrorGuideModal';
 import { FichaFixModal } from '@/app/odonto/lote/FichaFixModal';
+import { LoteQualityPanel } from '@/app/odonto/lote/LoteQualityPanel';
 import {
   bodyForRepairUi,
   lookupRepair,
@@ -33,6 +34,7 @@ type BatchSummary = {
   withWarn: number;
   autoFixableItems: number;
   siapsReady?: number;
+  previneReady?: number;
   readyForFinalSend?: number;
   expectedTipo?: string;
   topCodes: Array<{ code: string; files: number; pct: number }>;
@@ -596,10 +598,14 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
         <>
           <div className="card" style={{ marginBottom: 16 }}>
             <h3 style={{ marginTop: 0 }}>2. Resumo — {batch.name}</h3>
-            <p>
-              Total {batch.summary.total} · blockers {batch.summary.withBlockers} · Siaps ok{' '}
-              {batch.summary.siapsReady ?? '—'} · prontas {batch.summary.readyForFinalSend ?? '—'}
-            </p>
+
+            <LoteQualityPanel
+              total={batch.summary.total}
+              siapsReady={batch.summary.siapsReady}
+              previneReady={batch.summary.previneReady}
+              readyForFinalSend={batch.summary.readyForFinalSend}
+              fichaLabel={expectedTipo === 'FAI' ? 'ficha individual' : 'ficha de procedimentos'}
+            />
 
             <TreatmentDashboard
               treatment={batch.summary.treatment}

@@ -21,6 +21,7 @@ import { TreatmentDashboard, type TreatBucket } from './TreatmentDashboard';
 import type { TreatmentProgress } from './treatment-types';
 import { ErrorGuideModal } from './ErrorGuideModal';
 import { FichaFixModal } from './FichaFixModal';
+import { LoteQualityPanel } from './LoteQualityPanel';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 
 type BatchSummary = {
@@ -1005,80 +1006,13 @@ export default function OdontoLotePage() {
               }}
             />
 
-            <div className="lote-funnel">
-              <div className="lote-funnel-item">
-                <div className="muted">Total fichas</div>
-                <strong>{total}</strong>
-              </div>
-              <div className="lote-funnel-item">
-                <div className="muted">Prontas Siaps</div>
-                <strong>
-                  {batch.summary.siapsReady ?? '—'}
-                  <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>
-                    {' '}
-                    ({total ? Math.round(((batch.summary.siapsReady || 0) / total) * 100) : 0}%)
-                  </span>
-                </strong>
-              </div>
-              <div className="lote-funnel-item">
-                <div className="muted">Prontas Previne</div>
-                <strong>
-                  {batch.summary.previneReady ?? '—'}
-                  <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>
-                    {' '}
-                    ({total ? Math.round(((batch.summary.previneReady || 0) / total) * 100) : 0}%)
-                  </span>
-                </strong>
-              </div>
-              <div className="lote-funnel-item">
-                <div className="muted">Envio final OK</div>
-                <strong>
-                  {batch.summary.readyForFinalSend ?? '—'}
-                  <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>
-                    {' '}
-                    ({total ? Math.round(((batch.summary.readyForFinalSend || 0) / total) * 100) : 0}%)
-                  </span>
-                </strong>
-              </div>
-            </div>
-
-            <div
-              className="lote-funnel-legend"
-              style={{
-                marginTop: 10,
-                marginBottom: 16,
-                padding: '12px 14px',
-                borderRadius: 8,
-                border: '1px solid var(--line)',
-                background: 'var(--surface-2)',
-                fontSize: 13,
-                lineHeight: 1.45,
-              }}
-            >
-              <strong style={{ display: 'block', marginBottom: 8 }}>O que significam estes números</strong>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                <li>
-                  <strong>Total fichas</strong> — quantidade de XMLs neste lote (cada arquivo = uma ficha
-                  odontológica).
-                </li>
-                <li>
-                  <strong>Prontas Siaps</strong> — fichas <em>sem bloqueio de envio</em> (zero BLOCKER LEDI).
-                  Podem ir para o Siaps/SISAB. Não garante qualidade de indicador.
-                </li>
-                <li>
-                  <strong>Prontas Previne</strong> — fichas sem risco de dinheiro/indicador Previne ESB
-                  (B1–B6 / INE / vigilância etc.). Aceitas no Siaps ainda podem ficar fora desta conta.
-                </li>
-                <li>
-                  <strong>Envio final OK</strong> — interseção: Siaps-ready <em>e</em> Previne-ready. É o
-                  alvo ideal antes de baixar o ZIP “conformes” para o governo.
-                </li>
-              </ul>
-              <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>
-                Ex.: 90% Siaps e 21% envio final = a maior parte já envia, mas ainda falta qualidade Previne
-                (ou ambos) em muitas fichas. Trate vermelho → laranja → verde.
-              </p>
-            </div>
+            <LoteQualityPanel
+              total={total}
+              siapsReady={batch.summary.siapsReady}
+              previneReady={batch.summary.previneReady}
+              readyForFinalSend={batch.summary.readyForFinalSend}
+              fichaLabel="ficha odontológica"
+            />
 
             {batch.summary.byTipo?.length ? (
               <div style={{ marginBottom: 16 }}>
