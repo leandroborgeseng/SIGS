@@ -86,6 +86,9 @@ export default function OdontoPage() {
             <Link className="btn ghost" href="/odonto/lote">
               Lote LEDI FAO
             </Link>
+            <Link className="btn ghost" href="/odonto/faturamento">
+              Fila faturamento
+            </Link>
           </>
         }
       />
@@ -94,8 +97,8 @@ export default function OdontoPage() {
       <section className="card" style={{ marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}>Novo atendimento</h2>
         <p className="muted" style={{ marginTop: 0 }}>
-          Tipo padrão: <strong>5 — consulta no dia</strong>. INE obrigatório se a instalação exigir
-          (Franca). Preencha vigilância, problemas, condutas e fornecimentos na ficha.
+          Tipo padrão: <strong>5 — consulta no dia</strong>. Cada abertura entra na{' '}
+          <Link href="/odonto/faturamento">fila de faturamento</Link> do mês.
         </p>
         <form onSubmit={open} className="grid-form">
           <label>

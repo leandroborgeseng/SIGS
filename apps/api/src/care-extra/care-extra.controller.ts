@@ -287,6 +287,20 @@ export class CareExtraController {
     return file;
   }
 
+  @Get('dental/faturamento-queue')
+  dentalFaturamentoQueue(
+    @Query('competencia') competencia?: string,
+    @Query('facilityId') facilityId?: string,
+    @Query('bucket') bucket?: string,
+  ) {
+    return this.service.listDentalFaturamentoQueue({ competencia, facilityId, bucket });
+  }
+
+  @Post('dental/faturamento-queue/:encounterId/sync')
+  syncDentalFaturamentoQueue(@Param('encounterId') encounterId: string) {
+    return this.service.syncDentalBillingQueue(encounterId);
+  }
+
   @Get('dental-encounters')
   listDental(@Query('facilityId') facilityId?: string) {
     return this.service.listDental(facilityId);

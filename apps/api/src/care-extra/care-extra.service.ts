@@ -30,7 +30,14 @@ import {
   requireIneOnDentalOpen,
   type DentalCareDraft,
 } from './dental-care.draft';
+import {
+  bucketFromFindings,
+  competenciaFromDate,
+  competenciaRange,
+  dentalMissingChecklist,
+} from './dental-billing-queue';
 import { FRANCA_LEDI_DEFAULTS } from './ledi-autofix.pipeline';
+import type { FaoFinding } from './ledi-fao.validator';
 
 @Injectable()
 export class CareExtraService {
@@ -248,11 +255,36 @@ export class CareExtraService {
       },
       include: { patient: true, facility: true, professional: true },
     });
+
+    const batch = await this.prisma.productionBatch.create({
+      data: {
+        kind: 'dental_encounter',
+        status: 'draft',
+        rfIdsCsv: [RF.ODONTO.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id].join(','),
+        payloadJson: JSON.stringify({
+          encounterId: row.id,
+          facilityId: row.facilityId,
+          patientId: row.patientId,
+          competencia: competenciaFromDate(row.startedAt),
+          queue: true,
+        }),
+        statusChangedAt: new Date(),
+        errorMessage: 'Atendimento aberto — pendente validação/preenchimento',
+      },
+    });
+    const withBatch = await this.prisma.dentalEncounter.update({
+      where: { id: row.id },
+      data: { productionBatchId: batch.id },
+      include: { patient: true, facility: true, professional: true },
+    });
+    await this.syncDentalBillingQueue(withBatch.id).catch(() => undefined);
+
     await this.prisma.audit('open', 'dental_encounter', row.id, [RF.ODONTO.id], {
       requireIne: requireIneOnDentalOpen(),
       tipoAtendimento: care.tipoAtendimento,
+      productionBatchId: batch.id,
     });
-    return this.serializeDental(row);
+    return this.serializeDental(withBatch);
   }
 
   async patchDental(id: string, dto: PatchDentalEncounterDto) {
@@ -306,7 +338,246 @@ export class CareExtraService {
       },
       include: { patient: true, facility: true, professional: true },
     });
+    await this.syncDentalBillingQueue(id).catch(() => undefined);
     return this.serializeDental(updated);
+  }
+
+  /**
+   * Atualiza ProductionBatch ligado ao atendimento com snapshot FAO
+   * (fila de validação/faturamento do mês).
+   */
+  async syncDentalBillingQueue(encounterId: string) {
+    const row = await this.prisma.dentalEncounter.findUnique({
+      where: { id: encounterId },
+      include: { patient: true, facility: true, professional: true },
+    });
+    if (!row) return null;
+
+    const care = this.parseCare(row.careJson);
+    const procedures = JSON.parse(row.proceduresJson || '[]') as unknown[];
+    let hasIne = false;
+    try {
+      const lot = await this.resolveLotacao({
+        professionalId: row.professionalId,
+        facilityId: row.facilityId,
+        facilityCnes: row.facility.cnes,
+        professionalCns: row.professional?.cns,
+        assignmentId: row.assignmentId || care.assignmentId || undefined,
+        cbo: care.cbo || FRANCA_LEDI_DEFAULTS.cboOdontoPadrao,
+      });
+      hasIne = !!lot.ine;
+    } catch {
+      hasIne = false;
+    }
+
+    const missing = dentalMissingChecklist({
+      care,
+      patient: row.patient,
+      hasIne,
+      requireIne: requireIneOnDentalOpen(),
+      proceduresCount: procedures.length,
+    });
+
+    let findings: FaoFinding[] = missing.map((m) => ({
+      severity: m.severity,
+      code: m.code,
+      message: m.message,
+      rule: 'QUEUE-checklist',
+    }));
+    let payload: Record<string, unknown> | null = null;
+    let faoSummary = { blockers: 0, moneyRisks: 0, qualityWarns: 0 };
+
+    const canTryPayload =
+      care.outcomes.length > 0 &&
+      care.vigilanciaSaudeBucal.length > 0 &&
+      care.problemasCondicoes.some((p) => p.ciap || p.cid10);
+
+    if (canTryPayload) {
+      try {
+        const built = await this.buildPayloadForEncounter(encounterId, {});
+        payload = built.payload as unknown as Record<string, unknown>;
+        const fao = validateFaoJson(payload);
+        findings = [...findings, ...fao.findings];
+        faoSummary = fao.summary;
+      } catch (e) {
+        findings.push({
+          severity: 'BLOCKER',
+          code: 'PAYLOAD_BUILD_FAILED',
+          message: e instanceof Error ? e.message : String(e),
+          rule: 'QUEUE-build',
+        });
+      }
+    }
+
+    // Dedup by code
+    const seen = new Set<string>();
+    findings = findings.filter((f) => {
+      if (seen.has(f.code)) return false;
+      seen.add(f.code);
+      return true;
+    });
+    const blockers = findings.filter((f) => f.severity === 'BLOCKER').length;
+    const moneyRisks =
+      faoSummary.moneyRisks || findings.filter((f) => f.severity === 'MONEY_RISK').length;
+    const qualityWarns =
+      faoSummary.qualityWarns || findings.filter((f) => f.severity === 'QUALITY_WARN').length;
+    const open = row.status === 'IN_PROGRESS';
+    const bucket = bucketFromFindings(findings, open);
+    const batchStatus =
+      row.status === 'COMPLETED' && blockers === 0
+        ? 'ready'
+        : blockers > 0
+          ? 'error'
+          : 'draft';
+
+    const snapshot = {
+      encounterId: row.id,
+      facilityId: row.facilityId,
+      patientId: row.patientId,
+      competencia: competenciaFromDate(row.startedAt),
+      queue: true,
+      bucket,
+      missing,
+      faoValidation: {
+        summary: { blockers, moneyRisks, qualityWarns },
+        findings,
+      },
+      ...(payload || {}),
+    };
+
+    const errorMessage =
+      blockers > 0
+        ? findings
+            .filter((f) => f.severity === 'BLOCKER')
+            .map((f) => f.code)
+            .slice(0, 10)
+            .join(', ')
+        : open
+          ? 'Em atendimento — aguardando fechamento'
+          : null;
+
+    if (row.productionBatchId) {
+      await this.prisma.productionBatch.update({
+        where: { id: row.productionBatchId },
+        data: {
+          status: batchStatus,
+          payloadJson: JSON.stringify(snapshot),
+          errorMessage,
+          statusChangedAt: new Date(),
+        },
+      });
+      return { productionBatchId: row.productionBatchId, bucket, blockers };
+    }
+
+    const batch = await this.prisma.productionBatch.create({
+      data: {
+        kind: 'dental_encounter',
+        status: batchStatus,
+        rfIdsCsv: [RF.ODONTO.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id].join(','),
+        payloadJson: JSON.stringify(snapshot),
+        errorMessage,
+        statusChangedAt: new Date(),
+      },
+    });
+    await this.prisma.dentalEncounter.update({
+      where: { id: row.id },
+      data: { productionBatchId: batch.id },
+    });
+    return { productionBatchId: batch.id, bucket, blockers };
+  }
+
+  async listDentalFaturamentoQueue(opts: {
+    competencia?: string;
+    facilityId?: string;
+    bucket?: string;
+  }) {
+    const competencia = opts.competencia || competenciaFromDate(new Date());
+    const { start, end } = competenciaRange(competencia);
+    const rows = await this.prisma.dentalEncounter.findMany({
+      where: {
+        startedAt: { gte: start, lt: end },
+        ...(opts.facilityId ? { facilityId: opts.facilityId } : {}),
+        status: { in: ['IN_PROGRESS', 'COMPLETED'] },
+      },
+      orderBy: { startedAt: 'desc' },
+      include: { patient: true, facility: true, professional: true },
+    });
+
+    const items = [];
+    for (const row of rows) {
+      // Re-sync open items so checklist stays fresh
+      if (row.status === 'IN_PROGRESS' || !row.productionBatchId) {
+        await this.syncDentalBillingQueue(row.id).catch(() => undefined);
+      }
+      const fresh = await this.prisma.dentalEncounter.findUnique({
+        where: { id: row.id },
+        include: { patient: true, facility: true, professional: true },
+      });
+      if (!fresh) continue;
+      const batch = fresh.productionBatchId
+        ? await this.prisma.productionBatch.findUnique({ where: { id: fresh.productionBatchId } })
+        : null;
+      const payload = JSON.parse(batch?.payloadJson || '{}') as {
+        bucket?: string;
+        faoValidation?: {
+          summary?: { blockers?: number; moneyRisks?: number; qualityWarns?: number };
+          findings?: FaoFinding[];
+        };
+        missing?: Array<{ code: string; severity: string; message: string }>;
+      };
+      const findings = payload.faoValidation?.findings || [];
+      const summary = payload.faoValidation?.summary || {
+        blockers: findings.filter((f) => f.severity === 'BLOCKER').length,
+        moneyRisks: findings.filter((f) => f.severity === 'MONEY_RISK').length,
+        qualityWarns: findings.filter((f) => f.severity === 'QUALITY_WARN').length,
+      };
+      const bucket =
+        payload.bucket ||
+        bucketFromFindings(findings, fresh.status === 'IN_PROGRESS');
+      if (opts.bucket && opts.bucket !== 'all' && bucket !== opts.bucket) continue;
+
+      const topCodes = [...new Set(findings.map((f) => f.code))].slice(0, 8);
+      items.push({
+        encounterId: fresh.id,
+        productionBatchId: fresh.productionBatchId,
+        patient: {
+          id: fresh.patient.id,
+          name: fresh.patient.socialName || fresh.patient.civilName,
+          cpf: fresh.patient.cpf,
+          cns: fresh.patient.cns,
+        },
+        facility: {
+          id: fresh.facility.id,
+          name: fresh.facility.name,
+          cnes: fresh.facility.cnes,
+        },
+        professionalName: fresh.professional?.civilName || null,
+        startedAt: fresh.startedAt,
+        finishedAt: fresh.finishedAt,
+        encounterStatus: fresh.status,
+        batchStatus: batch?.status || 'draft',
+        bucket,
+        summary,
+        topCodes,
+        findings,
+        missing: payload.missing || [],
+        href: `/odonto/${fresh.id}`,
+      });
+    }
+
+    const totals = {
+      total: items.length,
+      blocker: items.filter((i) => i.bucket === 'blocker').length,
+      money: items.filter((i) => i.bucket === 'money').length,
+      quality: items.filter((i) => i.bucket === 'quality').length,
+      incomplete: items.filter((i) => i.bucket === 'incomplete').length,
+      ok: items.filter((i) => i.bucket === 'ok').length,
+      ready: items.filter((i) => i.batchStatus === 'ready').length,
+      sent: items.filter((i) => i.batchStatus === 'sent').length,
+      open: items.filter((i) => i.encounterStatus === 'IN_PROGRESS').length,
+    };
+
+    return { competencia, facilityId: opts.facilityId || null, totals, items };
   }
 
   /** Monta payload + valida sem gravar finish (painel ao vivo). */
@@ -424,23 +695,47 @@ export class CareExtraService {
       });
     }
 
-    const batch = await this.prisma.productionBatch.create({
-      data: {
-        kind: 'dental_encounter',
-        status: faoReport.summary.blockers > 0 ? 'error' : 'ready',
-        errorMessage:
-          faoReport.summary.blockers > 0
-            ? faoReport.findings
-                .filter((f) => f.severity === 'BLOCKER')
-                .map((f) => f.code)
-                .slice(0, 8)
-                .join(', ')
-            : null,
-        statusChangedAt: new Date(),
-        rfIdsCsv: [RF.ODONTO.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id].join(','),
-        payloadJson: JSON.stringify({ ...built.payload, faoValidation: faoReport }),
-      },
+    const batchPayload = JSON.stringify({
+      ...built.payload,
+      encounterId: id,
+      competencia: competenciaFromDate(built.row.startedAt),
+      queue: true,
+      bucket: faoReport.summary.blockers > 0 ? 'blocker' : 'ok',
+      faoValidation: faoReport,
     });
+    const batchStatus = faoReport.summary.blockers > 0 ? 'error' : 'ready';
+    const errorMessage =
+      faoReport.summary.blockers > 0
+        ? faoReport.findings
+            .filter((f) => f.severity === 'BLOCKER')
+            .map((f) => f.code)
+            .slice(0, 8)
+            .join(', ')
+        : null;
+
+    let batch;
+    if (built.row.productionBatchId) {
+      batch = await this.prisma.productionBatch.update({
+        where: { id: built.row.productionBatchId },
+        data: {
+          status: batchStatus,
+          errorMessage,
+          statusChangedAt: new Date(),
+          payloadJson: batchPayload,
+        },
+      });
+    } else {
+      batch = await this.prisma.productionBatch.create({
+        data: {
+          kind: 'dental_encounter',
+          status: batchStatus,
+          errorMessage,
+          statusChangedAt: new Date(),
+          rfIdsCsv: [RF.ODONTO.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id].join(','),
+          payloadJson: batchPayload,
+        },
+      });
+    }
 
     const updated = await this.prisma.dentalEncounter.update({
       where: { id },

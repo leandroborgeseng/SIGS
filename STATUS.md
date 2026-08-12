@@ -1,12 +1,12 @@
 # STATUS — SIGS
 
-- **etapa_atual**: **Onda 1 atendimento odonto** (Siaps-ready na origem) + Railway/Postgres
+- **etapa_atual**: Fila de faturamento odonto + Onda 1 atendimento + Railway
 - **como usar:**
-  1. `/odonto` → abrir → `/odonto/[id]` preencher campos LEDI → Validar → Finalizar e faturar
-  2. Lote XML: `/odonto/lote`
-  3. Desenho: `docs/planejamento/desenho-atendimento-odontologico.md`
-  4. Manual stub: `docs/manuais/usuario/odonto/atendimento-onda1.md`
-- **params:** `REQUIRE_INE_DENTAL_OPEN` (Franca=true em prod) · `DENTAL_DEFAULT_TIPO_ATENDIMENTO=5` · `MUNICIPIO_IBGE`
-- **adiado:** agenda/odontograma rico/prótese · Redis/worker · UI Claude Design
+  1. `/odonto` abre atendimento → entra na fila do mês
+  2. `/odonto/faturamento` — lista completa com cores do lote LEDI (blocker/money/quality/ok)
+  3. `/odonto/[id]` preenche → Validar → Finalizar e faturar
+  4. Lote XML: `/odonto/lote`
+- **API:** `GET /v1/dental/faturamento-queue?competencia=YYYY-MM`
+- **params:** `REQUIRE_INE_DENTAL_OPEN` · `DENTAL_DEFAULT_TIPO_ATENDIMENTO=5` · `MUNICIPIO_IBGE`
 
 _Atualizado em 2026-08-12_
