@@ -157,6 +157,37 @@ function codesToFriendly(codes: string[]): string {
     .join(' · ');
 }
 
+/** Próximo alerta a tratar: mantém o atual se ainda houver fichas; senão o próximo vermelho (depois laranja). */
+function pickNextPriorityCode(
+  summary: BatchSummary,
+  justFixed?: string,
+): { code: string; same: boolean; severity: string } | null {
+  const entries = [
+    ...(summary.topCodes || []).map((c) => ({
+      code: c.code,
+      files: c.files,
+      severity: String(resolveSeverity(c.code, 'BLOCKER')),
+    })),
+    ...(summary.previne?.codeCounts || []).map((c) => ({
+      code: c.code,
+      files: c.files,
+      severity: c.severity || String(resolveSeverity(c.code, 'MONEY_RISK')),
+    })),
+  ].filter((c) => c.files > 0);
+
+  if (justFixed) {
+    const still = entries.find((e) => e.code === justFixed);
+    if (still) return { code: justFixed, same: true, severity: still.severity };
+  }
+
+  const sorted = [...entries].sort(compareBySeverityThenCount);
+  const next =
+    sorted.find((e) => e.severity === 'BLOCKER') ||
+    sorted.find((e) => e.severity === 'MONEY_RISK') ||
+    sorted[0];
+  return next ? { code: next.code, same: false, severity: next.severity } : null;
+}
+
 
 export default function OdontoLotePage() {
   const [batches, setBatches] = useState<BatchListRow[]>([]);
@@ -201,12 +232,13 @@ export default function OdontoLotePage() {
   }, []);
 
   const loadBatch = useCallback(
-    async (id: string) => {
+    async (id: string, opts?: { code?: string }) => {
       const b = await api<Batch>(`/v1/dental/ledi/batches/${id}`);
       setBatch(b);
       const qs = new URLSearchParams();
       if (statusFilter) qs.set('status', statusFilter);
-      if (codeFilter) qs.set('code', codeFilter);
+      const effectiveCode = opts?.code !== undefined ? opts.code : codeFilter;
+      if (effectiveCode) qs.set('code', effectiveCode);
       if (tipoFilter) qs.set('tipo', tipoFilter);
       if (treatBucket) qs.set('bucket', treatBucket);
       if (q.trim()) qs.set('q', q.trim());
@@ -216,7 +248,8 @@ export default function OdontoLotePage() {
       );
       setItems(page.items);
       setItemsTotal(page.total);
-      setSelectedIds(new Set());
+      setSelectedIds(new Set(page.items.map((it) => it.id)));
+      return b;
     },
     [statusFilter, codeFilter, tipoFilter, treatBucket, q],
   );
@@ -312,8 +345,11 @@ export default function OdontoLotePage() {
         },
       });
       setBatch(res);
-      setOk(`Auto-correção do lote aplicada em ${res.touched} fichas.`);
-      await loadBatch(batch.id);
+      await advanceAfterFix(
+        batch.id,
+        confirmSt ? 'ST_NAO_POSSUI_CPF' : hasProb ? 'PROBLEMAS_MISSING' : ineDefault.trim() ? 'INE_MISSING' : undefined,
+        `Auto-correção do lote aplicada em ${res.touched} fichas.`,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha na auto-correção');
     } finally {
@@ -407,10 +443,11 @@ export default function OdontoLotePage() {
         json: body,
       });
       setBatch(res);
-      setOk(
-        `“${guide.title}”: corrigidas ${res.touched} ficha(s). Veja se o contador deste erro caiu; se ainda houver vermelho, clique no próximo.`,
+      await advanceAfterFix(
+        batch.id,
+        repairCode,
+        `“${guide.title}”: corrigidas ${res.touched} ficha(s).`,
       );
-      await loadBatch(batch.id);
       if (selected && ids.includes(selected.id)) {
         const detail = await api<ItemDetail>(`/v1/dental/ledi/batches/${batch.id}/items/${selected.id}`);
         setSelected(detail);
@@ -476,6 +513,37 @@ export default function OdontoLotePage() {
     setFichaModalOpen(false);
   }
 
+  /** Após correção: reabre o mesmo erro se ainda houver, senão o próximo vermelho (depois laranja). */
+  async function advanceAfterFix(batchId: string, justFixed: string | undefined, baseMsg: string) {
+    const fresh = await loadBatch(batchId, { code: '' });
+    const next = pickNextPriorityCode(fresh.summary, justFixed);
+    if (!next) {
+      setCodeFilter('');
+      setErrorModalOpen(false);
+      setFichaModalOpen(false);
+      setOk(`${baseMsg} Sem alertas prioritários restantes — revise o painel e exporte o ZIP.`);
+      await loadBatch(batchId, { code: '' });
+      return;
+    }
+
+    const title = lookupRepair(next.code)?.title || next.code;
+    setCodeFilter(next.code);
+    setErrorModalOpen(true);
+    setFichaModalOpen(false);
+    setTreatBucket('');
+    await loadBatch(batchId, { code: next.code });
+
+    if (next.same) {
+      setOk(`${baseMsg} Ainda há fichas com “${title}” — continue neste guia.`);
+    } else if (next.severity === 'BLOCKER') {
+      setOk(`${baseMsg} Próximo bloqueio de envio: “${title}”.`);
+    } else if (next.severity === 'MONEY_RISK') {
+      setOk(`${baseMsg} Bloqueios de envio ok. Agora risco de faturamento: “${title}”.`);
+    } else {
+      setOk(`${baseMsg} Próximo: “${title}”.`);
+    }
+  }
+
   function setFichaForm(patch: Partial<{
     ciap: string;
     cid10: string;
@@ -506,7 +574,7 @@ export default function OdontoLotePage() {
     if (patch.focusField !== undefined) setFocusField(patch.focusField);
   }
 
-  async function patchSelected(body: Record<string, unknown>, okMsg: string) {
+  async function patchSelected(body: Record<string, unknown>, okMsg: string, justFixed?: string) {
     if (!batch || !selected) return;
     setBusy(true);
     setError(null);
@@ -516,8 +584,14 @@ export default function OdontoLotePage() {
         json: body,
       });
       setSelected(detail);
-      setOk(okMsg);
-      await loadBatch(batch.id);
+      const stillBlocks = detail.findings.some((f) => f.severity === 'BLOCKER');
+      if (stillBlocks) {
+        setOk(`${okMsg} Ainda há bloqueio nesta ficha — continue no modal.`);
+        await loadBatch(batch.id);
+        setFichaModalOpen(true);
+      } else {
+        await advanceAfterFix(batch.id, justFixed, okMsg);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao salvar');
     } finally {
@@ -541,7 +615,7 @@ export default function OdontoLotePage() {
       return;
     }
     if (guide.ui === 'st_cpf') {
-      await patchSelected({ stNaoPossuiCpf: true }, `${guide.title} aplicado em ${selected?.fileName}.`);
+      await patchSelected({ stNaoPossuiCpf: true }, `${guide.title} aplicado em ${selected?.fileName}.`, code);
       return;
     }
     if (!guide.ui || guide.ui === 'manual') {
@@ -572,7 +646,7 @@ export default function OdontoLotePage() {
       focusIndividualEdit(guide.focusField || guide.ui);
       return;
     }
-    await patchSelected(patch, `${guide.title} aplicado em ${selected?.fileName}.`);
+    await patchSelected(patch, `${guide.title} aplicado em ${selected?.fileName}.`, code);
   }
 
   async function saveItem(e: FormEvent) {
@@ -608,7 +682,7 @@ export default function OdontoLotePage() {
       setError('Informe ao menos um campo de correção.');
       return;
     }
-    await patchSelected(body, `Ficha ${selected.fileName} revalidada.`);
+    await patchSelected(body, `Ficha ${selected.fileName} revalidada.`, codeFilter || undefined);
   }
 
   async function deleteBatch(id: string, name?: string) {
