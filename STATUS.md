@@ -8,14 +8,16 @@
 - **servidores locais:** API `:3001` · Web `:3000` (`npm run dev`)
 - **feito:**
   - Lote LEDI FAO API + UI (upload, auto-fix, ZIP)
+  - **Lote FAI** (`/aps/lote`) + **Lote Procedimentos** (`/procedimentos/lote`)
   - **Raio-x Previne ESB (B1–B6)** + alertas com **botão/guia de correção** na UI
-  - Patch ficha: INE, CIAP, CBO, vigilância, procs (B1/B5/B6), conduta 15
+  - Patch ficha: INE, CIAP, CBO, vigilância, procs (B1/B5/B6), conduta 15, turno/gestante/local/CNES/IBGE
+  - **UI:** cada alerta com modo **Auto** (botão) ou **Individual** (editar ficha)
   - Entrada do sistema redireciona para `/odonto/lote`
   - Deploy: `Dockerfile` + `docker-compose.yml` + `docs/planejamento/deploy-railway-coolify.md`
 - **canal:** LEDI FAO → Siaps → RNDS · Previne ESB como inteligência pré-envio
 - **backlog registrado:**
   - Indicadores Previne (`14-…`) · vínculos obrigatórios (`15-…`)
-- **proxima_acao:** validar UI lote (gráficos/filtro/lote) em produção · processar lote 1131 · NT 30/2025
+- **proxima_acao:** validar amostra Novas Fichas (FAI/PROC) nas novas telas · lote 1131 FAO · NT 30/2025
 - **docker:** `docker compose up --build`
 
 _Atualizado em 2026-08-12_

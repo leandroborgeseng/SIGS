@@ -6,7 +6,9 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
-import { validateFaoXml, type FaoFinding, type FaoValidationReport } from './ledi-fao.validator';
+import { validateFaoXml, type FaoFinding } from './ledi-fao.validator';
+import { validateFaiXml } from './ledi-fai.validator';
+import { validateProcXml } from './ledi-proc.validator';
 import { extractFaoMasterFromXml } from './ledi-fao-xml.parser';
 import {
   aggregatePrevineXrays,
@@ -19,11 +21,16 @@ import {
   addProcedimentos,
   addTiposEncamOdonto,
   fixCbo,
+  fixCnes,
+  fixGestante,
+  fixIbge,
   fixIne,
+  fixLocalAtendimento,
   fixTiposVigilanciaSaudeBucal,
   fixProblemasCondicoes,
   fixStNaoPossuiCpf,
   fixTiposConsultaOdonto,
+  fixTurno,
   type AutoFixOptions,
 } from './ledi-fao-xml.fixer';
 import { buildStoreZip } from './zip-store';
@@ -52,12 +59,54 @@ type ItemSummary = {
   fichaTipoLabel?: string | null;
 };
 
+type LediLoteTipo = 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+
+type UnifiedReport = {
+  findings: FaoFinding[];
+  siapsReady: boolean;
+  previneReady: boolean;
+  readyForFinalSend: boolean;
+  previneXray?: PrevineXray;
+};
+
 @Injectable()
 export class LediFaoBatchService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private reportFromXml(xml: string): FaoValidationReport {
-    return validateFaoXml(xml);
+  private normalizeExpectedTipo(raw?: string): LediLoteTipo {
+    const t = (raw || 'FAO').toUpperCase();
+    if (t === 'FAI') return 'FAI';
+    if (t === 'PROCEDIMENTOS' || t === 'PROC') return 'PROCEDIMENTOS';
+    return 'FAO';
+  }
+
+  private reportFromXml(xml: string, expectedTipo: LediLoteTipo = 'FAO'): UnifiedReport {
+    if (expectedTipo === 'FAI') {
+      const r = validateFaiXml(xml);
+      return {
+        findings: r.findings,
+        siapsReady: r.siapsReady,
+        previneReady: r.previneReady,
+        readyForFinalSend: r.readyForFinalSend,
+      };
+    }
+    if (expectedTipo === 'PROCEDIMENTOS') {
+      const r = validateProcXml(xml);
+      return {
+        findings: r.findings,
+        siapsReady: r.siapsReady,
+        previneReady: r.previneReady,
+        readyForFinalSend: r.readyForFinalSend,
+      };
+    }
+    const r = validateFaoXml(xml);
+    return {
+      findings: r.findings,
+      siapsReady: r.siapsReady,
+      previneReady: r.previneReady,
+      readyForFinalSend: r.readyForFinalSend,
+      previneXray: r.previneXray,
+    };
   }
 
   private findingsStatus(findings: FaoFinding[]): string {
@@ -151,6 +200,20 @@ export class LediFaoBatchService {
     };
   }
 
+  private async expectedTipoOf(batchId: string): Promise<LediLoteTipo> {
+    const batch = await this.prisma.lediFaoBatch.findUnique({
+      where: { id: batchId },
+      select: { summaryJson: true },
+    });
+    if (!batch) throw new NotFoundException('Lote não encontrado');
+    const summary = JSON.parse(batch.summaryJson || '{}') as { expectedTipo?: string };
+    return this.normalizeExpectedTipo(summary.expectedTipo);
+  }
+
+  private tipoMatchOk(detectedId: string, expected: LediLoteTipo): boolean {
+    return detectedId === expected;
+  }
+
   async create(dto: CreateLediFaoBatchDto) {
     if (!dto.files?.length) {
       throw new BadRequestException('Envie ao menos um arquivo XML.');
@@ -159,17 +222,25 @@ export class LediFaoBatchService {
       throw new BadRequestException('Limite de 5000 arquivos por lote.');
     }
 
+    const expectedTipo = this.normalizeExpectedTipo(dto.expectedTipo);
+    const label =
+      expectedTipo === 'FAI'
+        ? 'FAI'
+        : expectedTipo === 'PROCEDIMENTOS'
+          ? 'Procedimentos'
+          : 'FAO';
+
     const prepared = dto.files.map((f) => {
       const xml = f.xml?.trim();
       if (!xml) throw new BadRequestException(`Arquivo sem conteúdo: ${f.name}`);
       const tipo = detectLediFichaTipo(xml);
-      const report = this.reportFromXml(xml);
+      const report = this.reportFromXml(xml, expectedTipo);
       const findings = [...report.findings];
-      if (!tipo.odontoLoteSupported) {
+      if (!this.tipoMatchOk(tipo.id, expectedTipo)) {
         findings.unshift({
           severity: 'BLOCKER',
           code: 'WRONG_FICHA_TIPO',
-          message: `Arquivo é ${tipo.label} (tipo ${tipo.code ?? '?'}) — esta tela corrige só FAO (tipo 5).`,
+          message: `Arquivo é ${tipo.label} (tipo ${tipo.code ?? '?'}) — este lote espera ${label}.`,
           hint: tipo.correctionPath,
           field: 'tipoDadoSerializado',
           rule: 'LEDI-tipo',
@@ -177,11 +248,13 @@ export class LediFaoBatchService {
       }
       const auto = classifyAutoFixable(findings);
       let masterJson: string | null = null;
-      try {
-        const extracted = extractFaoMasterFromXml(xml);
-        if (extracted.master) masterJson = JSON.stringify(extracted.master);
-      } catch {
-        masterJson = null;
+      if (expectedTipo === 'FAO') {
+        try {
+          const extracted = extractFaoMasterFromXml(xml);
+          if (extracted.master) masterJson = JSON.stringify(extracted.master);
+        } catch {
+          masterJson = null;
+        }
       }
       return {
         fileName: f.name.slice(0, 255),
@@ -197,10 +270,13 @@ export class LediFaoBatchService {
       };
     });
 
-    const summary = this.summarizeBatch(prepared);
+    const summary = {
+      ...this.summarizeBatch(prepared),
+      expectedTipo,
+    };
     const batch = await this.prisma.lediFaoBatch.create({
       data: {
-        name: dto.name?.trim() || `Lote FAO ${new Date().toISOString().slice(0, 16)}`,
+        name: dto.name?.trim() || `Lote ${label} ${new Date().toISOString().slice(0, 16)}`,
         status:
           summary.readyForFinalSend === summary.total
             ? 'ready'
@@ -217,6 +293,7 @@ export class LediFaoBatchService {
       total: summary.total,
       withBlockers: summary.withBlockers,
       readyForFinalSend: summary.readyForFinalSend,
+      expectedTipo,
     });
 
     return this.get(batch.id);
@@ -433,6 +510,7 @@ export class LediFaoBatchService {
 
   async autoFix(batchId: string, dto: AutoFixLediFaoBatchDto) {
     await this.ensureBatch(batchId);
+    const expectedTipo = await this.expectedTipoOf(batchId);
     const opts: AutoFixOptions = {
       stNaoPossuiCpf: dto.forceSelected
         ? dto.stNaoPossuiCpf === true
@@ -504,7 +582,7 @@ export class LediFaoBatchService {
         }
       }
 
-      if (dto.tiposConsultaOdonto?.length && force) {
+      if (dto.tiposConsultaOdonto?.length && (force || codes.has('TIPO_CONSULTA_REQUIRED') || codes.has('TRATAMENTO_CONCLUIDO_RULE'))) {
         const r = fixTiposConsultaOdonto(xml, dto.tiposConsultaOdonto);
         if (r.changed) {
           xml = r.xml;
@@ -520,7 +598,10 @@ export class LediFaoBatchService {
         }
       }
 
-      if (dto.tiposVigilanciaSaudeBucal?.length && (force || codes.has('PREVINE_VIGILANCIA_99'))) {
+      if (
+        dto.tiposVigilanciaSaudeBucal?.length &&
+        (force || codes.has('PREVINE_VIGILANCIA_99') || codes.has('VIGILANCIA_MISSING'))
+      ) {
         const r = fixTiposVigilanciaSaudeBucal(xml, dto.tiposVigilanciaSaudeBucal);
         if (r.changed) {
           xml = r.xml;
@@ -536,7 +617,10 @@ export class LediFaoBatchService {
         }
       }
 
-      if (dto.cboCodigo_2002?.trim() && (force || codes.has('PREVINE_CBO_NOT_ESB') || codes.has('CBO_NOT_ODONTO'))) {
+      if (
+        dto.cboCodigo_2002?.trim() &&
+        (force || codes.has('PREVINE_CBO_NOT_ESB') || codes.has('CBO_NOT_ODONTO') || codes.has('CBO_MISSING'))
+      ) {
         const r = fixCbo(xml, dto.cboCodigo_2002);
         if (r.changed) {
           xml = r.xml;
@@ -544,8 +628,51 @@ export class LediFaoBatchService {
         }
       }
 
+      if (dto.turno != null && (force || codes.has('TURNO'))) {
+        const r = fixTurno(xml, dto.turno);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
+      if (dto.gestante !== undefined && (force || codes.has('GESTANTE_MISSING'))) {
+        const r = fixGestante(xml, dto.gestante);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
+      if (dto.localAtendimento != null && (force || codes.has('LOCAL_ATENDIMENTO'))) {
+        const r = fixLocalAtendimento(xml, dto.localAtendimento);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
+      if (dto.cnes?.trim() && (force || codes.has('CNES_MISSING') || codes.has('CNES_FORMAT'))) {
+        const r = fixCnes(xml, dto.cnes);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
+      if (
+        dto.codigoIbgeMunicipio?.trim() &&
+        (force || codes.has('IBGE_MISSING') || codes.has('IBGE_FORMAT'))
+      ) {
+        const r = fixIbge(xml, dto.codigoIbgeMunicipio);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
       if (!changed) continue;
-      await this.persistXml(item.id, xml);
+      await this.persistXml(item.id, xml, expectedTipo);
       touched += 1;
     }
 
@@ -558,6 +685,7 @@ export class LediFaoBatchService {
   }
 
   async patchItem(batchId: string, itemId: string, dto: PatchLediFaoBatchItemDto) {
+    const expectedTipo = await this.expectedTipoOf(batchId);
     const item = await this.prisma.lediFaoBatchItem.findFirst({
       where: { id: itemId, batchId },
     });
@@ -618,6 +746,36 @@ export class LediFaoBatchService {
       if (r.changed) applied.push('CBO');
     }
 
+    if (dto.turno != null) {
+      const r = fixTurno(xml, dto.turno);
+      xml = r.xml;
+      if (r.changed) applied.push('TURNO');
+    }
+
+    if (dto.gestante !== undefined) {
+      const r = fixGestante(xml, dto.gestante);
+      xml = r.xml;
+      if (r.changed) applied.push('GESTANTE');
+    }
+
+    if (dto.localAtendimento != null) {
+      const r = fixLocalAtendimento(xml, dto.localAtendimento);
+      xml = r.xml;
+      if (r.changed) applied.push('LOCAL');
+    }
+
+    if (dto.cnes?.trim()) {
+      const r = fixCnes(xml, dto.cnes);
+      xml = r.xml;
+      if (r.changed) applied.push('CNES');
+    }
+
+    if (dto.codigoIbgeMunicipio?.trim()) {
+      const r = fixIbge(xml, dto.codigoIbgeMunicipio);
+      xml = r.xml;
+      if (r.changed) applied.push('IBGE');
+    }
+
     if (dto.xml?.trim()) {
       xml = dto.xml.trim();
       applied.push('RAW_XML');
@@ -627,7 +785,7 @@ export class LediFaoBatchService {
       throw new BadRequestException('Nenhuma alteração informada.');
     }
 
-    await this.persistXml(item.id, xml);
+    await this.persistXml(item.id, xml, expectedTipo);
     await this.refreshBatchSummary(batchId);
     return this.getItem(batchId, itemId);
   }
@@ -675,15 +833,17 @@ export class LediFaoBatchService {
     if (!b) throw new NotFoundException('Lote não encontrado');
   }
 
-  private async persistXml(itemId: string, xml: string) {
+  private async persistXml(itemId: string, xml: string, expectedTipo: LediLoteTipo) {
     const tipo = detectLediFichaTipo(xml);
-    const report = this.reportFromXml(xml);
+    const report = this.reportFromXml(xml, expectedTipo);
     const findings = [...report.findings];
-    if (!tipo.odontoLoteSupported) {
+    const label =
+      expectedTipo === 'FAI' ? 'FAI' : expectedTipo === 'PROCEDIMENTOS' ? 'Procedimentos' : 'FAO';
+    if (!this.tipoMatchOk(tipo.id, expectedTipo)) {
       findings.unshift({
         severity: 'BLOCKER',
         code: 'WRONG_FICHA_TIPO',
-        message: `Arquivo é ${tipo.label} (tipo ${tipo.code ?? '?'}) — esta tela corrige só FAO (tipo 5).`,
+        message: `Arquivo é ${tipo.label} (tipo ${tipo.code ?? '?'}) — este lote espera ${label}.`,
         hint: tipo.correctionPath,
         field: 'tipoDadoSerializado',
         rule: 'LEDI-tipo',
@@ -693,11 +853,13 @@ export class LediFaoBatchService {
     const status = this.findingsStatus(findings);
 
     let masterJson: string | null = null;
-    try {
-      const extracted = extractFaoMasterFromXml(xml);
-      if (extracted.master) masterJson = JSON.stringify(extracted.master);
-    } catch {
-      masterJson = null;
+    if (expectedTipo === 'FAO') {
+      try {
+        const extracted = extractFaoMasterFromXml(xml);
+        if (extracted.master) masterJson = JSON.stringify(extracted.master);
+      } catch {
+        masterJson = null;
+      }
     }
 
     await this.prisma.lediFaoBatchItem.update({
@@ -716,6 +878,12 @@ export class LediFaoBatchService {
   }
 
   private async refreshBatchSummary(batchId: string) {
+    const batch = await this.prisma.lediFaoBatch.findUnique({
+      where: { id: batchId },
+      select: { summaryJson: true },
+    });
+    const prev = JSON.parse(batch?.summaryJson || '{}') as { expectedTipo?: string };
+    const expectedTipo = this.normalizeExpectedTipo(prev.expectedTipo);
     const items = await this.prisma.lediFaoBatchItem.findMany({
       where: { batchId },
       select: {
@@ -727,7 +895,7 @@ export class LediFaoBatchService {
         fichaTipo: true,
       },
     });
-    const summary = this.summarizeBatch(items);
+    const summary = { ...this.summarizeBatch(items), expectedTipo };
     const status =
       summary.readyForFinalSend === summary.total
         ? 'ready'

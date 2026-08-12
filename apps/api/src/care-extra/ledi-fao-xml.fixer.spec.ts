@@ -5,6 +5,8 @@ import {
   addProcedimentos,
   addTiposEncamOdonto,
   fixTiposVigilanciaSaudeBucal,
+  fixTurno,
+  fixGestante,
 } from './ledi-fao-xml.fixer';
 import { validateFaoXml } from './ledi-fao.validator';
 
@@ -92,5 +94,15 @@ describe('ledi-fao-xml.fixer', () => {
     expect(vig.changed).toBe(true);
     expect(vig.xml).toMatch(/<tiposVigilanciaSaudeBucal>1<\/tiposVigilanciaSaudeBucal>/);
     expect(vig.xml).not.toMatch(/<tiposVigilanciaSaudeBucal>99<\/tiposVigilanciaSaudeBucal>/);
+  });
+
+  it('corrige turno e gestante', () => {
+    const noTurno = SAMPLE.replace('<turno>2</turno>', '');
+    const t = fixTurno(noTurno, 1);
+    expect(t.changed).toBe(true);
+    expect(t.xml).toMatch(/<turno>1<\/turno>/);
+    const g = fixGestante(t.xml.replace(/<gestante>false<\/gestante>/, ''), false);
+    expect(g.changed).toBe(true);
+    expect(g.xml).toMatch(/<gestante>false<\/gestante>/);
   });
 });

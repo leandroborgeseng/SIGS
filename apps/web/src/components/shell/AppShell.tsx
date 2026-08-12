@@ -11,6 +11,8 @@ const NAV = [
     group: 'Faturamento LEDI',
     items: [
       { href: '/odonto/lote', label: 'Lote LEDI FAO' },
+      { href: '/aps/lote', label: 'Lote LEDI FAI' },
+      { href: '/procedimentos/lote', label: 'Lote Procedimentos' },
       { href: '/odonto', label: 'Odontologia' },
       { href: '/producao', label: 'Produção / BPA' },
     ],

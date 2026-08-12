@@ -27,7 +27,7 @@ const BY_CODE: Record<number, Omit<LediFichaTipo, 'code'>> = {
   4: {
     id: 'FAI',
     label: 'Atendimento Individual (FAI)',
-    correctionPath: 'Ambulatorial APS / lote FAI (não use a tela de odonto)',
+    correctionPath: 'APS → Lote LEDI FAI (`/aps/lote`)',
     odontoLoteSupported: false,
     masterTag: 'fichaAtendimentoIndividualMasterTransport',
   },
@@ -48,7 +48,7 @@ const BY_CODE: Record<number, Omit<LediFichaTipo, 'code'>> = {
   7: {
     id: 'PROCEDIMENTOS',
     label: 'Ficha de Procedimentos',
-    correctionPath: 'Produção / lote procedimentos (não é odonto FAO)',
+    correctionPath: 'Produção → Lote Procedimentos (`/procedimentos/lote`)',
     odontoLoteSupported: false,
     masterTag: 'fichaProcedimentoMasterTransport',
   },

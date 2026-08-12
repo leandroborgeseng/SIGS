@@ -29,15 +29,19 @@ Pelo nome do arquivo (legado):
 
 | Tipo | Pasta típica | Qtd (dump) | Tela / fluxo SIGS | Correções prioritárias |
 |---|---|---:|---|---|
-| **FAO (5)** | `Downloads/5974691` | 1131 | **`/odonto/lote`** (única com validador+raio-x hoje) | `stNaoPossuiCpf`, `PROBLEMAS_MISSING` (CIAP/CID), INE, Previne B1–B6 |
-| **FAI (4)** | `Downloads/sistemas/5974691` | 8149 | Ainda **não** há lote FAI na UI — não misturar com odonto | `stNaoPossuiCpf`, CNES 7 dígitos, `turno` 1–3, INE |
-| **Procedimentos (7)** | `Downloads/sistemas 2/5974691` | 2675 | Ainda **não** há lote procedimentos na UI | `stNaoPossuiCpf`, códigos SIGTAP (evitar `ABPGxxx`) |
+| **FAO (5)** | `Downloads/5974691` | 1131 | **`/odonto/lote`** | `stNaoPossuiCpf`, `PROBLEMAS_MISSING` (CIAP/CID), INE, Previne B1–B6 |
+| **FAI (4)** | `Downloads/sistemas/5974691` | 8149 | **`/aps/lote`** | `stNaoPossuiCpf`, CNES 7 dígitos, `turno` 1–3, INE |
+| **Procedimentos (7)** | `Downloads/sistemas 2/5974691` | 2675 | **`/procedimentos/lote`** | `stNaoPossuiCpf`, códigos SIGTAP (evitar `ABPGxxx`) |
 
 ### Regra de ouro
 
 - **Saúde bucal / Previne B1–B6 / RNDS odonto** → só **FAO (5)** em `/odonto/lote`.
-- Subir FAI ou Procedimentos nessa tela gera alerta de **tipo errado** (não é FAO).
-- FAI e Procedimentos compartilham o blocker universal `stNaoPossuiCpf` — a correção é parecida, mas o **validador e o painel** de odonto não se aplicam.
+- Subir FAI ou Procedimentos na tela errada gera **`WRONG_FICHA_TIPO`**.
+- FAI e Procedimentos compartilham o blocker universal `stNaoPossuiCpf`.
+
+## Amostra mista
+
+Ver `18-amostra-novas-fichas-exemplo.md` (12 FAO + 20 FAI + 7 Procedimentos).
 
 ---
 
@@ -51,6 +55,6 @@ Pelo nome do arquivo (legado):
 
 ## Próximo passo de produto
 
-1. Manter `/odonto/lote` focado em **FAO**.  
-2. Exibir tipo detectado em cada arquivo (e filtrar).  
-3. Depois: lote FAI e lote Procedimentos no mesmo padrão (gráficos + correção em massa).
+1. `/odonto/lote` = FAO · `/aps/lote` = FAI · `/procedimentos/lote` = tipo 7.  
+2. Auto-correção `stNaoPossuiCpf` nos três canais.  
+3. Evoluir FAI/PROC com gráficos/filtro no mesmo padrão do FAO.

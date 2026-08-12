@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
@@ -176,6 +176,13 @@ export default function OdontoLotePage() {
   const [editCbo, setEditCbo] = useState('223208');
   const [vigilancia, setVigilancia] = useState('1,3');
   const [procExtra, setProcExtra] = useState('');
+  const [turno, setTurno] = useState('2');
+  const [gestante, setGestante] = useState('false');
+  const [localAtend, setLocalAtend] = useState('1');
+  const [cnes, setCnes] = useState('');
+  const [ibge, setIbge] = useState('3516200');
+  const [focusField, setFocusField] = useState<string>('');
+  const editPanelRef = useRef<HTMLDivElement>(null);
 
   const loadBatches = useCallback(async () => {
     const list = await api<BatchListRow[]>('/v1/dental/ledi/batches');
@@ -318,8 +325,12 @@ export default function OdontoLotePage() {
     }
     const repairCode = code || codeFilter;
     const guide = repairCode ? lookupRepair(repairCode) : undefined;
-    if (!guide?.ui || guide.ui === 'manual' || guide.ui === 'lote') {
-      setError('Este alerta não tem correção automática em lote — edite ficha a ficha ou use a seção 3.');
+    if (!guide || guide.mode !== 'auto' || !guide.ui || guide.ui === 'manual') {
+      setError(
+        guide?.mode === 'individual'
+          ? 'Este alerta exige correção individual — abra a ficha e edite os campos.'
+          : 'Este alerta não tem correção automática em lote.',
+      );
       return;
     }
 
@@ -330,6 +341,11 @@ export default function OdontoLotePage() {
       cbo: editCbo,
       vigilancia,
       tipoConsulta,
+      turno,
+      gestante,
+      local: localAtend,
+      cnes,
+      ibge,
     };
 
     let body: Record<string, unknown> = {
@@ -346,7 +362,9 @@ export default function OdontoLotePage() {
         setError(
           guide.ui === 'ine'
             ? 'Informe o INE no campo padrão antes de aplicar em lote.'
-            : 'Preencha os campos necessários para esta correção.',
+            : guide.ui === 'cnes'
+              ? 'Informe CNES com 7 dígitos.'
+              : 'Preencha os campos necessários para esta correção.',
         );
         return;
       }
@@ -390,9 +408,21 @@ export default function OdontoLotePage() {
       setCiap('D82');
       setCid10('');
       setTipoConsulta('1');
+      setTurno('2');
+      setGestante('false');
+      setLocalAtend('1');
+      setCnes('');
+      setIbge('3516200');
+      setFocusField('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao abrir ficha');
     }
+  }
+
+  function focusIndividualEdit(field?: string) {
+    setFocusField(field || 'xml');
+    editPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => setFocusField(''), 3500);
   }
 
   async function patchSelected(body: Record<string, unknown>, okMsg: string) {
@@ -416,12 +446,25 @@ export default function OdontoLotePage() {
 
   async function applyGapRepair(code: string) {
     const guide = lookupRepair(code);
-    if (!guide?.ui || guide.ui === 'manual') {
-      setError('Este alerta exige julgamento clínico — sem botão automático.');
+    if (!guide) {
+      setError('Alerta sem guia de correção.');
       return;
     }
-    if (guide.ui === 'lote' || guide.ui === 'st_cpf') {
-      setError('Use a correção do lote (seção 3) ou selecione fichas e aplique stNaoPossuiCpf em lote.');
+    if (guide.mode === 'info') {
+      setError('Alerta informativo — sem correção automática segura.');
+      return;
+    }
+    if (guide.mode === 'individual') {
+      focusIndividualEdit(guide.focusField);
+      setOk(`Edite a ficha abaixo: ${guide.how}`);
+      return;
+    }
+    if (guide.ui === 'st_cpf') {
+      await patchSelected({ stNaoPossuiCpf: true }, `${guide.title} aplicado em ${selected?.fileName}.`);
+      return;
+    }
+    if (!guide.ui || guide.ui === 'manual') {
+      focusIndividualEdit(guide.focusField);
       return;
     }
     const patch = bodyForRepairUi(guide.ui, {
@@ -431,9 +474,21 @@ export default function OdontoLotePage() {
       cbo: editCbo,
       vigilancia,
       tipoConsulta,
+      turno,
+      gestante,
+      local: localAtend,
+      cnes,
+      ibge,
     });
     if (!patch) {
-      setError(guide.ui === 'ine' ? 'Informe o INE no campo da ficha.' : 'Campos incompletos.');
+      setError(
+        guide.ui === 'ine'
+          ? 'Informe o INE no campo da ficha.'
+          : guide.ui === 'cnes'
+            ? 'Informe CNES com 7 dígitos.'
+            : 'Campos incompletos.',
+      );
+      focusIndividualEdit(guide.focusField || guide.ui);
       return;
     }
     await patchSelected(patch, `${guide.title} aplicado em ${selected?.fileName}.`);
@@ -456,6 +511,11 @@ export default function OdontoLotePage() {
         .filter((n) => Number.isFinite(n) && n > 0);
       if (codes.length) body.tiposVigilanciaSaudeBucal = codes;
     }
+    if (turno) body.turno = Number(turno);
+    if (gestante === 'true' || gestante === 'false') body.gestante = gestante === 'true';
+    if (localAtend) body.localAtendimento = Number(localAtend);
+    if (cnes.replace(/\D/g, '').length === 7) body.cnes = cnes.replace(/\D/g, '');
+    if (ibge.replace(/\D/g, '').length === 7) body.codigoIbgeMunicipio = ibge.replace(/\D/g, '');
     if (procExtra.trim()) {
       body.procedimentosAdd = procExtra
         .split(/[,;\s]+/)
@@ -733,21 +793,36 @@ export default function OdontoLotePage() {
               <div className="lote-toolbar" style={{ marginTop: 14 }}>
                 <span>
                   Filtro ativo: <code>{codeFilter}</code>
-                  {activeRepair ? ` — ${activeRepair.title}` : ''}
+                  {activeRepair ? (
+                    <>
+                      {' '}
+                      <span className={`lote-mode ${activeRepair.mode}`}>
+                        {activeRepair.mode === 'auto'
+                          ? 'Auto'
+                          : activeRepair.mode === 'individual'
+                            ? 'Individual'
+                            : 'Info'}
+                      </span>
+                      — {activeRepair.title}
+                    </>
+                  ) : null}
                 </span>
                 {activeRepair ? <span className="muted">{activeRepair.how}</span> : null}
                 <button type="button" className="btn btn-secondary" onClick={() => setCodeFilter('')}>
                   Limpar filtro
                 </button>
-                {activeRepair?.batchable ? (
+                {activeRepair?.mode === 'auto' && activeRepair.batchable ? (
                   <button
                     type="button"
                     className="btn btn-primary"
                     disabled={busy || selectedIds.size === 0}
                     onClick={() => void applySelectedRepair(codeFilter)}
                   >
-                    Corrigir {selectedIds.size || '…'} selecionada(s)
+                    Auto-corrigir {selectedIds.size || '…'} selecionada(s)
                   </button>
+                ) : null}
+                {activeRepair?.mode === 'individual' ? (
+                  <span className="muted">Abra cada ficha na lista e edite os campos destacados.</span>
                 ) : null}
               </div>
             ) : null}
@@ -840,14 +915,14 @@ export default function OdontoLotePage() {
                 <span className="muted">
                   {selectedIds.size} selecionada(s) · mostrando {items.length} de {itemsTotal}
                 </span>
-                {selectedIds.size && activeRepair?.batchable ? (
+                {selectedIds.size && activeRepair?.mode === 'auto' && activeRepair.batchable ? (
                   <button
                     type="button"
                     className="btn btn-primary"
                     disabled={busy}
                     onClick={() => void applySelectedRepair()}
                   >
-                    Corrigir selecionadas ({activeRepair.title})
+                    Auto-corrigir selecionadas ({activeRepair.title})
                   </button>
                 ) : null}
               </div>
@@ -902,7 +977,7 @@ export default function OdontoLotePage() {
               </div>
             </div>
 
-            <div className="card lote-sticky">
+            <div className="card lote-sticky" ref={editPanelRef}>
               {selected ? (
                 <form onSubmit={saveItem}>
                   <h3 style={{ marginTop: 0 }}>5. Editar ficha</h3>
@@ -929,7 +1004,7 @@ export default function OdontoLotePage() {
                     </div>
                   ) : null}
 
-                  <h4 style={{ marginBottom: 8 }}>Alertas e como corrigir</h4>
+                  <h4 style={{ marginBottom: 8 }}>Alertas — auto ou edição individual</h4>
                   <div style={{ maxHeight: 280, overflow: 'auto', marginBottom: 12 }}>
                     <table style={{ width: '100%', fontSize: 12 }}>
                       <thead>
@@ -947,11 +1022,13 @@ export default function OdontoLotePage() {
                         ].map((f, i) => {
                           const code = 'code' in f ? f.code : '';
                           const guide = lookupRepair(code);
-                          const can =
-                            guide?.button && guide.ui && guide.ui !== 'manual' && guide.ui !== 'lote' && guide.ui !== 'st_cpf';
+                          const mode = guide?.mode || 'individual';
                           return (
                             <tr key={`${code}-${i}`}>
                               <td>
+                                <span className={`lote-mode ${mode}`}>
+                                  {mode === 'auto' ? 'Auto' : mode === 'individual' ? 'Individual' : 'Info'}
+                                </span>
                                 <span className={`lote-sev ${'severity' in f ? f.severity : ''}`}>
                                   {'severity' in f ? f.severity : ''}
                                 </span>{' '}
@@ -969,7 +1046,7 @@ export default function OdontoLotePage() {
                                 ) : null}
                               </td>
                               <td>
-                                {can ? (
+                                {mode === 'auto' && guide?.button ? (
                                   <button
                                     type="button"
                                     className="btn btn-secondary"
@@ -977,10 +1054,19 @@ export default function OdontoLotePage() {
                                     style={{ fontSize: 12 }}
                                     onClick={() => void applyGapRepair(code)}
                                   >
-                                    {guide!.button}
+                                    {guide.button}
+                                  </button>
+                                ) : mode === 'individual' ? (
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    style={{ fontSize: 12 }}
+                                    onClick={() => focusIndividualEdit(guide?.focusField)}
+                                  >
+                                    Editar ficha
                                   </button>
                                 ) : (
-                                  <span className="muted">manual / lote</span>
+                                  <span className="muted">só orientação</span>
                                 )}
                               </td>
                             </tr>
@@ -991,7 +1077,7 @@ export default function OdontoLotePage() {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <div className="field">
+                    <div className={`field ${focusField === 'ciap' ? 'focus-hint' : ''}`}>
                       <label>CIAP</label>
                       <input value={ciap} onChange={(e) => setCiap(e.target.value)} />
                     </div>
@@ -999,19 +1085,19 @@ export default function OdontoLotePage() {
                       <label>CID-10</label>
                       <input value={cid10} onChange={(e) => setCid10(e.target.value)} />
                     </div>
-                    <div className="field">
+                    <div className={`field ${focusField === 'ine' ? 'focus-hint' : ''}`}>
                       <label>INE</label>
                       <input value={editIne} onChange={(e) => setEditIne(e.target.value)} />
                     </div>
-                    <div className="field">
+                    <div className={`field ${focusField === 'cbo' ? 'focus-hint' : ''}`}>
                       <label>CBO</label>
                       <input value={editCbo} onChange={(e) => setEditCbo(e.target.value)} />
                     </div>
-                    <div className="field">
+                    <div className={`field ${focusField === 'vigilancia' ? 'focus-hint' : ''}`}>
                       <label>Vigilância</label>
                       <input value={vigilancia} onChange={(e) => setVigilancia(e.target.value)} />
                     </div>
-                    <div className="field">
+                    <div className={`field ${focusField === 'consulta' ? 'focus-hint' : ''}`}>
                       <label>Consulta</label>
                       <select value={tipoConsulta} onChange={(e) => setTipoConsulta(e.target.value)}>
                         <option value="1">1</option>
@@ -1019,13 +1105,49 @@ export default function OdontoLotePage() {
                         <option value="4">4</option>
                       </select>
                     </div>
-                    <div className="field" style={{ gridColumn: '1 / -1' }}>
+                    <div className={`field ${focusField === 'turno' ? 'focus-hint' : ''}`}>
+                      <label>Turno</label>
+                      <select value={turno} onChange={(e) => setTurno(e.target.value)}>
+                        <option value="1">1 manhã</option>
+                        <option value="2">2 tarde</option>
+                        <option value="3">3 noite</option>
+                      </select>
+                    </div>
+                    <div className={`field ${focusField === 'gestante' ? 'focus-hint' : ''}`}>
+                      <label>Gestante</label>
+                      <select value={gestante} onChange={(e) => setGestante(e.target.value)}>
+                        <option value="false">false</option>
+                        <option value="true">true</option>
+                      </select>
+                    </div>
+                    <div className={`field ${focusField === 'local' ? 'focus-hint' : ''}`}>
+                      <label>Local atendimento</label>
+                      <input value={localAtend} onChange={(e) => setLocalAtend(e.target.value)} />
+                    </div>
+                    <div className={`field ${focusField === 'cnes' ? 'focus-hint' : ''}`}>
+                      <label>CNES (7 dígitos)</label>
+                      <input value={cnes} onChange={(e) => setCnes(e.target.value)} placeholder="2077432" />
+                    </div>
+                    <div className={`field ${focusField === 'ibge' ? 'focus-hint' : ''}`}>
+                      <label>IBGE município</label>
+                      <input value={ibge} onChange={(e) => setIbge(e.target.value)} placeholder="3516200" />
+                    </div>
+                    <div className={`field ${focusField === 'proc' ? 'focus-hint' : ''}`} style={{ gridColumn: '1 / -1' }}>
                       <label>Procs SIGTAP extras</label>
                       <input
                         value={procExtra}
                         onChange={(e) => setProcExtra(e.target.value)}
                         placeholder="0301010153,0101020104"
                       />
+                    </div>
+                    <div
+                      className={`field ${focusField === 'xml' ? 'focus-hint' : ''}`}
+                      style={{ gridColumn: '1 / -1' }}
+                    >
+                      <label className="muted">
+                        Campos de CPF/CNS/datas/UUID exigem ajuste no XML de origem ou reexportação — use o botão
+                        “Editar ficha” do alerta e, se necessário, baixe o XML e corrija na origem.
+                      </label>
                     </div>
                   </div>
                   <button className="btn btn-primary" type="submit" disabled={busy} style={{ marginTop: 8 }}>
@@ -1036,8 +1158,8 @@ export default function OdontoLotePage() {
                 <>
                   <h3 style={{ marginTop: 0 }}>5. Editar ficha</h3>
                   <p className="muted">
-                    Selecione uma linha na lista para ver explicação do alerta e corrigir individualmente. Ou marque
-                    várias e corrija em lote pelo filtro do gráfico.
+                    Cada alerta mostra <strong>Auto</strong> (botão corrige o XML) ou <strong>Individual</strong>{' '}
+                    (abra a ficha e edite). Filtre pelo gráfico para auto-corrigir várias selecionadas.
                   </p>
                 </>
               )}

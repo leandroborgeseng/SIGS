@@ -75,6 +75,11 @@ export class LediFaoBatchFileDto {
 
 export class CreateLediFaoBatchDto {
   @IsOptional() @IsString() name?: string;
+  /**
+   * Canal do lote: FAO (odonto) | FAI (individual) | PROCEDIMENTOS.
+   * Default FAO para compatibilidade com /odonto/lote.
+   */
+  @IsOptional() @IsString() expectedTipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => LediFaoBatchFileDto)
@@ -123,6 +128,11 @@ export class AutoFixLediFaoBatchDto {
   @Type(() => LediFaoProcDto)
   procedimentosAdd?: LediFaoProcDto[];
   @IsOptional() @IsString() cboCodigo_2002?: string;
+  @IsOptional() @IsInt() turno?: number;
+  @IsOptional() @IsBoolean() gestante?: boolean;
+  @IsOptional() @IsInt() localAtendimento?: number;
+  @IsOptional() @IsString() cnes?: string;
+  @IsOptional() @IsString() codigoIbgeMunicipio?: string;
 }
 
 export class PatchLediFaoBatchItemDto {
@@ -146,6 +156,11 @@ export class PatchLediFaoBatchItemDto {
   procedimentosAdd?: LediFaoProcDto[];
   /** CBO lotação (família 2232* / 3224*). */
   @IsOptional() @IsString() cboCodigo_2002?: string;
+  @IsOptional() @IsInt() turno?: number;
+  @IsOptional() @IsBoolean() gestante?: boolean;
+  @IsOptional() @IsInt() localAtendimento?: number;
+  @IsOptional() @IsString() cnes?: string;
+  @IsOptional() @IsString() codigoIbgeMunicipio?: string;
   /** Substitui o XML inteiro (edição avançada). */
   @IsOptional() @IsString() xml?: string;
 }
