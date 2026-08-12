@@ -1,0 +1,15 @@
+# Cole no Railway → Variables (Raw Editor / bulk).
+# Domínio: https://sigs-production.up.railway.app
+# Networking → Target port: 3000 (ou o mesmo valor de PORT abaixo)
+# Volume: monte em /data
+
+PORT=3000
+API_PORT=3001
+WEB_PORT=3000
+DATABASE_URL=file:/data/sigs.db
+JWT_SECRET=troque-por-uma-string-longa-aleatoria-32chars
+CORS_ORIGIN=https://sigs-production.up.railway.app
+NEXT_PUBLIC_API_URL=https://sigs-production.up.railway.app/api
+SEED_ADMIN_EMAIL=admin@sigs.local
+SEED_ADMIN_PASSWORD=admin123
+NODE_ENV=production
