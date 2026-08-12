@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -9,7 +10,10 @@ import {
   Post,
   Query,
   Res,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { CareExtraService } from './care-extra.service';
 import { LediFaoBatchService } from './ledi-fao-batch.service';
@@ -25,6 +29,18 @@ import {
   AutoFixLediFaoBatchDto,
   PatchLediFaoBatchItemDto,
 } from './dto';
+
+const XML_UPLOAD = FilesInterceptor('files', 200, {
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+function mapUploadedXmls(files?: Express.Multer.File[]) {
+  if (!files?.length) throw new BadRequestException('Envie ao menos um arquivo XML.');
+  return files.map((f) => ({
+    name: (f.originalname || 'arquivo.xml').slice(0, 255),
+    xml: Buffer.from(f.buffer).toString('utf8'),
+  }));
+}
 
 @Controller('v1')
 export class CareExtraController {
@@ -51,6 +67,31 @@ export class CareExtraController {
   @Post('dental/ledi/batches')
   createFaoBatch(@Body() dto: CreateLediFaoBatchDto) {
     return this.faoBatches.create(dto);
+  }
+
+  /** Upload multipart — o browser envia os File sem ler o conteúdo em JS (evita I/O read failed). */
+  @Post('dental/ledi/batches/upload')
+  @UseInterceptors(XML_UPLOAD)
+  createFaoBatchUpload(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('name') name?: string,
+    @Body('expectedTipo') expectedTipo?: string,
+  ) {
+    return this.faoBatches.create({
+      name,
+      expectedTipo: (expectedTipo as 'FAO' | 'FAI' | 'PROCEDIMENTOS') || 'FAO',
+      files: mapUploadedXmls(files),
+    });
+  }
+
+  @Post('dental/ledi/batches/:batchId/upload')
+  @UseInterceptors(XML_UPLOAD)
+  appendFaoBatchUpload(
+    @Param('batchId') batchId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('expectedTipo') _expectedTipo?: string,
+  ) {
+    return this.faoBatches.appendFiles(batchId, mapUploadedXmls(files));
   }
 
   @Get('dental/ledi/batches/:batchId')

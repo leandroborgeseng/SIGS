@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError, getToken } from '@/lib/api';
-import { readTextFilesBatched } from '@/lib/read-text-file';
+import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
 import { bodyForRepairUi, lookupRepair, type AlertRepair } from './repair-catalog';
 
 type BatchSummary = {
@@ -243,25 +243,19 @@ export default function OdontoLotePage() {
     try {
       const list = Array.from(files).filter((f) => f.name.toLowerCase().endsWith('.xml'));
       if (!list.length) throw new Error('Selecione arquivos .xml');
-      setUploadProgress(`Lendo ${list.length} arquivos…`);
-      const read = await readTextFilesBatched(list, {
-        concurrency: 8,
-        onProgress: (done, total) => setUploadProgress(`Lidos ${done}/${total}…`),
-      });
-      const payload = read.map((r) => ({ name: r.name, xml: r.text }));
-      setUploadProgress(`Validando lote (${payload.length} fichas)…`);
-      const created = await api<Batch>('/v1/dental/ledi/batches', {
-        method: 'POST',
-        json: {
-          name: batchName.trim() || `FAO ${new Date().toLocaleString('pt-BR')}`,
-          expectedTipo: 'FAO',
-          files: payload,
-        },
+      const { batch: created, uploaded, failedNames } = await uploadLediBatchMultipart<Batch>({
+        files: list,
+        name: batchName.trim() || `FAO ${new Date().toLocaleString('pt-BR')}`,
+        expectedTipo: 'FAO',
+        onProgress: setUploadProgress,
       });
       setBatch(created);
       setCodeFilter('');
+      const failNote = failedNames.length
+        ? ` · ${failedNames.length} não lidos (ex.: ${failedNames[0]}) — copie a pasta para o Desktop e reenvie só esses.`
+        : '';
       setOk(
-        `Lote criado: ${created.summary.total} fichas · ${created.summary.withBlockers} com blocker · ${created.summary.conformant} conformes.`,
+        `Lote criado: ${uploaded} enviadas · ${created.summary.withBlockers} com blocker · ${created.summary.conformant} conformes.${failNote}`,
       );
       await loadBatches();
     } catch (err) {

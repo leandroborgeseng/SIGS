@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError, getToken } from '@/lib/api';
-import { readTextFilesBatched } from '@/lib/read-text-file';
+import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
 
 type LoteTipo = 'FAI' | 'PROCEDIMENTOS';
 
@@ -132,24 +132,18 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     try {
       const list = Array.from(files).filter((f) => f.name.toLowerCase().endsWith('.xml'));
       if (!list.length) throw new Error('Selecione arquivos .xml');
-      setUploadProgress(`Lendo ${list.length}…`);
-      const read = await readTextFilesBatched(list, {
-        concurrency: 8,
-        onProgress: (done, total) => setUploadProgress(`Lidos ${done}/${total}…`),
-      });
-      const payload = read.map((r) => ({ name: r.name, xml: r.text }));
-      setUploadProgress(`Validando lote ${meta.label}…`);
-      const created = await api<Batch>('/v1/dental/ledi/batches', {
-        method: 'POST',
-        json: {
-          name: batchName.trim() || `${meta.label} ${new Date().toLocaleString('pt-BR')}`,
-          expectedTipo,
-          files: payload,
-        },
+      const { batch: created, uploaded, failedNames } = await uploadLediBatchMultipart<Batch>({
+        files: list,
+        name: batchName.trim() || `${meta.label} ${new Date().toLocaleString('pt-BR')}`,
+        expectedTipo,
+        onProgress: setUploadProgress,
       });
       setBatch(created);
+      const failNote = failedNames.length
+        ? ` · ${failedNames.length} não lidos (ex.: ${failedNames[0]}) — copie a pasta para o Desktop e reenvie só esses.`
+        : '';
       setOk(
-        `Lote ${meta.label}: ${created.summary.total} fichas · ${created.summary.withBlockers} com blocker · ${created.summary.conformant} conformes.`,
+        `Lote ${meta.label}: ${uploaded} enviadas · ${created.summary.withBlockers} com blocker · ${created.summary.conformant} conformes.${failNote}`,
       );
       await loadBatches();
       await loadBatch(created.id);

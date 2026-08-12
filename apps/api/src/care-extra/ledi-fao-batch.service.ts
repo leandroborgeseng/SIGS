@@ -214,15 +214,10 @@ export class LediFaoBatchService {
     return detectedId === expected;
   }
 
-  async create(dto: CreateLediFaoBatchDto) {
-    if (!dto.files?.length) {
-      throw new BadRequestException('Envie ao menos um arquivo XML.');
-    }
-    if (dto.files.length > 5000) {
-      throw new BadRequestException('Limite de 5000 arquivos por lote.');
-    }
-
-    const expectedTipo = this.normalizeExpectedTipo(dto.expectedTipo);
+  private prepareItems(
+    files: Array<{ name: string; xml: string }>,
+    expectedTipo: LediLoteTipo,
+  ) {
     const label =
       expectedTipo === 'FAI'
         ? 'FAI'
@@ -230,7 +225,7 @@ export class LediFaoBatchService {
           ? 'Procedimentos'
           : 'FAO';
 
-    const prepared = dto.files.map((f) => {
+    return files.map((f) => {
       const xml = f.xml?.trim();
       if (!xml) throw new BadRequestException(`Arquivo sem conteúdo: ${f.name}`);
       const tipo = detectLediFichaTipo(xml);
@@ -269,6 +264,25 @@ export class LediFaoBatchService {
         autoFixableCodes: auto.join(','),
       };
     });
+  }
+
+  async create(dto: CreateLediFaoBatchDto) {
+    if (!dto.files?.length) {
+      throw new BadRequestException('Envie ao menos um arquivo XML.');
+    }
+    if (dto.files.length > 5000) {
+      throw new BadRequestException('Limite de 5000 arquivos por lote.');
+    }
+
+    const expectedTipo = this.normalizeExpectedTipo(dto.expectedTipo);
+    const label =
+      expectedTipo === 'FAI'
+        ? 'FAI'
+        : expectedTipo === 'PROCEDIMENTOS'
+          ? 'Procedimentos'
+          : 'FAO';
+
+    const prepared = this.prepareItems(dto.files, expectedTipo);
 
     const summary = {
       ...this.summarizeBatch(prepared),
@@ -297,6 +311,22 @@ export class LediFaoBatchService {
     });
 
     return this.get(batch.id);
+  }
+
+  /** Acrescenta XMLs a um lote existente (upload em pedaços). */
+  async appendFiles(batchId: string, files: Array<{ name: string; xml: string }>) {
+    await this.ensureBatch(batchId);
+    if (!files?.length) throw new BadRequestException('Envie ao menos um arquivo XML.');
+    if (files.length > 500) {
+      throw new BadRequestException('Limite de 500 arquivos por pedaço de upload.');
+    }
+    const expectedTipo = await this.expectedTipoOf(batchId);
+    const prepared = this.prepareItems(files, expectedTipo);
+    await this.prisma.lediFaoBatchItem.createMany({
+      data: prepared.map((p) => ({ ...p, batchId })),
+    });
+    await this.refreshBatchSummary(batchId);
+    return this.get(batchId);
   }
 
   async list() {
