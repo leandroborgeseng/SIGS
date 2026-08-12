@@ -45,6 +45,6 @@ COPY --from=build /app/apps/web/next.config.ts ./apps/web/
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-VOLUME ["/data"]
+# Railway: não use VOLUME no Dockerfile — monte Volume do painel em /data.
 EXPOSE 3000 3001
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]

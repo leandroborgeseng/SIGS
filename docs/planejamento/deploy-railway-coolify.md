@@ -30,8 +30,8 @@ No Coolify, use um domínio na porta 3000 e outro (ou path) para 3001. Alternati
 ## Railway
 
 1. **New Project** → Deploy from GitHub (este repo).
-2. Railway detecta o `Dockerfile`.
-3. Add **Volume** montado em `/data`.
+2. Railway detecta o `Dockerfile` (**não** declare `VOLUME` no Dockerfile — o Railway rejeita; use Volume do painel).
+3. Add **Volume** montado em `/data` (Settings → Volumes).
 4. Variables iguais ao Coolify.
 5. Gere domínio público; ajuste `CORS_ORIGIN` e `NEXT_PUBLIC_API_URL` para esse domínio.
 6. Exponha a porta do serviço Web (3000). Para a API no mesmo container, configure um segundo domínio/TCP na 3001 **ou** use dois serviços (API e Web) no mesmo projeto.
