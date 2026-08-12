@@ -2,6 +2,8 @@
 
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
@@ -25,9 +27,9 @@ ENV PORT=3001
 ENV WEB_PORT=3000
 ENV DATABASE_URL="file:/data/sigs.db"
 ENV CORS_ORIGIN="*"
-ENV JWT_SECRET="change-me-in-production"
+# JWT_SECRET deve vir das Variables do Railway/Coolify (não embutir no Dockerfile)
 
-RUN apt-get update && apt-get install -y --no-install-recommends tini \
+RUN apt-get update && apt-get install -y --no-install-recommends tini openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /data
 

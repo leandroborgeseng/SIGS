@@ -77,11 +77,11 @@ export default function UnidadesPage() {
     <AppShell>
       <PageHeader
         title="Unidades"
-        subtitle="CNES e código IBGE do município (header LEDI)"
-        actions={<HelpLink articleId="cadastros.unidades" />}
+        description="CNES e código IBGE do município (header LEDI)"
+        actions={<HelpLink id="cadastros.unidades" />}
       />
-      {error ? <ErrorBox>{error}</ErrorBox> : null}
-      {ok ? <OkBox>{ok}</OkBox> : null}
+      <ErrorBox message={error} />
+      <OkBox message={ok} />
 
       <div className="grid-2">
         <div className="card">
