@@ -17,6 +17,7 @@ type BatchSummary = {
   previneReady?: number;
   readyForFinalSend?: number;
   topCodes: Array<{ code: string; files: number; pct: number }>;
+  byTipo?: Array<{ id: string; files: number; pct: number }>;
   previne?: {
     files: number;
     codeCounts: Array<{
@@ -63,6 +64,9 @@ type ItemRow = {
   readyForFinalSend?: boolean;
   previneMoneyRisks?: number;
   previneTopCodes?: string[];
+  fichaTipo?: string | null;
+  fichaTipoCode?: number | null;
+  fichaTipoLabel?: string | null;
 };
 
 type Finding = {
@@ -92,6 +96,11 @@ type ItemDetail = {
   siapsReady?: boolean;
   previneReady?: boolean;
   readyForFinalSend?: boolean;
+  fichaTipo?: string | null;
+  fichaTipoCode?: number | null;
+  fichaTipoLabel?: string | null;
+  correctionPath?: string;
+  odontoLoteSupported?: boolean;
   previneXray?: {
     summary: { moneyRisks: number; qualityWarns: number; infos: number };
     signals: {
@@ -147,6 +156,7 @@ export default function OdontoLotePage() {
   const [itemsTotal, setItemsTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState('');
   const [codeFilter, setCodeFilter] = useState('');
+  const [tipoFilter, setTipoFilter] = useState('');
   const [q, setQ] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<ItemDetail | null>(null);
@@ -179,6 +189,7 @@ export default function OdontoLotePage() {
       const qs = new URLSearchParams();
       if (statusFilter) qs.set('status', statusFilter);
       if (codeFilter) qs.set('code', codeFilter);
+      if (tipoFilter) qs.set('tipo', tipoFilter);
       if (q.trim()) qs.set('q', q.trim());
       qs.set('limit', '200');
       const page = await api<{ total: number; items: ItemRow[] }>(
@@ -188,7 +199,7 @@ export default function OdontoLotePage() {
       setItemsTotal(page.total);
       setSelectedIds(new Set());
     },
-    [statusFilter, codeFilter, q],
+    [statusFilter, codeFilter, tipoFilter, q],
   );
 
   useEffect(() => {
@@ -569,6 +580,33 @@ export default function OdontoLotePage() {
               </div>
             </div>
 
+            {batch.summary.byTipo?.length ? (
+              <div style={{ marginBottom: 16 }}>
+                <h4 style={{ marginBottom: 6 }}>Tipos de ficha neste lote</h4>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  FAO (5) = odonto nesta tela · FAI (4) = atendimento individual · Procedimentos (7) = ficha de
+                  procedimentos. Clique para filtrar.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {batch.summary.byTipo.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`btn ${tipoFilter === t.id ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setTipoFilter((prev) => (prev === t.id ? '' : t.id))}
+                    >
+                      {t.id} · {t.files} ({t.pct}%)
+                    </button>
+                  ))}
+                  {tipoFilter ? (
+                    <button type="button" className="btn btn-ghost" onClick={() => setTipoFilter('')}>
+                      Limpar tipo
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
             <div className="lote-split">
               <div>
                 <h4 style={{ marginBottom: 6 }}>Inconsistências de envio (LEDI/Siaps)</h4>
@@ -811,6 +849,7 @@ export default function OdontoLotePage() {
                     <tr>
                       <th style={{ width: 36 }} />
                       <th align="left">Arquivo</th>
+                      <th>Tipo</th>
                       <th>Siaps</th>
                       <th>Previne</th>
                       <th align="left">Códigos</th>
@@ -835,6 +874,12 @@ export default function OdontoLotePage() {
                           />
                         </td>
                         <td>{it.fileName}</td>
+                        <td align="center">
+                          <code title={it.fichaTipoLabel || ''}>
+                            {it.fichaTipo || '?'}
+                            {it.fichaTipoCode != null ? `/${it.fichaTipoCode}` : ''}
+                          </code>
+                        </td>
                         <td align="center">{it.siapsReady ? 'ok' : 'falha'}</td>
                         <td align="center">{it.previneReady ? 'ok' : `risco(${it.previneMoneyRisks ?? 0})`}</td>
                         <td>
@@ -857,11 +902,24 @@ export default function OdontoLotePage() {
                     <strong>{selected.fileName}</strong>
                     <br />
                     <span className="muted">
+                      Tipo:{' '}
+                      <strong>
+                        {selected.fichaTipoLabel || selected.fichaTipo || '—'}
+                        {selected.fichaTipoCode != null ? ` (${selected.fichaTipoCode})` : ''}
+                      </strong>
+                      {selected.correctionPath ? ` · Corrigir em: ${selected.correctionPath}` : ''}
+                      <br />
                       LEDI {selected.status} · Siaps {selected.siapsReady ? 'ok' : 'bloquear'} · Previne{' '}
                       {selected.previneReady ? 'ok' : 'risco'} · Envio{' '}
                       {selected.readyForFinalSend ? 'recomendado' : 'reparar'}
                     </span>
                   </p>
+                  {selected.odontoLoteSupported === false ? (
+                    <div className="alert danger" style={{ marginBottom: 12 }}>
+                      Esta ficha <strong>não é FAO</strong>. A correção odonto desta tela não se aplica — use o
+                      fluxo do tipo indicado acima.
+                    </div>
+                  ) : null}
 
                   <h4 style={{ marginBottom: 8 }}>Alertas e como corrigir</h4>
                   <div style={{ maxHeight: 280, overflow: 'auto', marginBottom: 12 }}>

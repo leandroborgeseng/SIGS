@@ -69,6 +69,7 @@ export class CareExtraController {
     @Query('status') status?: string,
     @Query('q') q?: string,
     @Query('code') code?: string,
+    @Query('tipo') tipo?: string,
     @Query('offset') offset?: string,
     @Query('limit') limit?: string,
   ) {
@@ -76,6 +77,7 @@ export class CareExtraController {
       status,
       q,
       code,
+      tipo,
       offset: offset ? Number(offset) : 0,
       limit: limit ? Number(limit) : 100,
     });

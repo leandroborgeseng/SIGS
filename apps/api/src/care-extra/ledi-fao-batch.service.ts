@@ -12,6 +12,7 @@ import {
   aggregatePrevineXrays,
   type PrevineXray,
 } from './ledi-fao-previne-xray';
+import { detectLediFichaTipo } from './ledi-ficha-tipo';
 import {
   applyAutoFixes,
   classifyAutoFixable,
@@ -46,6 +47,9 @@ type ItemSummary = {
   readyForFinalSend: boolean;
   previneMoneyRisks: number;
   previneTopCodes: string[];
+  fichaTipo?: string | null;
+  fichaTipoCode?: number | null;
+  fichaTipoLabel?: string | null;
 };
 
 @Injectable()
@@ -71,9 +75,11 @@ export class LediFaoBatchService {
       autoFixableCodes: string;
       previneJson?: string | null;
       fileName?: string;
+      fichaTipo?: string | null;
     }>,
   ) {
     const codeFiles = new Map<string, number>();
+    const tipoCounts = new Map<string, number>();
     let conformant = 0;
     let withBlockers = 0;
     let withWarn = 0;
@@ -101,6 +107,9 @@ export class LediFaoBatchService {
       }
       const hasBlocker = findings.some((f) => f.severity === 'BLOCKER');
       if (!hasBlocker) siapsReady += 1;
+
+      const tipo = it.fichaTipo || 'UNKNOWN';
+      tipoCounts.set(tipo, (tipoCounts.get(tipo) || 0) + 1);
 
       if (it.previneJson) {
         try {
@@ -132,6 +141,13 @@ export class LediFaoBatchService {
       readyForFinalSend,
       topCodes,
       previne,
+      byTipo: [...tipoCounts.entries()]
+        .map(([id, files]) => ({
+          id,
+          files,
+          pct: Math.round((files / Math.max(items.length, 1)) * 1000) / 10,
+        }))
+        .sort((a, b) => b.files - a.files),
     };
   }
 
@@ -146,8 +162,19 @@ export class LediFaoBatchService {
     const prepared = dto.files.map((f) => {
       const xml = f.xml?.trim();
       if (!xml) throw new BadRequestException(`Arquivo sem conteúdo: ${f.name}`);
+      const tipo = detectLediFichaTipo(xml);
       const report = this.reportFromXml(xml);
-      const findings = report.findings;
+      const findings = [...report.findings];
+      if (!tipo.odontoLoteSupported) {
+        findings.unshift({
+          severity: 'BLOCKER',
+          code: 'WRONG_FICHA_TIPO',
+          message: `Arquivo é ${tipo.label} (tipo ${tipo.code ?? '?'}) — esta tela corrige só FAO (tipo 5).`,
+          hint: tipo.correctionPath,
+          field: 'tipoDadoSerializado',
+          rule: 'LEDI-tipo',
+        });
+      }
       const auto = classifyAutoFixable(findings);
       let masterJson: string | null = null;
       try {
@@ -163,6 +190,8 @@ export class LediFaoBatchService {
         currentXml: xml,
         findingsJson: JSON.stringify(findings),
         previneJson: report.previneXray ? JSON.stringify(report.previneXray) : null,
+        fichaTipo: tipo.id,
+        fichaTipoCode: tipo.code,
         masterJson,
         autoFixableCodes: auto.join(','),
       };
@@ -230,17 +259,36 @@ export class LediFaoBatchService {
 
   async listItems(
     batchId: string,
-    opts: { status?: string; q?: string; code?: string; offset?: number; limit?: number } = {},
+    opts: {
+      status?: string;
+      q?: string;
+      code?: string;
+      tipo?: string;
+      offset?: number;
+      limit?: number;
+    } = {},
   ) {
     await this.ensureBatch(batchId);
     const limit = Math.min(opts.limit ?? 100, 500);
     const offset = opts.offset ?? 0;
     const codeFilter = opts.code?.trim();
+    const tipoFilter = opts.tipo?.trim();
 
     const where = {
       batchId,
       ...(opts.status ? { status: opts.status } : {}),
       ...(opts.q ? { fileName: { contains: opts.q } } : {}),
+      ...(tipoFilter ? { fichaTipo: tipoFilter } : {}),
+    };
+
+    const labelById: Record<string, string> = {
+      FAO: 'Atendimento Odontológico (FAO)',
+      FAI: 'Atendimento Individual (FAI)',
+      PROCEDIMENTOS: 'Ficha de Procedimentos',
+      VACINA: 'Vacinação',
+      COLETIVO: 'Atividade Coletiva',
+      OUTRO: 'Outro',
+      UNKNOWN: 'Desconhecido',
     };
 
     const mapRow = (r: {
@@ -250,6 +298,8 @@ export class LediFaoBatchService {
       findingsJson: string;
       previneJson: string | null;
       autoFixableCodes: string;
+      fichaTipo: string | null;
+      fichaTipoCode: number | null;
     }): ItemSummary => {
       const findings = JSON.parse(r.findingsJson || '[]') as FaoFinding[];
       let previne: PrevineXray | null = null;
@@ -278,21 +328,28 @@ export class LediFaoBatchService {
         readyForFinalSend: siapsReady && previneReady,
         previneMoneyRisks: previne?.summary.moneyRisks ?? 0,
         previneTopCodes: previneTopCodes.slice(0, 6),
+        fichaTipo: r.fichaTipo,
+        fichaTipoCode: r.fichaTipoCode,
+        fichaTipoLabel: r.fichaTipo ? labelById[r.fichaTipo] || r.fichaTipo : null,
       };
     };
+
+    const select = {
+      id: true,
+      fileName: true,
+      status: true,
+      findingsJson: true,
+      previneJson: true,
+      autoFixableCodes: true,
+      fichaTipo: true,
+      fichaTipoCode: true,
+    } as const;
 
     if (codeFilter) {
       const rows = await this.prisma.lediFaoBatchItem.findMany({
         where,
         orderBy: [{ status: 'asc' }, { fileName: 'asc' }],
-        select: {
-          id: true,
-          fileName: true,
-          status: true,
-          findingsJson: true,
-          previneJson: true,
-          autoFixableCodes: true,
-        },
+        select,
       });
       const matched = rows
         .map(mapRow)
@@ -302,9 +359,14 @@ export class LediFaoBatchService {
             it.previneTopCodes.includes(codeFilter) ||
             it.autoFixableCodes.includes(codeFilter),
         );
-      const total = matched.length;
-      const items = matched.slice(offset, offset + limit);
-      return { total, offset, limit, items, code: codeFilter };
+      return {
+        total: matched.length,
+        offset,
+        limit,
+        items: matched.slice(offset, offset + limit),
+        code: codeFilter,
+        tipo: tipoFilter || undefined,
+      };
     }
 
     const [total, rows] = await Promise.all([
@@ -314,18 +376,11 @@ export class LediFaoBatchService {
         orderBy: [{ status: 'asc' }, { fileName: 'asc' }],
         skip: offset,
         take: limit,
-        select: {
-          id: true,
-          fileName: true,
-          status: true,
-          findingsJson: true,
-          previneJson: true,
-          autoFixableCodes: true,
-        },
+        select,
       }),
     ]);
 
-    return { total, offset, limit, items: rows.map(mapRow) };
+    return { total, offset, limit, items: rows.map(mapRow), tipo: tipoFilter || undefined };
   }
 
   async getItem(batchId: string, itemId: string) {
@@ -350,6 +405,7 @@ export class LediFaoBatchService {
     }
     const siapsReady = !findings.some((f) => f.severity === 'BLOCKER');
     const previneReady = !previneXray || previneXray.summary.moneyRisks === 0;
+    const tipo = detectLediFichaTipo(item.currentXml);
     return {
       id: item.id,
       batchId: item.batchId,
@@ -360,6 +416,11 @@ export class LediFaoBatchService {
       siapsReady,
       previneReady,
       readyForFinalSend: siapsReady && previneReady,
+      fichaTipo: item.fichaTipo || tipo.id,
+      fichaTipoCode: item.fichaTipoCode ?? tipo.code,
+      fichaTipoLabel: tipo.label,
+      correctionPath: tipo.correctionPath,
+      odontoLoteSupported: tipo.odontoLoteSupported,
       autoFixableCodes: item.autoFixableCodes
         ? item.autoFixableCodes.split(',').filter(Boolean)
         : [],
@@ -615,8 +676,19 @@ export class LediFaoBatchService {
   }
 
   private async persistXml(itemId: string, xml: string) {
+    const tipo = detectLediFichaTipo(xml);
     const report = this.reportFromXml(xml);
-    const findings = report.findings;
+    const findings = [...report.findings];
+    if (!tipo.odontoLoteSupported) {
+      findings.unshift({
+        severity: 'BLOCKER',
+        code: 'WRONG_FICHA_TIPO',
+        message: `Arquivo é ${tipo.label} (tipo ${tipo.code ?? '?'}) — esta tela corrige só FAO (tipo 5).`,
+        hint: tipo.correctionPath,
+        field: 'tipoDadoSerializado',
+        rule: 'LEDI-tipo',
+      });
+    }
     const auto = classifyAutoFixable(findings);
     const status = this.findingsStatus(findings);
 
@@ -634,6 +706,8 @@ export class LediFaoBatchService {
         currentXml: xml,
         findingsJson: JSON.stringify(findings),
         previneJson: report.previneXray ? JSON.stringify(report.previneXray) : null,
+        fichaTipo: tipo.id,
+        fichaTipoCode: tipo.code,
         autoFixableCodes: auto.join(','),
         masterJson,
         status,
@@ -650,6 +724,7 @@ export class LediFaoBatchService {
         autoFixableCodes: true,
         previneJson: true,
         fileName: true,
+        fichaTipo: true,
       },
     });
     const summary = this.summarizeBatch(items);

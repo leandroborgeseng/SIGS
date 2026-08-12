@@ -598,6 +598,10 @@ model LediFaoBatchItem {
   findingsJson       String   @default("[]") @map("findings_json")
   /// Raio-x Previne ESB (JSON) — oportunidades de indicador/qualidade
   previneJson        String?  @map("previne_json")
+  /// FAO | FAI | PROCEDIMENTOS | …
+  fichaTipo          String?  @map("ficha_tipo")
+  /// 5 | 4 | 7 | …
+  fichaTipoCode      Int?     @map("ficha_tipo_code")
   masterJson         String?  @map("master_json")
   /// Códigos elegíveis a auto-correção neste item (CSV)
   autoFixableCodes   String   @default("") @map("auto_fixable_codes")
