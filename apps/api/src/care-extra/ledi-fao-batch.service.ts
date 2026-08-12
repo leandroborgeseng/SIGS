@@ -230,16 +230,83 @@ export class LediFaoBatchService {
 
   async listItems(
     batchId: string,
-    opts: { status?: string; q?: string; offset?: number; limit?: number } = {},
+    opts: { status?: string; q?: string; code?: string; offset?: number; limit?: number } = {},
   ) {
     await this.ensureBatch(batchId);
     const limit = Math.min(opts.limit ?? 100, 500);
     const offset = opts.offset ?? 0;
+    const codeFilter = opts.code?.trim();
+
     const where = {
       batchId,
       ...(opts.status ? { status: opts.status } : {}),
       ...(opts.q ? { fileName: { contains: opts.q } } : {}),
     };
+
+    const mapRow = (r: {
+      id: string;
+      fileName: string;
+      status: string;
+      findingsJson: string;
+      previneJson: string | null;
+      autoFixableCodes: string;
+    }): ItemSummary => {
+      const findings = JSON.parse(r.findingsJson || '[]') as FaoFinding[];
+      let previne: PrevineXray | null = null;
+      try {
+        previne = r.previneJson ? (JSON.parse(r.previneJson) as PrevineXray) : null;
+      } catch {
+        previne = null;
+      }
+      const siapsReady = !findings.some((f) => f.severity === 'BLOCKER');
+      const previneReady = !previne || previne.summary.moneyRisks === 0;
+      const topCodes = [...new Set(findings.map((f) => f.code))];
+      const previneTopCodes = previne
+        ? [...new Set(previne.gaps.filter((g) => g.severity !== 'INFO').map((g) => g.code))]
+        : [];
+      return {
+        id: r.id,
+        fileName: r.fileName,
+        status: r.status,
+        blockers: findings.filter((f) => f.severity === 'BLOCKER').length,
+        moneyRisks: findings.filter((f) => f.severity === 'MONEY_RISK').length,
+        qualityWarns: findings.filter((f) => f.severity === 'QUALITY_WARN').length,
+        autoFixableCodes: r.autoFixableCodes ? r.autoFixableCodes.split(',').filter(Boolean) : [],
+        topCodes: topCodes.slice(0, 8),
+        siapsReady,
+        previneReady,
+        readyForFinalSend: siapsReady && previneReady,
+        previneMoneyRisks: previne?.summary.moneyRisks ?? 0,
+        previneTopCodes: previneTopCodes.slice(0, 6),
+      };
+    };
+
+    if (codeFilter) {
+      const rows = await this.prisma.lediFaoBatchItem.findMany({
+        where,
+        orderBy: [{ status: 'asc' }, { fileName: 'asc' }],
+        select: {
+          id: true,
+          fileName: true,
+          status: true,
+          findingsJson: true,
+          previneJson: true,
+          autoFixableCodes: true,
+        },
+      });
+      const matched = rows
+        .map(mapRow)
+        .filter(
+          (it) =>
+            it.topCodes.includes(codeFilter) ||
+            it.previneTopCodes.includes(codeFilter) ||
+            it.autoFixableCodes.includes(codeFilter),
+        );
+      const total = matched.length;
+      const items = matched.slice(offset, offset + limit);
+      return { total, offset, limit, items, code: codeFilter };
+    }
+
     const [total, rows] = await Promise.all([
       this.prisma.lediFaoBatchItem.count({ where }),
       this.prisma.lediFaoBatchItem.findMany({
@@ -254,44 +321,11 @@ export class LediFaoBatchService {
           findingsJson: true,
           previneJson: true,
           autoFixableCodes: true,
-          updatedAt: true,
         },
       }),
     ]);
 
-    const items: ItemSummary[] = rows.map((r) => {
-      const findings = JSON.parse(r.findingsJson || '[]') as FaoFinding[];
-      let previne: PrevineXray | null = null;
-      try {
-        previne = r.previneJson ? (JSON.parse(r.previneJson) as PrevineXray) : null;
-      } catch {
-        previne = null;
-      }
-      const siapsReady = !findings.some((f) => f.severity === 'BLOCKER');
-      const previneReady = !previne || previne.summary.moneyRisks === 0;
-      return {
-        id: r.id,
-        fileName: r.fileName,
-        status: r.status,
-        blockers: findings.filter((f) => f.severity === 'BLOCKER').length,
-        moneyRisks: findings.filter((f) => f.severity === 'MONEY_RISK').length,
-        qualityWarns: findings.filter((f) => f.severity === 'QUALITY_WARN').length,
-        autoFixableCodes: r.autoFixableCodes ? r.autoFixableCodes.split(',').filter(Boolean) : [],
-        topCodes: [...new Set(findings.map((f) => f.code))].slice(0, 6),
-        siapsReady,
-        previneReady,
-        readyForFinalSend: siapsReady && previneReady,
-        previneMoneyRisks: previne?.summary.moneyRisks ?? 0,
-        previneTopCodes: previne
-          ? [...new Set(previne.gaps.filter((g) => g.severity === 'MONEY_RISK').map((g) => g.code))].slice(
-              0,
-              4,
-            )
-          : [],
-      };
-    });
-
-    return { total, offset, limit, items };
+    return { total, offset, limit, items: rows.map(mapRow) };
   }
 
   async getItem(batchId: string, itemId: string) {
@@ -339,7 +373,9 @@ export class LediFaoBatchService {
   async autoFix(batchId: string, dto: AutoFixLediFaoBatchDto) {
     await this.ensureBatch(batchId);
     const opts: AutoFixOptions = {
-      stNaoPossuiCpf: dto.stNaoPossuiCpf !== false,
+      stNaoPossuiCpf: dto.forceSelected
+        ? dto.stNaoPossuiCpf === true
+        : dto.stNaoPossuiCpf !== false,
       stNaoPossuiCpfWhenAbsent: dto.stNaoPossuiCpfWhenAbsent !== false,
       ine: dto.ine,
     };
@@ -357,18 +393,90 @@ export class LediFaoBatchService {
       let xml = item.currentXml;
       let changed = false;
 
-      const result = applyAutoFixes(xml, findings, opts);
-      if (result.applied.length) {
-        xml = result.xml;
-        changed = true;
+      if (opts.stNaoPossuiCpf) {
+        const result = applyAutoFixes(xml, findings, opts);
+        if (result.applied.length) {
+          xml = result.xml;
+          changed = true;
+        }
+      } else if (dto.ine?.trim() && !dto.forceSelected) {
+        const result = applyAutoFixes(xml, findings, { ...opts, stNaoPossuiCpf: false, ine: dto.ine });
+        if (result.applied.length) {
+          xml = result.xml;
+          changed = true;
+        }
       }
 
-      const codes = new Set(findings.map((f) => f.code));
+      const codes = new Set([
+        ...findings.map((f) => f.code),
+        ...(() => {
+          try {
+            const x = item.previneJson ? (JSON.parse(item.previneJson) as PrevineXray) : null;
+            return x ? x.gaps.map((g) => g.code) : [];
+          } catch {
+            return [] as string[];
+          }
+        })(),
+      ]);
+
+      const force = !!dto.forceSelected && !!dto.onlyItemIds?.length;
+
+      if (dto.ine?.trim() && (force || codes.has('INE_MISSING') || codes.has('PREVINE_INE_MISSING'))) {
+        const r = fixIne(xml, dto.ine);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
+      const problemas = dto.problemasCondicoes?.length
+        ? dto.problemasCondicoes
+        : dto.problemasCondicoesDefault;
       if (
-        dto.problemasCondicoesDefault?.length &&
-        (codes.has('PROBLEMAS_MISSING') || codes.has('PROBLEMA_SEM_CODIGO'))
+        problemas?.length &&
+        (force || codes.has('PROBLEMAS_MISSING') || codes.has('PROBLEMA_SEM_CODIGO') || codes.has('PREVINE_PROBLEMAS_MISSING'))
       ) {
-        const r = fixProblemasCondicoes(xml, dto.problemasCondicoesDefault);
+        const r = fixProblemasCondicoes(xml, problemas);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
+      if (dto.tiposConsultaOdonto?.length && force) {
+        const r = fixTiposConsultaOdonto(xml, dto.tiposConsultaOdonto);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
+      if (dto.tiposEncamOdontoAdd?.length && force) {
+        const r = addTiposEncamOdonto(xml, dto.tiposEncamOdontoAdd);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
+      if (dto.tiposVigilanciaSaudeBucal?.length && (force || codes.has('PREVINE_VIGILANCIA_99'))) {
+        const r = fixTiposVigilanciaSaudeBucal(xml, dto.tiposVigilanciaSaudeBucal);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
+      if (dto.procedimentosAdd?.length && force) {
+        const r = addProcedimentos(xml, dto.procedimentosAdd);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
+      if (dto.cboCodigo_2002?.trim() && (force || codes.has('PREVINE_CBO_NOT_ESB') || codes.has('CBO_NOT_ODONTO'))) {
+        const r = fixCbo(xml, dto.cboCodigo_2002);
         if (r.changed) {
           xml = r.xml;
           changed = true;
@@ -383,7 +491,7 @@ export class LediFaoBatchService {
     await this.refreshBatchSummary(batchId);
     void this.prisma.audit('ledi_fao_batch_auto_fix', 'ledi_fao_batch', batchId, [RF.ODONTO.id], {
       touched,
-      opts,
+      force: dto.forceSelected,
     });
     return { ...(await this.get(batchId)), touched };
   }

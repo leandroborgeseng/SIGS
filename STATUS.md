@@ -15,7 +15,7 @@
 - **canal:** LEDI FAO → Siaps → RNDS · Previne ESB como inteligência pré-envio
 - **backlog registrado:**
   - Indicadores Previne (`14-…`) · vínculos obrigatórios (`15-…`)
-- **proxima_acao:** processar lote 1131 com raio-x · push GitHub · depois NT 30/2025 / C*
+- **proxima_acao:** validar UI lote (gráficos/filtro/lote) em produção · processar lote 1131 · NT 30/2025
 - **docker:** `docker compose up --build`
 
 _Atualizado em 2026-08-12_

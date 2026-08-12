@@ -68,12 +68,14 @@ export class CareExtraController {
     @Param('batchId') batchId: string,
     @Query('status') status?: string,
     @Query('q') q?: string,
+    @Query('code') code?: string,
     @Query('offset') offset?: string,
     @Query('limit') limit?: string,
   ) {
     return this.faoBatches.listItems(batchId, {
       status,
       q,
+      code,
       offset: offset ? Number(offset) : 0,
       limit: limit ? Number(limit) : 100,
     });

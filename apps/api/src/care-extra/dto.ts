@@ -81,6 +81,11 @@ export class CreateLediFaoBatchDto {
   files!: LediFaoBatchFileDto[];
 }
 
+export class LediFaoProcDto {
+  @IsString() coMsProcedimento!: string;
+  @IsOptional() @IsInt() @Min(1) quantidade?: number;
+}
+
 export class AutoFixLediFaoBatchDto {
   /** Confirma correção de stNaoPossuiCpf (default true). */
   @IsOptional() @IsBoolean() stNaoPossuiCpf?: boolean;
@@ -97,12 +102,27 @@ export class AutoFixLediFaoBatchDto {
   @ValidateNested({ each: true })
   @Type(() => DentalProblemaDto)
   problemasCondicoesDefault?: DentalProblemaDto[];
+  /** Restringe a correção às fichas selecionadas. */
   @IsOptional() @IsArray() @IsString({ each: true }) onlyItemIds?: string[];
-}
-
-export class LediFaoProcDto {
-  @IsString() coMsProcedimento!: string;
-  @IsOptional() @IsInt() @Min(1) quantidade?: number;
+  /**
+   * Se true (com onlyItemIds), aplica os campos de patch abaixo
+   * mesmo sem o código correspondente no findings.
+   */
+  @IsOptional() @IsBoolean() forceSelected?: boolean;
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DentalProblemaDto)
+  problemasCondicoes?: DentalProblemaDto[];
+  @IsOptional() @IsArray() tiposConsultaOdonto?: number[];
+  @IsOptional() @IsArray() tiposEncamOdontoAdd?: number[];
+  @IsOptional() @IsArray() tiposVigilanciaSaudeBucal?: number[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LediFaoProcDto)
+  procedimentosAdd?: LediFaoProcDto[];
+  @IsOptional() @IsString() cboCodigo_2002?: string;
 }
 
 export class PatchLediFaoBatchItemDto {
