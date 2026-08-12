@@ -9,6 +9,8 @@ import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
 import { formatUploadError } from '@/lib/format-upload-error';
 import { FileDropZone } from '@/components/ui/FileDropZone';
 import { explainError, resolveSeverity, severityLabel, severityRank, severityTone } from '@/app/odonto/lote/error-catalog';
+import { TreatmentDashboard, type TreatBucket } from '@/app/odonto/lote/TreatmentDashboard';
+import type { TreatmentProgress } from '@/app/odonto/lote/treatment-types';
 
 type LoteTipo = 'FAI' | 'PROCEDIMENTOS';
 
@@ -22,6 +24,7 @@ type BatchSummary = {
   readyForFinalSend?: number;
   expectedTipo?: string;
   topCodes: Array<{ code: string; files: number; pct: number }>;
+  treatment?: TreatmentProgress;
 };
 
 type Batch = {
@@ -44,9 +47,14 @@ type ItemRow = {
   fileName: string;
   status: string;
   blockers: number;
+  moneyRisks?: number;
+  qualityWarns?: number;
   autoFixableCodes: string[];
   topCodes: string[];
   siapsReady: boolean;
+  previneReady?: boolean;
+  readyForFinalSend?: boolean;
+  previneMoneyRisks?: number;
   fichaTipo?: string | null;
 };
 
@@ -105,6 +113,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
   const [confirmSt, setConfirmSt] = useState(true);
   const [ineDefault, setIneDefault] = useState('');
   const [uploadProgress, setUploadProgress] = useState('');
+  const [treatBucket, setTreatBucket] = useState<TreatBucket>('');
 
   const loadBatches = useCallback(async () => {
     const list = await api<BatchListRow[]>('/v1/dental/ledi/batches');
@@ -115,17 +124,25 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     async (id: string) => {
       const b = await api<Batch>(`/v1/dental/ledi/batches/${id}`);
       setBatch(b);
+      const qs = new URLSearchParams();
+      qs.set('limit', '300');
+      if (treatBucket) qs.set('bucket', treatBucket);
       const page = await api<{ total: number; items: ItemRow[] }>(
-        `/v1/dental/ledi/batches/${id}/items?limit=300`,
+        `/v1/dental/ledi/batches/${id}/items?${qs}`,
       );
       setItems(page.items);
     },
-    [],
+    [treatBucket],
   );
 
   useEffect(() => {
     void loadBatches().catch((e) => setError(e instanceof Error ? e.message : 'Falha'));
   }, [loadBatches]);
+
+  useEffect(() => {
+    if (!batch?.id) return;
+    void loadBatch(batch.id).catch((e) => setError(e instanceof Error ? e.message : 'Falha'));
+  }, [batch?.id, loadBatch]);
 
   async function onUpload(files: FileList | File[] | null) {
     const listLike = files ? Array.from(files as ArrayLike<File>) : [];
@@ -299,6 +316,14 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                 <strong>Indicadores / info</strong>
               </div>
             </div>
+
+            <TreatmentDashboard
+              treatment={batch.summary.treatment}
+              readyForFinalSend={batch.summary.readyForFinalSend}
+              activeBucket={treatBucket}
+              onFilterBucket={setTreatBucket}
+            />
+
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {(batch.summary.topCodes || [])
                 .map((c) => ({

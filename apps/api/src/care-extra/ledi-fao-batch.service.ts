@@ -39,6 +39,11 @@ import {
   PatchLediFaoBatchItemDto,
   AutoFixLediFaoBatchDto,
 } from './dto';
+import {
+  buildTreatmentSnapshot,
+  mergeTreatmentProgress,
+  type TreatmentProgress,
+} from './ledi-treatment-metrics';
 
 type ItemSummary = {
   id: string;
@@ -125,7 +130,11 @@ export class LediFaoBatchService {
       previneJson?: string | null;
       fileName?: string;
       fichaTipo?: string | null;
+      currentXml?: string | null;
+      originalXml?: string | null;
     }>,
+    prevTreatment?: Partial<TreatmentProgress>,
+    touchedDelta = 0,
   ) {
     const codeFiles = new Map<string, number>();
     const tipoCounts = new Map<string, number>();
@@ -169,6 +178,9 @@ export class LediFaoBatchService {
         } catch {
           /* ignore */
         }
+      } else if (!hasBlocker) {
+        readyForFinalSend += 1;
+        previneReady += 1;
       }
     }
 
@@ -178,6 +190,10 @@ export class LediFaoBatchService {
       .map(([code, files]) => ({ code, files, pct: Math.round((files / items.length) * 1000) / 10 }));
 
     const previne = xrayItems.length ? aggregatePrevineXrays(xrayItems) : null;
+    const treatmentCurrent = buildTreatmentSnapshot(items);
+    const treatment = mergeTreatmentProgress(prevTreatment, treatmentCurrent, {
+      touchedDelta,
+    });
 
     return {
       total: items.length,
@@ -190,6 +206,7 @@ export class LediFaoBatchService {
       readyForFinalSend,
       topCodes,
       previne,
+      treatment,
       byTipo: [...tipoCounts.entries()]
         .map(([id, files]) => ({
           id,
@@ -348,6 +365,15 @@ export class LediFaoBatchService {
   async get(id: string) {
     const batch = await this.prisma.lediFaoBatch.findUnique({ where: { id } });
     if (!batch) throw new NotFoundException('Lote não encontrado');
+    let summary = JSON.parse(batch.summaryJson || '{}') as {
+      treatment?: TreatmentProgress;
+      expectedTipo?: string;
+    };
+    if (!summary.treatment) {
+      await this.refreshBatchSummary(id);
+      const again = await this.prisma.lediFaoBatch.findUnique({ where: { id } });
+      summary = JSON.parse(again?.summaryJson || '{}');
+    }
     const counts = await this.prisma.lediFaoBatchItem.groupBy({
       by: ['status'],
       where: { batchId: id },
@@ -359,7 +385,7 @@ export class LediFaoBatchService {
       status: batch.status,
       createdAt: batch.createdAt,
       updatedAt: batch.updatedAt,
-      summary: JSON.parse(batch.summaryJson || '{}'),
+      summary,
       statusCounts: Object.fromEntries(counts.map((c) => [c.status, c._count])),
     };
   }
@@ -371,6 +397,7 @@ export class LediFaoBatchService {
       q?: string;
       code?: string;
       tipo?: string;
+      bucket?: string;
       offset?: number;
       limit?: number;
     } = {},
@@ -380,6 +407,7 @@ export class LediFaoBatchService {
     const offset = opts.offset ?? 0;
     const codeFilter = opts.code?.trim();
     const tipoFilter = opts.tipo?.trim();
+    const bucket = opts.bucket?.trim();
 
     const where = {
       batchId,
@@ -452,27 +480,46 @@ export class LediFaoBatchService {
       fichaTipoCode: true,
     } as const;
 
-    if (codeFilter) {
+    if (codeFilter || bucket) {
       const rows = await this.prisma.lediFaoBatchItem.findMany({
         where,
         orderBy: [{ status: 'asc' }, { fileName: 'asc' }],
         select,
       });
-      const matched = rows
-        .map(mapRow)
-        .filter(
+      let matched = rows.map(mapRow);
+      if (codeFilter) {
+        matched = matched.filter(
           (it) =>
             it.topCodes.includes(codeFilter) ||
             it.previneTopCodes.includes(codeFilter) ||
             it.autoFixableCodes.includes(codeFilter),
         );
+      }
+      if (bucket === 'bloqueio') {
+        matched = matched.filter((it) => !it.siapsReady);
+      } else if (bucket === 'risco') {
+        matched = matched.filter(
+          (it) => it.siapsReady && (it.moneyRisks > 0 || (it.previneMoneyRisks ?? 0) > 0),
+        );
+      } else if (bucket === 'indicadores') {
+        matched = matched.filter(
+          (it) =>
+            it.siapsReady &&
+            it.moneyRisks === 0 &&
+            (it.previneMoneyRisks ?? 0) === 0 &&
+            it.qualityWarns > 0,
+        );
+      } else if (bucket === 'ideal') {
+        matched = matched.filter((it) => it.readyForFinalSend);
+      }
       return {
         total: matched.length,
         offset,
         limit,
         items: matched.slice(offset, offset + limit),
-        code: codeFilter,
+        code: codeFilter || undefined,
         tipo: tipoFilter || undefined,
+        bucket: bucket || undefined,
       };
     }
 
@@ -706,7 +753,7 @@ export class LediFaoBatchService {
       touched += 1;
     }
 
-    await this.refreshBatchSummary(batchId);
+    await this.refreshBatchSummary(batchId, touched);
     void this.prisma.audit('ledi_fao_batch_auto_fix', 'ledi_fao_batch', batchId, [RF.ODONTO.id], {
       touched,
       force: dto.forceSelected,
@@ -816,7 +863,7 @@ export class LediFaoBatchService {
     }
 
     await this.persistXml(item.id, xml, expectedTipo);
-    await this.refreshBatchSummary(batchId);
+    await this.refreshBatchSummary(batchId, 1);
     return this.getItem(batchId, itemId);
   }
 
@@ -907,12 +954,15 @@ export class LediFaoBatchService {
     });
   }
 
-  private async refreshBatchSummary(batchId: string) {
+  private async refreshBatchSummary(batchId: string, touchedDelta = 0) {
     const batch = await this.prisma.lediFaoBatch.findUnique({
       where: { id: batchId },
       select: { summaryJson: true },
     });
-    const prev = JSON.parse(batch?.summaryJson || '{}') as { expectedTipo?: string };
+    const prev = JSON.parse(batch?.summaryJson || '{}') as {
+      expectedTipo?: string;
+      treatment?: TreatmentProgress;
+    };
     const expectedTipo = this.normalizeExpectedTipo(prev.expectedTipo);
     const items = await this.prisma.lediFaoBatchItem.findMany({
       where: { batchId },
@@ -923,9 +973,14 @@ export class LediFaoBatchService {
         previneJson: true,
         fileName: true,
         fichaTipo: true,
+        currentXml: true,
+        originalXml: true,
       },
     });
-    const summary = { ...this.summarizeBatch(items), expectedTipo };
+    const summary = {
+      ...this.summarizeBatch(items, prev.treatment, touchedDelta),
+      expectedTipo,
+    };
     const status =
       summary.readyForFinalSend === summary.total
         ? 'ready'

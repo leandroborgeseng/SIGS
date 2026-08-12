@@ -1080,6 +1080,120 @@ a.search-chip:hover {
   background: #e2e8f0;
   color: #475569;
 }
+.lote-treat {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  background: var(--surface-1);
+}
+.lote-treat-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+.lote-treat-money {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.lote-treat-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1100px) {
+  .lote-treat-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.lote-treat-kpi {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  background: var(--surface-2);
+}
+.lote-treat-kpi strong {
+  display: block;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.lote-treat-buckets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 1100px) {
+  .lote-treat-buckets {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.lote-treat-bucket {
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 12px;
+  background: var(--surface-1);
+  border-left-width: 4px;
+  cursor: pointer;
+  color: inherit;
+  width: 100%;
+}
+.lote-treat-bucket.blocker {
+  border-left-color: var(--danger);
+}
+.lote-treat-bucket.money {
+  border-left-color: var(--warn);
+}
+.lote-treat-bucket.quality {
+  border-left-color: #0f766e;
+}
+.lote-treat-bucket.ok {
+  border-left-color: var(--ok);
+}
+.lote-treat-bucket.active {
+  box-shadow: 0 0 0 2px var(--brand-soft);
+  border-color: var(--brand);
+}
+.lote-treat-bucket .step {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.lote-treat-bucket.blocker .step {
+  color: var(--danger);
+}
+.lote-treat-bucket.money .step {
+  color: var(--warn);
+}
+.lote-treat-bucket.quality .step {
+  color: #0f766e;
+}
+.lote-treat-bucket.ok .step {
+  color: var(--ok);
+}
+.lote-treat-nums {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.lote-treat-delta {
+  font-size: 12px;
+  margin-top: 6px;
+}
+.lote-treat-delta.ok {
+  color: var(--ok);
+  font-weight: 600;
+}
 .lote-mode {
   display: inline-block;
   font-size: 10px;

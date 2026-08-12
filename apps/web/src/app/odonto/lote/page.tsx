@@ -16,6 +16,8 @@ import {
   severityRank,
   severityTone,
 } from './error-catalog';
+import { TreatmentDashboard, type TreatBucket } from './TreatmentDashboard';
+import type { TreatmentProgress } from './treatment-types';
 
 type BatchSummary = {
   total: number;
@@ -28,6 +30,7 @@ type BatchSummary = {
   readyForFinalSend?: number;
   topCodes: Array<{ code: string; files: number; pct: number }>;
   byTipo?: Array<{ id: string; files: number; pct: number }>;
+  treatment?: TreatmentProgress;
   previne?: {
     files: number;
     codeCounts: Array<{
@@ -160,6 +163,7 @@ export default function OdontoLotePage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [codeFilter, setCodeFilter] = useState('');
   const [tipoFilter, setTipoFilter] = useState('');
+  const [treatBucket, setTreatBucket] = useState<TreatBucket>('');
   const [q, setQ] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<ItemDetail | null>(null);
@@ -200,6 +204,7 @@ export default function OdontoLotePage() {
       if (statusFilter) qs.set('status', statusFilter);
       if (codeFilter) qs.set('code', codeFilter);
       if (tipoFilter) qs.set('tipo', tipoFilter);
+      if (treatBucket) qs.set('bucket', treatBucket);
       if (q.trim()) qs.set('q', q.trim());
       qs.set('limit', '200');
       const page = await api<{ total: number; items: ItemRow[] }>(
@@ -209,7 +214,7 @@ export default function OdontoLotePage() {
       setItemsTotal(page.total);
       setSelectedIds(new Set());
     },
-    [statusFilter, codeFilter, tipoFilter, q],
+    [statusFilter, codeFilter, tipoFilter, treatBucket, q],
   );
 
   useEffect(() => {
@@ -628,6 +633,16 @@ export default function OdontoLotePage() {
                 </div>
               </div>
             </div>
+
+            <TreatmentDashboard
+              treatment={batch.summary.treatment}
+              readyForFinalSend={batch.summary.readyForFinalSend}
+              activeBucket={treatBucket}
+              onFilterBucket={(bucket) => {
+                setTreatBucket(bucket);
+                setCodeFilter('');
+              }}
+            />
 
             <div className="lote-funnel">
               <div className="lote-funnel-item">

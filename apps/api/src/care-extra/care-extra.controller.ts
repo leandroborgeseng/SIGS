@@ -171,6 +171,7 @@ export class CareExtraController {
     @Query('q') q?: string,
     @Query('code') code?: string,
     @Query('tipo') tipo?: string,
+    @Query('bucket') bucket?: string,
     @Query('offset') offset?: string,
     @Query('limit') limit?: string,
   ) {
@@ -179,6 +180,7 @@ export class CareExtraController {
       q,
       code,
       tipo,
+      bucket,
       offset: offset ? Number(offset) : 0,
       limit: limit ? Number(limit) : 100,
     });
