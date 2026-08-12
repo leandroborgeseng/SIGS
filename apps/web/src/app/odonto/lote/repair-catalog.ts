@@ -1,9 +1,13 @@
 /** Catálogo de alertas LEDI + Previne → como corrigir na UI. */
 
+import { explainError } from './error-catalog';
+
 export type AlertRepair = {
   title: string;
   where: string;
   how: string;
+  /** Por que o parser gerou o alerta */
+  why?: string;
   channel: 'LEDI' | 'PREVINE';
   ui?:
     | 'ine'
@@ -194,7 +198,25 @@ export const LEDI_REPAIR: Record<string, AlertRepair> = {
 };
 
 export function lookupRepair(code: string): AlertRepair | undefined {
-  return PREVINE_REPAIR[code] || LEDI_REPAIR[code];
+  const base = PREVINE_REPAIR[code] || LEDI_REPAIR[code];
+  const explain = explainError(code);
+  if (!base && !explain) return undefined;
+  if (!base && explain) {
+    return {
+      title: explain.title,
+      where: explain.field || explain.channel,
+      how: explain.how,
+      why: explain.why,
+      channel: explain.channel === 'PREVINE' ? 'PREVINE' : 'LEDI',
+      ui: 'manual',
+    };
+  }
+  return {
+    ...base!,
+    why: base!.why || explain?.why,
+    how: base!.how || explain?.how || base!.how,
+    title: base!.title || explain?.title || code,
+  };
 }
 
 export function bodyForRepairUi(

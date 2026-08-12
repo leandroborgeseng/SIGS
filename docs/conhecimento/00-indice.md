@@ -20,6 +20,7 @@ Documentos gerados a partir da análise do e-SUS APS **5.5.24** e das decisões 
 | 14 | [14-indicadores-aps-previne-brasil.md](14-indicadores-aps-previne-brasil.md) | **Indicadores APS Previne (CONASEMS jul/2026): C/B/CR/M — 19 indicadores** |
 | 15 | [15-faturamento-indicadores-campos-obrigatorios.md](15-faturamento-indicadores-campos-obrigatorios.md) | **Faturamento federal × Previne: vínculos e campos obrigatórios de qualidade** |
 | 16 | [16-tres-tipos-ficha-ledi-franca.md](16-tres-tipos-ficha-ledi-franca.md) | **FAI (4) × FAO (5) × Procedimentos (7): como identificar e onde corrigir** |
+| 17 | [17-catalogo-erros-parser-ledi-fao.md](17-catalogo-erros-parser-ledi-fao.md) | **Catálogo completo: por quê e como corrigir cada código do parser** |
 
 - raiz: `01-manifest.json` … `10-gaps.md`
 - `data/esus/5.5.24/reports/`

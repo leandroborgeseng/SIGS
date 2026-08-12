@@ -626,7 +626,12 @@ export default function OdontoLotePage() {
                       >
                         <span>
                           <code>{c.code}</code>
-                          {guide ? <div className="muted">{guide.title}</div> : null}
+                          {guide ? (
+                            <div className="muted">
+                              {guide.title}
+                              {guide.why ? ` — ${guide.why.slice(0, 90)}${guide.why.length > 90 ? '…' : ''}` : ''}
+                            </div>
+                          ) : null}
                         </span>
                         <span className="lote-bar-track">
                           <span
@@ -699,6 +704,9 @@ export default function OdontoLotePage() {
                               <code>{c.code}</code>
                               <div className="muted">
                                 {c.indicator} · {guide?.title || c.severity}
+                                {guide?.why
+                                  ? ` — ${guide.why.slice(0, 80)}${guide.why.length > 80 ? '…' : ''}`
+                                  : ''}
                               </div>
                             </span>
                             <span className="lote-bar-track">
@@ -949,7 +957,16 @@ export default function OdontoLotePage() {
                                 </span>{' '}
                                 <code>{code}</code>
                                 <div>{'message' in f ? f.message : ''}</div>
-                                {guide ? <div className="muted">{guide.how}</div> : null}
+                                {guide?.why ? (
+                                  <div className="muted" style={{ marginTop: 4 }}>
+                                    <strong>Por quê:</strong> {guide.why}
+                                  </div>
+                                ) : null}
+                                {guide ? (
+                                  <div className="muted">
+                                    <strong>Como corrigir:</strong> {guide.how}
+                                  </div>
+                                ) : null}
                               </td>
                               <td>
                                 {can ? (

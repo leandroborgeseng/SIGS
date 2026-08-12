@@ -142,7 +142,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '1.0.0',
     updatedAt: '2026-08-12',
     summary: 'Upload de XMLs odonto, inconsistências, auto-correção e download ZIP.',
-    body: `Em Odontologia → Lote LEDI FAO: (1) envie XMLs; (2) veja o funil Siaps/Previne e os gráficos de inconsistência — clique num código para filtrar; (3) corrija em massa o lote ou selecione fichas e aplique a mesma correção; (4) edite ficha a ficha no painel direito. Meta: maximizar “Envio final OK” antes do ZIP.`,
+    body: `Em Odontologia → Lote LEDI FAO: (1) envie XMLs; (2) veja o funil Siaps/Previne e os gráficos — clique num código para filtrar; (3) cada alerta mostra **Por quê** e **Como corrigir**; (4) corrija em massa ou ficha a ficha. Catálogo completo: docs/conhecimento/17-catalogo-erros-parser-ledi-fao.md.`,
   },
   {
     id: 'ad.stub',
