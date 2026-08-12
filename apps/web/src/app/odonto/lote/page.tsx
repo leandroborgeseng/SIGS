@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
@@ -18,7 +18,8 @@ import {
 } from './error-catalog';
 import { TreatmentDashboard, type TreatBucket } from './TreatmentDashboard';
 import type { TreatmentProgress } from './treatment-types';
-import { ErrorGuidePanel } from './ErrorGuidePanel';
+import { ErrorGuideModal } from './ErrorGuideModal';
+import { FichaFixModal } from './FichaFixModal';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 
 type BatchSummary = {
@@ -164,6 +165,8 @@ export default function OdontoLotePage() {
   const [itemsTotal, setItemsTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState('');
   const [codeFilter, setCodeFilter] = useState('');
+  const [errorModalOpen, setErrorModalOpen] = useState(false);
+  const [fichaModalOpen, setFichaModalOpen] = useState(false);
   const [tipoFilter, setTipoFilter] = useState('');
   const [treatBucket, setTreatBucket] = useState<TreatBucket>('');
   const [q, setQ] = useState('');
@@ -191,7 +194,6 @@ export default function OdontoLotePage() {
   const [cnes, setCnes] = useState('');
   const [ibge, setIbge] = useState('3516200');
   const [focusField, setFocusField] = useState<string>('');
-  const editPanelRef = useRef<HTMLDivElement>(null);
 
   const loadBatches = useCallback(async () => {
     const list = await api<BatchListRow[]>('/v1/dental/ledi/batches');
@@ -439,6 +441,7 @@ export default function OdontoLotePage() {
       setCnes('');
       setIbge('3516200');
       setFocusField('');
+      setFichaModalOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao abrir ficha');
     }
@@ -446,8 +449,61 @@ export default function OdontoLotePage() {
 
   function focusIndividualEdit(field?: string) {
     setFocusField(field || 'xml');
-    editPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setFichaModalOpen(true);
     window.setTimeout(() => setFocusField(''), 3500);
+  }
+
+  function filterByCode(code: string) {
+    setCodeFilter((prev) => {
+      if (prev === code) {
+        setErrorModalOpen(false);
+        return '';
+      }
+      setErrorModalOpen(true);
+      return code;
+    });
+    setSelected(null);
+    setFichaModalOpen(false);
+    setTreatBucket('');
+  }
+
+  function closeErrorModal() {
+    setErrorModalOpen(false);
+    setCodeFilter('');
+  }
+
+  function closeFichaModal() {
+    setFichaModalOpen(false);
+  }
+
+  function setFichaForm(patch: Partial<{
+    ciap: string;
+    cid10: string;
+    editIne: string;
+    editCbo: string;
+    vigilancia: string;
+    tipoConsulta: string;
+    turno: string;
+    gestante: string;
+    localAtend: string;
+    cnes: string;
+    ibge: string;
+    procExtra: string;
+    focusField: string;
+  }>) {
+    if (patch.ciap !== undefined) setCiap(patch.ciap);
+    if (patch.cid10 !== undefined) setCid10(patch.cid10);
+    if (patch.editIne !== undefined) setEditIne(patch.editIne);
+    if (patch.editCbo !== undefined) setEditCbo(patch.editCbo);
+    if (patch.vigilancia !== undefined) setVigilancia(patch.vigilancia);
+    if (patch.tipoConsulta !== undefined) setTipoConsulta(patch.tipoConsulta);
+    if (patch.turno !== undefined) setTurno(patch.turno);
+    if (patch.gestante !== undefined) setGestante(patch.gestante);
+    if (patch.localAtend !== undefined) setLocalAtend(patch.localAtend);
+    if (patch.cnes !== undefined) setCnes(patch.cnes);
+    if (patch.ibge !== undefined) setIbge(patch.ibge);
+    if (patch.procExtra !== undefined) setProcExtra(patch.procExtra);
+    if (patch.focusField !== undefined) setFocusField(patch.focusField);
   }
 
   async function patchSelected(body: Record<string, unknown>, okMsg: string) {
@@ -603,12 +659,6 @@ export default function OdontoLotePage() {
     }
   }
 
-  function filterByCode(code: string) {
-    setCodeFilter((prev) => (prev === code ? '' : code));
-    setSelected(null);
-    setTreatBucket('');
-  }
-
   /** Quando o filtro de erro carrega a lista, seleciona todas para facilitar a correção. */
   useEffect(() => {
     if (!codeFilter || !items.length) return;
@@ -620,7 +670,7 @@ export default function OdontoLotePage() {
       <PageHeader
         title="Lote LEDI FAO"
         eyebrow="Raio-x · correção · envio"
-        description="Clique em cada erro para ver o roteiro completo: o que significa, como corrigir e auto-correção quando for seguro."
+        description="Clique no erro → guia em modal → corrija em lote ou abra a ficha. Fluxo simples até ficar pronta para o governo."
         actions={
           <>
             <HelpLink id="odonto.lote-ledi" />
@@ -982,51 +1032,25 @@ export default function OdontoLotePage() {
               </div>
             </div>
 
-            {codeFilter && activeRepair ? (
-              <ErrorGuidePanel
-                code={codeFilter}
-                repair={activeRepair}
-                affectedCount={itemsTotal || items.length}
-                selectedCount={selectedIds.size}
-                busy={busy}
-                fieldValues={{
-                  ine: ineDefault || editIne,
-                  ciap: bulkCiap || ciap,
-                  cid10: bulkCid || cid10,
-                  cbo: editCbo,
-                  vigilancia,
-                  tipoConsulta,
-                  turno,
-                  gestante,
-                  local: localAtend,
-                  cnes,
-                  ibge,
-                }}
-                onFieldChange={(key, value) => {
-                  if (key === 'ine') {
-                    setIneDefault(value);
-                    setEditIne(value);
-                  } else if (key === 'ciap') {
-                    setBulkCiap(value);
-                    setCiap(value);
-                  } else if (key === 'cid10') {
-                    setBulkCid(value);
-                    setCid10(value);
-                  } else if (key === 'cbo') setEditCbo(value);
-                  else if (key === 'vigilancia') setVigilancia(value);
-                  else if (key === 'tipoConsulta') setTipoConsulta(value);
-                  else if (key === 'turno') setTurno(value);
-                  else if (key === 'gestante') setGestante(value);
-                  else if (key === 'local') setLocalAtend(value);
-                  else if (key === 'cnes') setCnes(value);
-                  else if (key === 'ibge') setIbge(value);
-                }}
-                onClear={() => setCodeFilter('')}
-                onFixSelected={() => void applySelectedRepair(codeFilter)}
-                onFixAllAffected={() => void applySelectedRepair(codeFilter, { allAffected: true })}
-                onSelectAllVisible={() => setSelectedIds(new Set(items.map((it) => it.id)))}
-              />
-            ) : null}
+            {codeFilter ? (
+              <div className="lote-toolbar" style={{ marginTop: 14 }}>
+                <span>
+                  Filtro ativo:{' '}
+                  <strong>{activeRepair?.title || codeFilter}</strong>
+                </span>
+                <button type="button" className="btn btn-primary" onClick={() => setErrorModalOpen(true)}>
+                  Abrir guia do erro
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={closeErrorModal}>
+                  Limpar filtro
+                </button>
+              </div>
+            ) : (
+              <p className="muted" style={{ marginTop: 14, fontSize: 13 }}>
+                Clique numa barra de erro acima para abrir o <strong>guia em modal</strong> com correção em lote ou
+                lista de fichas.
+              </p>
+            )}
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
               <button
@@ -1098,312 +1122,164 @@ export default function OdontoLotePage() {
             </button>
           </form>
 
-          <div className="lote-split" style={{ marginBottom: 16 }}>
-            <div className="card">
-              <h3 style={{ marginTop: 0 }}>4. Fichas</h3>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  <option value="">Todos status</option>
-                  <option value="blocker">Com bloqueio de envio</option>
-                  <option value="warn">Com aviso / risco</option>
-                  <option value="conformant">Conformes</option>
-                </select>
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Filtrar nome do arquivo"
-                  style={{ minWidth: 180 }}
-                />
-                <button type="button" className="btn btn-secondary" onClick={() => batch && void loadBatch(batch.id)}>
-                  Atualizar lista
-                </button>
-              </div>
-              <div className="lote-toolbar">
-                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    className="lote-check"
-                    type="checkbox"
-                    checked={allVisibleSelected}
-                    onChange={toggleAllVisible}
-                  />
-                  Selecionar visíveis ({items.length})
-                </label>
-                <span className="muted">
-                  {selectedIds.size} selecionada(s) · mostrando {items.length} de {itemsTotal}
-                </span>
-                {selectedIds.size && activeRepair?.mode === 'auto' && activeRepair.batchable ? (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={busy}
-                    onClick={() => void applySelectedRepair()}
-                  >
-                    Auto-corrigir selecionadas ({activeRepair.title})
-                  </button>
-                ) : null}
-              </div>
-              <div style={{ maxHeight: 440, overflow: 'auto' }}>
-                <table style={{ width: '100%', fontSize: 13 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: 36 }} />
-                      <th align="left">Arquivo</th>
-                      <th>Tipo</th>
-                      <th>Siaps</th>
-                      <th>Previne</th>
-                      <th align="left">Problemas</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((it) => (
-                      <tr
-                        key={it.id}
-                        style={{
-                          cursor: 'pointer',
-                          background: selected?.id === it.id ? 'var(--ok-bg)' : undefined,
-                        }}
-                        onClick={() => void openItem(it.id)}
-                      >
-                        <td onClick={(e) => e.stopPropagation()}>
-                          <input
-                            className="lote-check"
-                            type="checkbox"
-                            checked={selectedIds.has(it.id)}
-                            onChange={() => toggleOne(it.id)}
-                          />
-                        </td>
-                        <td>{it.fileName}</td>
-                        <td align="center">
-                          <code title={it.fichaTipoLabel || ''}>
-                            {it.fichaTipo || '?'}
-                            {it.fichaTipoCode != null ? `/${it.fichaTipoCode}` : ''}
-                          </code>
-                        </td>
-                        <td align="center">{it.siapsReady ? 'ok' : 'falha'}</td>
-                        <td align="center">{it.previneReady ? 'ok' : `risco(${it.previneMoneyRisks ?? 0})`}</td>
-                        <td style={{ fontSize: 12 }}>
-                          {codesToFriendly([...it.topCodes, ...(it.previneTopCodes || [])])}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          <div className="card" style={{ marginBottom: 16 }}>
+            <h3 style={{ marginTop: 0 }}>4. Fichas do lote</h3>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Clique numa ficha para abrir o <strong>modal de correção</strong>. Ou clique num erro no gráfico
+              acima para o guia completo (lote ou ficha a ficha).
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="">Todos status</option>
+                <option value="blocker">Com bloqueio de envio</option>
+                <option value="warn">Com aviso / risco</option>
+                <option value="conformant">Conformes</option>
+              </select>
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Filtrar nome do arquivo"
+                style={{ minWidth: 180 }}
+              />
+              <button type="button" className="btn btn-secondary" onClick={() => batch && void loadBatch(batch.id)}>
+                Atualizar lista
+              </button>
             </div>
-
-            <div className="card lote-sticky" ref={editPanelRef}>
-              {selected ? (
-                <form onSubmit={saveItem}>
-                  <h3 style={{ marginTop: 0 }}>5. Editar ficha</h3>
-                  <p style={{ marginTop: 0 }}>
-                    <strong>{selected.fileName}</strong>
-                    <br />
-                    <span className="muted">
-                      Tipo:{' '}
-                      <strong>
-                        {selected.fichaTipoLabel || selected.fichaTipo || '—'}
-                        {selected.fichaTipoCode != null ? ` (${selected.fichaTipoCode})` : ''}
-                      </strong>
-                      {selected.correctionPath ? ` · Corrigir em: ${selected.correctionPath}` : ''}
-                      <br />
-                      LEDI {selected.status} · Siaps {selected.siapsReady ? 'ok' : 'bloquear'} · Previne{' '}
-                      {selected.previneReady ? 'ok' : 'risco'} · Envio{' '}
-                      {selected.readyForFinalSend ? 'recomendado' : 'reparar'}
-                    </span>
-                  </p>
-                  {selected.odontoLoteSupported === false ? (
-                    <div className="alert danger" style={{ marginBottom: 12 }}>
-                      Esta ficha <strong>não é FAO</strong>. A correção odonto desta tela não se aplica — use o
-                      fluxo do tipo indicado acima.
-                    </div>
-                  ) : null}
-
-                  <h4 style={{ marginBottom: 8 }}>Alertas — em linguagem simples</h4>
-                  <p className="muted" style={{ marginTop: 0, fontSize: 12 }}>
-                    Ordem na lista: <span className="lote-sev BLOCKER">Bloqueia envio</span> →{' '}
-                    <span className="lote-sev MONEY_RISK">Risco faturamento</span> →{' '}
-                    <span className="lote-sev QUALITY_WARN">Indicadores</span> →{' '}
-                    <span className="lote-sev INFO">Info governo</span>
-                  </p>
-                  <div style={{ maxHeight: 280, overflow: 'auto', marginBottom: 12 }}>
-                    <table style={{ width: '100%', fontSize: 12 }}>
-                      <thead>
-                        <tr>
-                          <th align="left">Alerta</th>
-                          <th align="left">Ação</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ...selected.findings.filter((f) => !String(f.code).startsWith('PREVINE_')),
-                          ...(selected.previneXray?.gaps.filter(
-                            (g) => g.severity !== 'INFO' || g.code !== 'PREVINE_B4_NOT_IN_FAO',
-                          ) || []),
-                        ]
-                          .map((f) => {
-                            const code = 'code' in f ? f.code : '';
-                            const sev =
-                              ('severity' in f && f.severity
-                                ? String(f.severity)
-                                : resolveSeverity(code)) || '';
-                            return { f, code, sev };
-                          })
-                          .sort((a, b) => severityRank(a.sev) - severityRank(b.sev))
-                          .map(({ f, code, sev }, i) => {
-                            const guide = lookupRepair(code);
-                            const mode = guide?.mode || 'individual';
-                            const tone = severityTone(sev);
-                            return (
-                              <tr key={`${code}-${i}`} className={`lote-alert-row ${tone}`}>
-                                <td>
-                                  <span className={`lote-mode ${mode}`}>
-                                    {mode === 'auto' ? 'Auto' : mode === 'individual' ? 'Individual' : 'Info'}
-                                  </span>
-                                  <span className={`lote-sev ${sev}`}>{severityLabel(sev)}</span>
-                                  <div style={{ marginTop: 4 }}>
-                                    <strong>{guide?.title || code}</strong>
-                                  </div>
-                                  {guide?.why ? (
-                                    <div className="muted" style={{ marginTop: 4 }}>
-                                      <strong>O que isso significa:</strong> {guide.why}
-                                    </div>
-                                  ) : 'message' in f && f.message ? (
-                                    <div className="muted">{f.message}</div>
-                                  ) : null}
-                                  {guide ? (
-                                    <div className="muted">
-                                      <strong>O que fazer:</strong> {guide.how}
-                                    </div>
-                                  ) : null}
-                                </td>
-                                <td>
-                                  {mode === 'auto' && guide?.button ? (
-                                    <button
-                                      type="button"
-                                      className="btn btn-secondary"
-                                      disabled={busy}
-                                      style={{ fontSize: 12 }}
-                                      onClick={() => void applyGapRepair(code)}
-                                    >
-                                      {guide.button}
-                                    </button>
-                                  ) : mode === 'individual' ? (
-                                    <button
-                                      type="button"
-                                      className="btn btn-secondary"
-                                      style={{ fontSize: 12 }}
-                                      onClick={() => focusIndividualEdit(guide?.focusField)}
-                                    >
-                                      Editar ficha
-                                    </button>
-                                  ) : (
-                                    <span className="muted">só orientação</span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <div className={focusField === 'ciap' ? 'focus-hint' : undefined}>
-                      <CodeSearchSelect
-                        kind="ciap"
-                        label="CIAP"
-                        value={ciap}
-                        onChange={setCiap}
-                        placeholder="Buscar CIAP…"
-                      />
-                    </div>
-                    <CodeSearchSelect
-                      kind="cid10"
-                      label="CID-10"
-                      value={cid10}
-                      onChange={setCid10}
-                      placeholder="Buscar CID-10…"
-                    />
-                    <div className={`field ${focusField === 'ine' ? 'focus-hint' : ''}`}>
-                      <label>INE</label>
-                      <input value={editIne} onChange={(e) => setEditIne(e.target.value)} />
-                    </div>
-                    <div className={`field ${focusField === 'cbo' ? 'focus-hint' : ''}`}>
-                      <label>CBO</label>
-                      <input value={editCbo} onChange={(e) => setEditCbo(e.target.value)} />
-                    </div>
-                    <div className={`field ${focusField === 'vigilancia' ? 'focus-hint' : ''}`}>
-                      <label>Vigilância</label>
-                      <input value={vigilancia} onChange={(e) => setVigilancia(e.target.value)} />
-                    </div>
-                    <div className={`field ${focusField === 'consulta' ? 'focus-hint' : ''}`}>
-                      <label>Consulta</label>
-                      <select value={tipoConsulta} onChange={(e) => setTipoConsulta(e.target.value)}>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="4">4</option>
-                      </select>
-                    </div>
-                    <div className={`field ${focusField === 'turno' ? 'focus-hint' : ''}`}>
-                      <label>Turno</label>
-                      <select value={turno} onChange={(e) => setTurno(e.target.value)}>
-                        <option value="1">1 manhã</option>
-                        <option value="2">2 tarde</option>
-                        <option value="3">3 noite</option>
-                      </select>
-                    </div>
-                    <div className={`field ${focusField === 'gestante' ? 'focus-hint' : ''}`}>
-                      <label>Gestante</label>
-                      <select value={gestante} onChange={(e) => setGestante(e.target.value)}>
-                        <option value="false">false</option>
-                        <option value="true">true</option>
-                      </select>
-                    </div>
-                    <div className={`field ${focusField === 'local' ? 'focus-hint' : ''}`}>
-                      <label>Local atendimento</label>
-                      <input value={localAtend} onChange={(e) => setLocalAtend(e.target.value)} />
-                    </div>
-                    <div className={`field ${focusField === 'cnes' ? 'focus-hint' : ''}`}>
-                      <label>CNES (7 dígitos)</label>
-                      <input value={cnes} onChange={(e) => setCnes(e.target.value)} placeholder="2077432" />
-                    </div>
-                    <div className={`field ${focusField === 'ibge' ? 'focus-hint' : ''}`}>
-                      <label>IBGE município</label>
-                      <input value={ibge} onChange={(e) => setIbge(e.target.value)} placeholder="3516200" />
-                    </div>
-                    <div className={`field ${focusField === 'proc' ? 'focus-hint' : ''}`} style={{ gridColumn: '1 / -1' }}>
-                      <label>Procs SIGTAP extras</label>
-                      <input
-                        value={procExtra}
-                        onChange={(e) => setProcExtra(e.target.value)}
-                        placeholder="0301010153,0101020104"
-                      />
-                    </div>
-                    <div
-                      className={`field ${focusField === 'xml' ? 'focus-hint' : ''}`}
-                      style={{ gridColumn: '1 / -1' }}
+            <div className="lote-toolbar">
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  className="lote-check"
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleAllVisible}
+                />
+                Selecionar visíveis ({items.length})
+              </label>
+              <span className="muted">
+                {selectedIds.size} selecionada(s) · mostrando {items.length} de {itemsTotal}
+              </span>
+            </div>
+            <div style={{ maxHeight: 480, overflow: 'auto' }}>
+              <table style={{ width: '100%', fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 36 }} />
+                    <th align="left">Arquivo</th>
+                    <th>Tipo</th>
+                    <th>Siaps</th>
+                    <th>Previne</th>
+                    <th align="left">Problemas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it) => (
+                    <tr
+                      key={it.id}
+                      style={{
+                        cursor: 'pointer',
+                        background: selected?.id === it.id && fichaModalOpen ? 'var(--ok-bg)' : undefined,
+                      }}
+                      onClick={() => void openItem(it.id)}
                     >
-                      <label className="muted">
-                        Campos de CPF/CNS/datas/UUID exigem ajuste no XML de origem ou reexportação — use o botão
-                        “Editar ficha” do alerta e, se necessário, baixe o XML e corrija na origem.
-                      </label>
-                    </div>
-                  </div>
-                  <button className="btn btn-primary" type="submit" disabled={busy} style={{ marginTop: 8 }}>
-                    Salvar e revalidar
-                  </button>
-                </form>
-              ) : (
-                <>
-                  <h3 style={{ marginTop: 0 }}>5. Editar ficha</h3>
-                  <p className="muted">
-                    Cada alerta mostra <strong>Auto</strong> (botão corrige o XML) ou <strong>Individual</strong>{' '}
-                    (abra a ficha e edite). Filtre pelo gráfico para auto-corrigir várias selecionadas.
-                  </p>
-                </>
-              )}
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input
+                          className="lote-check"
+                          type="checkbox"
+                          checked={selectedIds.has(it.id)}
+                          onChange={() => toggleOne(it.id)}
+                        />
+                      </td>
+                      <td>{it.fileName}</td>
+                      <td align="center">
+                        <code title={it.fichaTipoLabel || ''}>
+                          {it.fichaTipo || '?'}
+                          {it.fichaTipoCode != null ? `/${it.fichaTipoCode}` : ''}
+                        </code>
+                      </td>
+                      <td align="center">{it.siapsReady ? 'ok' : 'falha'}</td>
+                      <td align="center">{it.previneReady ? 'ok' : `risco(${it.previneMoneyRisks ?? 0})`}</td>
+                      <td style={{ fontSize: 12 }}>
+                        {codesToFriendly([...it.topCodes, ...(it.previneTopCodes || [])])}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
+
+          {activeRepair && codeFilter ? (
+            <ErrorGuideModal
+              open={errorModalOpen}
+              code={codeFilter}
+              repair={activeRepair}
+              affected={items}
+              affectedTotal={itemsTotal || items.length}
+              busy={busy}
+              fieldValues={{
+                ine: ineDefault || editIne,
+                ciap: bulkCiap || ciap,
+                cid10: bulkCid || cid10,
+                cbo: editCbo,
+                vigilancia,
+                tipoConsulta,
+                turno,
+                gestante,
+                local: localAtend,
+                cnes,
+                ibge,
+              }}
+              onFieldChange={(key, value) => {
+                if (key === 'ine') {
+                  setIneDefault(value);
+                  setEditIne(value);
+                } else if (key === 'ciap') {
+                  setBulkCiap(value);
+                  setCiap(value);
+                } else if (key === 'cid10') {
+                  setBulkCid(value);
+                  setCid10(value);
+                } else if (key === 'cbo') setEditCbo(value);
+                else if (key === 'vigilancia') setVigilancia(value);
+                else if (key === 'tipoConsulta') setTipoConsulta(value);
+                else if (key === 'turno') setTurno(value);
+                else if (key === 'gestante') setGestante(value);
+                else if (key === 'local') setLocalAtend(value);
+                else if (key === 'cnes') setCnes(value);
+                else if (key === 'ibge') setIbge(value);
+              }}
+              onClose={closeErrorModal}
+              onFixAllAffected={() => void applySelectedRepair(codeFilter, { allAffected: true })}
+              onOpenFicha={(id) => void openItem(id)}
+            />
+          ) : null}
+
+          <FichaFixModal
+            open={fichaModalOpen && !!selected}
+            selected={selected}
+            busy={busy}
+            form={{
+              ciap,
+              cid10,
+              editIne,
+              editCbo,
+              vigilancia,
+              tipoConsulta,
+              turno,
+              gestante,
+              localAtend,
+              cnes,
+              ibge,
+              procExtra,
+              focusField,
+            }}
+            setForm={setFichaForm}
+            onClose={closeFichaModal}
+            onSave={saveItem}
+            onApplyGap={(code) => void applyGapRepair(code)}
+            onFocusField={focusIndividualEdit}
+          />
+
         </>
       ) : null}
     </AppShell>

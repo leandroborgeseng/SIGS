@@ -1249,6 +1249,102 @@ a.search-chip:hover {
   border: 1px solid var(--line);
   background: var(--surface-2);
 }
+.ui-modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4vh 16px 24px;
+  overflow: auto;
+}
+.ui-modal-root.ui-modal-layer-2 {
+  z-index: 90;
+  background: rgba(15, 23, 42, 0.55);
+}
+.ui-modal {
+  width: min(960px, 100%);
+  background: var(--surface-1);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  max-height: 92vh;
+}
+.ui-modal-lg {
+  width: min(980px, 100%);
+}
+.ui-modal-xl {
+  width: min(1120px, 100%);
+}
+.ui-modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.ui-modal-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.ui-modal-sub {
+  margin-top: 6px;
+  font-size: 13px;
+}
+.ui-modal-body {
+  padding: 16px 18px;
+  overflow: auto;
+  flex: 1;
+}
+.ui-modal-foot {
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.lote-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 6px;
+  background: var(--surface-2);
+}
+.lote-modal-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  background: var(--surface-1);
+  cursor: pointer;
+  color: inherit;
+}
+.lote-modal-list-item:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.lote-ficha-modal-grid {
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  gap: 18px;
+}
+@media (max-width: 900px) {
+  .lote-ficha-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .code-search {
   position: relative;
 }
