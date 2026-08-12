@@ -93,6 +93,13 @@ export class AppendLediFaoBatchDto {
   files!: LediFaoBatchFileDto[];
 }
 
+/** ZIP em base64 — evita multipart pelo proxy Next. */
+export class CreateLediFaoBatchFromZipDto {
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() expectedTipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+  @IsString() zipBase64!: string;
+}
+
 export class LediFaoProcDto {
   @IsString() coMsProcedimento!: string;
   @IsOptional() @IsInt() @Min(1) quantidade?: number;

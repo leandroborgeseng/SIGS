@@ -11,12 +11,14 @@ import {
   Query,
   Res,
   UploadedFiles,
+  UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { CareExtraService } from './care-extra.service';
 import { LediFaoBatchService } from './ledi-fao-batch.service';
+import { extractXmlFilesFromZipBuffer } from './ledi-zip.extract';
 import {
   CreateDentalEncounterDto,
   CreateHomeCareVisitDto,
@@ -27,12 +29,17 @@ import {
   ValidateDentalFaoDto,
   CreateLediFaoBatchDto,
   AppendLediFaoBatchDto,
+  CreateLediFaoBatchFromZipDto,
   AutoFixLediFaoBatchDto,
   PatchLediFaoBatchItemDto,
 } from './dto';
 
 const XML_UPLOAD = FilesInterceptor('files', 200, {
   limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+const ZIP_UPLOAD = FileInterceptor('file', {
+  limits: { fileSize: 80 * 1024 * 1024 },
 });
 
 function mapUploadedXmls(files?: Express.Multer.File[]) {
@@ -83,6 +90,53 @@ export class CareExtraController {
       expectedTipo: (expectedTipo as 'FAO' | 'FAI' | 'PROCEDIMENTOS') || 'FAO',
       files: mapUploadedXmls(files),
     });
+  }
+
+  /** ZIP via JSON base64 — estável atrás do proxy Next (sem multipart). */
+  @Post('dental/ledi/batches/from-zip')
+  async createFaoBatchFromZipJson(@Body() dto: CreateLediFaoBatchFromZipDto) {
+    const raw = (dto.zipBase64 || '').replace(/^data:.*?;base64,/, '').trim();
+    if (!raw) throw new BadRequestException('zipBase64 vazio');
+    let buf: Buffer;
+    try {
+      buf = Buffer.from(raw, 'base64');
+    } catch {
+      throw new BadRequestException('zipBase64 inválido');
+    }
+    if (buf.length < 4) throw new BadRequestException('ZIP muito pequeno');
+    try {
+      const files = await extractXmlFilesFromZipBuffer(buf);
+      return this.faoBatches.create({
+        name: dto.name,
+        expectedTipo: dto.expectedTipo || 'FAO',
+        files,
+      });
+    } catch (e) {
+      throw new BadRequestException(e instanceof Error ? e.message : 'ZIP inválido');
+    }
+  }
+
+  /** Upload de um .zip multipart (alternativa). */
+  @Post('dental/ledi/batches/upload-zip')
+  @UseInterceptors(ZIP_UPLOAD)
+  async createFaoBatchFromZip(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('name') name?: string,
+    @Body('expectedTipo') expectedTipo?: string,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Envie um arquivo .zip no campo "file".');
+    }
+    try {
+      const files = await extractXmlFilesFromZipBuffer(file.buffer);
+      return this.faoBatches.create({
+        name: name || file.originalname?.replace(/\.zip$/i, '') || undefined,
+        expectedTipo: (expectedTipo as 'FAO' | 'FAI' | 'PROCEDIMENTOS') || 'FAO',
+        files,
+      });
+    } catch (e) {
+      throw new BadRequestException(e instanceof Error ? e.message : 'ZIP inválido');
+    }
   }
 
   @Post('dental/ledi/batches/:batchId/upload')
