@@ -9,6 +9,7 @@
  */
 
 import { extractFaoMasterFromXml } from './ledi-fao-xml.parser';
+import { analyzePrevineEsbXray, type PrevineXray } from './ledi-fao-previne-xray';
 
 export type FaoSeverity = 'BLOCKER' | 'MONEY_RISK' | 'QUALITY_WARN' | 'INFO';
 
@@ -24,6 +25,12 @@ export type FaoFinding = {
 
 export type FaoValidationReport = {
   conformant: boolean;
+  /** Aceite estrutural Siaps (sem BLOCKER). */
+  siapsReady: boolean;
+  /** Sem MONEY_RISK no raio-x Previne ESB. */
+  previneReady: boolean;
+  /** Pronto para envio final recomendado: Siaps ok + sem MONEY_RISK Previne. */
+  readyForFinalSend: boolean;
   channel: 'LEDI_FAO_SIAPS_RNDS';
   sourceKind: 'xml' | 'json';
   detectedFormat: string;
@@ -34,6 +41,8 @@ export type FaoValidationReport = {
     infos: number;
   };
   findings: FaoFinding[];
+  /** Raio-x de indicadores ESB / qualidade (não bloqueia parse). */
+  previneXray?: PrevineXray;
   masterPreview?: {
     uuidFicha?: string;
     cnes?: string;
@@ -682,23 +691,25 @@ export function validateFaoXml(xml: string): FaoValidationReport {
 
   const findings = validateFaoMaster(extracted.master);
   const header = asRecord(extracted.master.headerTransport) || {};
+  const previneXray = analyzePrevineEsbXray(extracted.master);
   return buildReport('xml', 'ledi-fao', findings, {
     uuidFicha: str(extracted.master.uuidFicha) || undefined,
     cnes: str(header.cnes) || undefined,
     cbo: str(header.cboCodigo_2002) || undefined,
     atendimentoCount: asArray(extracted.master.atendimentosOdontologicos).length,
-  });
+  }, previneXray);
 }
 
 export function validateFaoJson(master: Record<string, unknown>): FaoValidationReport {
   const findings = validateFaoMaster(master);
   const header = asRecord(master.headerTransport) || {};
+  const previneXray = analyzePrevineEsbXray(master);
   return buildReport('json', 'ledi-fao', findings, {
     uuidFicha: str(master.uuidFicha) || undefined,
     cnes: str(header.cnes) || undefined,
     cbo: str(header.cboCodigo_2002) || undefined,
     atendimentoCount: asArray(master.atendimentosOdontologicos).length,
-  });
+  }, previneXray);
 }
 
 function buildReport(
@@ -706,18 +717,25 @@ function buildReport(
   detectedFormat: string,
   findings: FaoFinding[],
   masterPreview?: FaoValidationReport['masterPreview'],
+  previneXray?: PrevineXray,
 ): FaoValidationReport {
   const blockers = findings.filter((f) => f.severity === 'BLOCKER').length;
   const moneyRisks = findings.filter((f) => f.severity === 'MONEY_RISK').length;
   const qualityWarns = findings.filter((f) => f.severity === 'QUALITY_WARN').length;
   const infos = findings.filter((f) => f.severity === 'INFO').length;
+  const siapsReady = blockers === 0;
+  const previneReady = !previneXray || previneXray.summary.moneyRisks === 0;
   return {
     conformant: blockers === 0 && moneyRisks === 0,
+    siapsReady,
+    previneReady,
+    readyForFinalSend: siapsReady && previneReady,
     channel: 'LEDI_FAO_SIAPS_RNDS',
     sourceKind,
     detectedFormat,
     summary: { blockers, moneyRisks, qualityWarns, infos },
     findings,
+    previneXray,
     masterPreview,
   };
 }

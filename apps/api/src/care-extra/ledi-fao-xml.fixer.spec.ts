@@ -1,4 +1,11 @@
-import { fixStNaoPossuiCpf, applyAutoFixes, fixProblemasCondicoes } from './ledi-fao-xml.fixer';
+import {
+  fixStNaoPossuiCpf,
+  applyAutoFixes,
+  fixProblemasCondicoes,
+  addProcedimentos,
+  addTiposEncamOdonto,
+  fixTiposVigilanciaSaudeBucal,
+} from './ledi-fao-xml.fixer';
 import { validateFaoXml } from './ledi-fao.validator';
 
 const SAMPLE = `<?xml version="1.0" encoding="utf-8"?>
@@ -66,5 +73,24 @@ describe('ledi-fao-xml.fixer', () => {
     const final = validateFaoXml(withProb.xml);
     expect(final.findings.some((f) => f.code === 'PROBLEMAS_MISSING')).toBe(false);
     expect(final.findings.some((f) => f.code === 'ST_NAO_POSSUI_CPF')).toBe(false);
+  });
+
+  it('acrescenta procedimento, conduta 15 e troca vigilância 99', () => {
+    const with99 = SAMPLE.replace(
+      '<tiposVigilanciaSaudeBucal>3</tiposVigilanciaSaudeBucal>',
+      '<tiposVigilanciaSaudeBucal>99</tiposVigilanciaSaudeBucal>',
+    );
+    const proc = addProcedimentos(with99, [{ coMsProcedimento: '0301010153' }]);
+    expect(proc.changed).toBe(true);
+    expect(proc.xml).toMatch(/0301010153/);
+
+    const enc = addTiposEncamOdonto(proc.xml, [15]);
+    expect(enc.changed).toBe(true);
+    expect(enc.xml).toMatch(/<tiposEncamOdonto>15<\/tiposEncamOdonto>/);
+
+    const vig = fixTiposVigilanciaSaudeBucal(enc.xml, [1, 3]);
+    expect(vig.changed).toBe(true);
+    expect(vig.xml).toMatch(/<tiposVigilanciaSaudeBucal>1<\/tiposVigilanciaSaudeBucal>/);
+    expect(vig.xml).not.toMatch(/<tiposVigilanciaSaudeBucal>99<\/tiposVigilanciaSaudeBucal>/);
   });
 });

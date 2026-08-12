@@ -6,7 +6,7 @@ Base de conhecimento para construção do **Sistema Municipal de Gestão em Saú
 
 | Pasta / arquivo | Conteúdo |
 |---|---|
-| [conhecimento/](conhecimento/) | O que já aprendemos sobre o e-SUS, LEDI/faturamento e **SAMU (`12-…`)** |
+| [conhecimento/](conhecimento/) | O que já aprendemos sobre o e-SUS, LEDI/faturamento, **SAMU (`12-…`)** e **[Indicadores APS / Previne (`14-…`)](conhecimento/14-indicadores-aps-previne-brasil.md)** |
 | [requisitos/](requisitos/) | Requisitos funcionais oficiais do edital/TR |
 | [manuais/](manuais/) | Política + templates de manuais técnico e usuário (DoD) |
 | [planejamento/](planejamento/) | Plano MVP + **estratégia de reescrita** + [deploy Railway/Coolify](planejamento/deploy-railway-coolify.md) |

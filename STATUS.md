@@ -7,12 +7,15 @@
   3. Enviar XMLs → auto-correção → editar restante → baixar ZIP
 - **servidores locais:** API `:3001` · Web `:3000` (`npm run dev`)
 - **feito:**
-  - Lote LEDI FAO API + UI (upload, inconsistências, auto-fix, ZIP)
+  - Lote LEDI FAO API + UI (upload, auto-fix, ZIP)
+  - **Raio-x Previne ESB (B1–B6)** + alertas com **botão/guia de correção** na UI
+  - Patch ficha: INE, CIAP, CBO, vigilância, procs (B1/B5/B6), conduta 15
   - Entrada do sistema redireciona para `/odonto/lote`
-  - Nav “Faturamento LEDI” no topo
   - Deploy: `Dockerfile` + `docker-compose.yml` + `docs/planejamento/deploy-railway-coolify.md`
-- **canal:** LEDI FAO → Siaps → RNDS
-- **proxima_acao:** processar lote real 1131 no `/odonto/lote` · depois Coolify/Railway · resto do sistema depois
+- **canal:** LEDI FAO → Siaps → RNDS · Previne ESB como inteligência pré-envio
+- **backlog registrado:**
+  - Indicadores Previne (`14-…`) · vínculos obrigatórios (`15-…`)
+- **proxima_acao:** processar lote 1131 com raio-x · push GitHub · depois NT 30/2025 / C*
 - **docker:** `docker compose up --build`
 
 _Atualizado em 2026-08-12_

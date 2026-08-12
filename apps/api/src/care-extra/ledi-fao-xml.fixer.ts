@@ -169,6 +169,128 @@ export function fixTiposConsultaOdonto(xml: string, codes: number[]): { xml: str
   return { xml: next, changed };
 }
 
+/** Acrescenta tiposEncamOdonto sem remover os existentes (ex.: conduta 15). */
+export function addTiposEncamOdonto(xml: string, codes: number[]): { xml: string; changed: boolean } {
+  const want = [...new Set(codes.map((c) => Number(c)).filter((n) => Number.isFinite(n)))];
+  if (!want.length) return { xml, changed: false };
+  let changed = false;
+  const next = xml.replace(
+    /(<atendimentosOdontologicos\b[^>]*>)([\s\S]*?)(<\/atendimentosOdontologicos>)/i,
+    (_m, open: string, body: string, close: string) => {
+      const present = new Set(
+        [...body.matchAll(/<tiposEncamOdonto>\s*(\d+)\s*<\/tiposEncamOdonto>/gi)].map((x) => Number(x[1])),
+      );
+      const missing = want.filter((c) => !present.has(c));
+      if (!missing.length) return `${open}${body}${close}`;
+      changed = true;
+      const tags = missing.map((c) => `<tiposEncamOdonto>${c}</tiposEncamOdonto>`).join('\n');
+      if (/<\/tiposEncamOdonto>/i.test(body)) {
+        return `${open}${body.replace(/(<\/tiposEncamOdonto>)(?![\s\S]*<\/tiposEncamOdonto>)/i, `$1\n${tags}`)}${close}`;
+      }
+      if (/<\/tipoAtendimento>/i.test(body)) {
+        return `${open}${body.replace(/<\/tipoAtendimento>/i, `</tipoAtendimento>\n${tags}`)}${close}`;
+      }
+      return `${open}${body}\n${tags}${close}`;
+    },
+  );
+  return { xml: next, changed };
+}
+
+/** Substitui tiposVigilanciaSaudeBucal no primeiro atendimento. */
+export function fixTiposVigilanciaSaudeBucal(
+  xml: string,
+  codes: number[],
+): { xml: string; changed: boolean } {
+  if (!codes.length) return { xml, changed: false };
+  const tags = codes.map((c) => `<tiposVigilanciaSaudeBucal>${c}</tiposVigilanciaSaudeBucal>`).join('\n');
+  let changed = false;
+  const next = xml.replace(
+    /(<atendimentosOdontologicos\b[^>]*>)([\s\S]*?)(<\/atendimentosOdontologicos>)/i,
+    (_m, open: string, body: string, close: string) => {
+      changed = true;
+      const without = body.replace(
+        /<tiposVigilanciaSaudeBucal\b[^>]*>[\s\S]*?<\/tiposVigilanciaSaudeBucal>\s*/gi,
+        '',
+      );
+      if (/<\/tipoAtendimento>/i.test(without)) {
+        return `${open}${without.replace(/<\/tipoAtendimento>/i, `</tipoAtendimento>\n${tags}`)}${close}`;
+      }
+      return `${open}${without}\n${tags}${close}`;
+    },
+  );
+  return { xml: next, changed };
+}
+
+/**
+ * Acrescenta procedimentos SIGTAP que ainda não existem no atendimento.
+ * Não remove procedimentos já enviados.
+ */
+export function addProcedimentos(
+  xml: string,
+  procs: Array<{ coMsProcedimento: string; quantidade?: number }>,
+): { xml: string; changed: boolean } {
+  const valid = procs
+    .map((p) => ({
+      code: String(p.coMsProcedimento || '').replace(/\D/g, ''),
+      qty: Math.max(1, Number(p.quantidade) || 1),
+    }))
+    .filter((p) => p.code.length >= 8);
+  if (!valid.length) return { xml, changed: false };
+
+  let changed = false;
+  const next = xml.replace(
+    /(<atendimentosOdontologicos\b[^>]*>)([\s\S]*?)(<\/atendimentosOdontologicos>)/i,
+    (_m, open: string, body: string, close: string) => {
+      const present = new Set(
+        [...body.matchAll(/<coMsProcedimento>\s*([^<]+)\s*<\/coMsProcedimento>/gi)].map((x) =>
+          String(x[1]).replace(/\D/g, ''),
+        ),
+      );
+      const missing = valid.filter((p) => !present.has(p.code));
+      if (!missing.length) return `${open}${body}${close}`;
+      changed = true;
+      const block = missing
+        .map(
+          (p) =>
+            `<procedimentosRealizados>\n<coMsProcedimento>${p.code}</coMsProcedimento>\n<quantidade>${p.qty}</quantidade>\n</procedimentosRealizados>`,
+        )
+        .join('\n');
+      if (/<\/procedimentosRealizados>/i.test(body)) {
+        return `${open}${body.replace(
+          /(<\/procedimentosRealizados>)(?![\s\S]*<\/procedimentosRealizados>)/i,
+          `$1\n${block}`,
+        )}${close}`;
+      }
+      if (/<\/tiposConsultaOdonto>/i.test(body)) {
+        return `${open}${body.replace(/<\/tiposConsultaOdonto>/i, `</tiposConsultaOdonto>\n${block}`)}${close}`;
+      }
+      return `${open}${body}\n${block}${close}`;
+    },
+  );
+  return { xml: next, changed };
+}
+
+/** Atualiza CBO na lotação principal (e header se existir). */
+export function fixCbo(xml: string, cbo: string): { xml: string; changed: boolean } {
+  const clean = cbo.replace(/\D/g, '');
+  if (clean.length < 6) return { xml, changed: false };
+  let changed = false;
+  let next = xml;
+  if (/<cboCodigo_2002>/i.test(next)) {
+    next = next.replace(/<cboCodigo_2002>\s*[^<]*<\/cboCodigo_2002>/gi, () => {
+      changed = true;
+      return `<cboCodigo_2002>${clean}</cboCodigo_2002>`;
+    });
+  } else if (/<\/profissionalCNS>/i.test(next)) {
+    next = next.replace(
+      /<\/profissionalCNS>/i,
+      `</profissionalCNS>\n<cboCodigo_2002>${clean}</cboCodigo_2002>`,
+    );
+    changed = true;
+  }
+  return { xml: next, changed };
+}
+
 export function escapeXml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

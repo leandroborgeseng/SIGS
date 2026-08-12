@@ -12,7 +12,29 @@ type BatchSummary = {
   withBlockers: number;
   withWarn: number;
   autoFixableItems: number;
+  siapsReady?: number;
+  previneReady?: number;
+  readyForFinalSend?: number;
   topCodes: Array<{ code: string; files: number; pct: number }>;
+  previne?: {
+    files: number;
+    codeCounts: Array<{
+      code: string;
+      indicator: string;
+      files: number;
+      severity: string;
+      sample: string;
+    }>;
+    indicatorGaps: Array<{ id: string; filesWithGap: number; pct: number }>;
+    signalRates: {
+      withFirstConsulta: number;
+      withConclusao: number;
+      withPreventive: number;
+      withArt: number;
+      withIne: number;
+      vigilancia99: number;
+    };
+  };
 };
 
 type Batch = {
@@ -35,6 +57,11 @@ type ItemRow = {
   qualityWarns: number;
   autoFixableCodes: string[];
   topCodes: string[];
+  siapsReady?: boolean;
+  previneReady?: boolean;
+  readyForFinalSend?: boolean;
+  previneMoneyRisks?: number;
+  previneTopCodes?: string[];
 };
 
 type Finding = {
@@ -45,6 +72,15 @@ type Finding = {
   hint?: string;
 };
 
+type PrevineGap = {
+  code: string;
+  indicator: string;
+  severity: string;
+  message: string;
+  hint?: string;
+  repair?: string;
+};
+
 type ItemDetail = {
   id: string;
   fileName: string;
@@ -52,6 +88,149 @@ type ItemDetail = {
   findings: Finding[];
   autoFixableCodes: string[];
   currentXml: string;
+  siapsReady?: boolean;
+  previneReady?: boolean;
+  readyForFinalSend?: boolean;
+  previneXray?: {
+    summary: { moneyRisks: number; qualityWarns: number; infos: number };
+    signals: {
+      hasFirstConsultaProgramada: boolean;
+      hasTratamentoConcluido: boolean;
+      preventiveCount: number;
+      artCount: number;
+      inePresent: boolean;
+      vigilanciaOnly99: boolean;
+      procCodes: string[];
+    };
+    gaps: PrevineGap[];
+    indicators: Array<{ id: string; title: string; status: string; note?: string }>;
+  };
+};
+
+/** Catálogo UI: alerta → como corrigir na tela. */
+type AlertRepair = {
+  where: string;
+  how: string;
+  ui?: 'ine' | 'ciap' | 'cbo' | 'proc_b1' | 'proc_prev' | 'proc_art' | 'encam_15' | 'vigilancia' | 'lote' | 'manual';
+  button?: string;
+};
+
+const PREVINE_REPAIR: Record<string, AlertRepair> = {
+  PREVINE_INE_MISSING: {
+    where: 'Lote (INE padrão) ou ficha → INE',
+    how: 'Informe o INE da eSB e salve / aplique auto-correção.',
+    ui: 'ine',
+    button: 'Preencher INE desta ficha',
+  },
+  PREVINE_CBO_NOT_ESB: {
+    where: 'Ficha → CBO',
+    how: 'Troque para CBO odonto elegível (ex.: 223208 dentista ESF).',
+    ui: 'cbo',
+    button: 'Aplicar CBO 223208',
+  },
+  PREVINE_PROBLEMAS_MISSING: {
+    where: 'Lote (CIAP padrão) ou ficha → CIAP/CID',
+    how: 'Inclua CIAP (ex. D82) ou CID-10 clínico real.',
+    ui: 'ciap',
+    button: 'Incluir CIAP D82',
+  },
+  PREVINE_VIGILANCIA_99: {
+    where: 'Ficha → vigilância',
+    how: 'Troque 99 por código específico (ex.: 1 cárie, 3 periodontal).',
+    ui: 'vigilancia',
+    button: 'Trocar vigilância p/ 1+3',
+  },
+  PREVINE_B1_NO_FIRST_CONSULTA: {
+    where: 'Ficha → procedimento B1',
+    how: 'Se for 1ª consulta programada, acrescente SIGTAP 0301010153.',
+    ui: 'proc_b1',
+    button: 'Acrescentar 1ª consulta (0301010153)',
+  },
+  PREVINE_B2_NO_CONCLUSAO: {
+    where: 'Ficha → conduta 15',
+    how: 'Ao concluir o plano, registre tiposEncamOdonto=15 (+ consulta 1 ou 2).',
+    ui: 'encam_15',
+    button: 'Marcar tratamento concluído (15)',
+  },
+  PREVINE_B2_NO_PAIR: {
+    where: 'Ficha',
+    how: 'B2 precisa do par 1ª consulta + conclusão na janela — use os botões B1 e conduta 15 se cabível.',
+    ui: 'manual',
+  },
+  PREVINE_B3_HIGH_EXODONTIA: {
+    where: 'Produção / registro',
+    how: 'Revise se preventivos/curativos estão sendo faturados; alta exodontia piora B3 no período.',
+    ui: 'manual',
+  },
+  PREVINE_B3_LOW_EXODONTIA_SHARE: {
+    where: 'Informativo',
+    how: 'Faixa local abaixo do ótimo B3 — ajuste só se o mix clínico exigir.',
+    ui: 'manual',
+  },
+  PREVINE_B3_NO_EXODONTIA: {
+    where: 'Informativo',
+    how: 'Sem exodontia neste XML — ok se o perfil for preventivo.',
+    ui: 'manual',
+  },
+  PREVINE_B5_NO_PREVENTIVE: {
+    where: 'Ficha → preventivo',
+    how: 'Acrescente preventivo elegível (ex. orientação higiene 0101020104).',
+    ui: 'proc_prev',
+    button: 'Acrescentar preventivo (0101020104)',
+  },
+  PREVINE_B5_LOW_PREVENTIVE: {
+    where: 'Ficha → preventivo',
+    how: 'Aumente registro de preventivos vs só curativos.',
+    ui: 'proc_prev',
+    button: 'Acrescentar preventivo (0101020104)',
+  },
+  PREVINE_B5_HIGH_PREVENTIVE: {
+    where: 'Informativo',
+    how: '>85% preventivo também é Regular no B5 — equilíbrio clínico.',
+    ui: 'manual',
+  },
+  PREVINE_B5_NO_PROCS: {
+    where: 'Ficha / origem',
+    how: 'Confira coMsProcedimento SIGTAP no XML de origem.',
+    ui: 'manual',
+  },
+  PREVINE_B6_NO_ART: {
+    where: 'Ficha → ART',
+    how: 'Quando aplicável, registre TRA/ART 0307010074.',
+    ui: 'proc_art',
+    button: 'Acrescentar ART (0307010074)',
+  },
+  PREVINE_B6_NO_RESTORATIVE: {
+    where: 'Informativo',
+    how: 'B6 não se aplica sem restauração neste atendimento.',
+    ui: 'manual',
+  },
+};
+
+const LEDI_REPAIR: Record<string, AlertRepair> = {
+  ST_NAO_POSSUI_CPF: {
+    where: 'Lote → auto-correção',
+    how: 'Marque stNaoPossuiCpf e aplique (false quando há CNS/CPF).',
+    ui: 'lote',
+  },
+  INE_MISSING: {
+    where: 'Lote (INE padrão) ou ficha',
+    how: 'Preencha INE da eSB e revalide.',
+    ui: 'ine',
+    button: 'Preencher INE desta ficha',
+  },
+  PROBLEMAS_MISSING: {
+    where: 'Lote (CIAP) ou ficha',
+    how: 'Inclua CIAP/CID no atendimento.',
+    ui: 'ciap',
+    button: 'Incluir CIAP D82',
+  },
+  PROBLEMA_SEM_CODIGO: {
+    where: 'Ficha → CIAP/CID',
+    how: 'Informe CIAP ou CID-10 válido.',
+    ui: 'ciap',
+    button: 'Incluir CIAP D82',
+  },
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -101,6 +280,9 @@ export default function OdontoLotePage() {
   const [cid10, setCid10] = useState('');
   const [tipoConsulta, setTipoConsulta] = useState('1');
   const [editIne, setEditIne] = useState('');
+  const [editCbo, setEditCbo] = useState('223208');
+  const [vigilancia, setVigilancia] = useState('1,3');
+  const [procExtra, setProcExtra] = useState('');
 
   const loadBatches = useCallback(async () => {
     const list = await api<BatchListRow[]>('/v1/dental/ledi/batches');
@@ -225,6 +407,9 @@ export default function OdontoLotePage() {
       const detail = await api<ItemDetail>(`/v1/dental/ledi/batches/${batch.id}/items/${id}`);
       setSelected(detail);
       setEditIne('');
+      setEditCbo('223208');
+      setVigilancia('1,3');
+      setProcExtra('');
       setCiap('D82');
       setCid10('');
       setTipoConsulta('1');
@@ -233,29 +418,17 @@ export default function OdontoLotePage() {
     }
   }
 
-  async function saveItem(e: FormEvent) {
-    e.preventDefault();
+  async function patchSelected(body: Record<string, unknown>, okMsg: string) {
     if (!batch || !selected) return;
     setBusy(true);
     setError(null);
     try {
-      const body: Record<string, unknown> = {};
-      if (editIne.trim()) body.ine = editIne.trim();
-      if (ciap.trim() || cid10.trim()) {
-        body.problemasCondicoes = [{ ciap: ciap.trim() || undefined, cid10: cid10.trim() || undefined }];
-      }
-      if (tipoConsulta) body.tiposConsultaOdonto = [Number(tipoConsulta)];
-      if (!Object.keys(body).length) {
-        setError('Informe CIAP/CID, consulta ou INE para salvar.');
-        setBusy(false);
-        return;
-      }
       const detail = await api<ItemDetail>(
         `/v1/dental/ledi/batches/${batch.id}/items/${selected.id}`,
         { method: 'PATCH', json: body },
       );
       setSelected(detail);
-      setOk(`Ficha ${detail.fileName} revalidada — status ${detail.status}.`);
+      setOk(okMsg);
       await loadBatch(batch.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao salvar');
@@ -264,12 +437,123 @@ export default function OdontoLotePage() {
     }
   }
 
+  async function applyGapRepair(code: string) {
+    const guide = PREVINE_REPAIR[code] || LEDI_REPAIR[code];
+    if (!guide?.ui || guide.ui === 'manual' || guide.ui === 'lote') {
+      setError(
+        guide?.ui === 'lote'
+          ? 'Use a seção 3 (correções automáticas do lote) para este alerta.'
+          : 'Este alerta exige julgamento clínico / origem — sem botão automático.',
+      );
+      return;
+    }
+    if (guide.ui === 'ine') {
+      const ine = editIne.trim() || ineDefault.trim();
+      if (!ine) {
+        setError('Informe o INE no campo da ficha (ou INE padrão do lote) antes de aplicar.');
+        return;
+      }
+      await patchSelected({ ine }, `INE ${ine} aplicado em ${selected?.fileName}.`);
+      return;
+    }
+    if (guide.ui === 'ciap') {
+      await patchSelected(
+        { problemasCondicoes: [{ ciap: ciap.trim() || 'D82', cid10: cid10.trim() || undefined }] },
+        `CIAP/CID aplicado em ${selected?.fileName}.`,
+      );
+      return;
+    }
+    if (guide.ui === 'cbo') {
+      await patchSelected(
+        { cboCodigo_2002: editCbo.trim() || '223208' },
+        `CBO atualizado em ${selected?.fileName}.`,
+      );
+      return;
+    }
+    if (guide.ui === 'proc_b1') {
+      await patchSelected(
+        { procedimentosAdd: [{ coMsProcedimento: '0301010153', quantidade: 1 }] },
+        `1ª consulta programada acrescentada em ${selected?.fileName}.`,
+      );
+      return;
+    }
+    if (guide.ui === 'proc_prev') {
+      await patchSelected(
+        { procedimentosAdd: [{ coMsProcedimento: '0101020104', quantidade: 1 }] },
+        `Preventivo 0101020104 acrescentado em ${selected?.fileName}.`,
+      );
+      return;
+    }
+    if (guide.ui === 'proc_art') {
+      await patchSelected(
+        { procedimentosAdd: [{ coMsProcedimento: '0307010074', quantidade: 1 }] },
+        `ART 0307010074 acrescentado em ${selected?.fileName}.`,
+      );
+      return;
+    }
+    if (guide.ui === 'encam_15') {
+      await patchSelected(
+        {
+          tiposEncamOdontoAdd: [15],
+          tiposConsultaOdonto: [Number(tipoConsulta) || 1],
+        },
+        `Conduta 15 (tratamento concluído) em ${selected?.fileName}.`,
+      );
+      return;
+    }
+    if (guide.ui === 'vigilancia') {
+      const codes = vigilancia
+        .split(/[,;\s]+/)
+        .map((x) => Number(x))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (!codes.length) {
+        setError('Informe códigos de vigilância (ex.: 1,3).');
+        return;
+      }
+      await patchSelected(
+        { tiposVigilanciaSaudeBucal: codes },
+        `Vigilância atualizada em ${selected?.fileName}.`,
+      );
+    }
+  }
+
+  async function saveItem(e: FormEvent) {
+    e.preventDefault();
+    if (!batch || !selected) return;
+    const body: Record<string, unknown> = {};
+    if (editIne.trim()) body.ine = editIne.trim();
+    if (editCbo.trim()) body.cboCodigo_2002 = editCbo.trim();
+    if (ciap.trim() || cid10.trim()) {
+      body.problemasCondicoes = [{ ciap: ciap.trim() || undefined, cid10: cid10.trim() || undefined }];
+    }
+    if (tipoConsulta) body.tiposConsultaOdonto = [Number(tipoConsulta)];
+    if (vigilancia.trim()) {
+      const codes = vigilancia
+        .split(/[,;\s]+/)
+        .map((x) => Number(x))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (codes.length) body.tiposVigilanciaSaudeBucal = codes;
+    }
+    if (procExtra.trim()) {
+      body.procedimentosAdd = procExtra
+        .split(/[,;\s]+/)
+        .map((c) => c.replace(/\D/g, ''))
+        .filter((c) => c.length >= 8)
+        .map((coMsProcedimento) => ({ coMsProcedimento, quantidade: 1 }));
+    }
+    if (!Object.keys(body).length) {
+      setError('Informe ao menos um campo de correção para salvar.');
+      return;
+    }
+    await patchSelected(body, `Ficha ${selected.fileName} revalidada.`);
+  }
+
   return (
     <AppShell helpId="odonto.lote-ledi">
       <PageHeader
         title="Lote LEDI FAO"
         eyebrow="Odontologia · Siaps/RNDS"
-        description="Envie XMLs odontológicos, veja inconsistências, corrija em lote o que for automático e edite o restante antes de baixar os XMLs corrigidos."
+        description="Raio-x do lote: erros de envio Siaps/LEDI + oportunidades Previne (B1–B6) antes do XML final."
         actions={
           <>
             <HelpLink id="odonto.lote-ledi" />
@@ -336,40 +620,157 @@ export default function OdontoLotePage() {
                 <strong>{batch.summary.total}</strong>
               </div>
               <div>
-                <div className="muted">Conformes</div>
-                <strong>{batch.summary.conformant}</strong>
+                <div className="muted">Prontos Siaps</div>
+                <strong>{batch.summary.siapsReady ?? '—'}</strong>
               </div>
               <div>
-                <div className="muted">Com blocker</div>
+                <div className="muted">Prontos Previne</div>
+                <strong>{batch.summary.previneReady ?? '—'}</strong>
+              </div>
+              <div>
+                <div className="muted">Envio final OK</div>
+                <strong>{batch.summary.readyForFinalSend ?? '—'}</strong>
+              </div>
+              <div>
+                <div className="muted">Com blocker LEDI</div>
                 <strong>{batch.summary.withBlockers}</strong>
-              </div>
-              <div>
-                <div className="muted">Auto-corrigíveis</div>
-                <strong>{batch.summary.autoFixableItems}</strong>
               </div>
             </div>
             {batch.summary.topCodes?.length ? (
-              <table style={{ width: '100%', marginTop: 12, fontSize: 14 }}>
-                <thead>
-                  <tr>
-                    <th align="left">Código</th>
-                    <th align="right">Fichas</th>
-                    <th align="right">%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {batch.summary.topCodes.map((c) => (
-                    <tr key={c.code}>
-                      <td>
-                        <code>{c.code}</code>
-                      </td>
-                      <td align="right">{c.files}</td>
-                      <td align="right">{c.pct}%</td>
+              <>
+                <h4 style={{ marginBottom: 8 }}>Erros / avisos de envio (LEDI) — como corrigir</h4>
+                <table style={{ width: '100%', marginTop: 4, fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      <th align="left">Código</th>
+                      <th align="right">Fichas</th>
+                      <th align="left">Onde / como na interface</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {batch.summary.topCodes.map((c) => {
+                      const g = LEDI_REPAIR[c.code];
+                      return (
+                        <tr key={c.code}>
+                          <td>
+                            <code>{c.code}</code>
+                          </td>
+                          <td align="right">
+                            {c.files} ({c.pct}%)
+                          </td>
+                          <td>
+                            {g ? (
+                              <>
+                                <strong>{g.where}</strong>
+                                <div className="muted">{g.how}</div>
+                              </>
+                            ) : (
+                              <span className="muted">Abra a ficha e veja a crítica LEDI + hint.</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </>
             ) : null}
+
+            {batch.summary.previne ? (
+              <div style={{ marginTop: 20 }}>
+                <h4 style={{ marginBottom: 8 }}>Raio-x Previne ESB (qualidade / indicadores)</h4>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  O que o lote deixa de enviar para pontuar B1–B6 — independente do aceite Siaps.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 10, marginBottom: 12 }}>
+                  <div>
+                    <div className="muted">c/ 1ª consulta</div>
+                    <strong>{batch.summary.previne.signalRates.withFirstConsulta}</strong>
+                  </div>
+                  <div>
+                    <div className="muted">c/ conclusão</div>
+                    <strong>{batch.summary.previne.signalRates.withConclusao}</strong>
+                  </div>
+                  <div>
+                    <div className="muted">c/ preventivo</div>
+                    <strong>{batch.summary.previne.signalRates.withPreventive}</strong>
+                  </div>
+                  <div>
+                    <div className="muted">c/ ART</div>
+                    <strong>{batch.summary.previne.signalRates.withArt}</strong>
+                  </div>
+                  <div>
+                    <div className="muted">c/ INE</div>
+                    <strong>{batch.summary.previne.signalRates.withIne}</strong>
+                  </div>
+                  <div>
+                    <div className="muted">só vigilância 99</div>
+                    <strong>{batch.summary.previne.signalRates.vigilancia99}</strong>
+                  </div>
+                </div>
+                {batch.summary.previne.indicatorGaps?.length ? (
+                  <table style={{ width: '100%', fontSize: 13, marginBottom: 12 }}>
+                    <thead>
+                      <tr>
+                        <th align="left">Indicador</th>
+                        <th align="right">Fichas c/ gap</th>
+                        <th align="right">%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {batch.summary.previne.indicatorGaps.map((g) => (
+                        <tr key={g.id}>
+                          <td>
+                            <code>{g.id}</code>
+                          </td>
+                          <td align="right">{g.filesWithGap}</td>
+                          <td align="right">{g.pct}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : null}
+                {batch.summary.previne.codeCounts?.length ? (
+                  <table style={{ width: '100%', fontSize: 13 }}>
+                    <thead>
+                      <tr>
+                        <th align="left">Gap</th>
+                        <th>Ind.</th>
+                        <th>Sev</th>
+                        <th align="right">Fichas</th>
+                        <th align="left">Como corrigir na UI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {batch.summary.previne.codeCounts.slice(0, 16).map((c) => {
+                        const g = PREVINE_REPAIR[c.code];
+                        return (
+                          <tr key={c.code}>
+                            <td>
+                              <code>{c.code}</code>
+                            </td>
+                            <td align="center">{c.indicator}</td>
+                            <td align="center">{c.severity}</td>
+                            <td align="right">{c.files}</td>
+                            <td>
+                              {g ? (
+                                <>
+                                  <strong>{g.where}</strong>
+                                  <div className="muted">{g.how}</div>
+                                </>
+                              ) : (
+                                <span className="muted">Abra a ficha e use o botão do alerta.</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : null}
+              </div>
+            ) : null}
+
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
               <button
                 type="button"
@@ -387,7 +788,7 @@ export default function OdontoLotePage() {
                   void downloadZip(batch.id, 'conformant').catch((e) => setError(String(e.message || e)))
                 }
               >
-                Baixar só conformes
+                Baixar só conformes LEDI
               </button>
             </div>
           </div>
@@ -467,9 +868,11 @@ export default function OdontoLotePage() {
                 <thead>
                   <tr>
                     <th align="left">Arquivo</th>
-                    <th>Status</th>
+                    <th>Siaps</th>
+                    <th>Previne</th>
                     <th>Blockers</th>
-                    <th align="left">Códigos</th>
+                    <th align="left">Envio</th>
+                    <th align="left">Gaps Previne</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -480,10 +883,14 @@ export default function OdontoLotePage() {
                       onClick={() => void openItem(it.id)}
                     >
                       <td>{it.fileName}</td>
-                      <td align="center">{it.status}</td>
+                      <td align="center">{it.siapsReady ? 'ok' : 'falha'}</td>
+                      <td align="center">{it.previneReady ? 'ok' : `risco(${it.previneMoneyRisks ?? 0})`}</td>
                       <td align="center">{it.blockers}</td>
                       <td>
                         <code>{it.topCodes.join(', ')}</code>
+                      </td>
+                      <td>
+                        <code>{(it.previneTopCodes || []).join(', ') || '—'}</code>
                       </td>
                     </tr>
                   ))}
@@ -498,29 +905,133 @@ export default function OdontoLotePage() {
         <form className="card" onSubmit={saveItem}>
           <h3 style={{ marginTop: 0 }}>5. Editar ficha — {selected.fileName}</h3>
           <p>
-            Status atual: <strong>{selected.status}</strong>
+            Status LEDI: <strong>{selected.status}</strong>
+            {' · '}
+            Siaps: <strong>{selected.siapsReady ? 'pronto' : 'bloquear'}</strong>
+            {' · '}
+            Previne: <strong>{selected.previneReady ? 'ok' : 'há MONEY_RISK'}</strong>
+            {' · '}
+            Envio final: <strong>{selected.readyForFinalSend ? 'recomendado' : 'reparar antes'}</strong>
           </p>
+
+          {selected.previneXray ? (
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ marginBottom: 8 }}>Raio-x Previne desta ficha — alertas e correção</h4>
+              <p className="muted" style={{ marginTop: 0 }}>
+                Sinais: 1ª consulta={String(selected.previneXray.signals.hasFirstConsultaProgramada)} ·
+                conclusão={String(selected.previneXray.signals.hasTratamentoConcluido)} · preventivos=
+                {selected.previneXray.signals.preventiveCount} · ART={selected.previneXray.signals.artCount} · INE=
+                {String(selected.previneXray.signals.inePresent)}
+              </p>
+              <table style={{ width: '100%', fontSize: 13, marginBottom: 12 }}>
+                <thead>
+                  <tr>
+                    <th align="left">Sev</th>
+                    <th>Ind.</th>
+                    <th align="left">Alerta</th>
+                    <th align="left">Correção na interface</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selected.previneXray.gaps
+                    .filter((g) => g.severity !== 'INFO' || g.code !== 'PREVINE_B4_NOT_IN_FAO')
+                    .map((g, i) => {
+                      const guide = PREVINE_REPAIR[g.code];
+                      const canClick =
+                        guide?.button &&
+                        guide.ui &&
+                        guide.ui !== 'manual' &&
+                        guide.ui !== 'lote';
+                      return (
+                        <tr key={`${g.code}-${i}`}>
+                          <td>{g.severity}</td>
+                          <td align="center">{g.indicator}</td>
+                          <td>
+                            <code>{g.code}</code>
+                            <div>{g.message}</div>
+                            {g.repair ? <div className="muted">{g.repair}</div> : null}
+                          </td>
+                          <td>
+                            {guide ? (
+                              <>
+                                <div>
+                                  <strong>{guide.where}</strong>
+                                </div>
+                                <div className="muted" style={{ marginBottom: 6 }}>
+                                  {guide.how}
+                                </div>
+                              </>
+                            ) : null}
+                            {canClick ? (
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                disabled={busy}
+                                style={{ fontSize: 12 }}
+                                onClick={() => void applyGapRepair(g.code)}
+                              >
+                                {guide!.button}
+                              </button>
+                            ) : (
+                              <span className="muted">Sem botão — ajuste clínico / lote</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
+          <h4 style={{ marginBottom: 8 }}>Críticas LEDI / Siaps</h4>
           <table style={{ width: '100%', fontSize: 13, marginBottom: 12 }}>
             <thead>
               <tr>
                 <th align="left">Sev</th>
                 <th align="left">Código</th>
                 <th align="left">Mensagem</th>
+                <th align="left">Ação</th>
               </tr>
             </thead>
             <tbody>
-              {selected.findings.map((f, i) => (
-                <tr key={`${f.code}-${i}`}>
-                  <td>{f.severity}</td>
-                  <td>
-                    <code>{f.code}</code>
-                  </td>
-                  <td>
-                    {f.message}
-                    {f.hint ? <div className="muted">{f.hint}</div> : null}
-                  </td>
-                </tr>
-              ))}
+              {selected.findings
+                .filter((f) => !String(f.code).startsWith('PREVINE_'))
+                .map((f, i) => {
+                  const guide = LEDI_REPAIR[f.code];
+                  const canClick =
+                    guide?.button && guide.ui && guide.ui !== 'manual' && guide.ui !== 'lote';
+                  return (
+                    <tr key={`${f.code}-${i}`}>
+                      <td>{f.severity}</td>
+                      <td>
+                        <code>{f.code}</code>
+                      </td>
+                      <td>
+                        {f.message}
+                        {f.hint ? <div className="muted">{f.hint}</div> : null}
+                        {guide ? <div className="muted">{guide.where}: {guide.how}</div> : null}
+                      </td>
+                      <td>
+                        {canClick ? (
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            disabled={busy}
+                            style={{ fontSize: 12 }}
+                            onClick={() => void applyGapRepair(f.code)}
+                          >
+                            {guide!.button}
+                          </button>
+                        ) : guide?.ui === 'lote' ? (
+                          <span className="muted">Seção 3 (lote)</span>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
@@ -544,7 +1055,27 @@ export default function OdontoLotePage() {
               <label>INE desta ficha</label>
               <input value={editIne} onChange={(e) => setEditIne(e.target.value)} placeholder="0002165929" />
             </div>
+            <div className="field">
+              <label>CBO lotação</label>
+              <input value={editCbo} onChange={(e) => setEditCbo(e.target.value)} placeholder="223208" />
+            </div>
+            <div className="field">
+              <label>Vigilância (códigos, vírgula)</label>
+              <input value={vigilancia} onChange={(e) => setVigilancia(e.target.value)} placeholder="1,3" />
+            </div>
+            <div className="field">
+              <label>Procedimentos SIGTAP extras</label>
+              <input
+                value={procExtra}
+                onChange={(e) => setProcExtra(e.target.value)}
+                placeholder="0301010153,0101020104"
+              />
+            </div>
           </div>
+          <p className="muted">
+            Os botões dos alertas usam estes campos (INE, CIAP, CBO, vigilância). Procedimentos B1/B5/B6 e
+            conduta 15 também podem ser aplicados direto no alerta.
+          </p>
           <button className="btn btn-primary" type="submit" disabled={busy}>
             Salvar correção e revalidar XML
           </button>

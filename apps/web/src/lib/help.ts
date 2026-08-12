@@ -142,7 +142,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '1.0.0',
     updatedAt: '2026-08-12',
     summary: 'Upload de XMLs odonto, inconsistências, auto-correção e download ZIP.',
-    body: `Em Odontologia → Lote LEDI FAO, envie vários .xml (tipo 5 FAO). O SIGS valida cada ficha (mesmo motor Siaps/RNDS). Correções simples (stNaoPossuiCpf, INE) pedem confirmação e geram XML novo. Problemas/condições (CIAP/CID) e tipo de consulta são editados por ficha. Ao final, baixe o ZIP dos XMLs atuais/corrigidos. Não versionar XMLs com CNS reais.`,
+    body: `Em Odontologia → Lote LEDI FAO, envie vários .xml (tipo 5 FAO). O SIGS valida cada ficha (motor Siaps/RNDS) e gera um **raio-x Previne ESB (B1–B6)**: o que falta para pontuar indicadores (1ª consulta, conclusão, preventivos, ART, INE, vigilância). Correções simples (stNaoPossuiCpf, INE, CIAP) pedem confirmação. Ao final, baixe o ZIP. Meta: reparar antes do envio final — Siaps pronto + Previne sem MONEY_RISK.`,
   },
   {
     id: 'ad.stub',

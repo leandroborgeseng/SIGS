@@ -9,9 +9,17 @@ import { RF } from '../common/rf';
 import { validateFaoXml, type FaoFinding, type FaoValidationReport } from './ledi-fao.validator';
 import { extractFaoMasterFromXml } from './ledi-fao-xml.parser';
 import {
+  aggregatePrevineXrays,
+  type PrevineXray,
+} from './ledi-fao-previne-xray';
+import {
   applyAutoFixes,
   classifyAutoFixable,
+  addProcedimentos,
+  addTiposEncamOdonto,
+  fixCbo,
   fixIne,
+  fixTiposVigilanciaSaudeBucal,
   fixProblemasCondicoes,
   fixStNaoPossuiCpf,
   fixTiposConsultaOdonto,
@@ -33,6 +41,11 @@ type ItemSummary = {
   qualityWarns: number;
   autoFixableCodes: string[];
   topCodes: string[];
+  siapsReady: boolean;
+  previneReady: boolean;
+  readyForFinalSend: boolean;
+  previneMoneyRisks: number;
+  previneTopCodes: string[];
 };
 
 @Injectable()
@@ -51,12 +64,25 @@ export class LediFaoBatchService {
     return 'conformant';
   }
 
-  private summarizeBatch(items: Array<{ status: string; findingsJson: string; autoFixableCodes: string }>) {
+  private summarizeBatch(
+    items: Array<{
+      status: string;
+      findingsJson: string;
+      autoFixableCodes: string;
+      previneJson?: string | null;
+      fileName?: string;
+    }>,
+  ) {
     const codeFiles = new Map<string, number>();
     let conformant = 0;
     let withBlockers = 0;
     let withWarn = 0;
     let autoFixableItems = 0;
+    let siapsReady = 0;
+    let previneReady = 0;
+    let readyForFinalSend = 0;
+
+    const xrayItems: Array<{ fileName: string; xray: PrevineXray }> = [];
 
     for (const it of items) {
       if (it.status === 'conformant' || it.status === 'fixed') conformant += 1;
@@ -73,6 +99,19 @@ export class LediFaoBatchService {
         seen.add(f.code);
         codeFiles.set(f.code, (codeFiles.get(f.code) || 0) + 1);
       }
+      const hasBlocker = findings.some((f) => f.severity === 'BLOCKER');
+      if (!hasBlocker) siapsReady += 1;
+
+      if (it.previneJson) {
+        try {
+          const xray = JSON.parse(it.previneJson) as PrevineXray;
+          xrayItems.push({ fileName: it.fileName || 'item', xray });
+          if (xray.summary.moneyRisks === 0) previneReady += 1;
+          if (!hasBlocker && xray.summary.moneyRisks === 0) readyForFinalSend += 1;
+        } catch {
+          /* ignore */
+        }
+      }
     }
 
     const topCodes = [...codeFiles.entries()]
@@ -80,13 +119,19 @@ export class LediFaoBatchService {
       .slice(0, 12)
       .map(([code, files]) => ({ code, files, pct: Math.round((files / items.length) * 1000) / 10 }));
 
+    const previne = xrayItems.length ? aggregatePrevineXrays(xrayItems) : null;
+
     return {
       total: items.length,
       conformant,
       withBlockers,
       withWarn,
       autoFixableItems,
+      siapsReady,
+      previneReady,
+      readyForFinalSend,
       topCodes,
+      previne,
     };
   }
 
@@ -117,6 +162,7 @@ export class LediFaoBatchService {
         originalXml: xml,
         currentXml: xml,
         findingsJson: JSON.stringify(findings),
+        previneJson: report.previneXray ? JSON.stringify(report.previneXray) : null,
         masterJson,
         autoFixableCodes: auto.join(','),
       };
@@ -126,7 +172,12 @@ export class LediFaoBatchService {
     const batch = await this.prisma.lediFaoBatch.create({
       data: {
         name: dto.name?.trim() || `Lote FAO ${new Date().toISOString().slice(0, 16)}`,
-        status: summary.withBlockers === 0 && summary.withWarn === 0 ? 'ready' : 'analyzed',
+        status:
+          summary.readyForFinalSend === summary.total
+            ? 'ready'
+            : summary.withBlockers === 0
+              ? 'partially_fixed'
+              : 'analyzed',
         summaryJson: JSON.stringify(summary),
         items: { create: prepared },
       },
@@ -136,6 +187,7 @@ export class LediFaoBatchService {
     void this.prisma.audit('ledi_fao_batch_create', 'ledi_fao_batch', batch.id, [RF.ODONTO.id, RF.ESUS.id], {
       total: summary.total,
       withBlockers: summary.withBlockers,
+      readyForFinalSend: summary.readyForFinalSend,
     });
 
     return this.get(batch.id);
@@ -200,6 +252,7 @@ export class LediFaoBatchService {
           fileName: true,
           status: true,
           findingsJson: true,
+          previneJson: true,
           autoFixableCodes: true,
           updatedAt: true,
         },
@@ -208,6 +261,14 @@ export class LediFaoBatchService {
 
     const items: ItemSummary[] = rows.map((r) => {
       const findings = JSON.parse(r.findingsJson || '[]') as FaoFinding[];
+      let previne: PrevineXray | null = null;
+      try {
+        previne = r.previneJson ? (JSON.parse(r.previneJson) as PrevineXray) : null;
+      } catch {
+        previne = null;
+      }
+      const siapsReady = !findings.some((f) => f.severity === 'BLOCKER');
+      const previneReady = !previne || previne.summary.moneyRisks === 0;
       return {
         id: r.id,
         fileName: r.fileName,
@@ -217,6 +278,16 @@ export class LediFaoBatchService {
         qualityWarns: findings.filter((f) => f.severity === 'QUALITY_WARN').length,
         autoFixableCodes: r.autoFixableCodes ? r.autoFixableCodes.split(',').filter(Boolean) : [],
         topCodes: [...new Set(findings.map((f) => f.code))].slice(0, 6),
+        siapsReady,
+        previneReady,
+        readyForFinalSend: siapsReady && previneReady,
+        previneMoneyRisks: previne?.summary.moneyRisks ?? 0,
+        previneTopCodes: previne
+          ? [...new Set(previne.gaps.filter((g) => g.severity === 'MONEY_RISK').map((g) => g.code))].slice(
+              0,
+              4,
+            )
+          : [],
       };
     });
 
@@ -237,12 +308,24 @@ export class LediFaoBatchService {
     } catch {
       master = null;
     }
+    let previneXray: PrevineXray | null = null;
+    try {
+      previneXray = item.previneJson ? (JSON.parse(item.previneJson) as PrevineXray) : null;
+    } catch {
+      previneXray = null;
+    }
+    const siapsReady = !findings.some((f) => f.severity === 'BLOCKER');
+    const previneReady = !previneXray || previneXray.summary.moneyRisks === 0;
     return {
       id: item.id,
       batchId: item.batchId,
       fileName: item.fileName,
       status: item.status,
       findings,
+      previneXray,
+      siapsReady,
+      previneReady,
+      readyForFinalSend: siapsReady && previneReady,
       autoFixableCodes: item.autoFixableCodes
         ? item.autoFixableCodes.split(',').filter(Boolean)
         : [],
@@ -342,6 +425,30 @@ export class LediFaoBatchService {
       if (r.changed) applied.push('TIPOS_CONSULTA');
     }
 
+    if (dto.tiposEncamOdontoAdd?.length) {
+      const r = addTiposEncamOdonto(xml, dto.tiposEncamOdontoAdd);
+      xml = r.xml;
+      if (r.changed) applied.push('TIPOS_ENCAM');
+    }
+
+    if (dto.tiposVigilanciaSaudeBucal?.length) {
+      const r = fixTiposVigilanciaSaudeBucal(xml, dto.tiposVigilanciaSaudeBucal);
+      xml = r.xml;
+      if (r.changed) applied.push('VIGILANCIA');
+    }
+
+    if (dto.procedimentosAdd?.length) {
+      const r = addProcedimentos(xml, dto.procedimentosAdd);
+      xml = r.xml;
+      if (r.changed) applied.push('PROCEDIMENTOS');
+    }
+
+    if (dto.cboCodigo_2002?.trim()) {
+      const r = fixCbo(xml, dto.cboCodigo_2002);
+      xml = r.xml;
+      if (r.changed) applied.push('CBO');
+    }
+
     if (dto.xml?.trim()) {
       xml = dto.xml.trim();
       applied.push('RAW_XML');
@@ -418,6 +525,7 @@ export class LediFaoBatchService {
       data: {
         currentXml: xml,
         findingsJson: JSON.stringify(findings),
+        previneJson: report.previneXray ? JSON.stringify(report.previneXray) : null,
         autoFixableCodes: auto.join(','),
         masterJson,
         status,
@@ -428,13 +536,19 @@ export class LediFaoBatchService {
   private async refreshBatchSummary(batchId: string) {
     const items = await this.prisma.lediFaoBatchItem.findMany({
       where: { batchId },
-      select: { status: true, findingsJson: true, autoFixableCodes: true },
+      select: {
+        status: true,
+        findingsJson: true,
+        autoFixableCodes: true,
+        previneJson: true,
+        fileName: true,
+      },
     });
     const summary = this.summarizeBatch(items);
     const status =
-      summary.withBlockers === 0
+      summary.readyForFinalSend === summary.total
         ? 'ready'
-        : summary.conformant > 0 || summary.autoFixableItems < summary.total
+        : summary.withBlockers === 0
           ? 'partially_fixed'
           : 'analyzed';
     await this.prisma.lediFaoBatch.update({

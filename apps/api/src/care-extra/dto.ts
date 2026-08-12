@@ -100,6 +100,11 @@ export class AutoFixLediFaoBatchDto {
   @IsOptional() @IsArray() @IsString({ each: true }) onlyItemIds?: string[];
 }
 
+export class LediFaoProcDto {
+  @IsString() coMsProcedimento!: string;
+  @IsOptional() @IsInt() @Min(1) quantidade?: number;
+}
+
 export class PatchLediFaoBatchItemDto {
   @IsOptional() @IsString() ine?: string;
   @IsOptional() @IsBoolean() stNaoPossuiCpf?: boolean;
@@ -109,6 +114,18 @@ export class PatchLediFaoBatchItemDto {
   @Type(() => DentalProblemaDto)
   problemasCondicoes?: DentalProblemaDto[];
   @IsOptional() @IsArray() tiposConsultaOdonto?: number[];
+  /** Acrescenta condutas (ex.: 15 = tratamento concluído) sem remover as existentes. */
+  @IsOptional() @IsArray() tiposEncamOdontoAdd?: number[];
+  /** Substitui vigilância saúde bucal (ex.: sair do 99 genérico). */
+  @IsOptional() @IsArray() tiposVigilanciaSaudeBucal?: number[];
+  /** Acrescenta procedimentos SIGTAP se ainda não existirem. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LediFaoProcDto)
+  procedimentosAdd?: LediFaoProcDto[];
+  /** CBO lotação (família 2232* / 3224*). */
+  @IsOptional() @IsString() cboCodigo_2002?: string;
   /** Substitui o XML inteiro (edição avançada). */
   @IsOptional() @IsString() xml?: string;
 }

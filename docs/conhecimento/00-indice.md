@@ -17,6 +17,8 @@ Documentos gerados a partir da análise do e-SUS APS **5.5.24** e das decisões 
 | 11 | [11-legado-faturamento-e-producao.md](11-legado-faturamento-e-producao.md) | **Legado → LEDI/BPA: banco, converters, o que fazer sem SIGTAP MS** |
 | 12 | [12-samu-fonte-federal-backlog.md](12-samu-fonte-federal-backlog.md) | **SAMU: inventário `Samu/` + backlog S0–S4 (RF-5)** |
 | 13 | [13-samu-o-que-vamos-enfrentar.md](13-samu-o-que-vamos-enfrentar.md) | **Síntese pós-decompilação: escala, dores, ordem** |
+| 14 | [14-indicadores-aps-previne-brasil.md](14-indicadores-aps-previne-brasil.md) | **Indicadores APS Previne (CONASEMS jul/2026): C/B/CR/M — 19 indicadores** |
+| 15 | [15-faturamento-indicadores-campos-obrigatorios.md](15-faturamento-indicadores-campos-obrigatorios.md) | **Faturamento federal × Previne: vínculos e campos obrigatórios de qualidade** |
 
 - raiz: `01-manifest.json` … `10-gaps.md`
 - `data/esus/5.5.24/reports/`

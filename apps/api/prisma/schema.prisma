@@ -596,6 +596,8 @@ model LediFaoBatchItem {
   originalXml        String   @map("original_xml")
   currentXml         String   @map("current_xml")
   findingsJson       String   @default("[]") @map("findings_json")
+  /// Raio-x Previne ESB (JSON) — oportunidades de indicador/qualidade
+  previneJson        String?  @map("previne_json")
   masterJson         String?  @map("master_json")
   /// Códigos elegíveis a auto-correção neste item (CSV)
   autoFixableCodes   String   @default("") @map("auto_fixable_codes")
