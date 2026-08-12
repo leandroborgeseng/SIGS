@@ -1249,6 +1249,49 @@ a.search-chip:hover {
   border: 1px solid var(--line);
   background: var(--surface-2);
 }
+.code-search {
+  position: relative;
+}
+.code-search-menu {
+  position: absolute;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  top: calc(100% - 2px);
+  max-height: 280px;
+  overflow: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+.code-search-hint {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.code-search-option {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  font-size: 13px;
+}
+.code-search-option:hover,
+.code-search-option.active {
+  background: var(--brand-soft);
+}
+.code-search-option strong {
+  font-variant-numeric: tabular-nums;
+}
+
 .lote-mode {
   display: inline-block;
   font-size: 10px;

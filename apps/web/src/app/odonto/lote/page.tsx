@@ -19,6 +19,7 @@ import {
 import { TreatmentDashboard, type TreatBucket } from './TreatmentDashboard';
 import type { TreatmentProgress } from './treatment-types';
 import { ErrorGuidePanel } from './ErrorGuidePanel';
+import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 
 type BatchSummary = {
   total: number;
@@ -1068,7 +1069,7 @@ export default function OdontoLotePage() {
               <input type="checkbox" checked={confirmSt} onChange={(e) => setConfirmSt(e.target.checked)} />
               Aplicar automaticamente: “informar se o cidadão tem CPF”
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
               <div className="field">
                 <label>Código da equipe (INE)</label>
                 <input
@@ -1077,14 +1078,20 @@ export default function OdontoLotePage() {
                   placeholder="0002165929"
                 />
               </div>
-              <div className="field">
-                <label>Problema/diagnóstico (CIAP)</label>
-                <input value={bulkCiap} onChange={(e) => setBulkCiap(e.target.value)} placeholder="D82" />
-              </div>
-              <div className="field">
-                <label>Diagnóstico (CID-10)</label>
-                <input value={bulkCid} onChange={(e) => setBulkCid(e.target.value)} placeholder="K02.1" />
-              </div>
+              <CodeSearchSelect
+                kind="ciap"
+                label="Problema/diagnóstico (CIAP)"
+                value={bulkCiap}
+                onChange={setBulkCiap}
+                placeholder="Buscar CIAP…"
+              />
+              <CodeSearchSelect
+                kind="cid10"
+                label="Diagnóstico (CID-10)"
+                value={bulkCid}
+                onChange={setBulkCid}
+                placeholder="Buscar CID-10…"
+              />
             </div>
             <button className="btn btn-primary" type="submit" disabled={busy}>
               Aplicar no lote inteiro e revalidar
@@ -1301,14 +1308,22 @@ export default function OdontoLotePage() {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <div className={`field ${focusField === 'ciap' ? 'focus-hint' : ''}`}>
-                      <label>CIAP</label>
-                      <input value={ciap} onChange={(e) => setCiap(e.target.value)} />
+                    <div className={focusField === 'ciap' ? 'focus-hint' : undefined}>
+                      <CodeSearchSelect
+                        kind="ciap"
+                        label="CIAP"
+                        value={ciap}
+                        onChange={setCiap}
+                        placeholder="Buscar CIAP…"
+                      />
                     </div>
-                    <div className="field">
-                      <label>CID-10</label>
-                      <input value={cid10} onChange={(e) => setCid10(e.target.value)} />
-                    </div>
+                    <CodeSearchSelect
+                      kind="cid10"
+                      label="CID-10"
+                      value={cid10}
+                      onChange={setCid10}
+                      placeholder="Buscar CID-10…"
+                    />
                     <div className={`field ${focusField === 'ine' ? 'focus-hint' : ''}`}>
                       <label>INE</label>
                       <input value={editIne} onChange={(e) => setEditIne(e.target.value)} />

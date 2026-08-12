@@ -5,6 +5,7 @@ import {
   type AlertRepair,
 } from './repair-catalog';
 import { resolveSeverity, severityLabel, severityTone } from './error-catalog';
+import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 
 type Props = {
   code: string;
@@ -82,17 +83,37 @@ export function ErrorGuidePanel({
           {canAuto ? (
             <div className="lote-guide-actions">
               {fields.length ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 }}>
-                  {fields.map((f) => (
-                    <div className="field" key={f.key}>
-                      <label>{f.label}</label>
-                      <input
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 }}>
+                  {fields.map((f) =>
+                    f.key === 'ciap' ? (
+                      <CodeSearchSelect
+                        key={f.key}
+                        kind="ciap"
+                        label={f.label}
                         value={fieldValues[f.key] || ''}
+                        onChange={(v) => onFieldChange(f.key, v)}
                         placeholder={f.placeholder}
-                        onChange={(e) => onFieldChange(f.key, e.target.value)}
                       />
-                    </div>
-                  ))}
+                    ) : f.key === 'cid10' ? (
+                      <CodeSearchSelect
+                        key={f.key}
+                        kind="cid10"
+                        label={f.label}
+                        value={fieldValues[f.key] || ''}
+                        onChange={(v) => onFieldChange(f.key, v)}
+                        placeholder={f.placeholder}
+                      />
+                    ) : (
+                      <div className="field" key={f.key}>
+                        <label>{f.label}</label>
+                        <input
+                          value={fieldValues[f.key] || ''}
+                          placeholder={f.placeholder}
+                          onChange={(e) => onFieldChange(f.key, e.target.value)}
+                        />
+                      </div>
+                    ),
+                  )}
                 </div>
               ) : (
                 <p className="muted" style={{ fontSize: 13 }}>
