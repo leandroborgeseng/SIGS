@@ -1,19 +1,42 @@
-# Cole no Railway → Variables
+# Cole no Railway → Variables (serviço único PROCESS_ROLE=all)
 #
-# Networking → Target port: 3000  (tem de bater com PORT)
-# Domínio público: https://sigs-production.up.railway.app
-# Volume: /data
+# Settings → Networking → Target port: 3000  (bate com PORT)
+# Settings → Volumes → mount path: /data
+# Domínio público (exemplo): https://sigs-production.up.railway.app
 #
-# Rede interna (outros serviços): sigs.railway.internal:3000 / :3001
-# NÃO use .railway.internal em NEXT_PUBLIC_*
+# Build: Settings → Build → adicionar variável de BUILD
+#   NEXT_PUBLIC_API_URL=https://SEU-DOMINIO.up.railway.app/api
+# (NEXT_PUBLIC_* é embutido no Next no build do Docker)
+#
+# Plugins no mesmo projeto:
+#   1) PostgreSQL → Reference DATABASE_URL (ou copie a URL)
+#   2) Redis (opcional) → Reference REDIS_URL
+# Sem Redis = jobs LEDI inline no processo da API (ok para começar).
 
+PROCESS_ROLE=all
 PORT=3000
 API_PORT=3001
-DATABASE_URL=file:/data/sigs.db
+
+# Postgres (Railway plugin injeta DATABASE_URL — NÃO use file:/data)
+# Se criar variável manual, use a URL do plugin Postgres:
+# DATABASE_URL=${{Postgres.DATABASE_URL}}
+
 JWT_SECRET=troque-por-uma-string-longa-aleatoria-32chars
 CORS_ORIGIN=https://sigs-production.up.railway.app
 NEXT_PUBLIC_API_URL=https://sigs-production.up.railway.app/api
 API_INTERNAL_URL=http://127.0.0.1:3001
+
 SEED_ADMIN_EMAIL=admin@sigs.local
-SEED_ADMIN_PASSWORD=admin123
+SEED_ADMIN_PASSWORD=troque-a-senha-admin
+
 NODE_ENV=production
+HTTP_BODY_LIMIT=20mb
+
+# Storage: disco no volume /data (sem MinIO no Railway nesta fatia)
+STORAGE_DRIVER=local
+STORAGE_LOCAL_PATH=/data/storage
+LEDI_XML_INLINE_MAX=200000
+LEDI_AUTOFIX_ASYNC_THRESHOLD=40
+
+# Redis (opcional — descomente depois de adicionar plugin Redis)
+# REDIS_URL=${{Redis.REDIS_URL}}

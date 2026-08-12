@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -29,6 +29,8 @@ model Facility {
   regulationRequests RegulationRequest[]
   assignments ProfessionalAssignment[]
 
+  @@index([cnes])
+  @@index([active])
   @@map("facilities")
 }
 
@@ -142,6 +144,9 @@ model Patient {
   productionRecords ProductionRecord[]
 
   @@index([active, civilName])
+  @@index([cpf])
+  @@index([cns])
+  @@index([mergedIntoId])
   @@map("patients")
 }
 
@@ -294,6 +299,8 @@ model ProductionBatch {
   statusChangedAt DateTime? @map("status_changed_at")
   createdAt       DateTime  @default(now()) @map("created_at")
 
+  @@index([status])
+  @@index([createdAt])
   @@map("production_batches")
 }
 
@@ -544,14 +551,25 @@ model RegulationRequest {
 }
 
 model AuditEvent {
-  id           String   @id @default(uuid())
-  action       String
-  resourceType String   @map("resource_type")
-  resourceId   String   @map("resource_id")
-  rfIdsCsv     String   @default("") @map("rf_ids_csv")
-  detailJson   String   @default("{}") @map("detail_json")
-  at           DateTime @default(now())
+  id            String   @id @default(uuid())
+  action        String
+  resourceType  String   @map("resource_type")
+  resourceId    String   @map("resource_id")
+  rfIdsCsv      String   @default("") @map("rf_ids_csv")
+  detailJson    String   @default("{}") @map("detail_json")
+  /// Ator autenticado (quando houver)
+  userId        String?  @map("user_id")
+  /// Correlation / request ID
+  correlationId String?  @map("correlation_id")
+  ip            String?
+  /// success | failure | partial
+  outcome       String   @default("success")
+  at            DateTime @default(now())
 
+  @@index([at])
+  @@index([resourceType, resourceId])
+  @@index([userId, at])
+  @@index([correlationId])
   @@map("audit_events")
 }
 
@@ -596,6 +614,8 @@ model LediFaoBatch {
 
   items LediFaoBatchItem[]
 
+  @@index([createdAt])
+  @@index([status])
   @@map("ledi_fao_batches")
 }
 
@@ -605,8 +625,15 @@ model LediFaoBatchItem {
   fileName           String   @map("file_name")
   /// conformant | blocker | warn | fixed | error
   status             String   @default("blocker")
-  originalXml        String   @map("original_xml")
-  currentXml         String   @map("current_xml")
+  /// Conteúdo inline (legado / lotes pequenos). Preferir object keys quando storage ativo.
+  originalXml        String   @default("") @map("original_xml")
+  currentXml         String   @default("") @map("current_xml")
+  /// Chaves no Object Storage (S3-compatible)
+  originalObjectKey  String?  @map("original_object_key")
+  currentObjectKey   String?  @map("current_object_key")
+  xmlSha256          String?  @map("xml_sha256")
+  /// Optimistic locking
+  version            Int      @default(1)
   findingsJson       String   @default("[]") @map("findings_json")
   /// Raio-x Previne ESB (JSON) — oportunidades de indicador/qualidade
   previneJson        String?  @map("previne_json")
@@ -623,7 +650,39 @@ model LediFaoBatchItem {
   batch LediFaoBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   @@index([batchId, status])
+  @@index([batchId, updatedAt])
   @@map("ledi_fao_batch_items")
+}
+
+/// Jobs assíncronos (fonte de verdade do status — Redis/BullMQ é broker)
+model JobRun {
+  id              String    @id @default(uuid())
+  /// ledi.auto-fix | ledi.export-zip | sigtap.import | …
+  type            String
+  /// queued | active | completed | failed | dead
+  status          String    @default("queued")
+  idempotencyKey  String?   @unique @map("idempotency_key")
+  correlationId   String?   @map("correlation_id")
+  userId          String?   @map("user_id")
+  /// Payload pequeno (refs S3 / IDs) — sem XML clínico completo
+  payloadJson     String    @default("{}") @map("payload_json")
+  resultJson      String?   @map("result_json")
+  errorMessage    String?   @map("error_message")
+  attempts        Int       @default(0)
+  maxAttempts     Int       @default(5) @map("max_attempts")
+  progressPct     Int       @default(0) @map("progress_pct")
+  progressMessage String?   @map("progress_message")
+  /// Object key do artefato (ZIP, relatório…)
+  resultObjectKey String?   @map("result_object_key")
+  startedAt       DateTime? @map("started_at")
+  finishedAt      DateTime? @map("finished_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@index([type, status])
+  @@index([correlationId])
+  @@map("job_runs")
 }
 
 /// Identificadores vinculados ao Paciente Mestre (CPF, CNS, prontuário, temp LEDI…).

@@ -17,6 +17,12 @@ export class PlatformController {
     return this.service.health();
   }
 
+  @Public()
+  @Get('ready')
+  ready() {
+    return this.service.readiness();
+  }
+
   @Get('v1/rf/anchors')
   anchors() {
     return this.service.anchors();

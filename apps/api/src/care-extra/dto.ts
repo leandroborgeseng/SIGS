@@ -150,12 +150,21 @@ export class AutoFixLediFaoBatchDto {
   @IsOptional() @IsString() codigoIbgeMunicipio?: string;
   /** Motivo de não possuir CPF (1–13, 99) — exigido com stNaoPossuiCpf=true. */
   @IsOptional() @IsInt() justificativaNaoPossuiCpf?: number;
+  /** JUSTIFICATIVA_CPF_UNEXPECTED: remover justificativa ou forçar st=true. */
+  @IsOptional() @IsIn(['remove', 'force_st']) justificativaCpfUnexpected?: 'remove' | 'force_st';
+  /** Regenerar uuidFicha inválido (default true no applyAutoFixes). */
+  @IsOptional() @IsBoolean() regenerateUuidFicha?: boolean;
 }
 
 export class PatchLediFaoBatchItemDto {
   @IsOptional() @IsString() ine?: string;
   @IsOptional() @IsBoolean() stNaoPossuiCpf?: boolean;
+  /** Motivo de não possuir CPF (1–13, 99). */
   @IsOptional() @IsInt() justificativaNaoPossuiCpf?: number;
+  /** JUSTIFICATIVA_CPF_UNEXPECTED. */
+  @IsOptional() @IsIn(['remove', 'force_st']) justificativaCpfUnexpected?: 'remove' | 'force_st';
+  /** Regenerar uuidFicha com tamanho inválido. */
+  @IsOptional() @IsBoolean() regenerateUuidFicha?: boolean;
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -197,8 +206,12 @@ export class PatchLediFaoBatchItemDto {
   @IsOptional() @IsString() dataHoraFinalAtendimento?: string;
   /** Substitui condutas tiposEncamOdonto. */
   @IsOptional() @IsArray() tiposEncamOdonto?: number[];
+  /** Ficha Procedimentos: lista SIGTAP 10 dígitos (tags &lt;procedimentos&gt;). */
+  @IsOptional() @IsArray() @IsString({ each: true }) procedimentosCodes?: string[];
   /** Substitui o XML inteiro (edição avançada). */
   @IsOptional() @IsString() xml?: string;
+  /** Optimistic lock — versão lida no GET do item. */
+  @IsOptional() @IsInt() expectedVersion?: number;
 }
 
 export class CreateHomeCareVisitDto {

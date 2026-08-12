@@ -1,78 +1,112 @@
 # Deploy SIGS — Railway / Coolify
 
-**Stack:** NestJS (`apps/api`) + Next.js (`apps/web`) + Prisma (SQLite em volume; Postgres opcional depois).
+**Stack:** NestJS + Next.js + Prisma **PostgreSQL** + storage local/S3 + Redis/BullMQ (opcional).
 
 ## Artefatos
 
 | Arquivo | Uso |
 |---|---|
-| `Dockerfile` | Imagem única (API :3001 + Web :3000) |
-| `docker-compose.yml` | Local / Coolify compose |
+| `Dockerfile` | Imagem (API + Web + worker conforme `PROCESS_ROLE`) |
+| `docker/entrypoint.sh` | `prisma db push` + start por role |
+| `docker-compose.yml` | Local completo (postgres/redis/minio/api/worker/web) |
 | `.env.example` | Variáveis |
-| `docker/entrypoint.sh` | `prisma db push` + sobe API e Web |
+| `railway.variables.txt` | Colar no painel Railway |
+
+---
+
+## Railway — caminho rápido (1 serviço) ✅ recomendado p/ primeiro deploy
+
+Arquitetura: **um container** `PROCESS_ROLE=all` (Web pública :3000 + API interna :3001 + proxy Next `/api` → API). Jobs LEDI **inline** até você ligar Redis.
+
+### 1. Código no GitHub
+
+O Railway faz deploy do branch. Garanta que `main` tem o schema Postgres e o `Dockerfile` atual.
+
+### 2. Projeto no Railway
+
+1. [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub** → repo `SIGS`.
+2. Se não detectar Docker: Settings → **Build** → Builder = Dockerfile · Dockerfile path = `Dockerfile`.
+3. **Networking** → **Generate Domain** · **Target port = 3000**.
+
+### 3. PostgreSQL
+
+1. No projeto: **+ New** → **Database** → **PostgreSQL**.
+2. No serviço SIGS → **Variables** → **Add Variable** → **Add Reference** → `Postgres` → `DATABASE_URL`  
+   (ou cole a connection URL do plugin).
+3. **Remova** qualquer `DATABASE_URL=file:...` antigo.
+
+### 4. Volume (storage local dos XMLs)
+
+Settings → **Volumes** → mount path **`/data`**.
+
+Variáveis:
+```text
+STORAGE_DRIVER=local
+STORAGE_LOCAL_PATH=/data/storage
+```
+
+### 5. Variables (runtime)
+
+Copie de `railway.variables.txt`, ajustando o domínio gerado:
+
+| Variável | Valor |
+|---|---|
+| `PROCESS_ROLE` | `all` |
+| `PORT` | `3000` |
+| `API_PORT` | `3001` |
+| `DATABASE_URL` | referência do Postgres |
+| `JWT_SECRET` | string longa aleatória |
+| `CORS_ORIGIN` | `https://SEU-DOMINIO.up.railway.app` |
+| `NEXT_PUBLIC_API_URL` | `https://SEU-DOMINIO.up.railway.app/api` |
+| `API_INTERNAL_URL` | `http://127.0.0.1:3001` |
+| `SEED_ADMIN_EMAIL` | seu e-mail |
+| `SEED_ADMIN_PASSWORD` | senha forte |
+| `STORAGE_DRIVER` | `local` |
+| `STORAGE_LOCAL_PATH` | `/data/storage` |
+
+### 6. Build arg (obrigatório)
+
+`NEXT_PUBLIC_*` é embutido no **build** do Next.
+
+No serviço → **Variables** → marque `NEXT_PUBLIC_API_URL` também disponível no build  
+(ou Settings → Build → Build Args):
+
+```text
+NEXT_PUBLIC_API_URL=https://SEU-DOMINIO.up.railway.app/api
+```
+
+Redeploy após definir o domínio definitivo.
+
+### 7. Smoke test
+
+1. Abra o domínio → login (`SEED_ADMIN_*`).
+2. `https://SEU-DOMINIO.up.railway.app/api/health`
+3. `https://SEU-DOMINIO.up.railway.app/api/ready` → `postgres.ok = true`
+4. Odonto → Lote LEDI → upload pequeno → auto-fix → export ZIP.
+
+---
+
+## Railway — escala (opcional, depois)
+
+| Serviço | `PROCESS_ROLE` | Público | Notas |
+|---|---|---|---|
+| `api` | `api` | sim (domínio API) | Target port = `PORT` do Railway |
+| `web` | `web` | sim | Build com `NEXT_PUBLIC_API_URL=https://api.../api` |
+| `worker` | `worker` | não | Exige `REDIS_URL` |
+| Postgres | — | — | compartilhado |
+| Redis | — | — | plugin Redis |
+
+Storage em produção multi-réplica: use S3/R2 (`STORAGE_DRIVER=s3` + `S3_*`), não disco local.
+
+---
 
 ## Coolify
 
-1. Novo recurso **Dockerfile** (ou Docker Compose) apontando para este repositório.
-2. Porta pública: **3000** (UI). Se quiser expor a API, publique também **3001** ou coloque proxy `/api` → `3001`.
-3. Volume persistente em `/data` (SQLite `DATABASE_URL=file:/data/sigs.db`).
-4. Variáveis:
-   - `JWT_SECRET` — obrigatório, forte
-   - `CORS_ORIGIN` — URL pública do front (ex. `https://sigs.seudominio.gov.br`)
-   - `NEXT_PUBLIC_API_URL` — URL pública da API **incluindo** `/api` (ex. `https://sigs.seudominio.gov.br:3001/api` ou `https://api.sigs.../api`)
-   - `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` (primeiro boot)
-5. Build arg / env de build: `NEXT_PUBLIC_API_URL` precisa estar definido **no build** do Next (valores `NEXT_PUBLIC_*` são embutidos).
-
-### Proxy único (recomendado)
-
-No Coolify, use um domínio na porta 3000 e outro (ou path) para 3001. Alternativa: colocar um reverse proxy na frente mapeando `/api` → API.
-
-## Railway
-
-1. **New Project** → Deploy from GitHub (este repo).
-2. Railway detecta o `Dockerfile` (**não** declare `VOLUME` no Dockerfile — o Railway rejeita; use Volume do painel).
-3. Add **Volume** montado em `/data` (Settings → Volumes).
-4. Variables iguais ao Coolify.
-5. Gere domínio público; ajuste `CORS_ORIGIN` e `NEXT_PUBLIC_API_URL` para esse domínio.
-6. Exponha a porta do serviço Web (3000). Para a API no mesmo container, configure um segundo domínio/TCP na 3001 **ou** use dois serviços (API e Web) no mesmo projeto.
-
-### Dois serviços no Railway (alternativa)
-
-- Serviço **api**: Dockerfile com target/custom start só da API; `PORT` fornecido pelo Railway.
-- Serviço **web**: build Next com `NEXT_PUBLIC_API_URL=https://<api>.up.railway.app/api`.
-
-O `Dockerfile` atual sobe os dois processos; o volume SQLite precisa estar no serviço que roda a API.
-
-## Local com Docker
-
-```bash
-export PATH="$PWD/tools/node/bin:$PATH"
-docker compose up --build
-```
-
-UI: http://localhost:3000 · API: http://localhost:3001/api  
-Login demo: `admin@sigs.local` / `admin123`
-
-## Lote LEDI FAO (produção odonto)
-
-Após o deploy: **Odontologia → Lote LEDI FAO** (`/odonto/lote`).
-
-1. Upload dos XMLs tipo 5.
-2. Ver inconsistências agregadas.
-3. Confirmar auto-correção (`stNaoPossuiCpf`, INE).
-4. Editar fichas restantes (CIAP/CID, tipo consulta).
-5. Baixar ZIP dos XMLs corrigidos.
-
-## Postgres (próximo passo)
-
-O schema Prisma atual usa **SQLite** (simples no Coolify/Railway com volume). Para Postgres:
-
-1. Trocar `provider` em `apps/api/prisma/schema.prisma` para `postgresql`.
-2. `DATABASE_URL=postgresql://user:pass@host:5432/sigs`
-3. Rodar `prisma migrate` / `db push` no entrypoint.
+Use `docker-compose.yml` (postgres + redis + minio + api + worker + web) ou Dockerfile com `PROCESS_ROLE=all` + Postgres gerenciado.
 
 ## Segurança
 
-- Troque `JWT_SECRET` e senha admin.
-- XMLs com CNS/CPF são dados pessoais — volume privado, sem commit no Git.
-- `CORS_ORIGIN` restrito ao domínio do front.
+- Troque `JWT_SECRET` e senha admin no primeiro deploy.
+- XMLs LEDI = dados pessoais — volume privado; sem commit.
+- `CORS_ORIGIN` = só o domínio do front.
+- Não use hostname `*.railway.internal` em `NEXT_PUBLIC_*` (só browser → domínio público).

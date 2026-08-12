@@ -13,6 +13,14 @@ import {
   fixSexo,
   fixKeepCitizenId,
   fixTiposEncamOdonto,
+  fixTpCdsOrigem,
+  fixProcQuantidadeMin,
+  fixCondutasMax,
+  fixTipoConsultaMulti,
+  fixUuidFichaLength,
+  fixRemoveJustificativaNaoPossuiCpf,
+  fixForceStNaoPossuiCpfTrue,
+  fixProcFichaProcedimentos,
 } from './ledi-fao-xml.fixer';
 import { validateFaoXml } from './ledi-fao.validator';
 
@@ -157,5 +165,68 @@ describe('ledi-fao-xml.fixer', () => {
     expect(cond.xml).toMatch(/<tiposEncamOdonto>15<\/tiposEncamOdonto>/);
     expect(cond.xml).toMatch(/<tiposEncamOdonto>1<\/tiposEncamOdonto>/);
     expect(cond.xml).not.toMatch(/<tiposEncamOdonto>16<\/tiposEncamOdonto>/);
+  });
+
+  it('P2: tpCdsOrigem, proc qtd, caps e uuid', () => {
+    const noOrigem = SAMPLE.replace(/<tpCdsOrigem>3<\/tpCdsOrigem>/i, '');
+    const origem = fixTpCdsOrigem(noOrigem, 3);
+    expect(origem.changed).toBe(true);
+    expect(origem.xml).toMatch(/<tpCdsOrigem>3<\/tpCdsOrigem>/);
+
+    const badOrigem = SAMPLE.replace(/<tpCdsOrigem>3<\/tpCdsOrigem>/i, '<tpCdsOrigem>1</tpCdsOrigem>');
+    expect(fixTpCdsOrigem(badOrigem, 3).xml).toMatch(/<tpCdsOrigem>3<\/tpCdsOrigem>/);
+
+    const badQty = SAMPLE.replace('<quantidade>1</quantidade>', '<quantidade>0</quantidade>');
+    const qty = fixProcQuantidadeMin(badQty, 1);
+    expect(qty.changed).toBe(true);
+    expect(qty.xml).toMatch(/<quantidade>1<\/quantidade>/);
+
+    const tags = Array.from({ length: 20 }, (_, i) => `<tiposEncamOdonto>${i + 1}</tiposEncamOdonto>`).join(
+      '\n',
+    );
+    const manyEnc = SAMPLE.replace(/<tiposEncamOdonto>16<\/tiposEncamOdonto>/i, tags);
+    const encMax = fixCondutasMax(manyEnc, 17);
+    expect(encMax.changed).toBe(true);
+    expect((encMax.xml.match(/<tiposEncamOdonto>/gi) || []).length).toBe(17);
+
+    const multi = SAMPLE.replace(
+      '<tiposConsultaOdonto>1</tiposConsultaOdonto>',
+      '<tiposConsultaOdonto>1</tiposConsultaOdonto>\n<tiposConsultaOdonto>2</tiposConsultaOdonto>',
+    );
+    const one = fixTipoConsultaMulti(multi);
+    expect(one.changed).toBe(true);
+    expect((one.xml.match(/<tiposConsultaOdonto>/gi) || []).length).toBe(1);
+
+    const shortUuid = SAMPLE.replace(
+      /<uuidFicha>[\s\S]*?<\/uuidFicha>/i,
+      '<uuidFicha>abc</uuidFicha>',
+    );
+    const uuid = fixUuidFichaLength(shortUuid);
+    expect(uuid.changed).toBe(true);
+    const m = uuid.xml.match(/<uuidFicha>([^<]+)<\/uuidFicha>/i);
+    expect(m?.[1].length).toBeGreaterThanOrEqual(36);
+    expect(m?.[1].length).toBeLessThanOrEqual(44);
+
+    const withJust = SAMPLE.replace(
+      '</sexo>',
+      '</sexo>\n<stNaoPossuiCpf>false</stNaoPossuiCpf>\n<justificativaNaoPossuiCpf>5</justificativaNaoPossuiCpf>',
+    );
+    const removed = fixRemoveJustificativaNaoPossuiCpf(withJust);
+    expect(removed.changed).toBe(true);
+    expect(removed.xml).not.toMatch(/justificativaNaoPossuiCpf/);
+
+    const forced = fixForceStNaoPossuiCpfTrue(withJust);
+    expect(forced.xml).toMatch(/<stNaoPossuiCpf>true<\/stNaoPossuiCpf>/);
+  });
+
+  it('P3: substitui procedimentos da ficha tipo 7', () => {
+    const sample = `<?xml version="1.0"?><root><atendProcedimentos>
+<turno>1</turno>
+<procedimentos>ABPG028</procedimentos>
+</atendProcedimentos></root>`;
+    const r = fixProcFichaProcedimentos(sample, ['0301100039']);
+    expect(r.changed).toBe(true);
+    expect(r.xml).toMatch(/<procedimentos>0301100039<\/procedimentos>/);
+    expect(r.xml).not.toMatch(/ABPG/);
   });
 });

@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Header,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -19,6 +20,8 @@ import type { Response } from 'express';
 import { CareExtraService } from './care-extra.service';
 import { LediFaoBatchService } from './ledi-fao-batch.service';
 import { extractXmlFilesFromZipBuffer } from './ledi-zip.extract';
+import { JobsService } from '../infra/jobs/jobs.service';
+import { JOB_NAMES } from '../infra/queue/queue.service';
 import {
   CreateDentalEncounterDto,
   CreateHomeCareVisitDto,
@@ -55,6 +58,7 @@ export class CareExtraController {
   constructor(
     private readonly service: CareExtraService,
     private readonly faoBatches: LediFaoBatchService,
+    private readonly jobs: JobsService,
   ) {}
 
   @Get('catalog/dental')
@@ -206,8 +210,65 @@ export class CareExtraController {
   }
 
   @Post('dental/ledi/batches/:batchId/auto-fix')
-  autoFixFaoBatch(@Param('batchId') batchId: string, @Body() dto: AutoFixLediFaoBatchDto) {
+  @HttpCode(200)
+  async autoFixFaoBatch(
+    @Param('batchId') batchId: string,
+    @Body() dto: AutoFixLediFaoBatchDto,
+    @Query('async') asyncFlag?: string,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    const threshold = Number(process.env.LEDI_AUTOFIX_ASYNC_THRESHOLD || 40);
+    const itemCount = await this.faoBatches.countItems(batchId, dto.onlyItemIds);
+    const wantAsync =
+      asyncFlag === '1' ||
+      asyncFlag === 'true' ||
+      itemCount >= threshold ||
+      process.env.LEDI_AUTOFIX_FORCE_ASYNC === '1';
+
+    if (wantAsync) {
+      const job = await this.jobs.enqueue({
+        type: JOB_NAMES.LEDI_AUTO_FIX,
+        payload: { batchId, dto },
+      });
+      res?.status(202);
+      return {
+        async: true,
+        jobId: job.id,
+        status: job.status,
+        itemCount,
+        message: 'Auto-correção enfileirada. Consulte GET /api/v1/jobs/:id',
+      };
+    }
+
     return this.faoBatches.autoFix(batchId, dto);
+  }
+
+  @Post('dental/ledi/batches/:batchId/export')
+  @HttpCode(202)
+  async enqueueExportFaoBatch(
+    @Param('batchId') batchId: string,
+    @Query('mode') mode: 'current' | 'conformant' | undefined,
+  ) {
+    const job = await this.jobs.enqueue({
+      type: JOB_NAMES.LEDI_EXPORT_ZIP,
+      payload: { batchId, mode: mode === 'conformant' ? 'conformant' : 'current' },
+    });
+    return {
+      async: true,
+      jobId: job.id,
+      status: job.status,
+      message: 'Export ZIP enfileirado. Consulte GET /api/v1/jobs/:id (resultObjectKey).',
+    };
+  }
+
+  @Post('dental/ledi/batches/:batchId/dry-run')
+  dryRunFaoBatch(@Param('batchId') batchId: string, @Body() dto: AutoFixLediFaoBatchDto) {
+    return this.faoBatches.dryRun(batchId, dto);
+  }
+
+  @Get('dental/ledi/batches/:batchId/closure-report')
+  closureReportFaoBatch(@Param('batchId') batchId: string) {
+    return this.faoBatches.closureReport(batchId);
   }
 
   @Get('dental/ledi/batches/:batchId/export.zip')

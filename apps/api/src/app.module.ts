@@ -17,10 +17,14 @@ import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { RegulationModule } from './regulation/regulation.module';
 import { LediModule } from './ledi/ledi.module';
 import { ClinicalCoreModule } from './clinical-core/clinical-core.module';
+import { StorageModule } from './infra/storage/storage.module';
+import { JobsModule } from './infra/jobs/jobs.module';
 
 @Module({
   imports: [
     PrismaModule,
+    StorageModule,
+    JobsModule,
     AuthModule,
     PlatformModule,
     OrganizationModule,

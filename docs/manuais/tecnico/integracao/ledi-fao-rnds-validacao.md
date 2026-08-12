@@ -21,16 +21,20 @@ Ficha FAO (XML ou Thrift LEDI)
 | Método | Path | Body |
 |---|---|---|
 | `POST` | `/v1/dental/ledi/validate-xml` | `{ "xml": "..." }` **ou** `{ "master": {…} }` |
-| `POST` | `/v1/dental/ledi/batches` | `{ name?, files: [{ name, xml }] }` — cria lote e valida |
+| `POST` | `/v1/dental/ledi/batches` | `{ name?, files: [{ name, xml }], expectedTipo? }` |
 | `GET` | `/v1/dental/ledi/batches` | lista lotes |
 | `GET` | `/v1/dental/ledi/batches/:id` | resumo + topCodes |
-| `GET` | `/v1/dental/ledi/batches/:id/items` | `?status=&q=&offset=&limit=` |
+| `GET` | `/v1/dental/ledi/batches/:id/items` | `?status=&code=&bucket=&q=&offset=&limit=` |
 | `GET` | `/v1/dental/ledi/batches/:id/items/:itemId` | findings + XML atual |
-| `PATCH` | `/v1/dental/ledi/batches/:id/items/:itemId` | CIAP/CID, INE, tiposConsulta, xml |
-| `POST` | `/v1/dental/ledi/batches/:id/auto-fix` | `{ stNaoPossuiCpf?, ine? }` — confirma e corrige |
+| `PATCH` | `/v1/dental/ledi/batches/:id/items/:itemId` | campos de correção / xml |
+| `POST` | `/v1/dental/ledi/batches/:id/auto-fix` | aplica correções e revalida |
+| `POST` | `/v1/dental/ledi/batches/:id/dry-run` | **simula** auto-fix (não grava) — impacto de códigos |
+| `GET` | `/v1/dental/ledi/batches/:id/closure-report` | relatório de fechamento (JSON + `markdown`) |
 | `GET` | `/v1/dental/ledi/batches/:id/export.zip` | ZIP dos XMLs (`?mode=current\|conformant`) |
 | `GET` | `/v1/catalog/dental` | catálogo vigilância / condutas / tipoAtendimento |
 | `POST` | `/v1/dental-encounters/:id/finish` | exige `vigilanciaSaudeBucal[]` + `problemasCondicoes[]`; `enforceFaoConformity` (default true) |
+
+Telas: `/odonto/lote` (FAO) · `/aps/lote` (FAI) · `/procedimentos/lote` (PROC).
 
 Resposta do validador:
 

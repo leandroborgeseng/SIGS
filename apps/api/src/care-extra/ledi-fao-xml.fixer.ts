@@ -3,6 +3,7 @@
  * Preferir patch no XML original para preservar namespaces/remetente.
  */
 
+import { randomUUID } from 'crypto';
 import type { FaoFinding } from './ledi-fao.validator';
 
 export const AUTO_FIXABLE_CODES = new Set([
@@ -32,6 +33,14 @@ export const AUTO_FIXABLE_CODES = new Set([
   'PREVINE_B5_NO_PREVENTIVE',
   'PREVINE_B5_LOW_PREVENTIVE',
   'PREVINE_B6_NO_ART',
+  // P2 — zero-input
+  'TP_CDS_ORIGEM_MISSING',
+  'TP_CDS_ORIGEM_NOT_3',
+  'PROC_QTD',
+  'CONDUTAS_MAX',
+  'VIGILANCIA_MAX',
+  'TIPO_CONSULTA_MULTI',
+  'UUID_FICHA_LENGTH',
 ]);
 
 export type AutoFixOptions = {
@@ -44,6 +53,13 @@ export type AutoFixOptions = {
   stNaoPossuiCpfWhenAbsent?: boolean;
   /** Preencher INE ausente (envelope + lotação). */
   ine?: string;
+  /**
+   * JUSTIFICATIVA_CPF_UNEXPECTED: remover tag ou forçar st=true.
+   * Sem valor → não aplica (semi).
+   */
+  justificativaCpfUnexpected?: 'remove' | 'force_st';
+  /** Regenerar uuidFicha quando UUID_FICHA_LENGTH (default true em auto). */
+  regenerateUuidFicha?: boolean;
 };
 
 export type AutoFixResult = {
@@ -594,6 +610,180 @@ export function fixLocalAtendimento(xml: string, local: number): { xml: string; 
   return fixAtendimentoField(xml, 'localAtendimento', String(n));
 }
 
+/** Origem do sistema (LEDI PEC / terceiros) = 3. */
+export function fixTpCdsOrigem(xml: string, value = 3): { xml: string; changed: boolean } {
+  const v = String(value);
+  let changed = false;
+  let next = xml;
+  if (/<tpCdsOrigem\b/i.test(next)) {
+    next = next.replace(/<tpCdsOrigem\b[^>]*>[\s\S]*?<\/tpCdsOrigem>/i, () => {
+      changed = true;
+      return `<tpCdsOrigem>${v}</tpCdsOrigem>`;
+    });
+  } else if (/<uuidFicha\b/i.test(next)) {
+    next = next.replace(/(<\/uuidFicha>)/i, `$1\n<tpCdsOrigem>${v}</tpCdsOrigem>`);
+    changed = /<tpCdsOrigem>/.test(next);
+  }
+  return { xml: next, changed };
+}
+
+/** Quantidades de procedimento < 1 → mínimo 1. */
+export function fixProcQuantidadeMin(xml: string, min = 1): { xml: string; changed: boolean } {
+  let changed = false;
+  const next = xml.replace(
+    /<quantidade\b[^>]*>\s*([^<]*?)\s*<\/quantidade>/gi,
+    (full, raw: string) => {
+      const n = Number(String(raw).trim());
+      if (Number.isFinite(n) && Number.isInteger(n) && n >= min) return full;
+      changed = true;
+      return `<quantidade>${min}</quantidade>`;
+    },
+  );
+  return { xml: next, changed };
+}
+
+/** Mantém só os primeiros N tags repetidos dentro de atendimentosOdontologicos. */
+export function keepFirstRepeatedTags(
+  xml: string,
+  tag: string,
+  max: number,
+): { xml: string; changed: boolean } {
+  let changed = false;
+  const re = new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>\\s*`, 'gi');
+  const next = xml.replace(
+    /(<atendimentosOdontologicos\b[^>]*>)([\s\S]*?)(<\/atendimentosOdontologicos>)/gi,
+    (_m, open: string, body: string, close: string) => {
+      const matches = body.match(re);
+      if (!matches || matches.length <= max) return `${open}${body}${close}`;
+      changed = true;
+      let i = 0;
+      const trimmed = body.replace(re, (piece) => {
+        i += 1;
+        return i <= max ? piece : '';
+      });
+      return `${open}${trimmed}${close}`;
+    },
+  );
+  return { xml: next, changed };
+}
+
+export function fixCondutasMax(xml: string, max = 17): { xml: string; changed: boolean } {
+  return keepFirstRepeatedTags(xml, 'tiposEncamOdonto', max);
+}
+
+export function fixVigilanciaMax(xml: string, max = 7): { xml: string; changed: boolean } {
+  return keepFirstRepeatedTags(xml, 'tiposVigilanciaSaudeBucal', max);
+}
+
+export function fixTipoConsultaMulti(xml: string): { xml: string; changed: boolean } {
+  return keepFirstRepeatedTags(xml, 'tiposConsultaOdonto', 1);
+}
+
+/**
+ * Ficha Procedimentos (tipo 7): substitui tags &lt;procedimentos&gt;SIGTAP&lt;/procedimentos&gt;
+ * no primeiro bloco atendProcedimentos.
+ */
+export function fixProcFichaProcedimentos(
+  xml: string,
+  codes: string[],
+): { xml: string; changed: boolean } {
+  const cleaned = codes
+    .map((c) => c.replace(/\D/g, ''))
+    .filter((c) => c.length === 10);
+  if (!cleaned.length) return { xml, changed: false };
+  const tags = cleaned.map((c) => `<procedimentos>${c}</procedimentos>`).join('\n');
+  let changed = false;
+  const next = xml.replace(
+    /(<atendProcedimentos\b[^>]*>)([\s\S]*?)(<\/atendProcedimentos>)/i,
+    (_m, open: string, body: string, close: string) => {
+      changed = true;
+      const without = body.replace(/<procedimentos\b[^>]*>[\s\S]*?<\/procedimentos>\s*/gi, '');
+      if (/<\/turno>/i.test(without)) {
+        return `${open}${without.replace(/<\/turno>/i, `</turno>\n${tags}`)}${close}`;
+      }
+      return `${open}${without}\n${tags}${close}`;
+    },
+  );
+  return { xml: next, changed };
+}
+
+/** Remove justificativaNaoPossuiCpf dos blocos de atendimento. */
+export function fixRemoveJustificativaNaoPossuiCpf(xml: string): { xml: string; changed: boolean } {
+  let changed = false;
+  let next = xml;
+  for (const tag of ST_CPF_BLOCKS) {
+    const re = new RegExp(`(<${tag}\\b[^>]*>)([\\s\\S]*?)(<\\/${tag}>)`, 'gi');
+    next = next.replace(re, (_m, open: string, body: string, close: string) => {
+      if (!/<justificativaNaoPossuiCpf\b/i.test(body)) return `${open}${body}${close}`;
+      changed = true;
+      const bodyNext = body.replace(
+        /<justificativaNaoPossuiCpf\b[^>]*>[\s\S]*?<\/justificativaNaoPossuiCpf>\s*/gi,
+        '',
+      );
+      return `${open}${bodyNext}${close}`;
+    });
+  }
+  return { xml: next, changed };
+}
+
+/** Força stNaoPossuiCpf=true (mantém justificativa se já existir). */
+export function fixForceStNaoPossuiCpfTrue(xml: string): { xml: string; changed: boolean } {
+  let changed = false;
+  let next = xml;
+  for (const tag of ST_CPF_BLOCKS) {
+    const re = new RegExp(`(<${tag}\\b[^>]*>)([\\s\\S]*?)(<\\/${tag}>)`, 'gi');
+    next = next.replace(re, (_m, open: string, body: string, close: string) => {
+      if (/<stNaoPossuiCpf\b/i.test(body)) {
+        const bodyNext = body.replace(
+          /<stNaoPossuiCpf\b[^>]*>[\s\S]*?<\/stNaoPossuiCpf>/i,
+          '<stNaoPossuiCpf>true</stNaoPossuiCpf>',
+        );
+        if (bodyNext !== body) changed = true;
+        return `${open}${bodyNext}${close}`;
+      }
+      changed = true;
+      if (/<\/gestante>/i.test(body)) {
+        return `${open}${body.replace(/<\/gestante>/i, '</gestante>\n<stNaoPossuiCpf>true</stNaoPossuiCpf>')}${close}`;
+      }
+      return `${open}\n<stNaoPossuiCpf>true</stNaoPossuiCpf>${body}${close}`;
+    });
+  }
+  return { xml: next, changed };
+}
+
+/**
+ * Regenera uuidFicha no formato canônico CNES-UUID (44) ou UUID (36).
+ * Também alinha uuidDadoSerializado quando igual ao antigo.
+ */
+export function fixUuidFichaLength(xml: string): { xml: string; changed: boolean } {
+  const m = xml.match(/<uuidFicha\b[^>]*>\s*([^<]*?)\s*<\/uuidFicha>/i);
+  if (!m) return { xml, changed: false };
+  const cur = m[1].trim();
+  if (cur.length >= 36 && cur.length <= 44) return { xml, changed: false };
+
+  const cnes =
+    xml.match(/<cnesDadoSerializado>\s*(\d{7})\s*<\/cnesDadoSerializado>/i)?.[1] ||
+    xml.match(/<cnes>\s*(\d{7})\s*<\/cnes>/i)?.[1];
+  const uuid = randomUUID().toUpperCase();
+  const nextId = cnes ? `${cnes}-${uuid}` : uuid;
+
+  let next = xml.replace(
+    /<uuidFicha\b[^>]*>[\s\S]*?<\/uuidFicha>/i,
+    `<uuidFicha>${nextId}</uuidFicha>`,
+  );
+  if (cur && new RegExp(`<uuidDadoSerializado>\\s*${escapeRegex(cur)}\\s*<\\/uuidDadoSerializado>`, 'i').test(next)) {
+    next = next.replace(
+      /<uuidDadoSerializado\b[^>]*>[\s\S]*?<\/uuidDadoSerializado>/i,
+      `<uuidDadoSerializado>${nextId}</uuidDadoSerializado>`,
+    );
+  }
+  return { xml: next, changed: true };
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function fixCnes(xml: string, cnes: string): { xml: string; changed: boolean } {
   const clean = cnes.replace(/\D/g, '');
   if (clean.length !== 7) return { xml, changed: false };
@@ -686,6 +876,74 @@ export function applyAutoFixes(
       else skipped.push('INE_MISSING');
     } else {
       skipped.push('INE_MISSING');
+    }
+  }
+
+  // P2 — zero-input
+  if (present.has('TP_CDS_ORIGEM_MISSING') || present.has('TP_CDS_ORIGEM_NOT_3')) {
+    const r = fixTpCdsOrigem(current, 3);
+    current = r.xml;
+    if (r.changed) {
+      if (present.has('TP_CDS_ORIGEM_MISSING')) applied.push('TP_CDS_ORIGEM_MISSING');
+      if (present.has('TP_CDS_ORIGEM_NOT_3')) applied.push('TP_CDS_ORIGEM_NOT_3');
+    } else {
+      if (present.has('TP_CDS_ORIGEM_MISSING')) skipped.push('TP_CDS_ORIGEM_MISSING');
+      if (present.has('TP_CDS_ORIGEM_NOT_3')) skipped.push('TP_CDS_ORIGEM_NOT_3');
+    }
+  }
+
+  if (present.has('PROC_QTD')) {
+    const r = fixProcQuantidadeMin(current, 1);
+    current = r.xml;
+    if (r.changed) applied.push('PROC_QTD');
+    else skipped.push('PROC_QTD');
+  }
+
+  if (present.has('CONDUTAS_MAX')) {
+    const r = fixCondutasMax(current, 17);
+    current = r.xml;
+    if (r.changed) applied.push('CONDUTAS_MAX');
+    else skipped.push('CONDUTAS_MAX');
+  }
+
+  if (present.has('VIGILANCIA_MAX')) {
+    const r = fixVigilanciaMax(current, 7);
+    current = r.xml;
+    if (r.changed) applied.push('VIGILANCIA_MAX');
+    else skipped.push('VIGILANCIA_MAX');
+  }
+
+  if (present.has('TIPO_CONSULTA_MULTI')) {
+    const r = fixTipoConsultaMulti(current);
+    current = r.xml;
+    if (r.changed) applied.push('TIPO_CONSULTA_MULTI');
+    else skipped.push('TIPO_CONSULTA_MULTI');
+  }
+
+  if (present.has('UUID_FICHA_LENGTH')) {
+    if (opts.regenerateUuidFicha !== false) {
+      const r = fixUuidFichaLength(current);
+      current = r.xml;
+      if (r.changed) applied.push('UUID_FICHA_LENGTH');
+      else skipped.push('UUID_FICHA_LENGTH');
+    } else {
+      skipped.push('UUID_FICHA_LENGTH');
+    }
+  }
+
+  if (present.has('JUSTIFICATIVA_CPF_UNEXPECTED')) {
+    if (opts.justificativaCpfUnexpected === 'remove') {
+      const r = fixRemoveJustificativaNaoPossuiCpf(current);
+      current = r.xml;
+      if (r.changed) applied.push('JUSTIFICATIVA_CPF_UNEXPECTED');
+      else skipped.push('JUSTIFICATIVA_CPF_UNEXPECTED');
+    } else if (opts.justificativaCpfUnexpected === 'force_st') {
+      const r = fixForceStNaoPossuiCpfTrue(current);
+      current = r.xml;
+      if (r.changed) applied.push('JUSTIFICATIVA_CPF_UNEXPECTED');
+      else skipped.push('JUSTIFICATIVA_CPF_UNEXPECTED');
+    } else {
+      skipped.push('JUSTIFICATIVA_CPF_UNEXPECTED');
     }
   }
 

@@ -6,12 +6,15 @@
     "dev": "nest start --watch",
     "build": "prisma generate && nest build",
     "start": "node dist/main.js",
+    "start:worker": "node dist/worker.main.js",
     "test": "jest --config jest.config.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1109.0",
+    "@aws-sdk/s3-request-presigner": "^3.1109.0",
     "@nestjs/common": "^11.0.12",
     "@nestjs/core": "^11.0.12",
     "@nestjs/jwt": "^11.0.2",
@@ -19,13 +22,16 @@
     "@nestjs/platform-express": "^11.0.12",
     "@prisma/client": "^6.5.0",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^6.1.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "ioredis": "^6.0.0",
     "jszip": "^3.10.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "uuid": "^14.0.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.5",
@@ -39,6 +45,7 @@
     "@types/node": "^22.13.10",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
+    "@types/uuid": "^10.0.0",
     "jest": "^29.7.0",
     "prisma": "^6.5.0",
     "supertest": "^7.0.0",

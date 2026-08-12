@@ -25,13 +25,13 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV API_PORT=3001
-ENV DATABASE_URL="file:/data/sigs.db"
+ENV PROCESS_ROLE=all
 ENV CORS_ORIGIN="*"
-# JWT_SECRET deve vir das Variables do Railway/Coolify (não embutir no Dockerfile)
+# JWT_SECRET / DATABASE_URL / REDIS_URL / S3_* via painel (Coolify/Railway)
 
 RUN apt-get update && apt-get install -y --no-install-recommends tini openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
-  && mkdir -p /data
+  && mkdir -p /data /app/apps/api/tmp/storage
 
 # npm workspaces hoist deps em /app/node_modules (não há apps/*/node_modules)
 COPY --from=build /app/package.json /app/package-lock.json* ./

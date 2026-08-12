@@ -34,6 +34,7 @@ export type AlertRepair = {
     | 'cnes'
     | 'ibge'
     | 'justificativa'
+    | 'justificativa_unexpected'
     | 'manual';
   button?: string;
   batchable?: boolean;
@@ -281,6 +282,69 @@ export const AUTO_REPAIRS: Record<string, AlertRepair> = {
     ui: 'proc_art',
     button: 'Acrescentar ART',
   }),
+  TP_CDS_ORIGEM_MISSING: AUTO({
+    title: 'tpCdsOrigem ausente',
+    where: 'Auto',
+    how: 'Define tpCdsOrigem=3 (origem PEC/sistema).',
+    channel: 'LEDI',
+    button: 'Definir origem = 3',
+  }),
+  TP_CDS_ORIGEM_NOT_3: AUTO({
+    title: 'tpCdsOrigem ≠ 3',
+    where: 'Auto',
+    how: 'Ajusta tpCdsOrigem para 3.',
+    channel: 'LEDI',
+    button: 'Ajustar origem = 3',
+  }),
+  PROC_QTD: AUTO({
+    title: 'Quantidade de procedimento inválida',
+    where: 'Auto',
+    how: 'Normaliza quantidade para ≥ 1.',
+    channel: 'LEDI',
+    focusField: 'proc',
+    button: 'Corrigir quantidades',
+  }),
+  CONDUTAS_MAX: AUTO({
+    title: 'Condutas acima do limite',
+    where: 'Auto',
+    how: 'Mantém as 17 primeiras condutas.',
+    channel: 'LEDI',
+    focusField: 'condutas',
+    button: 'Truncar condutas',
+  }),
+  VIGILANCIA_MAX: AUTO({
+    title: 'Vigilância acima do limite',
+    where: 'Auto',
+    how: 'Mantém os 7 primeiros códigos de vigilância.',
+    channel: 'LEDI',
+    ui: 'vigilancia',
+    button: 'Truncar vigilância',
+  }),
+  TIPO_CONSULTA_MULTI: AUTO({
+    title: 'Mais de um tipo de consulta',
+    where: 'Auto',
+    how: 'Mantém só o primeiro tiposConsultaOdonto.',
+    channel: 'LEDI',
+    ui: 'consulta',
+    button: 'Manter 1º tipo',
+  }),
+  UUID_FICHA_LENGTH: AUTO({
+    title: 'uuidFicha com tamanho inválido',
+    where: 'Auto',
+    how: 'Regenera uuidFicha no formato CNES-UUID.',
+    channel: 'LEDI',
+    focusField: 'xml',
+    button: 'Regenerar UUID',
+  }),
+  JUSTIFICATIVA_CPF_UNEXPECTED: AUTO({
+    title: 'Justificativa sem “não possui CPF”',
+    where: 'Semi',
+    how: 'Escolha: remover justificativa ou forçar stNaoPossuiCpf=true.',
+    channel: 'LEDI',
+    ui: 'justificativa_unexpected',
+    focusField: 'justificativaUnexpected',
+    button: 'Aplicar escolha',
+  }),
 };
 
 
@@ -506,7 +570,7 @@ export const INDIVIDUAL_REPAIRS: Record<string, AlertRepair> = {
   PROC_CODE_ABPG: INDIVIDUAL({
     title: 'Código ABPG não é SIGTAP',
     where: 'Editar ficha',
-    how: 'Troque ABPG pelo código SIGTAP de 10 dígitos.',
+    how: 'Informe SIGTAP 10 dígitos no campo de procedimentos (substitui a lista ABPG).',
     channel: 'LEDI',
     focusField: 'proc',
   }),
@@ -517,38 +581,10 @@ export const INDIVIDUAL_REPAIRS: Record<string, AlertRepair> = {
     channel: 'LEDI',
     focusField: 'proc',
   }),
-  PROC_QTD: INDIVIDUAL({
-    title: 'Quantidade de procedimento inválida',
-    where: 'Editar ficha',
-    how: 'Ajuste quantidade ≥ 1 (automação em P2).',
-    channel: 'LEDI',
-    focusField: 'proc',
-  }),
-  CONDUTAS_MAX: INDIVIDUAL({
-    title: 'Condutas acima do limite',
-    where: 'Editar ficha',
-    how: 'Reduza tiposEncamOdonto para no máximo 17 (truncar em lote: P2).',
-    channel: 'LEDI',
-    focusField: 'xml',
-  }),
-  VIGILANCIA_MAX: INDIVIDUAL({
-    title: 'Vigilância acima do limite',
-    where: 'Editar ficha',
-    how: 'Reduza tiposVigilanciaSaudeBucal para no máximo 7 (P2).',
-    channel: 'LEDI',
-    focusField: 'vigilancia',
-  }),
   TIPO_CONSULTA_URGENCIA: INDIVIDUAL({
     title: 'Tipo de consulta incompatível com urgência',
     where: 'Editar ficha',
     how: 'Ajuste tipoAtendimento ou tiposConsultaOdonto.',
-    channel: 'LEDI',
-    focusField: 'consulta',
-  }),
-  TIPO_CONSULTA_MULTI: INDIVIDUAL({
-    title: 'Mais de um tipo de consulta',
-    where: 'Editar ficha',
-    how: 'Mantenha apenas 1 tiposConsultaOdonto (auto em P2).',
     channel: 'LEDI',
     focusField: 'consulta',
   }),
@@ -558,34 +594,6 @@ export const INDIVIDUAL_REPAIRS: Record<string, AlertRepair> = {
     how: 'Ajuste conduta e tipo de consulta.',
     channel: 'LEDI',
     focusField: 'consulta',
-  }),
-  JUSTIFICATIVA_CPF_UNEXPECTED: INDIVIDUAL({
-    title: 'Justificativa sem “não possui CPF”',
-    where: 'Editar ficha',
-    how: 'Remova a justificativa ou marque stNaoPossuiCpf=true (semi em P2).',
-    channel: 'LEDI',
-    focusField: 'justificativa',
-  }),
-  UUID_FICHA_LENGTH: INDIVIDUAL({
-    title: 'uuidFicha com tamanho inválido',
-    where: 'Editar ficha / reexportar',
-    how: 'Ajuste para 36–44 chars ou reexporte (semi em P2).',
-    channel: 'LEDI',
-    focusField: 'xml',
-  }),
-  TP_CDS_ORIGEM_MISSING: INDIVIDUAL({
-    title: 'tpCdsOrigem ausente',
-    where: 'Editar ficha',
-    how: 'Preencha tpCdsOrigem=3 (auto em P2).',
-    channel: 'LEDI',
-    focusField: 'xml',
-  }),
-  TP_CDS_ORIGEM_NOT_3: INDIVIDUAL({
-    title: 'tpCdsOrigem diferente de 3',
-    where: 'Editar ficha',
-    how: 'Ajuste para 3 — origem PEC/sistema (auto em P2).',
-    channel: 'LEDI',
-    focusField: 'xml',
   }),
 
 };
@@ -764,6 +772,14 @@ export function fieldsForRepairUi(ui?: AlertRepair['ui']): Array<{
           placeholder: '5',
         },
       ];
+    case 'justificativa_unexpected':
+      return [
+        {
+          key: 'justificativaUnexpected',
+          label: 'Ação (remove | force_st)',
+          placeholder: 'remove',
+        },
+      ];
     case 'st_cpf':
       return [];
     case 'proc_b1':
@@ -794,6 +810,7 @@ export function bodyForRepairUi(
     cnes?: string;
     ibge?: string;
     justificativa?: string;
+    justificativaUnexpected?: string;
   },
 ): Record<string, unknown> | null {
   if (ui === 'ine') {
@@ -832,6 +849,11 @@ export function bodyForRepairUi(
     const n = Number(fields.justificativa);
     const allowed = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 99]);
     return allowed.has(n) ? { justificativaNaoPossuiCpf: n } : null;
+  }
+  if (ui === 'justificativa_unexpected') {
+    const v = fields.justificativaUnexpected?.trim();
+    if (v === 'remove' || v === 'force_st') return { justificativaCpfUnexpected: v };
+    return null;
   }
   if (ui === 'turno') return { turno: Number(fields.turno) || 2 };
   if (ui === 'gestante') return { gestante: fields.gestante === 'true' };

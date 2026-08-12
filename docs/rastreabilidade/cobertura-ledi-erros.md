@@ -9,15 +9,14 @@
 | Métrica | Valor |
 |---|---:|
 | Total de códigos | 78 |
-| auto | 28 |
-| semi | 6 |
+| auto | 33 |
+| semi | 1 |
 | individual | 24 |
 | reexport | 12 |
 | info | 8 |
-| pending implement (fixer/UI) | 8 |
+| pending implement (fixer/UI) | **0** |
 
-**Pending (caminho planejado, UI trata como individual até P1/P2):**  
-`CONDUTAS_MAX`, `JUSTIFICATIVA_CPF_UNEXPECTED`, `PROC_QTD`, `TIPO_CONSULTA_MULTI`, `TP_CDS_ORIGEM_MISSING`, `TP_CDS_ORIGEM_NOT_3`, `UUID_FICHA_LENGTH`, `VIGILANCIA_MAX`
+**P2 fechado:** `CONDUTAS_MAX`, `PROC_QTD`, `TIPO_CONSULTA_MULTI`, `TP_CDS_ORIGEM_*`, `UUID_FICHA_LENGTH`, `VIGILANCIA_MAX` (auto) · `JUSTIFICATIVA_CPF_UNEXPECTED` (semi: remove \| force_st).
 
 ## Legenda repairClass (A–E)
 
@@ -41,7 +40,7 @@
 | `CNES_FORMAT` | MONEY_RISK | auto | sim | Código da unidade com formato errado |
 | `CNES_MISSING` | BLOCKER | auto | sim | Falta o código da unidade de saúde |
 | `CNS_INVALID` | BLOCKER | individual | sim | Cartão do cidadão inválido |
-| `CONDUTAS_MAX` | MONEY_RISK | semi | não | Condutas em excesso |
+| `CONDUTAS_MAX` | MONEY_RISK | auto | sim | Condutas em excesso |
 | `CONDUTAS_MISSING` | BLOCKER | individual | sim | Falta a conduta / encaminhamento |
 | `CPF_CNS_BOTH` | BLOCKER | individual | sim | CPF e cartão do cidadão juntos |
 | `CPF_INVALID` | BLOCKER | individual | sim | CPF do cidadão inválido |
@@ -62,7 +61,7 @@
 | `IBGE_MISSING` | MONEY_RISK | auto | sim | Falta o código do município |
 | `INE_MISSING` | QUALITY_WARN | auto | sim | Falta o código da equipe |
 | `JUSTIFICATIVA_CPF_MISSING` | BLOCKER | auto | sim | Falta justificativa de não ter CPF |
-| `JUSTIFICATIVA_CPF_UNEXPECTED` | MONEY_RISK | semi | não | Justificativa de CPF sem marcar “não possui” |
+| `JUSTIFICATIVA_CPF_UNEXPECTED` | MONEY_RISK | semi | sim | Justificativa de CPF sem marcar “não possui” |
 | `LOCAL_ATENDIMENTO` | BLOCKER | auto | sim | Local do atendimento inválido |
 | `PATIENT_ID_MISSING` | BLOCKER | individual | sim | Paciente sem identificação |
 | `PREVINE_B1_NO_FIRST_CONSULTA` | MONEY_RISK | auto | sim | Sem primeira consulta programada (indicador B1) |
@@ -90,7 +89,7 @@
 | `PROC_CODE_FORMAT` | MONEY_RISK | individual | sim | Código de procedimento com formato inválido |
 | `PROC_DUPLICATE` | BLOCKER | individual | sim | Mesmo procedimento repetido |
 | `PROC_ESCUTA_FORBIDDEN` | BLOCKER | individual | sim | Escuta inicial lançada no lugar errado |
-| `PROC_QTD` | MONEY_RISK | semi | não | Quantidade do procedimento inválida |
+| `PROC_QTD` | MONEY_RISK | auto | sim | Quantidade do procedimento inválida |
 | `PROC_ROOT_NOT_FOUND` | BLOCKER | reexport | sim | Ficha de procedimentos incompleta |
 | `PROF_CNS_INVALID` | MONEY_RISK | individual | sim | Cartão do profissional com número inválido |
 | `PROF_CNS_MISSING` | BLOCKER | individual | sim | Falta o cartão do profissional (CNS) |
@@ -98,16 +97,16 @@
 | `ST_NAO_POSSUI_CPF` | BLOCKER | auto | sim | Falta dizer se o cidadão tem CPF |
 | `TIPO_ATENDIMENTO` | BLOCKER | individual | sim | Tipo de atendimento inválido |
 | `TIPO_CONSULTA_FORBIDDEN` | BLOCKER | individual | sim | Tipo de consulta não permitido neste atendimento |
-| `TIPO_CONSULTA_MULTI` | MONEY_RISK | semi | não | Mais de um tipo de consulta |
+| `TIPO_CONSULTA_MULTI` | MONEY_RISK | auto | sim | Mais de um tipo de consulta |
 | `TIPO_CONSULTA_REQUIRED` | BLOCKER | auto | sim | Falta o tipo de consulta odontológica |
 | `TIPO_CONSULTA_URGENCIA` | BLOCKER | individual | sim | Consulta incompatível com urgência |
-| `TP_CDS_ORIGEM_MISSING` | BLOCKER | auto | não | Falta informar de qual sistema veio a ficha |
-| `TP_CDS_ORIGEM_NOT_3` | MONEY_RISK | auto | não | Origem do sistema diferente do esperado |
+| `TP_CDS_ORIGEM_MISSING` | BLOCKER | auto | sim | Falta informar de qual sistema veio a ficha |
+| `TP_CDS_ORIGEM_NOT_3` | MONEY_RISK | auto | sim | Origem do sistema diferente do esperado |
 | `TRATAMENTO_CONCLUIDO_RULE` | BLOCKER | auto | sim | Tratamento concluído sem tipo de consulta adequado |
 | `TURNO` | BLOCKER | auto | sim | Turno inválido ou ausente |
-| `UUID_FICHA_LENGTH` | MONEY_RISK | semi | não | Número único da ficha com tamanho errado |
+| `UUID_FICHA_LENGTH` | MONEY_RISK | auto | sim | Número único da ficha com tamanho errado |
 | `UUID_FICHA_MISSING` | BLOCKER | reexport | sim | Ficha sem número único de identificação |
-| `VIGILANCIA_MAX` | MONEY_RISK | semi | não | Vigilância com itens demais |
+| `VIGILANCIA_MAX` | MONEY_RISK | auto | sim | Vigilância com itens demais |
 | `VIGILANCIA_MISSING` | BLOCKER | auto | sim | Falta a vigilância em saúde bucal |
 | `WRONG_FICHA_TIPO` | BLOCKER | reexport | sim | Tipo de ficha errado nesta tela |
 | `XML_PARSE_ERROR` | BLOCKER | reexport | sim | Arquivo quebrado ou incompleto |

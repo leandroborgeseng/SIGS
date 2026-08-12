@@ -6,5 +6,6 @@ import { LediFaoBatchService } from './ledi-fao-batch.service';
 @Module({
   controllers: [CareExtraController],
   providers: [CareExtraService, LediFaoBatchService],
+  exports: [CareExtraService, LediFaoBatchService],
 })
 export class CareExtraModule {}

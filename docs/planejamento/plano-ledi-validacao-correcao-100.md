@@ -1,6 +1,6 @@
 # Plano — Validação e correção LEDI em 100% dos casos
 
-**Status:** proposto  
+**Status:** P0–P5 entregues (2026-08-12)  
 **Atualizado:** 2026-08-12  
 **Escopo:** lotes FAO (5) · FAI (4) · Procedimentos (7) — análise pré-Siaps/RNDS + Previne ESB  
 **Meta de produto:** fechar o ciclo *upload → diagnóstico → correção → revalidação → ZIP exportável* com **cobertura total dos códigos conhecidos**, máxima automação segura e fluxo humano só onde o dado é único ou clínico.
@@ -111,16 +111,16 @@ ZIP só recomendado quando `readyForFinalSend` (ou override auditado).
 
 **Objetivo:** nenhum código sem caminho explícito A–E.
 
-#### 1.1 Promover a AUTO/SEMI (onde seguro)
+#### 1.1 Promover a AUTO/SEMI (onde seguro) ✅ P2
 
 | Código | Ação proposta |
 |---|---|
-| `JUSTIFICATIVA_CPF_UNEXPECTED` | SEMI: remover justificativa **ou** forçar `stNaoPossuiCpf=true` (escolha na UI) |
-| `TP_CDS_ORIGEM_MISSING` / `NOT_3` | AUTO: set `tpCdsOrigem=3` (padrão LEDI PEC) |
-| `PROC_QTD` | SEMI/AUTO: normalizar quantidade ≥1 / cap razoável |
-| `CONDUTAS_MAX` / `VIGILANCIA_MAX` | SEMI: truncar lista com preview |
-| `TIPO_CONSULTA_MULTI` | SEMI: manter só o 1º ou escolher |
-| `UUID_FICHA_LENGTH` | AUTO: regenerar UUID canônico se inválido *e* política local permitir |
+| `JUSTIFICATIVA_CPF_UNEXPECTED` | SEMI: remover justificativa **ou** forçar `stNaoPossuiCpf=true` (escolha na UI) ✅ |
+| `TP_CDS_ORIGEM_MISSING` / `NOT_3` | AUTO: set `tpCdsOrigem=3` (padrão LEDI PEC) ✅ |
+| `PROC_QTD` | AUTO: normalizar quantidade ≥1 ✅ |
+| `CONDUTAS_MAX` / `VIGILANCIA_MAX` | AUTO: truncar lista (17 / 7) ✅ |
+| `TIPO_CONSULTA_MULTI` | AUTO: manter só o 1º ✅ |
+| `UUID_FICHA_LENGTH` | AUTO: regenerar UUID canônico ✅ |
 
 #### 1.2 Individual com campo dedicado (não só “xml”) ✅ P1
 
@@ -155,55 +155,52 @@ UI: badge “Só na origem”, botão **Excluir do lote**, link para tela do tip
 
 ---
 
-### Fase 3 — Paridade FAI + Procedimentos (3–5 dias)
+### Fase 3 — Paridade FAI + Procedimentos (3–5 dias) ✅ P3
 
-- [ ] Extrair `LoteTreatmentShell` compartilhado (dashboard, guia, modal ficha, advance).  
-- [ ] Validador FAI/PROC → **paridade de blockers** relevantes (não copiar regras FAO odonto).  
-- [ ] Fixers por schema (tags FAI ≠ FAO): `stNaoPossuiCpf`, turno, CNES, INE, códigos SIGTAP, anti-ABPG.  
-- [ ] Catálogo/repair entries específicos FAI/PROC.  
-- [ ] Teste de regressão com amostras `18-amostra-novas-fichas` + dump 5974691 (subconjunto CI).
-
----
-
-### Fase 4 — Efetividade e eficiência (motor) (3–5 dias)
-
-- [ ] **Batch plan:** ordenar fixes por dependência (ex.: `stNaoPossuiCpf` antes de justificativa; CBO antes de Previne).  
-- [ ] **Dry-run:** “se eu aplicar X em 340 fichas, Y alertas somem / Z novos aparecem”.  
-- [ ] **Idempotência:** reaplicar auto-fix não corrompe XML.  
-- [ ] **Políticas municipais** (Franca): defaults INE/CNES/IBGE/CBO por unidade logada.  
-- [ ] **Cache de catálogos** CIAP/CID/SIGTAP já ok; completar SIGTAP search como CIAP.  
-- [ ] Métricas: tempo médio até `bloqueioEnvio=0`, % auto vs manual, fichas excluídas.
+- [x] Extrair/reusar shell: `LediTipoLotePage` + `ErrorGuideModal` + `FichaFixModal` (variant).  
+- [x] Validador FAI/PROC → blockers compartilhados (st CPF, turno, CNES, INE, nascimento, sexo, local).  
+- [x] Fixers por schema: `procedimentosCodes` (PROC) + fixers FAO reutilizados nos blocos FAI/PROC.  
+- [x] Catálogo/repair: ABPG → editar SIGTAP na ficha.  
+- [ ] Teste de regressão com amostras `18-amostra-novas-fichas` + dump 5974691 (subconjunto CI) — P5/aceite.
 
 ---
+
+### Fase 4 — Efetividade e eficiência (motor) ✅ P4
+
+- [x] **Batch plan / pipeline único:** `ledi-autofix.pipeline.ts` (ordem st→equipe→clínica→envelope).  
+- [x] **Dry-run:** `POST .../dry-run` + botão na UI.  
+- [x] **Idempotência:** teste reaplicar auto-fix.  
+- [x] **Políticas municipais (Franca):** `FRANCA_LEDI_DEFAULTS` no dry-run/relatório.  
+- [x] Relatório de fechamento: `GET .../closure-report` + download `.md`.  
+- [ ] Cache SIGTAP search como CIAP — backlog menor.  
+- [ ] Métricas de tempo operador — backlog.
 
 ### Fase 5 — Conformidade normativa e Previne (contínuo)
 
 - [ ] Cruzar NT 30/2025 + LEDI vigente × registry (checklist em `docs/conhecimento/15-…`).  
-- [ ] Previne B1–B6: ações só com confirmação clínica; nunca forçar exodontia.  
-- [ ] Indicadores Previne (`14-…`) e vínculos (`15-…`) no backlog STATUS — fora do P0 de envio Siaps.  
-- [ ] Gate: “Siaps-ready” ≠ “Previne-ideal”.
+- [x] Previne B1–B6: ações só com confirmação clínica na UI (não força exodontia).  
+- [ ] Indicadores Previne (`14-…`) e vínculos (`15-…`) — backlog.  
+- [x] Gate documentado: “Siaps-ready” ≠ “Previne-ideal”.
 
----
+### Fase 6 — Qualidade / DoD operacional ✅ P5
 
-### Fase 6 — Qualidade / DoD operacional (2–3 dias)
-
-- [ ] Suite de testes: 1 XML mínimo por código BLOCKER (golden files).  
-- [ ] Teste E2E Playwright: upload → auto → justificativa → ZIP.  
-- [ ] Manual técnico atualizado + stub usuário.  
-- [ ] Atualizar `STATUS.md` e `cobertura-rf` / matriz LEDI.  
-- [ ] Aceite em lote real Franca (1131 FAO + amostra FAI/PROC).
+- [x] Suite golden: BLOCKERs auto em `ledi-p5-golden-pipeline.spec.ts`.  
+- [x] Pipeline E2E API/Jest: upload→fix→zip (+ FAI/PROC). (Playwright browser = opcional futuro)  
+- [x] Manual técnico + usuário atualizados.  
+- [x] `STATUS.md` + plano + `docs/planejamento/aceite-ledi-franca.md`.  
+- [x] Checklist aceite Franca (execução ZIP 1131 = operador local / LGPD).
 
 ---
 
 ## 5. Priorização sugerida (ordem de entrega)
 
 ```text
-P0  Matriz unificada + CI cobertura + códigos órfãos          ✅ feito (2026-08-12)
-P1  Campos individuais que hoje só dizem “Destacar XML”
-P2  Semi/auto dos códigos pending no registry
-P3  Paridade UI FAI/PROC
-P4  Dry-run + fila + relatório fechamento
-P5  Golden files + E2E + aceite lote Franca
+P0  Matriz unificada + CI cobertura + códigos órfãos          ✅
+P1  Campos individuais                                        ✅
+P2  Semi/auto pending registry                                ✅
+P3  Paridade UI FAI/PROC                                      ✅
+P4  Dry-run + fila + relatório fechamento                     ✅
+P5  Golden + pipeline E2E + aceite (checklist)                ✅
 ```
 
 ---
@@ -229,11 +226,11 @@ P5  Golden files + E2E + aceite lote Franca
 
 ---
 
-## 8. Próxima ação imediata (quando autorizar execução)
+## 8. Próxima ação (pós P5)
 
-1. Implementar **registry unificado** + teste CI de cobertura.  
-2. Entregar **form fields** para identidade/data/sexo/condutas (maior ganho vs “Destacar XML”).  
-3. Portar shell de tratamento para **FAI/PROC**.
+1. Operador: rodar aceite com ZIP Franca real (`docs/planejamento/aceite-ledi-franca.md`).  
+2. Backlog menor: SIGTAP search paridade CIAP · métricas de tempo · Playwright browser.  
+3. Fora do LEDI: UI produto fase 2 · evolução núcleo clínico / RNDS.
 
 ---
 

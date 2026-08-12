@@ -54,6 +54,7 @@ type FormState = {
   cnes: string;
   ibge: string;
   justificativa: string;
+  justificativaUnexpected: string;
   cpf: string;
   cns: string;
   keepId: string;
@@ -78,6 +79,8 @@ type Props = {
   onSave: (e: FormEvent) => void;
   onApplyGap: (code: string) => void;
   onFocusField: (field?: string) => void;
+  /** Esconde campos só de FAO (condutas/vigilância/consulta). */
+  variant?: 'fao' | 'fai' | 'proc';
 };
 
 export function FichaFixModal({
@@ -90,6 +93,7 @@ export function FichaFixModal({
   onSave,
   onApplyGap,
   onFocusField,
+  variant = 'fao',
 }: Props) {
   if (!selected) return null;
 
@@ -222,18 +226,22 @@ export function FichaFixModal({
               <label>CBO</label>
               <input value={form.editCbo} onChange={(e) => setForm({ editCbo: e.target.value })} />
             </div>
-            <div className={`field ${form.focusField === 'vigilancia' ? 'focus-hint' : ''}`}>
-              <label>Vigilância</label>
-              <input value={form.vigilancia} onChange={(e) => setForm({ vigilancia: e.target.value })} />
-            </div>
-            <div className={`field ${form.focusField === 'consulta' ? 'focus-hint' : ''}`}>
-              <label>Tipo de consulta</label>
-              <select value={form.tipoConsulta} onChange={(e) => setForm({ tipoConsulta: e.target.value })}>
-                <option value="1">1 — 1ª consulta</option>
-                <option value="2">2 — retorno</option>
-                <option value="4">4</option>
-              </select>
-            </div>
+            {variant === 'fao' ? (
+              <>
+                <div className={`field ${form.focusField === 'vigilancia' ? 'focus-hint' : ''}`}>
+                  <label>Vigilância</label>
+                  <input value={form.vigilancia} onChange={(e) => setForm({ vigilancia: e.target.value })} />
+                </div>
+                <div className={`field ${form.focusField === 'consulta' ? 'focus-hint' : ''}`}>
+                  <label>Tipo de consulta</label>
+                  <select value={form.tipoConsulta} onChange={(e) => setForm({ tipoConsulta: e.target.value })}>
+                    <option value="1">1 — 1ª consulta</option>
+                    <option value="2">2 — retorno</option>
+                    <option value="4">4</option>
+                  </select>
+                </div>
+              </>
+            ) : null}
             <div className={`field ${form.focusField === 'turno' ? 'focus-hint' : ''}`}>
               <label>Turno</label>
               <select value={form.turno} onChange={(e) => setForm({ turno: e.target.value })}>
@@ -337,30 +345,32 @@ export function FichaFixModal({
                 placeholder="2026-08-12T14:30:00"
               />
             </div>
-            <div
-              className={`field ${form.focusField === 'condutas' ? 'focus-hint' : ''}`}
-              style={{ gridColumn: '1 / -1' }}
-            >
-              <label>Condutas (tiposEncamOdonto)</label>
-              <select
-                multiple
-                value={form.condutas ? form.condutas.split(',').filter(Boolean) : []}
-                onChange={(e) => {
-                  const vals = Array.from(e.target.selectedOptions).map((o) => o.value);
-                  setForm({ condutas: vals.join(',') });
-                }}
-                style={{ minHeight: 88 }}
+            {variant === 'fao' ? (
+              <div
+                className={`field ${form.focusField === 'condutas' ? 'focus-hint' : ''}`}
+                style={{ gridColumn: '1 / -1' }}
               >
-                {CONDUTAS_ODONTO.map((c) => (
-                  <option key={c.code} value={String(c.code)}>
-                    {c.code} — {c.label}
-                  </option>
-                ))}
-              </select>
-              <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
-                Segure Ctrl/Cmd para marcar várias. Substitui a lista de condutas da ficha.
-              </p>
-            </div>
+                <label>Condutas (tiposEncamOdonto)</label>
+                <select
+                  multiple
+                  value={form.condutas ? form.condutas.split(',').filter(Boolean) : []}
+                  onChange={(e) => {
+                    const vals = Array.from(e.target.selectedOptions).map((o) => o.value);
+                    setForm({ condutas: vals.join(',') });
+                  }}
+                  style={{ minHeight: 88 }}
+                >
+                  {CONDUTAS_ODONTO.map((c) => (
+                    <option key={c.code} value={String(c.code)}>
+                      {c.code} — {c.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
+                  Segure Ctrl/Cmd para marcar várias. Substitui a lista de condutas da ficha.
+                </p>
+              </div>
+            ) : null}
 
             <div
               className={`field ${form.focusField === 'justificativa' ? 'focus-hint' : ''}`}
@@ -382,13 +392,40 @@ export function FichaFixModal({
                 Use se a ficha marcar que o cidadão não tem CPF. Ou corrija o cadastro e informe CPF/CNS.
               </p>
             </div>
+
+            <div
+              className={`field ${form.focusField === 'justificativaUnexpected' ? 'focus-hint' : ''}`}
+              style={{ gridColumn: '1 / -1' }}
+            >
+              <label>Justificativa inconsistente (sem “não possui CPF”)</label>
+              <select
+                value={form.justificativaUnexpected}
+                onChange={(e) => setForm({ justificativaUnexpected: e.target.value })}
+              >
+                <option value="">Escolha a correção…</option>
+                <option value="remove">Remover justificativa</option>
+                <option value="force_st">Marcar “não possui CPF” (st=true)</option>
+              </select>
+              <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
+                Só use se a ficha tem justificativa mas stNaoPossuiCpf não está true.
+              </p>
+            </div>
             <div className={`field ${form.focusField === 'proc' ? 'focus-hint' : ''}`} style={{ gridColumn: '1 / -1' }}>
-              <label>Procedimentos SIGTAP extras</label>
+              <label>
+                {variant === 'proc'
+                  ? 'Códigos SIGTAP (substitui &lt;procedimentos&gt;)'
+                  : 'Procedimentos SIGTAP extras'}
+              </label>
               <input
                 value={form.procExtra}
                 onChange={(e) => setForm({ procExtra: e.target.value })}
                 placeholder="0301010153,0101020104"
               />
+              {variant === 'proc' ? (
+                <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
+                  Use 10 dígitos por código. Troca ABPG/lista inválida pelos SIGTAP informados.
+                </p>
+              ) : null}
             </div>
             {form.focusField === 'xml' ? (
               <div className="field focus-hint" style={{ gridColumn: '1 / -1' }}>

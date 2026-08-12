@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError, getToken } from '@/lib/api';
+import { isAsyncJobResponse, waitForJob } from '@/lib/jobs';
 import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
 import { formatUploadError } from '@/lib/format-upload-error';
 import { FileDropZone } from '@/components/ui/FileDropZone';
@@ -149,6 +150,19 @@ async function downloadZip(batchId: string, mode: 'current' | 'conformant') {
   URL.revokeObjectURL(url);
 }
 
+async function downloadClosureReport(batchId: string) {
+  const report = await api<{ markdown: string; name: string }>(
+    `/v1/dental/ledi/batches/${batchId}/closure-report`,
+  );
+  const blob = new Blob([report.markdown], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ledi-fechamento-${batchId.slice(0, 8)}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function codesToFriendly(codes: string[]): string {
   if (!codes.length) return '—';
   return codes
@@ -225,6 +239,7 @@ export default function OdontoLotePage() {
   const [cnes, setCnes] = useState('');
   const [ibge, setIbge] = useState('3516200');
   const [justificativa, setJustificativa] = useState('');
+  const [justificativaUnexpected, setJustificativaUnexpected] = useState('');
   const [cpf, setCpf] = useState('');
   const [cns, setCns] = useState('');
   const [keepId, setKeepId] = useState('');
@@ -344,22 +359,35 @@ export default function OdontoLotePage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api<Batch & { touched: number }>(`/v1/dental/ledi/batches/${batch.id}/auto-fix`, {
-        method: 'POST',
-        json: {
-          stNaoPossuiCpf: confirmSt,
-          stNaoPossuiCpfWhenAbsent: true,
-          ine: ineDefault.trim() || undefined,
-          problemasCondicoesDefault: hasProb
-            ? [{ ciap: bulkCiap.trim() || undefined, cid10: bulkCid.trim() || undefined }]
-            : undefined,
+      const res = await api<Batch & { touched: number; async?: boolean; jobId?: string }>(
+        `/v1/dental/ledi/batches/${batch.id}/auto-fix`,
+        {
+          method: 'POST',
+          json: {
+            stNaoPossuiCpf: confirmSt,
+            stNaoPossuiCpfWhenAbsent: true,
+            ine: ineDefault.trim() || undefined,
+            problemasCondicoesDefault: hasProb
+              ? [{ ciap: bulkCiap.trim() || undefined, cid10: bulkCid.trim() || undefined }]
+              : undefined,
+          },
         },
-      });
-      setBatch(res);
+      );
+      let finalBatch: Batch & { touched?: number } = res;
+      let touched = res.touched ?? 0;
+      if (isAsyncJobResponse(res)) {
+        const job = await waitForJob(res.jobId);
+        if (job.status !== 'completed') {
+          throw new Error(job.errorMessage || `Job ${job.status}`);
+        }
+        touched = Number((job.result as { touched?: number } | null)?.touched ?? 0);
+        finalBatch = await api<Batch>(`/v1/dental/ledi/batches/${batch.id}`);
+      }
+      setBatch(finalBatch);
       await advanceAfterFix(
         batch.id,
         confirmSt ? 'ST_NAO_POSSUI_CPF' : hasProb ? 'PROBLEMAS_MISSING' : ineDefault.trim() ? 'INE_MISSING' : undefined,
-        `Auto-correção do lote aplicada em ${res.touched} fichas.`,
+        `Auto-correção do lote aplicada em ${touched} fichas.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha na auto-correção');
@@ -418,6 +446,7 @@ export default function OdontoLotePage() {
       cnes,
       ibge,
       justificativa,
+      justificativaUnexpected,
     };
 
     let body: Record<string, unknown> = {
@@ -439,6 +468,8 @@ export default function OdontoLotePage() {
               ? 'Informe CNES com 7 dígitos no guia.'
               : guide.ui === 'justificativa'
                 ? 'Selecione a justificativa de não ter CPF no guia antes de aplicar.'
+                : guide.ui === 'justificativa_unexpected'
+                  ? 'Escolha: remove (tirar justificativa) ou force_st (marcar não possui CPF).'
                 : 'Preencha os campos do guia necessários para esta correção.',
         );
         return;
@@ -452,15 +483,28 @@ export default function OdontoLotePage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api<Batch & { touched: number }>(`/v1/dental/ledi/batches/${batch.id}/auto-fix`, {
-        method: 'POST',
-        json: body,
-      });
-      setBatch(res);
+      const res = await api<Batch & { touched: number; async?: boolean; jobId?: string }>(
+        `/v1/dental/ledi/batches/${batch.id}/auto-fix`,
+        {
+          method: 'POST',
+          json: body,
+        },
+      );
+      let finalBatch: Batch & { touched?: number } = res;
+      let touched = res.touched ?? 0;
+      if (isAsyncJobResponse(res)) {
+        const job = await waitForJob(res.jobId);
+        if (job.status !== 'completed') {
+          throw new Error(job.errorMessage || `Job ${job.status}`);
+        }
+        touched = Number((job.result as { touched?: number } | null)?.touched ?? 0);
+        finalBatch = await api<Batch>(`/v1/dental/ledi/batches/${batch.id}`);
+      }
+      setBatch(finalBatch);
       await advanceAfterFix(
         batch.id,
         repairCode,
-        `“${guide.title}”: corrigidas ${res.touched} ficha(s).`,
+        `“${guide.title}”: corrigidas ${touched} ficha(s).`,
       );
       if (selected && ids.includes(selected.id)) {
         const detail = await api<ItemDetail>(`/v1/dental/ledi/batches/${batch.id}/items/${selected.id}`);
@@ -492,6 +536,7 @@ export default function OdontoLotePage() {
       setCnes('');
       setIbge('3516200');
       setJustificativa('');
+      setJustificativaUnexpected('');
       setCpf('');
       setCns('');
       setKeepId('');
@@ -587,6 +632,7 @@ export default function OdontoLotePage() {
     cnes: string;
     ibge: string;
     justificativa: string;
+    justificativaUnexpected: string;
     cpf: string;
     cns: string;
     keepId: string;
@@ -612,6 +658,7 @@ export default function OdontoLotePage() {
     if (patch.cnes !== undefined) setCnes(patch.cnes);
     if (patch.ibge !== undefined) setIbge(patch.ibge);
     if (patch.justificativa !== undefined) setJustificativa(patch.justificativa);
+    if (patch.justificativaUnexpected !== undefined) setJustificativaUnexpected(patch.justificativaUnexpected);
     if (patch.cpf !== undefined) setCpf(patch.cpf);
     if (patch.cns !== undefined) setCns(patch.cns);
     if (patch.keepId !== undefined) setKeepId(patch.keepId);
@@ -687,6 +734,7 @@ export default function OdontoLotePage() {
       cnes,
       ibge,
       justificativa,
+      justificativaUnexpected,
     });
     if (!patch) {
       setError(
@@ -696,6 +744,8 @@ export default function OdontoLotePage() {
             ? 'Informe CNES com 7 dígitos.'
             : guide.ui === 'justificativa'
               ? 'Selecione a justificativa de não ter CPF.'
+              : guide.ui === 'justificativa_unexpected'
+                ? 'Escolha: remove ou force_st.'
               : 'Campos incompletos.',
       );
       focusIndividualEdit(guide.focusField || guide.ui);
@@ -731,6 +781,9 @@ export default function OdontoLotePage() {
       if ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 99].includes(n)) {
         body.justificativaNaoPossuiCpf = n;
       }
+    }
+    if (justificativaUnexpected === 'remove' || justificativaUnexpected === 'force_st') {
+      body.justificativaCpfUnexpected = justificativaUnexpected;
     }
     if (keepId === 'cpf' || keepId === 'cns') body.keepCitizenId = keepId;
     if (cpf.replace(/\D/g, '').length === 11) body.cpfCidadao = cpf.replace(/\D/g, '');
@@ -1224,6 +1277,53 @@ export default function OdontoLotePage() {
               </button>
               <button
                 type="button"
+                className="btn btn-secondary"
+                disabled={busy}
+                onClick={() => {
+                  void (async () => {
+                    setBusy(true);
+                    setError(null);
+                    try {
+                      const dry = await api<{
+                        wouldTouch: number;
+                        before: { withBlockers: number; siapsReady: number };
+                        after: { withBlockers: number; siapsReady: number };
+                        codeDelta: Array<{ code: string; before: number; after: number; delta: number }>;
+                      }>(`/v1/dental/ledi/batches/${batch.id}/dry-run`, {
+                        method: 'POST',
+                        json: { stNaoPossuiCpf: true },
+                      });
+                      const top = dry.codeDelta
+                        .slice(0, 5)
+                        .map((d) => `${d.code}: ${d.before}→${d.after}`)
+                        .join(' · ');
+                      setOk(
+                        `Dry-run: tocariam ${dry.wouldTouch} fichas · blockers ${dry.before.withBlockers}→${dry.after.withBlockers} · Siaps ${dry.before.siapsReady}→${dry.after.siapsReady}${top ? ` · ${top}` : ''}`,
+                      );
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Falha no dry-run');
+                    } finally {
+                      setBusy(false);
+                    }
+                  })();
+                }}
+              >
+                Dry-run (simular auto)
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={busy}
+                onClick={() =>
+                  void downloadClosureReport(batch.id).catch((e) =>
+                    setError(e instanceof Error ? e.message : String(e)),
+                  )
+                }
+              >
+                Relatório fechamento (.md)
+              </button>
+              <button
+                type="button"
                 className="btn btn-ghost"
                 disabled={busy}
                 style={{ color: 'var(--danger)' }}
@@ -1380,6 +1480,7 @@ export default function OdontoLotePage() {
                 cnes,
                 ibge,
                 justificativa,
+                justificativaUnexpected,
               }}
               onFieldChange={(key, value) => {
                 if (key === 'ine') {
@@ -1400,6 +1501,7 @@ export default function OdontoLotePage() {
                 else if (key === 'cnes') setCnes(value);
                 else if (key === 'ibge') setIbge(value);
                 else if (key === 'justificativa') setJustificativa(value);
+                else if (key === 'justificativaUnexpected') setJustificativaUnexpected(value);
               }}
               onClose={closeErrorModal}
               onFixAllAffected={() => void applySelectedRepair(codeFilter, { allAffected: true })}
@@ -1424,6 +1526,7 @@ export default function OdontoLotePage() {
               cnes,
               ibge,
               justificativa,
+              justificativaUnexpected,
               cpf,
               cns,
               keepId,

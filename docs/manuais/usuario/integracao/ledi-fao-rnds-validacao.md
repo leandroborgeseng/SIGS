@@ -12,14 +12,13 @@
 
 # Lote de XMLs (corrigir e baixar)
 
-1. Abra **Odontologia → Lote LEDI FAO** (ou o botão **Lote XML / correção**).
-2. Selecione vários arquivos `.xml` / `.esus.xml` e aguarde a validação.
-3. Veja o resumo (quantas fichas com blocker e os códigos mais frequentes).
-4. Em **Correções automáticas**, confirme o que o sistema pode aplicar sozinho:
-   - `stNaoPossuiCpf` (quando há CNS/CPF → `false`)
-   - INE padrão (opcional)
-   - CIAP/CID padrão em lote (só se for clinicamente adequado para o conjunto)
-5. Para o restante, clique na ficha na lista, informe CIAP/CID ou tipo de consulta e salve — o XML é regenerado e revalidado.
-6. Baixe o **ZIP** com os XMLs corrigidos.
-
-Os arquivos ficam no servidor do SIGS para este trabalho; não envie CNS reais para repositório Git.
+1. Abra o lote do tipo certo:
+   - **FAO (odonto):** `/odonto/lote`
+   - **FAI (individual):** `/aps/lote`
+   - **Procedimentos:** `/procedimentos/lote`
+2. Envie vários `.xml` / um `.zip` e aguarde a validação.
+3. Veja o resumo (blockers, Siaps-ready, barras de erro).
+4. **Opcional:** clique **Dry-run** para simular a auto-correção sem gravar (mostra quantos alertas somem).
+5. Clique numa barra de erro → **guia** → corrigir em lote ou abrir ficha a ficha.
+6. Baixe o **ZIP** (atuais ou só conformes) e o **Relatório fechamento (.md)** para arquivar.
+7. Não envie CNS reais para repositório Git.

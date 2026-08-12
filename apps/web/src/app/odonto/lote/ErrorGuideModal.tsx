@@ -46,7 +46,8 @@ export function ErrorGuideModal({
 }: Props) {
   const sev = resolveSeverity(code, repair.channel === 'PREVINE' ? 'MONEY_RISK' : 'BLOCKER');
   const fields = fieldsForRepairUi(repair.ui);
-  const canAuto = repair.mode === 'auto' && repair.batchable !== false && repair.ui && repair.ui !== 'manual';
+  const canAuto =
+    repair.mode === 'auto' && repair.batchable !== false && repair.ui !== 'manual';
 
   return (
     <Modal
@@ -143,6 +144,18 @@ export function ErrorGuideModal({
                                 {opt.code} — {opt.label}
                               </option>
                             ))}
+                          </select>
+                        </div>
+                      ) : f.key === 'justificativaUnexpected' ? (
+                        <div className="field" key={f.key} style={{ gridColumn: '1 / -1' }}>
+                          <label>{f.label}</label>
+                          <select
+                            value={fieldValues[f.key] || ''}
+                            onChange={(e) => onFieldChange(f.key, e.target.value)}
+                          >
+                            <option value="">Escolha a correção…</option>
+                            <option value="remove">Remover justificativa</option>
+                            <option value="force_st">Marcar “não possui CPF” (st=true)</option>
                           </select>
                         </div>
                       ) : (

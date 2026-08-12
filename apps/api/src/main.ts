@@ -1,13 +1,37 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { json, urlencoded } from 'express';
+import { json, urlencoded, type Request, type Response, type NextFunction } from 'express';
+import { randomUUID } from 'crypto';
 import { AppModule } from './app.module';
+import { requestContext } from './infra/request-context';
+import { RequestContextUserInterceptor } from './infra/request-context.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
-  app.use(json({ limit: '80mb' }));
-  app.use(urlencoded({ extended: true, limit: '80mb' }));
+  // Upload LEDI grande: preferir multipart + jobs; 20mb cobre patch/JSON comuns.
+  const bodyLimit = process.env.HTTP_BODY_LIMIT || '20mb';
+  app.use(json({ limit: bodyLimit }));
+  app.use(urlencoded({ extended: true, limit: bodyLimit }));
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const incoming =
+      (req.headers['x-correlation-id'] as string) ||
+      (req.headers['x-request-id'] as string) ||
+      randomUUID();
+    res.setHeader('x-correlation-id', incoming);
+    res.setHeader('x-request-id', incoming);
+    requestContext.run(
+      {
+        correlationId: incoming,
+        requestId: incoming,
+        ip: req.ip,
+      },
+      () => next(),
+    );
+  });
+
   app.setGlobalPrefix('api');
+  app.useGlobalInterceptors(new RequestContextUserInterceptor());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

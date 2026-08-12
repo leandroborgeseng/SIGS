@@ -123,6 +123,38 @@ export function validateProcXml(xml: string): ProcValidationReport {
       });
     }
 
+    if (!/<dtNascimento\b/i.test(body)) {
+      findings.push({
+        severity: 'BLOCKER',
+        code: 'DT_NASCIMENTO_MISSING',
+        message: 'dtNascimento ausente.',
+        field: 'dtNascimento',
+        rule: 'LEDI-PROC',
+      });
+    }
+
+    const sexo = body.match(/<sexo>\s*([^<]+)/i)?.[1]?.trim();
+    if (sexo == null || sexo === '' || !['0', '1'].includes(sexo)) {
+      findings.push({
+        severity: 'BLOCKER',
+        code: 'SEXO_INVALID',
+        message: `Sexo inválido (${sexo ?? 'ausente'}); use 0 ou 1.`,
+        field: 'sexo',
+        rule: 'LEDI-PROC',
+      });
+    }
+
+    const local = Number(body.match(/<localAtendimento>\s*([^<]+)/i)?.[1]?.trim());
+    if (!Number.isFinite(local) || local < 1 || local > 10) {
+      findings.push({
+        severity: 'BLOCKER',
+        code: 'LOCAL_ATENDIMENTO',
+        message: `localAtendimento inválido (${local || 'ausente'}).`,
+        field: 'localAtendimento',
+        rule: 'LEDI-PROC',
+      });
+    }
+
     const procCodes = [...body.matchAll(/<procedimentos>\s*([^<]+)\s*<\/procedimentos>/gi)].map((m) =>
       m[1].trim(),
     );

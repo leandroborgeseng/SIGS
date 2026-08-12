@@ -123,6 +123,41 @@ export function validateFaiXml(xml: string): FaiValidationReport {
         rule: 'LEDI-FAI',
       });
     }
+
+    if (!/<dtNascimento\b/i.test(body) && !/<dataNascimento\b/i.test(body)) {
+      findings.push({
+        severity: 'BLOCKER',
+        code: 'DT_NASCIMENTO_MISSING',
+        message: 'dtNascimento/dataNascimento ausente.',
+        field: 'dtNascimento',
+        rule: 'LEDI-FAI',
+      });
+    }
+
+    const sexo = body.match(/<sexo>\s*([^<]+)/i)?.[1]?.trim();
+    if (sexo == null || sexo === '' || !['0', '1'].includes(sexo)) {
+      findings.push({
+        severity: 'BLOCKER',
+        code: 'SEXO_INVALID',
+        message: `Sexo inválido (${sexo ?? 'ausente'}); use 0 ou 1.`,
+        field: 'sexo',
+        rule: 'LEDI-FAI',
+      });
+    }
+
+    const localRaw =
+      body.match(/<localAtendimento>\s*([^<]+)/i)?.[1]?.trim() ||
+      body.match(/<localDeAtendimento>\s*([^<]+)/i)?.[1]?.trim();
+    const local = Number(localRaw);
+    if (!Number.isFinite(local) || local < 1 || local > 10) {
+      findings.push({
+        severity: 'BLOCKER',
+        code: 'LOCAL_ATENDIMENTO',
+        message: `localAtendimento inválido (${local || 'ausente'}).`,
+        field: 'localAtendimento',
+        rule: 'LEDI-FAI',
+      });
+    }
   }
 
   const cnes =

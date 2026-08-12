@@ -1,23 +1,14 @@
 # STATUS — SIGS
 
-- **etapa_atual**: **LEDI P1 ✅** · núcleo A0–A4 ok · próximo P2 / aceite lote
+- **etapa_atual**: **Fundação de escala** + **deploy Railway** (Postgres)
 - **como usar agora:**
-  1. UI lote: http://localhost:3000 → `/odonto/lote`
-  2. Login: `admin@sigs.local` / `admin123`
-  3. Núcleo: `POST /v1/clinical-core/{normalize-ledi,migrate,match,match-queue,export/rnds}`
-  4. Arquitetura: `docs/planejamento/arquitetura-fhir-motor-paciente-mestre.md`
-- **servidores locais:** API `:3001` · Web `:3000` (`npm run dev`)
-- **feito (núcleo):**
-  - FHIR-like `Sigs*` + adapter LEDI XML
-  - Motor único no lote (`runRulesEngine` / A3-lite)
-  - Paciente Mestre + `PatientIdentifier`
-  - Unificação HIGH/MEDIUM/LOW + merge de FKs + fila de revisão
-  - Migração XML → `ProductionRecord` (`POST /migrate`)
-  - Stub exporter RNDS
-  - P0 registry LEDI (78 códigos)
-  - **LEDI P1:** campos individuais no modal (CPF/CNS/nascimento/sexo/prof CNS/datas/condutas/keepId)
-- **canal:** LEDI XML → domínio Sigs* → Exporter LEDI (hoje) / RNDS (stub)
-- **proxima_acao:** LEDI P2 (órfãos semi/auto: tpCdsOrigem, PROC_QTD…) **ou** validar lote Franca 1131
-- **docker:** `docker compose up --build`
+  1. Local: `npm run infra:up` + `npm run dev` (se tiver Docker)
+  2. Railway: guia `docs/planejamento/deploy-railway-coolify.md` · vars `railway.variables.txt`
+  3. FAO `/odonto/lote` · FAI `/aps/lote` · PROC `/procedimentos/lote`
+  4. Login seed: variáveis `SEED_ADMIN_*`
+  5. Health `/api/health` · ready `/api/ready` · jobs `/api/v1/jobs/:id`
+- **feito escala:** Postgres · Redis/BullMQ opcional · S3/local · worker · LEDI async · audit/correlation
+- **deploy Railway (1º):** 1 serviço `PROCESS_ROLE=all` + plugin Postgres + volume `/data`
+- **fora desta fatia:** UI produto fase 2 · multi-serviço Railway · R2/S3 gerenciado
 
 _Atualizado em 2026-08-12_
