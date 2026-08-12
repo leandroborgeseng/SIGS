@@ -6,6 +6,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError, getToken } from '@/lib/api';
 import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
+import { FileDropZone } from '@/components/ui/FileDropZone';
 
 type LoteTipo = 'FAI' | 'PROCEDIMENTOS';
 
@@ -124,13 +125,14 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     void loadBatches().catch((e) => setError(e instanceof Error ? e.message : 'Falha'));
   }, [loadBatches]);
 
-  async function onUpload(files: FileList | null) {
-    if (!files?.length) return;
+  async function onUpload(files: FileList | File[] | null) {
+    const listLike = files ? Array.from(files as ArrayLike<File>) : [];
+    if (!listLike.length) return;
     setError(null);
     setOk(null);
     setBusy(true);
     try {
-      const list = Array.from(files).filter(
+      const list = listLike.filter(
         (f) => f.name.toLowerCase().endsWith('.xml') || f.name.toLowerCase().endsWith('.zip'),
       );
       if (!list.length) throw new Error('Selecione arquivos .xml ou um .zip');
@@ -235,20 +237,22 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>1. Enviar XMLs {meta.label}</h3>
         <p className="muted">
-          Prefira um <strong>.zip</strong> da pasta (Finder → Comprimir): evita erro de leitura em Downloads.
-          Ou selecione .xml. Ignore FAO aqui — use <Link href="/odonto/lote">/odonto/lote</Link>.
+          Se aparecer erro de I/O: copie o ZIP para o <strong>Desktop</strong> e envie de lá (ou arraste). Ignore FAO
+          aqui — use <Link href="/odonto/lote">/odonto/lote</Link>.
         </p>
         <div className="field">
           <label>Nome do lote</label>
           <input value={batchName} onChange={(e) => setBatchName(e.target.value)} />
         </div>
-        <input
-          type="file"
-          accept=".xml,.zip,application/xml,text/xml,application/zip"
-          multiple
-          disabled={busy}
-          onChange={(e) => void onUpload(e.target.files)}
-        />
+        <FileDropZone disabled={busy} acceptHint={meta.label} onFiles={(f) => void onUpload(f as FileList)}>
+          <input
+            type="file"
+            accept=".xml,.zip,application/xml,text/xml,application/zip"
+            multiple
+            disabled={busy}
+            onChange={(e) => void onUpload(e.target.files)}
+          />
+        </FileDropZone>
         {uploadProgress ? <p className="muted">{uploadProgress}</p> : null}
       </div>
 

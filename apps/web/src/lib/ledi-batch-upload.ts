@@ -1,8 +1,8 @@
 /**
- * Upload de lote LEDI — restaura o que funcionava.
- *
- * XML: ler no browser → um único POST JSON (como antes).
- * ZIP: arrayBuffer → base64 → POST /from-zip (API descompacta; sem multipart quebrado no proxy).
+ * Upload de lote LEDI.
+ * XML → um POST JSON; ZIP → base64 → /from-zip.
+ * Erros de I/O do browser (Downloads/iCloud) são traduzidos — o arquivo
+ * precisa estar legível localmente (ex.: copiado para o Desktop).
  */
 
 import { api, ApiError, getToken } from '@/lib/api';
@@ -12,6 +12,33 @@ export type LediUploadResult<T> = {
   uploaded: number;
   failedNames: string[];
 };
+
+function isIoReadError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err || '');
+  const name = err instanceof Error ? err.name : '';
+  return (
+    /I\/O read operation failed/i.test(msg) ||
+    /NotReadableError/i.test(name) ||
+    /NotReadableError/i.test(msg) ||
+    /NotFoundError/i.test(name)
+  );
+}
+
+function ioHint(fileName?: string): string {
+  const who = fileName ? `“${fileName}”` : 'o arquivo';
+  return (
+    `O navegador não conseguiu ler ${who} (erro típico de Downloads/iCloud). ` +
+    `Copie o .zip ou a pasta para o Desktop (ou ~/Documents), selecione de lá, ` +
+    `ou arraste o arquivo desta pasta para a área de envio.`
+  );
+}
+
+function wrapErr(err: unknown, fileName?: string): Error {
+  if (isIoReadError(err)) return new Error(ioHint(fileName));
+  if (err instanceof ApiError) return new Error(`Falha no envio (${err.status}): ${err.message}`);
+  if (err instanceof Error) return err;
+  return new Error(String(err || 'Falha no envio'));
+}
 
 function bufferToBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -23,28 +50,44 @@ function bufferToBase64(buf: ArrayBuffer): string {
   return btoa(binary);
 }
 
-async function readXmlFile(file: File): Promise<string> {
-  try {
-    const buf = await file.arrayBuffer();
-    const text = new TextDecoder('utf-8').decode(buf);
-    if (text.trim()) return text;
-  } catch {
-    // FileReader
+/** Várias estratégias — algumas pastas do macOS falham só em um método. */
+async function readArrayBufferRobust(file: File): Promise<ArrayBuffer> {
+  const attempts: Array<() => Promise<ArrayBuffer>> = [
+    async () => file.arrayBuffer(),
+    async () => file.slice(0, file.size).arrayBuffer(),
+    async () =>
+      new Promise<ArrayBuffer>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as ArrayBuffer);
+        reader.onerror = () => reject(reader.error || new Error('FileReader falhou'));
+        reader.readAsArrayBuffer(file);
+      }),
+  ];
+
+  let last: unknown;
+  for (const attempt of attempts) {
+    try {
+      const buf = await attempt();
+      if (buf && buf.byteLength > 0) return buf;
+      last = new Error('buffer vazio');
+    } catch (e) {
+      last = e;
+      await new Promise((r) => setTimeout(r, 50));
+    }
   }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result || '');
-      if (!text.trim()) reject(new Error(`Arquivo vazio: ${file.name}`));
-      else resolve(text);
-    };
-    reader.onerror = () =>
-      reject(reader.error || new Error(`Não foi possível ler ${file.name}`));
-    reader.readAsText(file);
-  });
+  throw wrapErr(last, file.name);
 }
 
-export async function uploadLediBatchMultipart<T extends { id: string; summary?: { total?: number } }>(opts: {
+async function readXmlFile(file: File): Promise<string> {
+  const buf = await readArrayBufferRobust(file);
+  const text = new TextDecoder('utf-8').decode(buf);
+  if (!text.trim()) throw new Error(`Arquivo vazio: ${file.name}`);
+  return text;
+}
+
+export async function uploadLediBatchMultipart<
+  T extends { id: string; summary?: { total?: number } },
+>(opts: {
   files: File[];
   name?: string;
   expectedTipo: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
@@ -61,7 +104,12 @@ export async function uploadLediBatchMultipart<T extends { id: string; summary?:
       if (zips.length > 1) throw new Error('Envie um ZIP por vez.');
       const zip = zips[0]!;
       opts.onProgress?.(`Lendo ZIP ${zip.name}…`);
-      const buf = await zip.arrayBuffer();
+      let buf: ArrayBuffer;
+      try {
+        buf = await readArrayBufferRobust(zip);
+      } catch (e) {
+        throw wrapErr(e, zip.name);
+      }
       opts.onProgress?.(`Enviando ZIP (${Math.round(buf.byteLength / 1024)} KB)…`);
       const batch = await api<T>('/v1/dental/ledi/batches/from-zip', {
         method: 'POST',
@@ -71,11 +119,7 @@ export async function uploadLediBatchMultipart<T extends { id: string; summary?:
           zipBase64: bufferToBase64(buf),
         },
       });
-      return {
-        batch,
-        uploaded: batch.summary?.total ?? 0,
-        failedNames: [],
-      };
+      return { batch, uploaded: batch.summary?.total ?? 0, failedNames: [] };
     }
 
     const items: Array<{ name: string; xml: string }> = [];
@@ -93,11 +137,13 @@ export async function uploadLediBatchMultipart<T extends { id: string; summary?:
 
     if (!items.length) {
       throw new Error(
-        `Nenhum XML legível${failedNames[0] ? ` (ex.: “${failedNames[0]}”)` : ''}. Compacte a pasta em .zip e envie o ZIP.`,
+        failedNames.length
+          ? ioHint(failedNames[0])
+          : 'Nenhum XML legível. Compacte a pasta em .zip no Desktop e envie o ZIP.',
       );
     }
 
-    opts.onProgress?.(`Enviando ${items.length} fichas (um único lote)…`);
+    opts.onProgress?.(`Enviando ${items.length} fichas…`);
     const batch = await api<T>('/v1/dental/ledi/batches', {
       method: 'POST',
       json: {
@@ -109,9 +155,6 @@ export async function uploadLediBatchMultipart<T extends { id: string; summary?:
 
     return { batch, uploaded: items.length, failedNames };
   } catch (e) {
-    if (e instanceof ApiError) {
-      throw new Error(`Falha no envio (${e.status}): ${e.message}`);
-    }
-    throw e;
+    throw wrapErr(e);
   }
 }

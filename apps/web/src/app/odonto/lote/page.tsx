@@ -6,6 +6,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError, getToken } from '@/lib/api';
 import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
+import { FileDropZone } from '@/components/ui/FileDropZone';
 import { bodyForRepairUi, lookupRepair, type AlertRepair } from './repair-catalog';
 
 type BatchSummary = {
@@ -235,13 +236,14 @@ export default function OdontoLotePage() {
     });
   }
 
-  async function onUpload(files: FileList | null) {
-    if (!files?.length) return;
+  async function onUpload(files: FileList | File[] | null) {
+    const listLike = files ? Array.from(files as ArrayLike<File>) : [];
+    if (!listLike.length) return;
     setError(null);
     setOk(null);
     setBusy(true);
     try {
-      const list = Array.from(files).filter(
+      const list = listLike.filter(
         (f) => f.name.toLowerCase().endsWith('.xml') || f.name.toLowerCase().endsWith('.zip'),
       );
       if (!list.length) throw new Error('Selecione arquivos .xml ou um .zip');
@@ -553,13 +555,15 @@ export default function OdontoLotePage() {
         </div>
         <div className="field">
           <label>Arquivos .xml ou .zip</label>
-          <input
-            type="file"
-            accept=".xml,.zip,text/xml,application/xml,application/zip"
-            multiple
-            disabled={busy}
-            onChange={(e) => void onUpload(e.target.files)}
-          />
+          <FileDropZone disabled={busy} acceptHint="FAO tipo 5" onFiles={(f) => void onUpload(f as FileList)}>
+            <input
+              type="file"
+              accept=".xml,.zip,text/xml,application/xml,application/zip"
+              multiple
+              disabled={busy}
+              onChange={(e) => void onUpload(e.target.files)}
+            />
+          </FileDropZone>
         </div>
         {uploadProgress ? <p className="muted">{uploadProgress}</p> : null}
         {batches.length ? (
