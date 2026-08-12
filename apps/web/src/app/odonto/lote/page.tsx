@@ -241,8 +241,10 @@ export default function OdontoLotePage() {
     setOk(null);
     setBusy(true);
     try {
-      const list = Array.from(files).filter((f) => f.name.toLowerCase().endsWith('.xml'));
-      if (!list.length) throw new Error('Selecione arquivos .xml');
+      const list = Array.from(files).filter(
+        (f) => f.name.toLowerCase().endsWith('.xml') || f.name.toLowerCase().endsWith('.zip'),
+      );
+      if (!list.length) throw new Error('Selecione arquivos .xml ou um .zip');
       const { batch: created, uploaded, failedNames } = await uploadLediBatchMultipart<Batch>({
         files: list,
         name: batchName.trim() || `FAO ${new Date().toLocaleString('pt-BR')}`,
@@ -540,16 +542,20 @@ export default function OdontoLotePage() {
       ) : null}
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <h3 style={{ marginTop: 0 }}>1. Enviar XMLs</h3>
+        <h3 style={{ marginTop: 0 }}>1. Enviar XMLs ou ZIP</h3>
+        <p className="muted">
+          Para pastas grandes em Downloads: no Finder, clique direito na pasta → <strong>Comprimir</strong> e envie o
+          .zip (mais confiável).
+        </p>
         <div className="field">
           <label>Nome do lote (opcional)</label>
           <input value={batchName} onChange={(e) => setBatchName(e.target.value)} placeholder="Ex.: Franca 5974691" />
         </div>
         <div className="field">
-          <label>Arquivos .esus.xml / .xml (múltiplos)</label>
+          <label>Arquivos .xml ou .zip</label>
           <input
             type="file"
-            accept=".xml,text/xml"
+            accept=".xml,.zip,text/xml,application/xml,application/zip"
             multiple
             disabled={busy}
             onChange={(e) => void onUpload(e.target.files)}

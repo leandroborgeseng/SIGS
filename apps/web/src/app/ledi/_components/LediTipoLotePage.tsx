@@ -130,8 +130,10 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     setOk(null);
     setBusy(true);
     try {
-      const list = Array.from(files).filter((f) => f.name.toLowerCase().endsWith('.xml'));
-      if (!list.length) throw new Error('Selecione arquivos .xml');
+      const list = Array.from(files).filter(
+        (f) => f.name.toLowerCase().endsWith('.xml') || f.name.toLowerCase().endsWith('.zip'),
+      );
+      if (!list.length) throw new Error('Selecione arquivos .xml ou um .zip');
       const { batch: created, uploaded, failedNames } = await uploadLediBatchMultipart<Batch>({
         files: list,
         name: batchName.trim() || `${meta.label} ${new Date().toLocaleString('pt-BR')}`,
@@ -233,8 +235,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>1. Enviar XMLs {meta.label}</h3>
         <p className="muted">
-          Ignore fichas FAO nesta tela — use <Link href="/odonto/lote">/odonto/lote</Link>. Arquivos do tipo
-          errado geram <code>WRONG_FICHA_TIPO</code>.
+          Prefira um <strong>.zip</strong> da pasta (Finder → Comprimir): evita erro de leitura em Downloads.
+          Ou selecione .xml. Ignore FAO aqui — use <Link href="/odonto/lote">/odonto/lote</Link>.
         </p>
         <div className="field">
           <label>Nome do lote</label>
@@ -242,7 +244,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
         </div>
         <input
           type="file"
-          accept=".xml,application/xml,text/xml"
+          accept=".xml,.zip,application/xml,text/xml,application/zip"
           multiple
           disabled={busy}
           onChange={(e) => void onUpload(e.target.files)}

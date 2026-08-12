@@ -313,7 +313,7 @@ export class LediFaoBatchService {
     return this.get(batch.id);
   }
 
-  /** Acrescenta XMLs a um lote existente (upload em pedaços). */
+  /** Acrescenta XMLs a um lote existente (upload em pedaços via JSON). */
   async appendFiles(batchId: string, files: Array<{ name: string; xml: string }>) {
     await this.ensureBatch(batchId);
     if (!files?.length) throw new BadRequestException('Envie ao menos um arquivo XML.');

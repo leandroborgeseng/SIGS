@@ -86,6 +86,13 @@ export class CreateLediFaoBatchDto {
   files!: LediFaoBatchFileDto[];
 }
 
+export class AppendLediFaoBatchDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LediFaoBatchFileDto)
+  files!: LediFaoBatchFileDto[];
+}
+
 export class LediFaoProcDto {
   @IsString() coMsProcedimento!: string;
   @IsOptional() @IsInt() @Min(1) quantidade?: number;

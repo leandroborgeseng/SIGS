@@ -26,6 +26,7 @@ import {
   FinishCollectiveActivityDto,
   ValidateDentalFaoDto,
   CreateLediFaoBatchDto,
+  AppendLediFaoBatchDto,
   AutoFixLediFaoBatchDto,
   PatchLediFaoBatchItemDto,
 } from './dto';
@@ -92,6 +93,11 @@ export class CareExtraController {
     @Body('expectedTipo') _expectedTipo?: string,
   ) {
     return this.faoBatches.appendFiles(batchId, mapUploadedXmls(files));
+  }
+
+  @Post('dental/ledi/batches/:batchId/append')
+  appendFaoBatchJson(@Param('batchId') batchId: string, @Body() dto: AppendLediFaoBatchDto) {
+    return this.faoBatches.appendFiles(batchId, dto.files || []);
   }
 
   @Get('dental/ledi/batches/:batchId')
