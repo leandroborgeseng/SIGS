@@ -6,6 +6,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError, getToken } from '@/lib/api';
 import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
+import { formatUploadError } from '@/lib/format-upload-error';
 import { FileDropZone } from '@/components/ui/FileDropZone';
 
 type LoteTipo = 'FAI' | 'PROCEDIMENTOS';
@@ -152,7 +153,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       await loadBatches();
       await loadBatch(created.id);
     } catch (err) {
-      setError(err instanceof ApiError || err instanceof Error ? err.message : 'Falha no upload');
+      setError(formatUploadError(err));
     } finally {
       setBusy(false);
       setUploadProgress('');

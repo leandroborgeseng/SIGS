@@ -3,25 +3,19 @@
  * Upload de lote LEDI a partir do disco (Node lê o arquivo — sem I/O do browser).
  *
  * Uso:
- *   node tools/upload-ledi-lote.mjs ./fai.zip --tipo FAI
- *   node tools/upload-ledi-lote.mjs ./pasta-com-xmls --tipo FAO
- *
- * Env (opcional):
- *   SIGS_API=https://sigs-production.up.railway.app/api
- *   SIGS_EMAIL=admin@sigs.local
- *   SIGS_PASSWORD=admin123
+ *   node tools/upload-ledi-lote.cjs ./tmp/ledi-upload/fai.zip --tipo FAI
+ *   node tools/upload-ledi-lote.cjs ./tmp/ledi-upload/fao.zip --tipo FAO
  */
 
 const fs = require('fs');
 const path = require('path');
-const { pathToFileURL } = require('url');
 
 const API = (process.env.SIGS_API || 'https://sigs-production.up.railway.app/api').replace(/\/$/, '');
 const EMAIL = process.env.SIGS_EMAIL || 'admin@sigs.local';
 const PASSWORD = process.env.SIGS_PASSWORD || 'admin123';
 
 function usage() {
-  console.error(`Uso: node tools/upload-ledi-lote.mjs <arquivo.zip|pasta> --tipo FAO|FAI|PROCEDIMENTOS`);
+  console.error('Uso: node tools/upload-ledi-lote.cjs <arquivo.zip|pasta> --tipo FAO|FAI|PROCEDIMENTOS');
   process.exit(1);
 }
 
@@ -51,8 +45,6 @@ async function main() {
     process.exit(1);
   }
   const token = login.accessToken;
-
-  let body;
   const name = path.basename(abs).replace(/\.zip$/i, '');
 
   if (fs.statSync(abs).isDirectory()) {
@@ -67,26 +59,21 @@ async function main() {
       console.error('Pasta sem .xml');
       process.exit(1);
     }
-    console.log(`Enviando ${files.length} XMLs (JSON)…`);
-    body = { name, expectedTipo, files };
+    console.log(`Enviando ${files.length} XMLs…`);
     const res = await fetch(`${API}/v1/dental/ledi/batches`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ name, expectedTipo, files }),
     });
     const data = await res.json();
     if (!res.ok) {
       console.error('Falha', res.status, data);
       process.exit(1);
     }
-    console.log('OK', {
-      id: data.id,
-      status: data.status,
-      summary: data.summary,
-    });
+    console.log('OK', { id: data.id, status: data.status, summary: data.summary });
     return;
   }
 
@@ -96,7 +83,6 @@ async function main() {
   }
 
   const buf = fs.readFileSync(abs);
-  const zipBase64 = buf.toString('base64');
   console.log(`Enviando ZIP ${path.basename(abs)} (${Math.round(buf.length / 1024)} KB)…`);
   const res = await fetch(`${API}/v1/dental/ledi/batches/from-zip`, {
     method: 'POST',
@@ -104,18 +90,18 @@ async function main() {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ name, expectedTipo, zipBase64 }),
+    body: JSON.stringify({
+      name,
+      expectedTipo,
+      zipBase64: buf.toString('base64'),
+    }),
   });
   const data = await res.json();
   if (!res.ok) {
     console.error('Falha', res.status, data);
     process.exit(1);
   }
-  console.log('OK', {
-    id: data.id,
-    status: data.status,
-    summary: data.summary,
-  });
+  console.log('OK', { id: data.id, status: data.status, summary: data.summary });
 }
 
 main().catch((e) => {
