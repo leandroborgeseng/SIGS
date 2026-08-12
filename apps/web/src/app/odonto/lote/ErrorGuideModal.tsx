@@ -44,7 +44,6 @@ export function ErrorGuideModal({
   onOpenFicha,
 }: Props) {
   const sev = resolveSeverity(code, repair.channel === 'PREVINE' ? 'MONEY_RISK' : 'BLOCKER');
-  const tone = severityTone(sev);
   const fields = fieldsForRepairUi(repair.ui);
   const canAuto = repair.mode === 'auto' && repair.batchable !== false && repair.ui && repair.ui !== 'manual';
 
@@ -81,8 +80,7 @@ export function ErrorGuideModal({
         </div>
       }
     >
-      <div className={`lote-guide lote-guide-${tone}`} style={{ margin: 0, border: 'none', background: 'transparent', padding: 0 }}>
-        <div className="lote-guide-grid">
+      <div className="lote-guide-grid">
           <div>
             <h4 style={{ marginTop: 0 }}>1. Entenda o problema</h4>
             <p style={{ marginTop: 0, fontSize: 14, lineHeight: 1.45 }}>{repair.why || repair.how}</p>
@@ -202,7 +200,6 @@ export function ErrorGuideModal({
             </div>
           </div>
         </div>
-      </div>
     </Modal>
   );
 }

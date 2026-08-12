@@ -6,6 +6,7 @@
 
   --canvas: #eef3f2;
   --surface: #ffffff;
+  --surface-1: #ffffff;
   --surface-2: #fafcfb;
   --surface-3: #f4f7f6;
   --ink: #1b2624;
@@ -1266,7 +1267,7 @@ a.search-chip:hover {
 }
 .ui-modal {
   width: min(960px, 100%);
-  background: var(--surface-1);
+  background: #ffffff;
   border-radius: var(--r-md);
   border: 1px solid var(--line);
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
@@ -1287,6 +1288,7 @@ a.search-chip:hover {
   align-items: flex-start;
   padding: 16px 18px 12px;
   border-bottom: 1px solid var(--line);
+  background: #ffffff;
 }
 .ui-modal-head h2 {
   margin: 0;
@@ -1300,11 +1302,12 @@ a.search-chip:hover {
   padding: 16px 18px;
   overflow: auto;
   flex: 1;
+  background: #ffffff;
 }
 .ui-modal-foot {
   padding: 12px 18px;
   border-top: 1px solid var(--line);
-  background: var(--surface-2);
+  background: #fafcfb;
 }
 .lote-modal-list {
   display: flex;
