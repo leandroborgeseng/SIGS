@@ -902,7 +902,17 @@ export class LediFaoBatchService {
   async delete(batchId: string) {
     await this.ensureBatch(batchId);
     await this.prisma.lediFaoBatch.delete({ where: { id: batchId } });
+    void this.prisma.audit('ledi_fao_batch_delete', 'ledi_fao_batch', batchId, [RF.ODONTO.id], {});
     return { ok: true };
+  }
+
+  /** Remove todos os lotes LEDI (análises de teste / lixo acumulado). */
+  async deleteAll() {
+    const result = await this.prisma.lediFaoBatch.deleteMany({});
+    void this.prisma.audit('ledi_fao_batch_delete_all', 'ledi_fao_batch', 'all', [RF.ODONTO.id], {
+      deleted: result.count,
+    });
+    return { ok: true, deleted: result.count };
   }
 
   private async ensureBatch(id: string) {

@@ -216,6 +216,55 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     setSelected(detail);
   }
 
+  async function deleteBatch(id: string, name?: string) {
+    const label = name || id.slice(0, 8);
+    if (!window.confirm(`Excluir a análise “${label}”? Isso apaga o lote e todas as fichas dele.`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/v1/dental/ledi/batches/${id}`, { method: 'DELETE' });
+      if (batch?.id === id) {
+        setBatch(null);
+        setItems([]);
+        setSelected(null);
+      }
+      setOk(`Análise “${label}” excluída.`);
+      await loadBatches();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao excluir');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteAllBatches() {
+    if (!batches.length) return;
+    if (
+      !window.confirm(
+        `Excluir TODAS as ${batches.length} análises deste tipo na lista? Não tem volta.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      // Exclui um a um os da lista filtrada (FAI ou Procedimentos), não todos os LEDI do servidor.
+      for (const b of batches) {
+        await api(`/v1/dental/ledi/batches/${b.id}`, { method: 'DELETE' });
+      }
+      setBatch(null);
+      setItems([]);
+      setSelected(null);
+      setOk(`${batches.length} análise(s) excluída(s).`);
+      await loadBatches();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao limpar lotes');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function fixSelectedSt() {
     if (!batch || !selected) return;
     setBusy(true);
@@ -277,16 +326,39 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
 
       {batches.length ? (
         <div className="card" style={{ marginBottom: 16 }}>
-          <h3 style={{ marginTop: 0 }}>Lotes recentes ({meta.label})</h3>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+            <h3 style={{ marginTop: 0, marginBottom: 0 }}>Lotes recentes ({meta.label})</h3>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={busy}
+              style={{ color: 'var(--danger)' }}
+              onClick={() => void deleteAllBatches()}
+            >
+              Limpar lista ({batches.length})
+            </button>
+          </div>
+          <ul style={{ margin: '12px 0 0', paddingLeft: 0, listStyle: 'none' }}>
             {batches.map((b) => (
-              <li key={b.id}>
+              <li
+                key={b.id}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}
+              >
                 <button
                   type="button"
                   className="btn btn-ghost"
                   onClick={() => void loadBatch(b.id).then(() => setBatch(b as Batch))}
                 >
                   {b.name} · {b.itemCount} fichas · {b.status}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={busy}
+                  style={{ color: 'var(--danger)', padding: '4px 8px' }}
+                  onClick={() => void deleteBatch(b.id, b.name)}
+                >
+                  Excluir
                 </button>
               </li>
             ))}
@@ -356,6 +428,15 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                 }
               >
                 Baixar só conformes
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={busy}
+                style={{ color: 'var(--danger)' }}
+                onClick={() => void deleteBatch(batch.id, batch.name)}
+              >
+                Excluir esta análise
               </button>
             </div>
           </div>

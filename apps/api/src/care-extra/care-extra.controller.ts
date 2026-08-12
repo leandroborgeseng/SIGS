@@ -154,6 +154,11 @@ export class CareExtraController {
     return this.faoBatches.appendFiles(batchId, dto.files || []);
   }
 
+  @Delete('dental/ledi/batches')
+  deleteAllFaoBatches() {
+    return this.faoBatches.deleteAll();
+  }
+
   @Get('dental/ledi/batches/:batchId')
   getFaoBatch(@Param('batchId') batchId: string) {
     return this.faoBatches.get(batchId);

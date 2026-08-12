@@ -554,6 +554,54 @@ export default function OdontoLotePage() {
     await patchSelected(body, `Ficha ${selected.fileName} revalidada.`);
   }
 
+  async function deleteBatch(id: string, name?: string) {
+    const label = name || id.slice(0, 8);
+    if (!window.confirm(`Excluir a análise “${label}”? Isso apaga o lote e todas as fichas dele.`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/v1/dental/ledi/batches/${id}`, { method: 'DELETE' });
+      if (batch?.id === id) {
+        setBatch(null);
+        setItems([]);
+        setSelected(null);
+        setSelectedIds(new Set());
+      }
+      setOk(`Análise “${label}” excluída.`);
+      await loadBatches();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao excluir');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteAllBatches() {
+    if (!batches.length) return;
+    if (
+      !window.confirm(
+        `Excluir TODAS as ${batches.length} análises/lotes LEDI? Isso limpa o lixo de testes e não tem volta.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api<{ deleted: number }>('/v1/dental/ledi/batches', { method: 'DELETE' });
+      setBatch(null);
+      setItems([]);
+      setSelected(null);
+      setSelectedIds(new Set());
+      setOk(`${res.deleted} análise(s) excluída(s).`);
+      await loadBatches();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao limpar lotes');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function filterByCode(code: string) {
     setCodeFilter((prev) => (prev === code ? '' : code));
     setSelected(null);
@@ -612,21 +660,49 @@ export default function OdontoLotePage() {
         </div>
         {uploadProgress ? <p className="muted">{uploadProgress}</p> : null}
         {batches.length ? (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-            {batches.map((b) => (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+              <strong style={{ fontSize: 13 }}>Análises salvas</strong>
               <button
-                key={b.id}
                 type="button"
-                className={`btn ${batch?.id === b.id ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => {
-                  setBatch(b as Batch);
-                  setCodeFilter('');
-                  setSelected(null);
-                }}
+                className="btn btn-ghost"
+                disabled={busy}
+                style={{ color: 'var(--danger)' }}
+                onClick={() => void deleteAllBatches()}
               >
-                {b.name} ({b.itemCount})
+                Limpar todas ({batches.length})
               </button>
-            ))}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {batches.map((b) => (
+                <div key={b.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <button
+                    type="button"
+                    className={`btn ${batch?.id === b.id ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => {
+                      setBatch(b as Batch);
+                      setCodeFilter('');
+                      setSelected(null);
+                    }}
+                  >
+                    {b.name} ({b.itemCount})
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    title="Excluir esta análise"
+                    disabled={busy}
+                    style={{ color: 'var(--danger)', padding: '4px 8px' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void deleteBatch(b.id, b.name);
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>
@@ -969,6 +1045,15 @@ export default function OdontoLotePage() {
                 }
               >
                 Baixar só conformes LEDI
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={busy}
+                style={{ color: 'var(--danger)' }}
+                onClick={() => void deleteBatch(batch.id, batch.name)}
+              >
+                Excluir esta análise
               </button>
             </div>
           </div>
