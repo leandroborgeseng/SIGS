@@ -513,9 +513,9 @@ export function lookupRepair(code: string): AlertRepair | undefined {
   }
   return {
     ...base!,
-    why: base!.why || explain?.why,
-    how: base!.how || explain?.how || base!.how,
-    title: base!.title || explain?.title || code,
+    why: explain?.why || base!.why,
+    how: explain?.how || base!.how,
+    title: explain?.title || base!.title || code,
   };
 }
 

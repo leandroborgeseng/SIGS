@@ -664,7 +664,8 @@ export default function OdontoLotePage() {
               <div>
                 <h4 style={{ marginBottom: 6 }}>Inconsistências de envio (LEDI/Siaps)</h4>
                 <p className="muted" style={{ marginTop: 0 }}>
-                  Clique numa barra para filtrar a lista. Corrigir estes códigos libera o aceite.
+                  Clique numa barra para filtrar. Estes erros impedem o aceite do envio (Siaps/Ministério) — a
+                  produção não “entra” até corrigir.
                 </p>
                 <div className="lote-bars">
                   {(batch.summary.topCodes || []).map((c) => {
@@ -703,9 +704,34 @@ export default function OdontoLotePage() {
               </div>
 
               <div>
-                <h4 style={{ marginBottom: 6 }}>Raio-x Previne (qualidade / B1–B6)</h4>
+                <h4 style={{ marginBottom: 6 }}>Raio-x Previne (qualidade / indicadores)</h4>
+                <p className="muted" style={{ marginTop: 0, marginBottom: 8 }}>
+                  O <strong>Previne Brasil</strong> dá nota (e influencia repasse) conforme a saúde bucal da cidade.
+                  Em linguagem simples:
+                </p>
+                <ul className="muted" style={{ marginTop: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.45 }}>
+                  <li>
+                    <strong>B1</strong> — quantas pessoas tiveram a <em>1ª consulta</em> com o dentista da equipe
+                  </li>
+                  <li>
+                    <strong>B2</strong> — entre quem começou, quantos <em>concluíram</em> o tratamento
+                  </li>
+                  <li>
+                    <strong>B3</strong> — quanto é <em>extração</em> (ideal: menos extração, mais prevenção)
+                  </li>
+                  <li>
+                    <strong>B4</strong> — escovação em grupo (não entra nesta ficha individual)
+                  </li>
+                  <li>
+                    <strong>B5</strong> — quanto é <em>prevenção</em> (flúor, limpeza, orientação)
+                  </li>
+                  <li>
+                    <strong>B6</strong> — uso de ART/TRA quando há restauração
+                  </li>
+                </ul>
                 <p className="muted" style={{ marginTop: 0 }}>
-                  O que o lote deixa de “carregar” para indicador — clique para filtrar.
+                  Clique numa barra para filtrar. “Risco” pode significar produção que <em>não pontua</em> no Previne,
+                  mesmo que o envio seja aceito.
                 </p>
                 {batch.summary.previne ? (
                   <>
@@ -997,7 +1023,11 @@ export default function OdontoLotePage() {
                     </div>
                   ) : null}
 
-                  <h4 style={{ marginBottom: 8 }}>Alertas — auto ou edição individual</h4>
+                  <h4 style={{ marginBottom: 8 }}>Alertas — em linguagem simples</h4>
+                  <p className="muted" style={{ marginTop: 0, fontSize: 12 }}>
+                    <strong>Bloqueio</strong> = não envia · <strong>Risco $</strong> = envia mas pode perder ponto/repasse
+                    no Previne · <strong>Atenção</strong> = qualidade · <strong>Info</strong> = só orientação.
+                  </p>
                   <div style={{ maxHeight: 280, overflow: 'auto', marginBottom: 12 }}>
                     <table style={{ width: '100%', fontSize: 12 }}>
                       <thead>
@@ -1029,12 +1059,12 @@ export default function OdontoLotePage() {
                                 <div>{'message' in f ? f.message : ''}</div>
                                 {guide?.why ? (
                                   <div className="muted" style={{ marginTop: 4 }}>
-                                    <strong>Por quê:</strong> {guide.why}
+                                    <strong>O que isso significa:</strong> {guide.why}
                                   </div>
                                 ) : null}
                                 {guide ? (
                                   <div className="muted">
-                                    <strong>Como corrigir:</strong> {guide.how}
+                                    <strong>O que fazer:</strong> {guide.how}
                                   </div>
                                 ) : null}
                               </td>
