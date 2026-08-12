@@ -1194,6 +1194,61 @@ a.search-chip:hover {
   color: var(--ok);
   font-weight: 600;
 }
+.lote-guide {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  background: var(--surface-1);
+  border-left: 5px solid var(--brand);
+}
+.lote-guide-blocker {
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger-bg) 35%, var(--surface-1));
+}
+.lote-guide-money {
+  border-left-color: var(--warn);
+  background: color-mix(in srgb, var(--warn-bg) 35%, var(--surface-1));
+}
+.lote-guide-quality {
+  border-left-color: #0f766e;
+  background: color-mix(in srgb, #ecfdf8 45%, var(--surface-1));
+}
+.lote-guide-info {
+  border-left-color: #64748b;
+}
+.lote-guide-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.lote-guide-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 18px;
+}
+@media (max-width: 900px) {
+  .lote-guide-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.lote-guide-steps {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.lote-guide-steps li {
+  margin-bottom: 6px;
+}
+.lote-guide-actions {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
 .lote-mode {
   display: inline-block;
   font-size: 10px;

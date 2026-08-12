@@ -18,6 +18,7 @@ import {
 } from './error-catalog';
 import { TreatmentDashboard, type TreatBucket } from './TreatmentDashboard';
 import type { TreatmentProgress } from './treatment-types';
+import { ErrorGuidePanel } from './ErrorGuidePanel';
 
 type BatchSummary = {
   total: number;
@@ -317,13 +318,8 @@ export default function OdontoLotePage() {
     }
   }
 
-  async function applySelectedRepair(code?: string) {
+  async function applySelectedRepair(code?: string, opts?: { allAffected?: boolean }) {
     if (!batch) return;
-    const ids = [...selectedIds];
-    if (!ids.length) {
-      setError('Selecione ao menos uma ficha na lista.');
-      return;
-    }
     const repairCode = code || codeFilter;
     const guide = repairCode ? lookupRepair(repairCode) : undefined;
     if (!guide || guide.mode !== 'auto' || !guide.ui || guide.ui === 'manual') {
@@ -332,6 +328,30 @@ export default function OdontoLotePage() {
           ? 'Este alerta exige correção individual — abra a ficha e edite os campos.'
           : 'Este alerta não tem correção automática em lote.',
       );
+      return;
+    }
+
+    let ids = [...selectedIds];
+    if (opts?.allAffected && repairCode) {
+      setBusy(true);
+      try {
+        const page = await api<{ total: number; items: ItemRow[] }>(
+          `/v1/dental/ledi/batches/${batch.id}/items?code=${encodeURIComponent(repairCode)}&limit=500`,
+        );
+        ids = page.items.map((it) => it.id);
+        setSelectedIds(new Set(ids));
+        setItems(page.items);
+        setItemsTotal(page.total);
+      } catch (err) {
+        setBusy(false);
+        setError(err instanceof Error ? err.message : 'Falha ao listar fichas afetadas');
+        return;
+      }
+    }
+
+    if (!ids.length) {
+      setBusy(false);
+      setError('Selecione ao menos uma ficha na lista (ou use “todas as afetadas”).');
       return;
     }
 
@@ -360,12 +380,13 @@ export default function OdontoLotePage() {
     } else {
       const patch = bodyForRepairUi(guide.ui, fields);
       if (!patch) {
+        setBusy(false);
         setError(
           guide.ui === 'ine'
-            ? 'Informe o INE no campo padrão antes de aplicar em lote.'
+            ? 'Informe o código da equipe (INE) no guia antes de aplicar.'
             : guide.ui === 'cnes'
-              ? 'Informe CNES com 7 dígitos.'
-              : 'Preencha os campos necessários para esta correção.',
+              ? 'Informe CNES com 7 dígitos no guia.'
+              : 'Preencha os campos do guia necessários para esta correção.',
         );
         return;
       }
@@ -383,7 +404,9 @@ export default function OdontoLotePage() {
         json: body,
       });
       setBatch(res);
-      setOk(`Correção “${guide.title}” aplicada em ${res.touched} ficha(s) selecionada(s).`);
+      setOk(
+        `“${guide.title}”: corrigidas ${res.touched} ficha(s). Veja se o contador deste erro caiu; se ainda houver vermelho, clique no próximo.`,
+      );
       await loadBatch(batch.id);
       if (selected && ids.includes(selected.id)) {
         const detail = await api<ItemDetail>(`/v1/dental/ledi/batches/${batch.id}/items/${selected.id}`);
@@ -534,14 +557,21 @@ export default function OdontoLotePage() {
   function filterByCode(code: string) {
     setCodeFilter((prev) => (prev === code ? '' : code));
     setSelected(null);
+    setTreatBucket('');
   }
+
+  /** Quando o filtro de erro carrega a lista, seleciona todas para facilitar a correção. */
+  useEffect(() => {
+    if (!codeFilter || !items.length) return;
+    setSelectedIds(new Set(items.map((it) => it.id)));
+  }, [codeFilter, items]);
 
   return (
     <AppShell helpId="odonto.lote-ledi">
       <PageHeader
         title="Lote LEDI FAO"
         eyebrow="Raio-x · correção · envio"
-        description="Diagnóstico Siaps/LEDI + Previne ESB, filtro por tipo de erro e correção individual ou em lote."
+        description="Clique em cada erro para ver o roteiro completo: o que significa, como corrigir e auto-correção quando for seguro."
         actions={
           <>
             <HelpLink id="odonto.lote-ledi" />
@@ -875,42 +905,50 @@ export default function OdontoLotePage() {
               </div>
             </div>
 
-            {codeFilter ? (
-              <div className="lote-toolbar" style={{ marginTop: 14 }}>
-                <span>
-                  Filtro:{' '}
-                  <strong>{activeRepair?.title || codeFilter}</strong>
-                  {activeRepair ? (
-                    <>
-                      {' '}
-                      <span className={`lote-mode ${activeRepair.mode}`}>
-                        {activeRepair.mode === 'auto'
-                          ? 'Auto'
-                          : activeRepair.mode === 'individual'
-                            ? 'Individual'
-                            : 'Info'}
-                      </span>
-                    </>
-                  ) : null}
-                </span>
-                {activeRepair ? <span className="muted">{activeRepair.how}</span> : null}
-                <button type="button" className="btn btn-secondary" onClick={() => setCodeFilter('')}>
-                  Limpar filtro
-                </button>
-                {activeRepair?.mode === 'auto' && activeRepair.batchable ? (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={busy || selectedIds.size === 0}
-                    onClick={() => void applySelectedRepair(codeFilter)}
-                  >
-                    Auto-corrigir {selectedIds.size || '…'} selecionada(s)
-                  </button>
-                ) : null}
-                {activeRepair?.mode === 'individual' ? (
-                  <span className="muted">Abra cada ficha na lista e edite os campos destacados.</span>
-                ) : null}
-              </div>
+            {codeFilter && activeRepair ? (
+              <ErrorGuidePanel
+                code={codeFilter}
+                repair={activeRepair}
+                affectedCount={itemsTotal || items.length}
+                selectedCount={selectedIds.size}
+                busy={busy}
+                fieldValues={{
+                  ine: ineDefault || editIne,
+                  ciap: bulkCiap || ciap,
+                  cid10: bulkCid || cid10,
+                  cbo: editCbo,
+                  vigilancia,
+                  tipoConsulta,
+                  turno,
+                  gestante,
+                  local: localAtend,
+                  cnes,
+                  ibge,
+                }}
+                onFieldChange={(key, value) => {
+                  if (key === 'ine') {
+                    setIneDefault(value);
+                    setEditIne(value);
+                  } else if (key === 'ciap') {
+                    setBulkCiap(value);
+                    setCiap(value);
+                  } else if (key === 'cid10') {
+                    setBulkCid(value);
+                    setCid10(value);
+                  } else if (key === 'cbo') setEditCbo(value);
+                  else if (key === 'vigilancia') setVigilancia(value);
+                  else if (key === 'tipoConsulta') setTipoConsulta(value);
+                  else if (key === 'turno') setTurno(value);
+                  else if (key === 'gestante') setGestante(value);
+                  else if (key === 'local') setLocalAtend(value);
+                  else if (key === 'cnes') setCnes(value);
+                  else if (key === 'ibge') setIbge(value);
+                }}
+                onClear={() => setCodeFilter('')}
+                onFixSelected={() => void applySelectedRepair(codeFilter)}
+                onFixAllAffected={() => void applySelectedRepair(codeFilter, { allAffected: true })}
+                onSelectAllVisible={() => setSelectedIds(new Set(items.map((it) => it.id)))}
+              />
             ) : null}
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>

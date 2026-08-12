@@ -33,6 +33,10 @@ export type AlertRepair = {
   batchable?: boolean;
   /** Campo do formulário individual a destacar */
   focusField?: string;
+  /** Passos orientados até a ficha ficar pronta para envio */
+  steps?: string[];
+  /** O que “100% pronta” significa para este alerta */
+  readyGoal?: string;
 };
 
 const AUTO = (partial: Omit<AlertRepair, 'mode'>): AlertRepair => ({
@@ -500,23 +504,102 @@ export function lookupRepair(code: string): AlertRepair | undefined {
   const explain = explainError(code);
   if (!base && !explain) return undefined;
   if (!base && explain) {
-    const knownAuto = code in AUTO_REPAIRS;
     return {
       title: explain.title,
       where: explain.field || explain.channel,
       how: explain.how,
       why: explain.why,
       channel: explain.channel === 'PREVINE' ? 'PREVINE' : 'LEDI',
-      mode: knownAuto ? 'auto' : 'individual',
+      mode: 'individual',
       ui: 'manual',
+      focusField: 'xml',
+      readyGoal: 'Ficha aceita no Siaps sem este alerta.',
+      steps: defaultSteps('individual', explain.title),
     };
   }
+  const mode = base!.mode;
   return {
     ...base!,
     why: explain?.why || base!.why,
     how: explain?.how || base!.how,
     title: explain?.title || base!.title || code,
+    readyGoal:
+      base!.readyGoal ||
+      (mode === 'auto'
+        ? 'Zerar este alerta nas fichas afetadas e seguir para o próximo bloqueio vermelho.'
+        : mode === 'individual'
+          ? 'Corrigir cada ficha (ou reexportar) até o alerta sumir e a ficha ficar apta ao envio.'
+          : 'Entender o impacto; só alterar a produção se o caso clínico exigir.'),
+    steps: base!.steps?.length ? base!.steps : defaultSteps(mode, explain?.title || base!.title),
   };
+}
+
+function defaultSteps(mode: RepairMode, title: string): string[] {
+  if (mode === 'auto') {
+    return [
+      `Leia o motivo: “${title}”.`,
+      'Preencha os campos padrão abaixo (INE, CIAP, CNES…), se o botão pedir.',
+      'Clique em “Corrigir todas as afetadas” (ou selecione e corrija só algumas).',
+      'Confira no painel se o contador deste erro diminuiu.',
+      'Trate o próximo alerta vermelho; só depois os laranjas (faturamento).',
+    ];
+  }
+  if (mode === 'individual') {
+    return [
+      `Leia o motivo: “${title}”.`,
+      'Abra uma ficha da lista filtrada (já está filtrada por este erro).',
+      'Ajuste o campo indicado no formulário da ficha ou corrija na origem e reexporte o XML.',
+      'Salve/revalide a ficha e confira se o alerta sumiu.',
+      'Repita nas demais fichas deste filtro até zerar o bloqueio.',
+    ];
+  }
+  return [
+    `Este item (“${title}”) é orientação de indicador/qualidade.`,
+    'Não bloqueia o envio sozinho — trate depois dos vermelhos e laranjas.',
+    'Só mude a ficha se o atendimento realmente deveria ter o procedimento/conduta indicado.',
+  ];
+}
+
+/** Campos do formulário que o guia deve exibir para este ui. */
+export function fieldsForRepairUi(ui?: AlertRepair['ui']): Array<{
+  key: string;
+  label: string;
+  placeholder?: string;
+}> {
+  switch (ui) {
+    case 'ine':
+      return [{ key: 'ine', label: 'Código da equipe (INE)', placeholder: '0002165929' }];
+    case 'ciap':
+      return [
+        { key: 'ciap', label: 'CIAP (problema)', placeholder: 'D82' },
+        { key: 'cid10', label: 'CID-10 (opcional)', placeholder: 'K02.1' },
+      ];
+    case 'cbo':
+      return [{ key: 'cbo', label: 'CBO do profissional', placeholder: '223208' }];
+    case 'vigilancia':
+      return [{ key: 'vigilancia', label: 'Códigos de vigilância', placeholder: '1,3' }];
+    case 'consulta':
+    case 'encam_15':
+      return [{ key: 'tipoConsulta', label: 'Tipo de consulta (1=1ª, 2=retorno)', placeholder: '1' }];
+    case 'turno':
+      return [{ key: 'turno', label: 'Turno (1 manhã, 2 tarde, 3 noite)', placeholder: '2' }];
+    case 'gestante':
+      return [{ key: 'gestante', label: 'Gestante (true/false)', placeholder: 'false' }];
+    case 'local':
+      return [{ key: 'local', label: 'Local de atendimento (1=UBS)', placeholder: '1' }];
+    case 'cnes':
+      return [{ key: 'cnes', label: 'CNES (7 dígitos)', placeholder: '2092528' }];
+    case 'ibge':
+      return [{ key: 'ibge', label: 'Código IBGE do município', placeholder: '3516200' }];
+    case 'st_cpf':
+      return [];
+    case 'proc_b1':
+    case 'proc_prev':
+    case 'proc_art':
+      return [];
+    default:
+      return [];
+  }
 }
 
 export function isAutoRepair(code: string): boolean {
