@@ -1042,6 +1042,44 @@ export default function OdontoLotePage() {
               </div>
             </div>
 
+            <div
+              className="lote-funnel-legend"
+              style={{
+                marginTop: 10,
+                marginBottom: 16,
+                padding: '12px 14px',
+                borderRadius: 8,
+                border: '1px solid var(--line)',
+                background: 'var(--surface-2)',
+                fontSize: 13,
+                lineHeight: 1.45,
+              }}
+            >
+              <strong style={{ display: 'block', marginBottom: 8 }}>O que significam estes números</strong>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                <li>
+                  <strong>Total fichas</strong> — quantidade de XMLs neste lote (cada arquivo = uma ficha
+                  odontológica).
+                </li>
+                <li>
+                  <strong>Prontas Siaps</strong> — fichas <em>sem bloqueio de envio</em> (zero BLOCKER LEDI).
+                  Podem ir para o Siaps/SISAB. Não garante qualidade de indicador.
+                </li>
+                <li>
+                  <strong>Prontas Previne</strong> — fichas sem risco de dinheiro/indicador Previne ESB
+                  (B1–B6 / INE / vigilância etc.). Aceitas no Siaps ainda podem ficar fora desta conta.
+                </li>
+                <li>
+                  <strong>Envio final OK</strong> — interseção: Siaps-ready <em>e</em> Previne-ready. É o
+                  alvo ideal antes de baixar o ZIP “conformes” para o governo.
+                </li>
+              </ul>
+              <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>
+                Ex.: 90% Siaps e 21% envio final = a maior parte já envia, mas ainda falta qualidade Previne
+                (ou ambos) em muitas fichas. Trate vermelho → laranja → verde.
+              </p>
+            </div>
+
             {batch.summary.byTipo?.length ? (
               <div style={{ marginBottom: 16 }}>
                 <h4 style={{ marginBottom: 6 }}>Tipos de ficha neste lote</h4>
