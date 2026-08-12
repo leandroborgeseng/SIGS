@@ -7,6 +7,7 @@ import type { FaoFinding } from './ledi-fao.validator';
 
 export const AUTO_FIXABLE_CODES = new Set([
   'ST_NAO_POSSUI_CPF',
+  'JUSTIFICATIVA_CPF_MISSING',
   'INE_MISSING',
   'PREVINE_INE_MISSING',
   'PROBLEMAS_MISSING',
@@ -335,7 +336,7 @@ export function fixCbo(xml: string, cbo: string): { xml: string; changed: boolea
   return { xml: next, changed };
 }
 
-/** Substitui/insere tag simples no primeiro atendimento. */
+/** Substitui/insere tag simples nos blocos de atendimento (FAO/FAI/PROC). */
 export function fixAtendimentoField(
   xml: string,
   tag: string,
@@ -344,9 +345,10 @@ export function fixAtendimentoField(
   const safeTag = tag.replace(/[^\w]/g, '');
   if (!safeTag) return { xml, changed: false };
   let changed = false;
-  const next = xml.replace(
-    /(<atendimentosOdontologicos\b[^>]*>)([\s\S]*?)(<\/atendimentosOdontologicos>)/i,
-    (_m, open: string, body: string, close: string) => {
+  let next = xml;
+  for (const block of ST_CPF_BLOCKS) {
+    const reBlock = new RegExp(`(<${block}\\b[^>]*>)([\\s\\S]*?)(<\\/${block}>)`, 'gi');
+    next = next.replace(reBlock, (_m, open: string, body: string, close: string) => {
       const re = new RegExp(`<${safeTag}\\b[^>]*>[\\s\\S]*?<\\/${safeTag}>`, 'i');
       if (re.test(body)) {
         changed = true;
@@ -359,7 +361,158 @@ export function fixAtendimentoField(
           `</tipoAtendimento>\n<${safeTag}>${escapeXml(value)}</${safeTag}>`,
         )}${close}`;
       }
+      if (/<\/sexo>/i.test(body)) {
+        return `${open}${body.replace(
+          /<\/sexo>/i,
+          `</sexo>\n<${safeTag}>${escapeXml(value)}</${safeTag}>`,
+        )}${close}`;
+      }
       return `${open}${body}\n<${safeTag}>${escapeXml(value)}</${safeTag}>${close}`;
+    });
+  }
+  return { xml: next, changed };
+}
+
+/** Remove tag do atendimento (ex.: CPF ou CNS quando os dois estão presentes). */
+export function removeAtendimentoField(xml: string, tag: string): { xml: string; changed: boolean } {
+  const safeTag = tag.replace(/[^\w]/g, '');
+  if (!safeTag) return { xml, changed: false };
+  let changed = false;
+  let next = xml;
+  for (const block of ST_CPF_BLOCKS) {
+    const reBlock = new RegExp(`(<${block}\\b[^>]*>)([\\s\\S]*?)(<\\/${block}>)`, 'gi');
+    next = next.replace(reBlock, (_m, open: string, body: string, close: string) => {
+      const re = new RegExp(`<${safeTag}\\b[^>]*>[\\s\\S]*?<\\/${safeTag}>\\s*`, 'gi');
+      if (!re.test(body)) return `${open}${body}${close}`;
+      changed = true;
+      return `${open}${body.replace(re, '')}${close}`;
+    });
+  }
+  return { xml: next, changed };
+}
+
+export function fixCpfCidadao(xml: string, cpf: string): { xml: string; changed: boolean } {
+  const clean = cpf.replace(/\D/g, '');
+  if (clean.length !== 11) return { xml, changed: false };
+  return fixAtendimentoField(xml, 'cpfCidadao', clean);
+}
+
+export function fixCnsCidadao(xml: string, cns: string): { xml: string; changed: boolean } {
+  const clean = cns.replace(/\D/g, '');
+  if (clean.length < 15 || clean.length > 16) return { xml, changed: false };
+  return fixAtendimentoField(xml, 'cnsCidadao', clean);
+}
+
+/** Mantém só CPF ou só CNS (resolve CPF_CNS_BOTH). */
+export function fixKeepCitizenId(
+  xml: string,
+  keep: 'cpf' | 'cns',
+): { xml: string; changed: boolean } {
+  return removeAtendimentoField(xml, keep === 'cpf' ? 'cnsCidadao' : 'cpfCidadao');
+}
+
+/** dtNascimento: aceita YYYY-MM-DD ou epoch ms. */
+export function fixDtNascimento(xml: string, value: string): { xml: string; changed: boolean } {
+  const raw = value.trim();
+  let epoch: string | null = null;
+  if (/^\d{13}$/.test(raw)) epoch = raw;
+  else if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const t = Date.parse(`${raw}T12:00:00.000Z`);
+    if (Number.isFinite(t)) epoch = String(t);
+  }
+  if (!epoch) return { xml, changed: false };
+  return fixAtendimentoField(xml, 'dtNascimento', epoch);
+}
+
+export function fixSexo(xml: string, sexo: 0 | 1 | string): { xml: string; changed: boolean } {
+  const s = String(sexo);
+  if (s !== '0' && s !== '1') return { xml, changed: false };
+  return fixAtendimentoField(xml, 'sexo', s);
+}
+
+export function fixProfissionalCns(xml: string, cns: string): { xml: string; changed: boolean } {
+  const clean = cns.replace(/\D/g, '');
+  if (clean.length < 15 || clean.length > 16) return { xml, changed: false };
+  let changed = false;
+  let next = xml;
+  if (/<profissionalCNS\b/i.test(next)) {
+    next = next.replace(
+      /<profissionalCNS\b[^>]*>[\s\S]*?<\/profissionalCNS>/i,
+      `<profissionalCNS>${clean}</profissionalCNS>`,
+    );
+    changed = true;
+  } else if (/<lotacaoFormPrincipal\b/i.test(next)) {
+    next = next.replace(
+      /(<lotacaoFormPrincipal\b[^>]*>)/i,
+      `$1\n<profissionalCNS>${clean}</profissionalCNS>`,
+    );
+    changed = true;
+  }
+  return { xml: next, changed };
+}
+
+/** dataAtendimento no header (epoch ms ou YYYY-MM-DD). */
+export function fixDataAtendimento(xml: string, value: string): { xml: string; changed: boolean } {
+  const raw = value.trim();
+  let epoch: string | null = null;
+  if (/^\d{13}$/.test(raw)) epoch = raw;
+  else if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const t = Date.parse(`${raw}T12:00:00.000Z`);
+    if (Number.isFinite(t)) epoch = String(t);
+  }
+  if (!epoch) return { xml, changed: false };
+  let changed = false;
+  let next = xml;
+  if (/<dataAtendimento\b/i.test(next)) {
+    next = next.replace(
+      /<dataAtendimento\b[^>]*>[\s\S]*?<\/dataAtendimento>/i,
+      `<dataAtendimento>${epoch}</dataAtendimento>`,
+    );
+    changed = true;
+  } else if (/<headerTransport\b/i.test(next)) {
+    next = next.replace(
+      /(<\/lotacaoFormPrincipal>)/i,
+      `$1\n<dataAtendimento>${epoch}</dataAtendimento>`,
+    );
+    changed = /<dataAtendimento>/.test(next);
+  }
+  return { xml: next, changed };
+}
+
+export function fixDataHoraAtendimento(
+  xml: string,
+  which: 'inicial' | 'final',
+  value: string,
+): { xml: string; changed: boolean } {
+  const tag = which === 'inicial' ? 'dataHoraInicialAtendimento' : 'dataHoraFinalAtendimento';
+  const raw = value.trim();
+  let epoch: string | null = null;
+  if (/^\d{13}$/.test(raw)) epoch = raw;
+  else {
+    const t = Date.parse(raw);
+    if (Number.isFinite(t)) epoch = String(t);
+  }
+  if (!epoch) return { xml, changed: false };
+  return fixAtendimentoField(xml, tag, epoch);
+}
+
+/** Substitui a lista de condutas (tiposEncamOdonto). */
+export function fixTiposEncamOdonto(
+  xml: string,
+  codes: number[],
+): { xml: string; changed: boolean } {
+  if (!codes.length) return { xml, changed: false };
+  const tags = codes.map((c) => `<tiposEncamOdonto>${c}</tiposEncamOdonto>`).join('\n');
+  let changed = false;
+  const next = xml.replace(
+    /(<atendimentosOdontologicos\b[^>]*>)([\s\S]*?)(<\/atendimentosOdontologicos>)/i,
+    (_m, open: string, body: string, close: string) => {
+      changed = true;
+      const without = body.replace(/<tiposEncamOdonto\b[^>]*>[\s\S]*?<\/tiposEncamOdonto>\s*/gi, '');
+      if (/<\/tipoAtendimento>/i.test(without)) {
+        return `${open}${without.replace(/<\/tipoAtendimento>/i, `</tipoAtendimento>\n${tags}`)}${close}`;
+      }
+      return `${open}${without}\n${tags}${close}`;
     },
   );
   return { xml: next, changed };
@@ -373,6 +526,66 @@ export function fixTurno(xml: string, turno: number): { xml: string; changed: bo
 
 export function fixGestante(xml: string, gestante: boolean): { xml: string; changed: boolean } {
   return fixAtendimentoField(xml, 'gestante', gestante ? 'true' : 'false');
+}
+
+/** Motivo oficial de não possuir CPF (JustificativaNaoPossuiCpfDbEnum). */
+export function fixJustificativaNaoPossuiCpf(
+  xml: string,
+  code: number,
+): { xml: string; changed: boolean } {
+  const n = Number(code);
+  const allowed = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 99]);
+  if (!allowed.has(n)) return { xml, changed: false };
+
+  let changed = false;
+  let next = xml;
+
+  for (const tag of ST_CPF_BLOCKS) {
+    const re = new RegExp(`(<${tag}\\b[^>]*>)([\\s\\S]*?)(<\\/${tag}>)`, 'gi');
+    next = next.replace(re, (_m, open: string, body: string, close: string) => {
+      let bodyNext = body;
+      // Garante stNaoPossuiCpf=true quando há justificativa
+      if (/<stNaoPossuiCpf\b/i.test(bodyNext)) {
+        bodyNext = bodyNext.replace(
+          /<stNaoPossuiCpf\b[^>]*>[\s\S]*?<\/stNaoPossuiCpf>/i,
+          '<stNaoPossuiCpf>true</stNaoPossuiCpf>',
+        );
+      } else if (/<\/gestante>/i.test(bodyNext)) {
+        bodyNext = bodyNext.replace(
+          /<\/gestante>/i,
+          '</gestante>\n<stNaoPossuiCpf>true</stNaoPossuiCpf>',
+        );
+      } else if (/<\/tipoAtendimento>/i.test(bodyNext)) {
+        bodyNext = bodyNext.replace(
+          /<\/tipoAtendimento>/i,
+          '</tipoAtendimento>\n<stNaoPossuiCpf>true</stNaoPossuiCpf>',
+        );
+      } else {
+        bodyNext = `<stNaoPossuiCpf>true</stNaoPossuiCpf>\n${bodyNext}`;
+      }
+
+      const reJ = /<justificativaNaoPossuiCpf\b[^>]*>[\s\S]*?<\/justificativaNaoPossuiCpf>/i;
+      if (reJ.test(bodyNext)) {
+        changed = true;
+        bodyNext = bodyNext.replace(
+          reJ,
+          `<justificativaNaoPossuiCpf>${n}</justificativaNaoPossuiCpf>`,
+        );
+      } else if (/<\/stNaoPossuiCpf>/i.test(bodyNext)) {
+        changed = true;
+        bodyNext = bodyNext.replace(
+          /<\/stNaoPossuiCpf>/i,
+          `</stNaoPossuiCpf>\n<justificativaNaoPossuiCpf>${n}</justificativaNaoPossuiCpf>`,
+        );
+      } else {
+        changed = true;
+        bodyNext = `${bodyNext}\n<justificativaNaoPossuiCpf>${n}</justificativaNaoPossuiCpf>`;
+      }
+      return `${open}${bodyNext}${close}`;
+    });
+  }
+
+  return { xml: next, changed };
 }
 
 export function fixLocalAtendimento(xml: string, local: number): { xml: string; changed: boolean } {

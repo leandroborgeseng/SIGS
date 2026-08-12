@@ -6,7 +6,8 @@ import {
   fieldsForRepairUi,
   type AlertRepair,
 } from './repair-catalog';
-import { resolveSeverity, severityLabel, severityTone } from './error-catalog';
+import { resolveSeverity, severityLabel } from './error-catalog';
+import { JUSTIFICATIVA_NAO_POSSUI_CPF } from './justificativa-cpf';
 
 export type AffectedFichaRow = {
   id: string;
@@ -57,7 +58,7 @@ export function ErrorGuideModal({
         <span>
           <span className={`lote-sev ${sev}`}>{severityLabel(sev)}</span>{' '}
           <span className={`lote-mode ${repair.mode}`}>
-            {repair.mode === 'auto' ? 'Pode corrigir em lote' : repair.mode === 'individual' ? 'Ficha a ficha' : 'Só orientação'}
+            {repair.mode === 'auto' ? 'Pode corrigir em lote' : repair.mode === 'individual' ? 'Ficha a ficha' : repair.mode === 'reexport' ? 'Só na origem' : 'Só orientação'}
           </span>{' '}
           · {affectedTotal} ficha(s) com este problema
         </span>
@@ -129,6 +130,21 @@ export function ErrorGuideModal({
                           onChange={(v) => onFieldChange(f.key, v)}
                           placeholder={f.placeholder}
                         />
+                      ) : f.key === 'justificativa' ? (
+                        <div className="field" key={f.key} style={{ gridColumn: '1 / -1' }}>
+                          <label>{f.label}</label>
+                          <select
+                            value={fieldValues[f.key] || ''}
+                            onChange={(e) => onFieldChange(f.key, e.target.value)}
+                          >
+                            <option value="">Selecione o motivo…</option>
+                            {JUSTIFICATIVA_NAO_POSSUI_CPF.map((opt) => (
+                              <option key={opt.code} value={String(opt.code)}>
+                                {opt.code} — {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       ) : (
                         <div className="field" key={f.key}>
                           <label>{f.label}</label>
@@ -149,12 +165,15 @@ export function ErrorGuideModal({
               </div>
             ) : null}
 
-            {repair.mode === 'individual' ? (
+            {repair.mode === 'individual' || repair.mode === 'reexport' ? (
               <div className="lote-guide-actions" style={{ marginTop: 0 }}>
-                <h4 style={{ marginTop: 0 }}>Correção ficha a ficha</h4>
+                <h4 style={{ marginTop: 0 }}>
+                  {repair.mode === 'reexport' ? 'Reexportar / outro fluxo' : 'Correção ficha a ficha'}
+                </h4>
                 <p style={{ fontSize: 14, marginTop: 0 }}>
-                  Este erro depende de dado único (CPF, CNS, data…) ou de reexportação. Abra cada ficha na lista
-                  abaixo, corrija os campos e salve.
+                  {repair.mode === 'reexport'
+                    ? 'Este erro depende de reexportação ou de enviar a ficha na tela do tipo certo. Exclua do lote ou corrija na origem.'
+                    : 'Este erro depende de dado único (CPF, CNS, data…) ou de reexportação. Abra cada ficha na lista abaixo, corrija os campos e salve.'}
                 </p>
               </div>
             ) : null}

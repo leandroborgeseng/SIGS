@@ -2,6 +2,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsIn,
   IsInt,
   IsObject,
   IsOptional,
@@ -147,11 +148,14 @@ export class AutoFixLediFaoBatchDto {
   @IsOptional() @IsInt() localAtendimento?: number;
   @IsOptional() @IsString() cnes?: string;
   @IsOptional() @IsString() codigoIbgeMunicipio?: string;
+  /** Motivo de não possuir CPF (1–13, 99) — exigido com stNaoPossuiCpf=true. */
+  @IsOptional() @IsInt() justificativaNaoPossuiCpf?: number;
 }
 
 export class PatchLediFaoBatchItemDto {
   @IsOptional() @IsString() ine?: string;
   @IsOptional() @IsBoolean() stNaoPossuiCpf?: boolean;
+  @IsOptional() @IsInt() justificativaNaoPossuiCpf?: number;
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -175,6 +179,24 @@ export class PatchLediFaoBatchItemDto {
   @IsOptional() @IsInt() localAtendimento?: number;
   @IsOptional() @IsString() cnes?: string;
   @IsOptional() @IsString() codigoIbgeMunicipio?: string;
+  /** CPF do cidadão (11 dígitos). */
+  @IsOptional() @IsString() cpfCidadao?: string;
+  /** CNS do cidadão (15–16 dígitos). */
+  @IsOptional() @IsString() cnsCidadao?: string;
+  /** Mantém só um ID quando CPF e CNS estão juntos. */
+  @IsOptional() @IsIn(['cpf', 'cns']) keepCitizenId?: 'cpf' | 'cns';
+  /** Nascimento YYYY-MM-DD ou epoch ms. */
+  @IsOptional() @IsString() dtNascimento?: string;
+  /** 0=masculino, 1=feminino */
+  @IsOptional() @IsString() sexo?: string;
+  /** CNS do profissional na lotação. */
+  @IsOptional() @IsString() profissionalCNS?: string;
+  /** dataAtendimento no header (YYYY-MM-DD ou epoch). */
+  @IsOptional() @IsString() dataAtendimento?: string;
+  @IsOptional() @IsString() dataHoraInicialAtendimento?: string;
+  @IsOptional() @IsString() dataHoraFinalAtendimento?: string;
+  /** Substitui condutas tiposEncamOdonto. */
+  @IsOptional() @IsArray() tiposEncamOdonto?: number[];
   /** Substitui o XML inteiro (edição avançada). */
   @IsOptional() @IsString() xml?: string;
 }

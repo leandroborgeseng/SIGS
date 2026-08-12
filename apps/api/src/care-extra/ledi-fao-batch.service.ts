@@ -6,15 +6,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
-import { validateFaoXml, type FaoFinding } from './ledi-fao.validator';
-import { validateFaiXml } from './ledi-fai.validator';
-import { validateProcXml } from './ledi-proc.validator';
+import { type FaoFinding } from './ledi-fao.validator';
 import { extractFaoMasterFromXml } from './ledi-fao-xml.parser';
 import {
   aggregatePrevineXrays,
   type PrevineXray,
 } from './ledi-fao-previne-xray';
 import { detectLediFichaTipo } from './ledi-ficha-tipo';
+import { runRulesEngine } from '../clinical-core/rules-engine';
 import {
   applyAutoFixes,
   classifyAutoFixable,
@@ -22,10 +21,20 @@ import {
   addTiposEncamOdonto,
   fixCbo,
   fixCnes,
+  fixCnsCidadao,
+  fixCpfCidadao,
+  fixDataAtendimento,
+  fixDataHoraAtendimento,
+  fixDtNascimento,
   fixGestante,
   fixIbge,
   fixIne,
+  fixJustificativaNaoPossuiCpf,
+  fixKeepCitizenId,
   fixLocalAtendimento,
+  fixProfissionalCns,
+  fixSexo,
+  fixTiposEncamOdonto,
   fixTiposVigilanciaSaudeBucal,
   fixProblemasCondicoes,
   fixStNaoPossuiCpf,
@@ -86,31 +95,13 @@ export class LediFaoBatchService {
   }
 
   private reportFromXml(xml: string, expectedTipo: LediLoteTipo = 'FAO'): UnifiedReport {
-    if (expectedTipo === 'FAI') {
-      const r = validateFaiXml(xml);
-      return {
-        findings: r.findings,
-        siapsReady: r.siapsReady,
-        previneReady: r.previneReady,
-        readyForFinalSend: r.readyForFinalSend,
-      };
-    }
-    if (expectedTipo === 'PROCEDIMENTOS') {
-      const r = validateProcXml(xml);
-      return {
-        findings: r.findings,
-        siapsReady: r.siapsReady,
-        previneReady: r.previneReady,
-        readyForFinalSend: r.readyForFinalSend,
-      };
-    }
-    const r = validateFaoXml(xml);
+    const engine = runRulesEngine({ xml, rulePack: expectedTipo, includePrevine: true });
     return {
-      findings: r.findings,
-      siapsReady: r.siapsReady,
-      previneReady: r.previneReady,
-      readyForFinalSend: r.readyForFinalSend,
-      previneXray: r.previneXray,
+      findings: engine.findings as FaoFinding[],
+      siapsReady: engine.siapsReady,
+      previneReady: engine.previneReady,
+      readyForFinalSend: engine.readyForFinalSend,
+      previneXray: engine.previneXray,
     };
   }
 
@@ -748,6 +739,17 @@ export class LediFaoBatchService {
         }
       }
 
+      if (
+        dto.justificativaNaoPossuiCpf != null &&
+        (force || codes.has('JUSTIFICATIVA_CPF_MISSING'))
+      ) {
+        const r = fixJustificativaNaoPossuiCpf(xml, dto.justificativaNaoPossuiCpf);
+        if (r.changed) {
+          xml = r.xml;
+          changed = true;
+        }
+      }
+
       if (!changed) continue;
       await this.persistXml(item.id, xml, expectedTipo);
       touched += 1;
@@ -785,6 +787,12 @@ export class LediFaoBatchService {
         `<stNaoPossuiCpf>${dto.stNaoPossuiCpf}</stNaoPossuiCpf>`,
       );
       applied.push('ST_NAO_POSSUI_CPF');
+    }
+
+    if (dto.justificativaNaoPossuiCpf != null) {
+      const r = fixJustificativaNaoPossuiCpf(xml, dto.justificativaNaoPossuiCpf);
+      xml = r.xml;
+      if (r.changed) applied.push('JUSTIFICATIVA_CPF');
     }
 
     if (dto.problemasCondicoes?.length) {
@@ -851,6 +859,66 @@ export class LediFaoBatchService {
       const r = fixIbge(xml, dto.codigoIbgeMunicipio);
       xml = r.xml;
       if (r.changed) applied.push('IBGE');
+    }
+
+    if (dto.keepCitizenId === 'cpf' || dto.keepCitizenId === 'cns') {
+      const r = fixKeepCitizenId(xml, dto.keepCitizenId);
+      xml = r.xml;
+      if (r.changed) applied.push('KEEP_CITIZEN_ID');
+    }
+
+    if (dto.cpfCidadao?.trim()) {
+      const r = fixCpfCidadao(xml, dto.cpfCidadao);
+      xml = r.xml;
+      if (r.changed) applied.push('CPF');
+    }
+
+    if (dto.cnsCidadao?.trim()) {
+      const r = fixCnsCidadao(xml, dto.cnsCidadao);
+      xml = r.xml;
+      if (r.changed) applied.push('CNS');
+    }
+
+    if (dto.dtNascimento?.trim()) {
+      const r = fixDtNascimento(xml, dto.dtNascimento);
+      xml = r.xml;
+      if (r.changed) applied.push('DT_NASCIMENTO');
+    }
+
+    if (dto.sexo === '0' || dto.sexo === '1') {
+      const r = fixSexo(xml, dto.sexo);
+      xml = r.xml;
+      if (r.changed) applied.push('SEXO');
+    }
+
+    if (dto.profissionalCNS?.trim()) {
+      const r = fixProfissionalCns(xml, dto.profissionalCNS);
+      xml = r.xml;
+      if (r.changed) applied.push('PROF_CNS');
+    }
+
+    if (dto.dataAtendimento?.trim()) {
+      const r = fixDataAtendimento(xml, dto.dataAtendimento);
+      xml = r.xml;
+      if (r.changed) applied.push('DATA_ATENDIMENTO');
+    }
+
+    if (dto.dataHoraInicialAtendimento?.trim()) {
+      const r = fixDataHoraAtendimento(xml, 'inicial', dto.dataHoraInicialAtendimento);
+      xml = r.xml;
+      if (r.changed) applied.push('HORA_INI');
+    }
+
+    if (dto.dataHoraFinalAtendimento?.trim()) {
+      const r = fixDataHoraAtendimento(xml, 'final', dto.dataHoraFinalAtendimento);
+      xml = r.xml;
+      if (r.changed) applied.push('HORA_FIM');
+    }
+
+    if (dto.tiposEncamOdonto?.length) {
+      const r = fixTiposEncamOdonto(xml, dto.tiposEncamOdonto);
+      xml = r.xml;
+      if (r.changed) applied.push('CONDUTAS');
     }
 
     if (dto.xml?.trim()) {

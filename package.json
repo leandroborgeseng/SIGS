@@ -11,6 +11,7 @@
     "start:faturamento": "bash scripts/start-faturamento-odonto.sh",
     "build": "npm run build --workspace=@sigs/api && npm run build --workspace=@sigs/web",
     "test": "npm run test --workspace=@sigs/api",
+    "sync:ledi-errors": "node scripts/sync-ledi-error-registry.mjs",
     "db:migrate": "npm run db:migrate --workspace=@sigs/api",
     "db:generate": "npm run db:generate --workspace=@sigs/api"
   },

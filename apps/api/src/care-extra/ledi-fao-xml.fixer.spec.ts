@@ -7,6 +7,12 @@ import {
   fixTiposVigilanciaSaudeBucal,
   fixTurno,
   fixGestante,
+  fixJustificativaNaoPossuiCpf,
+  fixCpfCidadao,
+  fixDtNascimento,
+  fixSexo,
+  fixKeepCitizenId,
+  fixTiposEncamOdonto,
 } from './ledi-fao-xml.fixer';
 import { validateFaoXml } from './ledi-fao.validator';
 
@@ -104,5 +110,52 @@ describe('ledi-fao-xml.fixer', () => {
     const g = fixGestante(t.xml.replace(/<gestante>false<\/gestante>/, ''), false);
     expect(g.changed).toBe(true);
     expect(g.xml).toMatch(/<gestante>false<\/gestante>/);
+  });
+
+  it('preenche justificativaNaoPossuiCpf e stNaoPossuiCpf=true', () => {
+    const withSt = SAMPLE.replace(
+      '</gestante>',
+      '</gestante>\n<stNaoPossuiCpf>true</stNaoPossuiCpf>',
+    );
+    const before = validateFaoXml(withSt);
+    expect(before.findings.some((f) => f.code === 'JUSTIFICATIVA_CPF_MISSING')).toBe(true);
+
+    const { xml, changed } = fixJustificativaNaoPossuiCpf(withSt, 5);
+    expect(changed).toBe(true);
+    expect(xml).toMatch(/<justificativaNaoPossuiCpf>5<\/justificativaNaoPossuiCpf>/);
+    expect(xml).toMatch(/<stNaoPossuiCpf>true<\/stNaoPossuiCpf>/);
+
+    const after = validateFaoXml(xml);
+    expect(after.findings.some((f) => f.code === 'JUSTIFICATIVA_CPF_MISSING')).toBe(false);
+  });
+
+  it('P1: corrige CPF, nascimento, sexo e condutas', () => {
+    const noBirth = SAMPLE.replace(/<dtNascimento>[\s\S]*?<\/dtNascimento>/i, '');
+    const born = fixDtNascimento(noBirth, '1990-05-12');
+    expect(born.changed).toBe(true);
+    expect(born.xml).toMatch(/<dtNascimento>\d{10,13}<\/dtNascimento>/);
+
+    const sex = fixSexo(born.xml, '0');
+    expect(sex.changed).toBe(true);
+    expect(sex.xml).toMatch(/<sexo>0<\/sexo>/);
+
+    const withBoth = sex.xml.replace(
+      '<cnsCidadao>703601040321538</cnsCidadao>',
+      '<cnsCidadao>703601040321538</cnsCidadao>\n<cpfCidadao>52998224725</cpfCidadao>',
+    );
+    const keep = fixKeepCitizenId(withBoth, 'cns');
+    expect(keep.changed).toBe(true);
+    expect(keep.xml).toMatch(/<cnsCidadao>/);
+    expect(keep.xml).not.toMatch(/<cpfCidadao>/);
+
+    const cpf = fixCpfCidadao(SAMPLE.replace(/<cnsCidadao>[\s\S]*?<\/cnsCidadao>/i, ''), '52998224725');
+    expect(cpf.changed).toBe(true);
+    expect(cpf.xml).toMatch(/<cpfCidadao>52998224725<\/cpfCidadao>/);
+
+    const cond = fixTiposEncamOdonto(SAMPLE, [15, 1]);
+    expect(cond.changed).toBe(true);
+    expect(cond.xml).toMatch(/<tiposEncamOdonto>15<\/tiposEncamOdonto>/);
+    expect(cond.xml).toMatch(/<tiposEncamOdonto>1<\/tiposEncamOdonto>/);
+    expect(cond.xml).not.toMatch(/<tiposEncamOdonto>16<\/tiposEncamOdonto>/);
   });
 });

@@ -118,7 +118,13 @@ model Patient {
   addressCity        String?   @map("address_city")
   addressState       String?   @map("address_state")
   addressZip         String?   @map("address_zip")
+  /** false = unificado em outro Paciente Mestre */
+  active             Boolean   @default(true)
+  mergedIntoId       String?   @map("merged_into_id")
   createdAt          DateTime  @default(now()) @map("created_at")
+
+  mergedInto Patient?  @relation("PatientMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom Patient[] @relation("PatientMerge")
 
   links PatientTeamLink[]
   slots AppointmentSlot[]
@@ -129,7 +135,13 @@ model Patient {
   queueTickets QueueTicket[]
   prescriptions Prescription[]
   regulationRequests RegulationRequest[]
+  identifiers PatientIdentifier[]
+  matchCandidatesAsLeft PatientMatchCandidate[] @relation("MatchLeft")
+  matchCandidatesAsRight PatientMatchCandidate[] @relation("MatchRight")
+  matchCandidatesAsWinner PatientMatchCandidate[] @relation("MatchWinner")
+  productionRecords ProductionRecord[]
 
+  @@index([active, civilName])
   @@map("patients")
 }
 
@@ -612,4 +624,102 @@ model LediFaoBatchItem {
 
   @@index([batchId, status])
   @@map("ledi_fao_batch_items")
+}
+
+/// Identificadores vinculados ao Paciente Mestre (CPF, CNS, prontuário, temp LEDI…).
+/// CPF/CNS em `patients` permanecem denormalizados para compat UI; esta tabela é a fonte de verdade.
+model PatientIdentifier {
+  id         String    @id @default(uuid())
+  patientId  String    @map("patient_id")
+  /// cpf | cns | prontuario_local | uuid_ledi | tmp_ledi | other
+  system     String
+  value      String
+  /// official | secondary | temp | old
+  use        String    @default("official")
+  /// cadastro | ledi_xml | merge | manual | migration
+  source     String    @default("cadastro")
+  verifiedAt DateTime? @map("verified_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([system, value])
+  @@index([patientId])
+  @@map("patient_identifiers")
+}
+
+/// Candidatos de unificação de pacientes (confiança HIGH/MEDIUM/LOW).
+model PatientMatchCandidate {
+  id              String    @id @default(uuid())
+  leftPatientId   String    @map("left_patient_id")
+  rightPatientId  String    @map("right_patient_id")
+  /// HIGH | MEDIUM | LOW
+  confidence      String
+  score           Float     @default(0)
+  /// auto_merged | pending_review | signal_only | rejected | merged_manual
+  status          String    @default("signal_only")
+  evidenceJson    String    @default("{}") @map("evidence_json")
+  winnerPatientId String?   @map("winner_patient_id")
+  reviewedAt      DateTime? @map("reviewed_at")
+  reviewedBy      String?   @map("reviewed_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  leftPatient   Patient  @relation("MatchLeft", fields: [leftPatientId], references: [id], onDelete: Cascade)
+  rightPatient  Patient  @relation("MatchRight", fields: [rightPatientId], references: [id], onDelete: Cascade)
+  winnerPatient Patient? @relation("MatchWinner", fields: [winnerPatientId], references: [id], onDelete: SetNull)
+
+  @@index([status, confidence])
+  @@index([leftPatientId, rightPatientId])
+  @@map("patient_match_candidates")
+}
+
+/// Evento de auditoria do motor clínico (validate/repair/merge/migrate).
+model ClinicalAuditEvent {
+  id         String   @id @default(uuid())
+  /// validate | repair | merge | migrate | export
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  payloadJson String  @default("{}") @map("payload_json")
+  actorId    String?  @map("actor_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+  @@map("clinical_audit_events")
+}
+
+/**
+ * Produção clínica persistida a partir de migração LEDI / atendimento nativo (A2).
+ * Domínio Sigs* — não é o XML legado.
+ */
+model ProductionRecord {
+  id              String   @id @default(uuid())
+  patientId       String   @map("patient_id")
+  /// FAO | FAI | PROCEDIMENTOS | NATIVE
+  fichaTipo       String   @map("ficha_tipo")
+  uuidFicha       String?  @map("uuid_ficha")
+  facilityCnes    String?  @map("facility_cnes")
+  professionalCns String?  @map("professional_cns")
+  cbo             String?
+  ine             String?
+  periodStart     DateTime? @map("period_start")
+  periodEnd       DateTime? @map("period_end")
+  /// JSON SigsEncounter (FHIR-like)
+  encounterJson   String   @map("encounter_json")
+  /// XML origem (opcional, auditoria/migração)
+  sourceXml       String?  @map("source_xml")
+  /// migration | native | ledi_batch
+  source          String   @default("migration")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([uuidFicha])
+  @@index([patientId, fichaTipo])
+  @@index([facilityCnes, periodStart])
+  @@map("production_records")
 }

@@ -12,6 +12,7 @@ Antes de implementar o sistema municipal ou extrair specs do e-SUS, consulte:
 - `docs/requisitos/RF-SGS-Franca-Anexo-I.md` — 601 requisitos do TR
 - `docs/requisitos/gap-analysis.md` — TR × e-SUS × esforço
 - `docs/planejamento/estrategia-reescrita-fase1.md` — **fase atual: reescrita backend-first**
+- `docs/planejamento/arquitetura-fhir-motor-paciente-mestre.md` — **núcleo: FHIR-like · motor único · Paciente Mestre · migração XML**
 - `docs/rastreabilidade/cobertura-rf.md` — Obrigatório/Desejável + faturamento
 - `docs/manuais/` — manuais (DoD; usuário pode stub se UI pendente)
 - `docs/design/PROMPT-CLAUDE-DESIGN-SGS.md` — UI final na **fase 2**

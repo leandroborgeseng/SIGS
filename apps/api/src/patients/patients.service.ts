@@ -65,6 +65,7 @@ export class PatientsService {
   async search(q?: string, birthDate?: string) {
     const rows = await this.prisma.patient.findMany({
       where: {
+        active: true,
         ...(birthDate ? { birthDate: new Date(birthDate) } : {}),
         ...(q
           ? {
@@ -81,6 +82,23 @@ export class PatientsService {
       orderBy: { civilName: 'asc' },
     });
     return rows.map((r) => this.map(r));
+  }
+
+  private async syncIdentifiers(patientId: string, cpf?: string | null, cns?: string | null) {
+    if (cpf) {
+      await this.prisma.patientIdentifier.upsert({
+        where: { system_value: { system: 'cpf', value: cpf } },
+        create: { patientId, system: 'cpf', value: cpf, use: 'official', source: 'cadastro' },
+        update: { patientId, use: 'official', source: 'cadastro' },
+      });
+    }
+    if (cns) {
+      await this.prisma.patientIdentifier.upsert({
+        where: { system_value: { system: 'cns', value: cns } },
+        create: { patientId, system: 'cns', value: cns, use: 'official', source: 'cadastro' },
+        update: { patientId, use: 'official', source: 'cadastro' },
+      });
+    }
   }
 
   async create(dto: CreatePatientDto) {
@@ -112,6 +130,7 @@ export class PatientsService {
         addressZip: dto.addressZip,
       },
     });
+    await this.syncIdentifiers(row.id, row.cpf, row.cns);
     await this.prisma.audit('create', 'patient', row.id, [RF.PATIENT.id, RF.PATIENT_LIST.id]);
     return this.map(row);
   }
@@ -191,6 +210,7 @@ export class PatientsService {
         addressZip: dto.addressZip !== undefined ? dto.addressZip : current.addressZip,
       },
     });
+    await this.syncIdentifiers(row.id, row.cpf, row.cns);
     await this.prisma.audit('update', 'patient', row.id, [RF.PATIENT.id]);
     return this.map(row);
   }

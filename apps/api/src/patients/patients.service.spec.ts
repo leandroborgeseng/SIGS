@@ -9,6 +9,9 @@ describe('PatientsService validation rules', () => {
         update: jest.fn(),
         findMany: jest.fn(),
       },
+      patientIdentifier: {
+        upsert: jest.fn().mockResolvedValue({}),
+      },
       audit: jest.fn(),
     };
     const service = new PatientsService(prisma as never);

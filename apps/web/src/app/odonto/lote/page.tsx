@@ -224,6 +224,17 @@ export default function OdontoLotePage() {
   const [localAtend, setLocalAtend] = useState('1');
   const [cnes, setCnes] = useState('');
   const [ibge, setIbge] = useState('3516200');
+  const [justificativa, setJustificativa] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [cns, setCns] = useState('');
+  const [keepId, setKeepId] = useState('');
+  const [nascimento, setNascimento] = useState('');
+  const [sexo, setSexo] = useState('');
+  const [profCns, setProfCns] = useState('');
+  const [dataAtend, setDataAtend] = useState('');
+  const [horaIni, setHoraIni] = useState('');
+  const [horaFim, setHoraFim] = useState('');
+  const [condutas, setCondutas] = useState('');
   const [focusField, setFocusField] = useState<string>('');
 
   const loadBatches = useCallback(async () => {
@@ -406,6 +417,7 @@ export default function OdontoLotePage() {
       local: localAtend,
       cnes,
       ibge,
+      justificativa,
     };
 
     let body: Record<string, unknown> = {
@@ -425,7 +437,9 @@ export default function OdontoLotePage() {
             ? 'Informe o código da equipe (INE) no guia antes de aplicar.'
             : guide.ui === 'cnes'
               ? 'Informe CNES com 7 dígitos no guia.'
-              : 'Preencha os campos do guia necessários para esta correção.',
+              : guide.ui === 'justificativa'
+                ? 'Selecione a justificativa de não ter CPF no guia antes de aplicar.'
+                : 'Preencha os campos do guia necessários para esta correção.',
         );
         return;
       }
@@ -477,7 +491,23 @@ export default function OdontoLotePage() {
       setLocalAtend('1');
       setCnes('');
       setIbge('3516200');
-      setFocusField('');
+      setJustificativa('');
+      setCpf('');
+      setCns('');
+      setKeepId('');
+      setNascimento('');
+      setSexo('');
+      setProfCns('');
+      setDataAtend('');
+      setHoraIni('');
+      setHoraFim('');
+      setCondutas('');
+      const prefer =
+        detail.findings.find((f) => f.code === 'JUSTIFICATIVA_CPF_MISSING') ||
+        detail.findings.find((f) => f.severity === 'BLOCKER') ||
+        detail.findings[0];
+      const guide = prefer ? lookupRepair(prefer.code) : undefined;
+      setFocusField(guide?.focusField || (guide?.ui === 'justificativa' ? 'justificativa' : ''));
       setFichaModalOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao abrir ficha');
@@ -556,6 +586,17 @@ export default function OdontoLotePage() {
     localAtend: string;
     cnes: string;
     ibge: string;
+    justificativa: string;
+    cpf: string;
+    cns: string;
+    keepId: string;
+    nascimento: string;
+    sexo: string;
+    profCns: string;
+    dataAtend: string;
+    horaIni: string;
+    horaFim: string;
+    condutas: string;
     procExtra: string;
     focusField: string;
   }>) {
@@ -570,6 +611,17 @@ export default function OdontoLotePage() {
     if (patch.localAtend !== undefined) setLocalAtend(patch.localAtend);
     if (patch.cnes !== undefined) setCnes(patch.cnes);
     if (patch.ibge !== undefined) setIbge(patch.ibge);
+    if (patch.justificativa !== undefined) setJustificativa(patch.justificativa);
+    if (patch.cpf !== undefined) setCpf(patch.cpf);
+    if (patch.cns !== undefined) setCns(patch.cns);
+    if (patch.keepId !== undefined) setKeepId(patch.keepId);
+    if (patch.nascimento !== undefined) setNascimento(patch.nascimento);
+    if (patch.sexo !== undefined) setSexo(patch.sexo);
+    if (patch.profCns !== undefined) setProfCns(patch.profCns);
+    if (patch.dataAtend !== undefined) setDataAtend(patch.dataAtend);
+    if (patch.horaIni !== undefined) setHoraIni(patch.horaIni);
+    if (patch.horaFim !== undefined) setHoraFim(patch.horaFim);
+    if (patch.condutas !== undefined) setCondutas(patch.condutas);
     if (patch.procExtra !== undefined) setProcExtra(patch.procExtra);
     if (patch.focusField !== undefined) setFocusField(patch.focusField);
   }
@@ -609,7 +661,7 @@ export default function OdontoLotePage() {
       setError('Alerta informativo — sem correção automática segura.');
       return;
     }
-    if (guide.mode === 'individual') {
+    if (guide.mode === 'individual' || guide.mode === 'reexport') {
       focusIndividualEdit(guide.focusField);
       setOk(`Edite a ficha abaixo: ${guide.how}`);
       return;
@@ -634,6 +686,7 @@ export default function OdontoLotePage() {
       local: localAtend,
       cnes,
       ibge,
+      justificativa,
     });
     if (!patch) {
       setError(
@@ -641,7 +694,9 @@ export default function OdontoLotePage() {
           ? 'Informe o INE no campo da ficha.'
           : guide.ui === 'cnes'
             ? 'Informe CNES com 7 dígitos.'
-            : 'Campos incompletos.',
+            : guide.ui === 'justificativa'
+              ? 'Selecione a justificativa de não ter CPF.'
+              : 'Campos incompletos.',
       );
       focusIndividualEdit(guide.focusField || guide.ui);
       return;
@@ -671,6 +726,28 @@ export default function OdontoLotePage() {
     if (localAtend) body.localAtendimento = Number(localAtend);
     if (cnes.replace(/\D/g, '').length === 7) body.cnes = cnes.replace(/\D/g, '');
     if (ibge.replace(/\D/g, '').length === 7) body.codigoIbgeMunicipio = ibge.replace(/\D/g, '');
+    if (justificativa) {
+      const n = Number(justificativa);
+      if ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 99].includes(n)) {
+        body.justificativaNaoPossuiCpf = n;
+      }
+    }
+    if (keepId === 'cpf' || keepId === 'cns') body.keepCitizenId = keepId;
+    if (cpf.replace(/\D/g, '').length === 11) body.cpfCidadao = cpf.replace(/\D/g, '');
+    if (cns.replace(/\D/g, '').length >= 15) body.cnsCidadao = cns.replace(/\D/g, '');
+    if (nascimento) body.dtNascimento = nascimento;
+    if (sexo === '0' || sexo === '1') body.sexo = sexo;
+    if (profCns.replace(/\D/g, '').length >= 15) body.profissionalCNS = profCns.replace(/\D/g, '');
+    if (dataAtend) body.dataAtendimento = dataAtend;
+    if (horaIni.trim()) body.dataHoraInicialAtendimento = horaIni.trim();
+    if (horaFim.trim()) body.dataHoraFinalAtendimento = horaFim.trim();
+    if (condutas.trim()) {
+      const codes = condutas
+        .split(/[,;\s]+/)
+        .map((x) => Number(x))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (codes.length) body.tiposEncamOdonto = codes;
+    }
     if (procExtra.trim()) {
       body.procedimentosAdd = procExtra
         .split(/[,;\s]+/)
@@ -1302,6 +1379,7 @@ export default function OdontoLotePage() {
                 local: localAtend,
                 cnes,
                 ibge,
+                justificativa,
               }}
               onFieldChange={(key, value) => {
                 if (key === 'ine') {
@@ -1321,6 +1399,7 @@ export default function OdontoLotePage() {
                 else if (key === 'local') setLocalAtend(value);
                 else if (key === 'cnes') setCnes(value);
                 else if (key === 'ibge') setIbge(value);
+                else if (key === 'justificativa') setJustificativa(value);
               }}
               onClose={closeErrorModal}
               onFixAllAffected={() => void applySelectedRepair(codeFilter, { allAffected: true })}
@@ -1344,6 +1423,17 @@ export default function OdontoLotePage() {
               localAtend,
               cnes,
               ibge,
+              justificativa,
+              cpf,
+              cns,
+              keepId,
+              nascimento,
+              sexo,
+              profCns,
+              dataAtend,
+              horaIni,
+              horaFim,
+              condutas,
               procExtra,
               focusField,
             }}

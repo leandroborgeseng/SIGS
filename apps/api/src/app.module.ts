@@ -16,6 +16,7 @@ import { QueueModule } from './queue/queue.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { RegulationModule } from './regulation/regulation.module';
 import { LediModule } from './ledi/ledi.module';
+import { ClinicalCoreModule } from './clinical-core/clinical-core.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { LediModule } from './ledi/ledi.module';
     PrescriptionsModule,
     RegulationModule,
     LediModule,
+    ClinicalCoreModule,
   ],
 })
 export class AppModule {}

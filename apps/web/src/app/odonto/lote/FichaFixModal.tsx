@@ -10,6 +10,8 @@ import {
   severityRank,
   severityTone,
 } from './error-catalog';
+import { JUSTIFICATIVA_NAO_POSSUI_CPF } from './justificativa-cpf';
+import { CONDUTAS_ODONTO } from './condutas-odonto';
 
 type FindingLike = {
   code: string;
@@ -51,6 +53,17 @@ type FormState = {
   localAtend: string;
   cnes: string;
   ibge: string;
+  justificativa: string;
+  cpf: string;
+  cns: string;
+  keepId: string;
+  nascimento: string;
+  sexo: string;
+  profCns: string;
+  dataAtend: string;
+  horaIni: string;
+  horaFim: string;
+  condutas: string;
   procExtra: string;
   focusField: string;
 };
@@ -141,7 +154,7 @@ export function FichaFixModal({
               return (
                 <div key={`${code}-${i}`} className={`lote-alert-row ${tone}`} style={{ padding: 10, marginBottom: 8, borderRadius: 8 }}>
                   <span className={`lote-mode ${mode}`}>
-                    {mode === 'auto' ? 'Auto' : mode === 'individual' ? 'Individual' : 'Info'}
+                    {mode === 'auto' ? 'Auto' : mode === 'individual' ? 'Individual' : mode === 'reexport' ? 'Reexport' : 'Info'}
                   </span>
                   <span className={`lote-sev ${sev}`}>{severityLabel(sev)}</span>
                   <div style={{ marginTop: 6 }}>
@@ -163,7 +176,7 @@ export function FichaFixModal({
                         {guide.button}
                       </button>
                     ) : null}
-                    {mode === 'individual' ? (
+                    {mode === 'individual' || mode === 'reexport' ? (
                       <button
                         type="button"
                         className="btn btn-secondary"
@@ -248,6 +261,127 @@ export function FichaFixModal({
               <label>IBGE município</label>
               <input value={form.ibge} onChange={(e) => setForm({ ibge: e.target.value })} />
             </div>
+
+            <div className={`field ${form.focusField === 'cpf' ? 'focus-hint' : ''}`}>
+              <label>CPF do cidadão</label>
+              <input
+                value={form.cpf}
+                onChange={(e) => setForm({ cpf: e.target.value })}
+                placeholder="11 dígitos"
+                inputMode="numeric"
+              />
+            </div>
+            <div className={`field ${form.focusField === 'cns' ? 'focus-hint' : ''}`}>
+              <label>CNS do cidadão</label>
+              <input
+                value={form.cns}
+                onChange={(e) => setForm({ cns: e.target.value })}
+                placeholder="15 dígitos"
+                inputMode="numeric"
+              />
+            </div>
+            <div className={`field ${form.focusField === 'keepId' ? 'focus-hint' : ''}`}>
+              <label>Se CPF e CNS juntos, manter</label>
+              <select value={form.keepId} onChange={(e) => setForm({ keepId: e.target.value })}>
+                <option value="">—</option>
+                <option value="cns">Manter CNS (remove CPF)</option>
+                <option value="cpf">Manter CPF (remove CNS)</option>
+              </select>
+            </div>
+            <div className={`field ${form.focusField === 'nascimento' ? 'focus-hint' : ''}`}>
+              <label>Data de nascimento</label>
+              <input
+                type="date"
+                value={form.nascimento}
+                onChange={(e) => setForm({ nascimento: e.target.value })}
+              />
+            </div>
+            <div className={`field ${form.focusField === 'sexo' ? 'focus-hint' : ''}`}>
+              <label>Sexo</label>
+              <select value={form.sexo} onChange={(e) => setForm({ sexo: e.target.value })}>
+                <option value="">—</option>
+                <option value="0">0 — masculino</option>
+                <option value="1">1 — feminino</option>
+              </select>
+            </div>
+            <div className={`field ${form.focusField === 'profCns' ? 'focus-hint' : ''}`}>
+              <label>CNS do profissional</label>
+              <input
+                value={form.profCns}
+                onChange={(e) => setForm({ profCns: e.target.value })}
+                placeholder="15 dígitos"
+                inputMode="numeric"
+              />
+            </div>
+            <div className={`field ${form.focusField === 'dataAtend' ? 'focus-hint' : ''}`}>
+              <label>Data do atendimento</label>
+              <input
+                type="date"
+                value={form.dataAtend}
+                onChange={(e) => setForm({ dataAtend: e.target.value })}
+              />
+            </div>
+            <div className={`field ${form.focusField === 'horaIni' ? 'focus-hint' : ''}`}>
+              <label>Início (ISO ou epoch)</label>
+              <input
+                value={form.horaIni}
+                onChange={(e) => setForm({ horaIni: e.target.value })}
+                placeholder="2026-08-12T14:00:00"
+              />
+            </div>
+            <div className={`field ${form.focusField === 'horaFim' ? 'focus-hint' : ''}`}>
+              <label>Fim (ISO ou epoch)</label>
+              <input
+                value={form.horaFim}
+                onChange={(e) => setForm({ horaFim: e.target.value })}
+                placeholder="2026-08-12T14:30:00"
+              />
+            </div>
+            <div
+              className={`field ${form.focusField === 'condutas' ? 'focus-hint' : ''}`}
+              style={{ gridColumn: '1 / -1' }}
+            >
+              <label>Condutas (tiposEncamOdonto)</label>
+              <select
+                multiple
+                value={form.condutas ? form.condutas.split(',').filter(Boolean) : []}
+                onChange={(e) => {
+                  const vals = Array.from(e.target.selectedOptions).map((o) => o.value);
+                  setForm({ condutas: vals.join(',') });
+                }}
+                style={{ minHeight: 88 }}
+              >
+                {CONDUTAS_ODONTO.map((c) => (
+                  <option key={c.code} value={String(c.code)}>
+                    {c.code} — {c.label}
+                  </option>
+                ))}
+              </select>
+              <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
+                Segure Ctrl/Cmd para marcar várias. Substitui a lista de condutas da ficha.
+              </p>
+            </div>
+
+            <div
+              className={`field ${form.focusField === 'justificativa' ? 'focus-hint' : ''}`}
+              style={{ gridColumn: '1 / -1' }}
+            >
+              <label>Justificativa de não ter CPF</label>
+              <select
+                value={form.justificativa}
+                onChange={(e) => setForm({ justificativa: e.target.value })}
+              >
+                <option value="">Selecione o motivo (quando não possui CPF)…</option>
+                {JUSTIFICATIVA_NAO_POSSUI_CPF.map((opt) => (
+                  <option key={opt.code} value={String(opt.code)}>
+                    {opt.code} — {opt.label}
+                  </option>
+                ))}
+              </select>
+              <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
+                Use se a ficha marcar que o cidadão não tem CPF. Ou corrija o cadastro e informe CPF/CNS.
+              </p>
+            </div>
             <div className={`field ${form.focusField === 'proc' ? 'focus-hint' : ''}`} style={{ gridColumn: '1 / -1' }}>
               <label>Procedimentos SIGTAP extras</label>
               <input
@@ -259,8 +393,8 @@ export function FichaFixModal({
             {form.focusField === 'xml' ? (
               <div className="field focus-hint" style={{ gridColumn: '1 / -1' }}>
                 <label>
-                  Este alerta exige ajuste no XML de origem (CPF/CNS/data/UUID). Corrija no sistema legado,
-                  reexporte e reenvie o arquivo neste lote.
+                  Este alerta exige ajuste no XML de origem (UUID/envelope/tipo). Corrija no sistema legado,
+                  reexporte e reenvie o arquivo neste lote — ou exclua a ficha.
                 </label>
               </div>
             ) : null}

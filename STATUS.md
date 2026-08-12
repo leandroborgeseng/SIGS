@@ -1,23 +1,23 @@
 # STATUS — SIGS
 
-- **etapa_atual**: **Prioridade 1 — Lote LEDI FAO (faturamento odonto)** em execução local
+- **etapa_atual**: **LEDI P1 ✅** · núcleo A0–A4 ok · próximo P2 / aceite lote
 - **como usar agora:**
-  1. UI: http://localhost:3000 → login → abre direto em `/odonto/lote`
+  1. UI lote: http://localhost:3000 → `/odonto/lote`
   2. Login: `admin@sigs.local` / `admin123`
-  3. Enviar XMLs → auto-correção → editar restante → baixar ZIP
+  3. Núcleo: `POST /v1/clinical-core/{normalize-ledi,migrate,match,match-queue,export/rnds}`
+  4. Arquitetura: `docs/planejamento/arquitetura-fhir-motor-paciente-mestre.md`
 - **servidores locais:** API `:3001` · Web `:3000` (`npm run dev`)
-- **feito:**
-  - Lote LEDI FAO API + UI (upload, auto-fix, ZIP)
-  - **Lote FAI** (`/aps/lote`) + **Lote Procedimentos** (`/procedimentos/lote`)
-  - **Raio-x Previne ESB (B1–B6)** + alertas com **botão/guia de correção** na UI
-  - Patch ficha: INE, CIAP, CBO, vigilância, procs (B1/B5/B6), conduta 15, turno/gestante/local/CNES/IBGE
-  - **UI:** cada alerta com modo **Auto** (botão) ou **Individual** (editar ficha)
-  - Entrada do sistema redireciona para `/odonto/lote`
-  - Deploy: `Dockerfile` + `docker-compose.yml` + `docs/planejamento/deploy-railway-coolify.md`
-- **canal:** LEDI FAO → Siaps → RNDS · Previne ESB como inteligência pré-envio
-- **backlog registrado:**
-  - Indicadores Previne (`14-…`) · vínculos obrigatórios (`15-…`)
-- **proxima_acao:** validar amostra Novas Fichas (FAI/PROC) nas novas telas · lote 1131 FAO · NT 30/2025
+- **feito (núcleo):**
+  - FHIR-like `Sigs*` + adapter LEDI XML
+  - Motor único no lote (`runRulesEngine` / A3-lite)
+  - Paciente Mestre + `PatientIdentifier`
+  - Unificação HIGH/MEDIUM/LOW + merge de FKs + fila de revisão
+  - Migração XML → `ProductionRecord` (`POST /migrate`)
+  - Stub exporter RNDS
+  - P0 registry LEDI (78 códigos)
+  - **LEDI P1:** campos individuais no modal (CPF/CNS/nascimento/sexo/prof CNS/datas/condutas/keepId)
+- **canal:** LEDI XML → domínio Sigs* → Exporter LEDI (hoje) / RNDS (stub)
+- **proxima_acao:** LEDI P2 (órfãos semi/auto: tpCdsOrigem, PROC_QTD…) **ou** validar lote Franca 1131
 - **docker:** `docker compose up --build`
 
 _Atualizado em 2026-08-12_
