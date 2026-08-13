@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+// Preferir URL pública (build-time). Fallback `/api` usa rewrite do Next
+// (API_INTERNAL_URL) — correto no Railway PROCESS_ROLE=all / same-origin.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 export class ApiError extends Error {
   status: number;

@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { assertBootEnv } from './infra/boot-env';
 import { QueueService } from './infra/queue/queue.service';
 
 /**
@@ -8,11 +9,8 @@ import { QueueService } from './infra/queue/queue.service';
  * Uso: `node dist/worker.main.js` com REDIS_URL.
  */
 async function bootstrap() {
+  assertBootEnv('worker');
   const log = new Logger('Worker');
-  if (!process.env.REDIS_URL) {
-    log.error('REDIS_URL obrigatório para o worker');
-    process.exit(1);
-  }
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
@@ -22,6 +20,7 @@ async function bootstrap() {
 }
 
 bootstrap().catch((err) => {
-  console.error(err);
+  // eslint-disable-next-line no-console
+  console.error('SIGS worker falhou ao subir:', err instanceof Error ? err.message : err);
   process.exit(1);
 });

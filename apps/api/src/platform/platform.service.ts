@@ -22,8 +22,11 @@ export class PlatformService {
       database: 'postgresql',
       storage: this.storage.getDriver(),
       queue: this.queue.isInline() ? 'inline' : 'redis-bullmq',
+      uptimeSec: Math.floor(process.uptime()),
+      ts: new Date().toISOString(),
     };
   }
+
 
   async readiness() {
     const checks: Record<string, { ok: boolean; detail?: string }> = {};

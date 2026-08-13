@@ -7,13 +7,14 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { PermissionsGuard } from './permissions.guard';
+import { resolveJwtSecret } from '../infra/boot-env';
 
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'sigs-dev-secret-change-me',
-      signOptions: { expiresIn: '12h' },
+      secret: resolveJwtSecret(),
+      signOptions: { expiresIn: (process.env.JWT_EXPIRES || '12h') as `${number}${'s' | 'm' | 'h' | 'd'}` },
     }),
   ],
   controllers: [AuthController],

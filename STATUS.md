@@ -16,6 +16,7 @@
 - **API:** `GET /v1/dental/faturamento-queue?forceSync=1` · `POST …/sync` · `POST …/void` (só rascunho)
 - **params:** `REQUIRE_INE_DENTAL_OPEN` · `DENTAL_DEFAULT_TIPO_ATENDIMENTO=5` · `MUNICIPIO_IBGE`
 - **gap:** VOID pós-`COMPLETED` (estorno LEDI) — desenho §12
+- **deploy:** hardening Railway — fail-fast `DATABASE_URL`/`JWT_SECRET`, health `/api/health`+`/api/ready`, Redis/Bull opcional (inline), Dockerfile HEALTHCHECK
 - **próximo:** smoke Railway (deploy A–D) · **Onda 2 / Stream F (Previne na origem) adiado**
 
 _Atualizado em 2026-08-12_

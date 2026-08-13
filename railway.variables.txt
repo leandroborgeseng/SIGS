@@ -40,3 +40,7 @@ LEDI_AUTOFIX_ASYNC_THRESHOLD=40
 
 # Redis (opcional — descomente depois de adicionar plugin Redis)
 # REDIS_URL=${{Redis.REDIS_URL}}
+# Sem Redis = jobs LEDI inline; boot da API/all NÃO falha.
+#
+# Healthcheck no painel: path=/api/health · port=3000
+# Smoke: /api/health (status ok) e /api/ready (postgres.ok true)

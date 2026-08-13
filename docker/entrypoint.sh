@@ -5,7 +5,6 @@ set -eu
 ROLE="${PROCESS_ROLE:-all}"
 
 export CORS_ORIGIN="${CORS_ORIGIN:-*}"
-export JWT_SECRET="${JWT_SECRET:-change-me-in-production}"
 
 mkdir -p /data /tmp /app/apps/api/tmp/storage
 # Volume Railway em /data → storage local sob /data/storage
@@ -14,21 +13,88 @@ if [[ -z "${STORAGE_LOCAL_PATH:-}" && -d /data ]]; then
   mkdir -p "$STORAGE_LOCAL_PATH"
 fi
 
-echo "SIGS boot · role=${ROLE} · DB=${DATABASE_URL:-unset}"
+redact_db() {
+  local url="${DATABASE_URL:-}"
+  if [[ -z "$url" ]]; then
+    echo "unset"
+    return
+  fi
+  # postgresql://user:pass@host:5432/db?x → host:5432/db
+  echo "$url" | sed -E 's#^[a-zA-Z0-9+.-]+://[^@]+@##; s#\?.*##'
+}
+
+require_runtime_env() {
+  local fail=0
+  echo "SIGS entrypoint · role=${ROLE} · NODE_ENV=${NODE_ENV:-unset} · DB=$(redact_db) · redis=${REDIS_URL:+set}${REDIS_URL:-absent}"
+
+  if [[ -z "${DATABASE_URL:-}" ]]; then
+    echo "ERROR: DATABASE_URL ausente."
+    echo "  Railway: Variables → Add Reference → Postgres → DATABASE_URL"
+    echo "  Não use file:... em produção."
+    fail=1
+  elif [[ "${DATABASE_URL}" == file:* ]]; then
+    echo "ERROR: DATABASE_URL=file:... não é suportado no deploy. Use PostgreSQL."
+    fail=1
+  fi
+
+  if [[ "${NODE_ENV:-}" == "production" ]]; then
+    if [[ -z "${JWT_SECRET:-}" ]]; then
+      echo "ERROR: JWT_SECRET ausente (obrigatório em production)."
+      fail=1
+    elif [[ "${#JWT_SECRET}" -lt 16 ]] \
+      || [[ "${JWT_SECRET}" == "change-me-in-production" ]] \
+      || [[ "${JWT_SECRET}" == "sigs-dev-secret-change-me" ]] \
+      || [[ "${JWT_SECRET}" == "troque-em-producao" ]] \
+      || [[ "${JWT_SECRET}" == "dev-change-me" ]] \
+      || [[ "${JWT_SECRET}" == "troque-por-uma-string-longa-aleatoria-32chars" ]]; then
+      echo "ERROR: JWT_SECRET fraco/placeholder. Defina string aleatória ≥32 chars."
+      fail=1
+    fi
+  else
+    export JWT_SECRET="${JWT_SECRET:-sigs-dev-secret-change-me}"
+    echo "WARN: JWT_SECRET default de dev (NODE_ENV!=production)."
+  fi
+
+  if [[ "$ROLE" == "worker" && -z "${REDIS_URL:-}" ]]; then
+    echo "ERROR: REDIS_URL obrigatório para PROCESS_ROLE=worker."
+    echo "  Sem Redis: use PROCESS_ROLE=all|api (jobs inline)."
+    fail=1
+  fi
+
+  if [[ -z "${REDIS_URL:-}" && "$ROLE" != "worker" && "$ROLE" != "web" ]]; then
+    echo "INFO: REDIS_URL ausente — fila BullMQ inline no processo da API (ok p/ 1º deploy)."
+  fi
+
+  if [[ "$ROLE" == "all" || "$ROLE" == "web" ]]; then
+    if [[ -z "${API_INTERNAL_URL:-}" ]]; then
+      export API_INTERNAL_URL="http://127.0.0.1:${API_PORT:-3001}"
+      echo "INFO: API_INTERNAL_URL default → ${API_INTERNAL_URL} (proxy Next /api)"
+    fi
+  fi
+
+  if [[ "$fail" -ne 0 ]]; then
+    echo "SIGS entrypoint abortado — corrija Variables e redeploy."
+    exit 1
+  fi
+}
+
+require_runtime_env
 
 migrate_db() {
   cd /app/apps/api
+  echo "SIGS migrate · prisma db push…"
   if ! npx prisma db push --skip-generate; then
-    echo "ERROR: prisma db push falhou"
+    echo "ERROR: prisma db push falhou (confira DATABASE_URL / rede Postgres)."
     exit 1
   fi
+  echo "SIGS migrate · ok"
 }
 
 start_api() {
   cd /app/apps/api
   migrate_db
   local port="${PORT:-3001}"
-  echo "Starting API :${port}"
+  echo "Starting API :${port} (health → /api/health)"
   exec node dist/main.js
 }
 
@@ -36,18 +102,14 @@ start_worker() {
   cd /app/apps/api
   # Worker assume schema já migrado pela API; tenta push idempotente.
   npx prisma db push --skip-generate || true
-  if [[ -z "${REDIS_URL:-}" ]]; then
-    echo "ERROR: REDIS_URL obrigatório para PROCESS_ROLE=worker"
-    exit 1
-  fi
-  echo "Starting worker"
+  echo "Starting worker (REDIS_URL set)"
   exec node dist/worker.main.js
 }
 
 start_web() {
   local port="${PORT:-3000}"
   cd /app/apps/web
-  echo "Starting Web :${port}"
+  echo "Starting Web :${port} · proxy API_INTERNAL_URL=${API_INTERNAL_URL:-unset}"
   exec npx next start --hostname 0.0.0.0 --port "$port"
 }
 
@@ -55,23 +117,26 @@ start_all() {
   # Compat Railway single-container (API + Web no mesmo processo supervisor).
   PUBLIC_PORT="${PORT:-3000}"
   API_PORT="${API_PORT:-3001}"
+  export API_INTERNAL_URL="${API_INTERNAL_URL:-http://127.0.0.1:${API_PORT}}"
 
   cd /app/apps/api
   migrate_db
 
   PORT="$API_PORT" node dist/main.js &
   API_PID=$!
-  sleep 2
+  sleep 3
   if ! kill -0 "$API_PID" 2>/dev/null; then
-    echo "ERROR: API não iniciou"
+    echo "ERROR: API não iniciou (veja logs acima — env / Prisma / porta)."
     exit 1
   fi
 
   if [[ -n "${REDIS_URL:-}" ]]; then
     node dist/worker.main.js &
     WORKER_PID=$!
+    echo "INFO: worker separado iniciado (REDIS_URL)"
   else
     WORKER_PID=""
+    echo "INFO: sem worker separado — jobs inline na API"
   fi
 
   cd /app/apps/web
@@ -85,6 +150,9 @@ start_all() {
   fi
 
   echo "SIGS online · web :${PUBLIC_PORT} · api :${API_PORT}"
+  echo "  health (público): http://0.0.0.0:${PUBLIC_PORT}/api/health"
+  echo "  ready  (público): http://0.0.0.0:${PUBLIC_PORT}/api/ready"
+  echo "  health (API):     http://127.0.0.1:${API_PORT}/api/health"
 
   term() {
     echo "SIGS shutdown"

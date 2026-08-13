@@ -80,9 +80,24 @@ Redeploy após definir o domínio definitivo.
 ### 7. Smoke test
 
 1. Abra o domínio → login (`SEED_ADMIN_*`).
-2. `https://SEU-DOMINIO.up.railway.app/api/health`
-3. `https://SEU-DOMINIO.up.railway.app/api/ready` → `postgres.ok = true`
+2. `https://SEU-DOMINIO.up.railway.app/api/health` → `status: ok`, `queue: inline` (sem Redis) ou `redis-bullmq`.
+3. `https://SEU-DOMINIO.up.railway.app/api/ready` → `checks.postgres.ok = true`.
 4. Odonto → Lote LEDI → upload pequeno → auto-fix → export ZIP.
+
+### Boot / health (logs)
+
+No Deploy Logs do Railway, o entrypoint e a API devem mostrar linhas claras:
+
+- `SIGS entrypoint · role=all · DB=host:5432/railway · redis=absent`
+- `INFO: REDIS_URL ausente — fila BullMQ inline…` (esperado no 1º deploy)
+- `SIGS api boot · … · queue=inline`
+- `SIGS API online · … health=/api/health · ready=/api/ready`
+
+Se faltar `DATABASE_URL` ou `JWT_SECRET` (production), o processo **aborta com ERROR** legível — não sobe “mudo”.
+
+**Healthcheck Railway (Settings → Healthcheck):** path `/api/health`, porta **3000** (web + proxy). O Dockerfile também tem `HEALTHCHECK` interno (API `:3001` ou proxy).
+
+**Redis:** opcional. Sem `REDIS_URL` a API sobe; jobs LEDI/SIGTAP rodam inline. `PROCESS_ROLE=worker` exige Redis.
 
 ---
 

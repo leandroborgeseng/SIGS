@@ -3,10 +3,13 @@ import { ValidationPipe } from '@nestjs/common';
 import { json, urlencoded, type Request, type Response, type NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import { AppModule } from './app.module';
+import { assertBootEnv } from './infra/boot-env';
 import { requestContext } from './infra/request-context';
 import { RequestContextUserInterceptor } from './infra/request-context.interceptor';
 
 async function bootstrap() {
+  assertBootEnv('api');
+
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   // Upload LEDI grande: preferir multipart + jobs; 20mb cobre patch/JSON comuns.
   const bodyLimit = process.env.HTTP_BODY_LIMIT || '20mb';
@@ -45,7 +48,14 @@ async function bootstrap() {
   });
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port, '0.0.0.0');
-  console.log(`SIGS API em http://0.0.0.0:${port}/api`);
+  // eslint-disable-next-line no-console
+  console.log(
+    `SIGS API online · http://0.0.0.0:${port}/api · health=/api/health · ready=/api/ready`,
+  );
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  // eslint-disable-next-line no-console
+  console.error('SIGS API falhou ao subir:', err instanceof Error ? err.message : err);
+  process.exit(1);
+});

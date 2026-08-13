@@ -47,5 +47,9 @@ COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Railway: não use VOLUME no Dockerfile — monte Volume do painel em /data.
+# Health: em PROCESS_ROLE=all a API fica em API_PORT (default 3001); o proxy Next em PORT=3000 também expõe /api/health.
+COPY docker/healthcheck.mjs /healthcheck.mjs
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+  CMD ["node", "/healthcheck.mjs"]
 EXPOSE 3000 3001
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
