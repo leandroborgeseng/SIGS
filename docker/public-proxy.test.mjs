@@ -6,6 +6,7 @@ import { createPublicProxy, isApiPath } from './public-proxy.mjs';
 test('isApiPath só casa /api', () => {
   assert.equal(isApiPath('/api'), true);
   assert.equal(isApiPath('/api/v1/dental/ledi/batches/upload-zip'), true);
+  assert.equal(isApiPath('/api/v1/dental/ledi/batches/upload-zip/chunk'), true);
   assert.equal(isApiPath('/api/health?x=1'), true);
   assert.equal(isApiPath('/faturamento/lote/fao'), false);
   assert.equal(isApiPath('/apix'), false);

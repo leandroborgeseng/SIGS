@@ -9,16 +9,19 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
+  Req,
   Res,
   UploadedFiles,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { CareExtraService } from './care-extra.service';
 import { LediFaoBatchService } from './ledi-fao-batch.service';
+import { LediZipChunkService } from './ledi-zip-chunk.service';
 import {
   extractXmlFilesFromLoadedZip,
   lediBatchMaxFiles,
@@ -41,6 +44,7 @@ import {
   CreateLediFaoBatchDto,
   AppendLediFaoBatchDto,
   CreateLediFaoBatchFromZipDto,
+  LediZipChunkQueryDto,
   AutoFixLediFaoBatchDto,
   PatchLediFaoBatchItemDto,
   PatchDentalEncounterDto,
@@ -71,6 +75,7 @@ export class CareExtraController {
     private readonly faoBatches: LediFaoBatchService,
     private readonly jobs: JobsService,
     private readonly storage: StorageService,
+    private readonly zipChunks: LediZipChunkService,
   ) {}
 
   /**
@@ -186,7 +191,7 @@ export class CareExtraController {
     }
   }
 
-  /** Upload de um .zip multipart (caminho preferido da UI — até 80mb). */
+  /** Upload de um .zip multipart (caminho legado — até 80mb). Preferir /upload-zip/chunk. */
   @Post('dental/ledi/batches/upload-zip')
   @UseInterceptors(ZIP_UPLOAD)
   async createFaoBatchFromZip(
@@ -209,6 +214,46 @@ export class CareExtraController {
       );
     } catch (e) {
       throw new BadRequestException(e instanceof Error ? e.message : 'ZIP inválido');
+    }
+  }
+
+  /**
+   * Fatia raw do ZIP (1–2 MB). O gateway Railway corta multipart grande;
+   * octet-stream pequeno atravessa o proxy. A última fatia monta o ZIP em disco e ingere.
+   */
+  @Put('dental/ledi/batches/upload-zip/chunk')
+  @Post('dental/ledi/batches/upload-zip/chunk')
+  async uploadZipChunk(
+    @Req() req: Request,
+    @Query() q: LediZipChunkQueryDto,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    const progress = await this.zipChunks.acceptChunk({
+      uploadId: q.uploadId,
+      index: q.index,
+      total: q.total,
+      body,
+      fileName: q.fileName,
+      expectedTipo: q.expectedTipo,
+      name: q.name,
+      totalBytes: q.totalBytes,
+    });
+    if (!progress.complete) return progress;
+    try {
+      const buf = await this.zipChunks.readAssembled(progress.assembledPath);
+      return await this.ingestLediZip(
+        buf,
+        {
+          name: progress.name || progress.fileName.replace(/\.zip$/i, ''),
+          expectedTipo: progress.expectedTipo,
+        },
+        res,
+      );
+    } catch (e) {
+      throw new BadRequestException(e instanceof Error ? e.message : 'ZIP inválido');
+    } finally {
+      await this.zipChunks.cleanup(q.uploadId);
     }
   }
 

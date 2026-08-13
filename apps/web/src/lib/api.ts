@@ -176,3 +176,28 @@ export async function apiUpload<T = unknown>(
   );
   return parseResponse<T>(res);
 }
+
+/**
+ * PUT/POST binário pequeno (chunk ZIP LEDI). Content-Type octet-stream —
+ * não usar FormData: o gateway corta multipart grande.
+ */
+export async function apiBinary<T = unknown>(
+  path: string,
+  body: Blob | ArrayBuffer,
+  options: { bytesHint?: number; method?: string } = {},
+): Promise<T> {
+  const headers = new Headers();
+  const token = getToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  headers.set('Content-Type', 'application/octet-stream');
+  const res = await doFetch(
+    `${API_BASE}${path}`,
+    {
+      method: options.method || 'PUT',
+      headers,
+      body: body as BodyInit,
+    },
+    options.bytesHint,
+  );
+  return parseResponse<T>(res);
+}

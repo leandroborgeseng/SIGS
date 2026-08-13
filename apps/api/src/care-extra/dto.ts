@@ -7,6 +7,8 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -158,6 +160,36 @@ export class CreateLediFaoBatchFromZipDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsString() expectedTipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
   @IsString() zipBase64!: string;
+}
+
+/** Query do PUT/POST /upload-zip/chunk (corpo = octet-stream). */
+export class LediZipChunkQueryDto {
+  @IsString()
+  @Matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, {
+    message: 'uploadId inválido',
+  })
+  uploadId!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  index!: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  total!: number;
+
+  @IsOptional() @IsString() fileName?: string;
+  @IsOptional() @IsIn(['FAO', 'FAI', 'PROCEDIMENTOS']) expectedTipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+  @IsOptional() @IsString() name?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  totalBytes?: number;
 }
 
 export class LediFaoProcDto {

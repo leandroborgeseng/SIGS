@@ -1,4 +1,4 @@
-import { skipMultipart, isMultipartRequest } from './http-body';
+import { skipMultipart, isMultipartRequest, isLediZipChunkRequest, isRawOctetStream } from './http-body';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
 describe('http-body multipart skip', () => {
@@ -11,12 +11,41 @@ describe('http-body multipart skip', () => {
     expect(isMultipartRequest({ headers: { 'content-type': 'application/json' } })).toBe(false);
   });
 
+  it('detecta octet-stream e path de chunk ZIP', () => {
+    expect(isRawOctetStream({ headers: { 'content-type': 'application/octet-stream' } })).toBe(true);
+    expect(
+      isLediZipChunkRequest({
+        url: '/api/v1/dental/ledi/batches/upload-zip/chunk?uploadId=x',
+        headers: { 'content-type': 'application/octet-stream' },
+      }),
+    ).toBe(true);
+    expect(
+      isLediZipChunkRequest({
+        originalUrl: '/v1/dental/ledi/batches/upload-zip/chunk',
+        headers: { 'content-type': 'text/plain' },
+      }),
+    ).toBe(true);
+  });
+
   it('não chama json/urlencoded quando o pedido é multipart', () => {
     const parser = jest.fn() as unknown as RequestHandler;
     const mw = skipMultipart(parser);
     const next = jest.fn() as NextFunction;
     const req = {
       headers: { 'content-type': 'multipart/form-data; boundary=abc' },
+    } as unknown as Request;
+    mw(req, {} as Response, next);
+    expect(parser).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it('não chama json quando o pedido é chunk octet-stream', () => {
+    const parser = jest.fn() as unknown as RequestHandler;
+    const mw = skipMultipart(parser);
+    const next = jest.fn() as NextFunction;
+    const req = {
+      url: '/api/v1/dental/ledi/batches/upload-zip/chunk',
+      headers: { 'content-type': 'application/octet-stream' },
     } as unknown as Request;
     mw(req, {} as Response, next);
     expect(parser).not.toHaveBeenCalled();

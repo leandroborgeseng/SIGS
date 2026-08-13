@@ -13,7 +13,7 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   // JSON/urlencoded: fallback ZIP base64 e patches. Multipart ZIP usa multer (até 80mb).
-  // skipMultipart: o parser JSON do Express não pode consumir o stream do upload.
+  // Chunk ZIP: octet-stream raw (3mb). skipUnparsedBody: JSON não pode consumir esses streams.
   applyHttpBodyParsers(app);
 
   app.use((req: Request, res: Response, next: NextFunction) => {

@@ -1,6 +1,9 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import JSZip from 'jszip';
+import { mkdtemp, rm } from 'fs/promises';
+import os from 'os';
+import path from 'path';
 import request from 'supertest';
 import { CareExtraController } from './care-extra.controller';
 import { CareExtraService } from './care-extra.service';
@@ -10,18 +13,26 @@ import { JobsService } from '../infra/jobs/jobs.service';
 import { StorageService } from '../infra/storage/storage.service';
 import { applyHttpBodyParsers } from '../infra/http-body';
 
-describe('POST /v1/dental/ledi/batches/upload-zip', () => {
+describe('PUT /v1/dental/ledi/batches/upload-zip/chunk', () => {
   let app: INestApplication;
+  let tmp: string;
   const create = jest.fn();
 
   beforeAll(async () => {
+    tmp = await mkdtemp(path.join(os.tmpdir(), 'ledi-chunk-http-'));
+    process.env.LEDI_CHUNK_DIR = tmp;
+    process.env.LEDI_CHUNK_SWEEP_MS = '0';
+
     const moduleRef = await Test.createTestingModule({
       controllers: [CareExtraController],
       providers: [
         { provide: CareExtraService, useValue: {} },
         { provide: LediFaoBatchService, useValue: { create } },
         { provide: JobsService, useValue: { enqueue: jest.fn() } },
-        { provide: LediZipChunkService, useValue: { acceptChunk: jest.fn(), readAssembled: jest.fn(), cleanup: jest.fn() } },
+        {
+          provide: LediZipChunkService,
+          useFactory: () => new LediZipChunkService({ root: tmp, sweepMs: 0 }),
+        },
         {
           provide: StorageService,
           useValue: {
@@ -46,46 +57,60 @@ describe('POST /v1/dental/ledi/batches/upload-zip', () => {
 
   afterAll(async () => {
     await app.close();
+    await rm(tmp, { recursive: true, force: true });
   });
 
   beforeEach(() => {
     create.mockReset();
-    create.mockResolvedValue({ id: 'batch-1', summary: { total: 1 } });
+    create.mockResolvedValue({ id: 'batch-chunk', summary: { total: 1 } });
   });
 
   async function zipBuf(): Promise<Buffer> {
     const zip = new JSZip();
-    zip.file('ficha.xml', '<tipoDadoSerializado>5</tipoDadoSerializado>');
+    zip.file(
+      'sistemas/5974691/ficha.xml',
+      '<tipoDadoSerializado>4</tipoDadoSerializado><fichaAtendimentoIndividualMasterTransport/>',
+    );
+    zip.file('__MACOSX/sistemas/._ficha.xml', '\u0000x');
     return Buffer.from(await zip.generateAsync({ type: 'uint8array' }));
   }
 
-  it('aceita ZIP multipart (campo file) com json parser global ativo', async () => {
+  it('monta ZIP de duas fatias octet-stream e ingere (pasta e-SUS + __MACOSX)', async () => {
     const buf = await zipBuf();
-    const res = await request(app.getHttpServer())
-      .post('/v1/dental/ledi/batches/upload-zip')
-      .field('name', 'lote-teste')
-      .field('expectedTipo', 'FAO')
-      .attach('file', buf, 'lote.zip');
+    const mid = Math.max(1, Math.floor(buf.length / 2));
+    const a = buf.subarray(0, mid);
+    const b = buf.subarray(mid);
+    const uploadId = '11111111-2222-4333-8444-555555555555';
+    const q = (index: number) =>
+      `/v1/dental/ledi/batches/upload-zip/chunk?uploadId=${uploadId}&index=${index}&total=2&fileName=sistemas.zip&expectedTipo=FAI&name=sistemas&totalBytes=${buf.length}`;
 
-    expect(res.status).toBeLessThan(400);
+    const r1 = await request(app.getHttpServer())
+      .put(q(0))
+      .set('Content-Type', 'application/octet-stream')
+      .send(a);
+    expect(r1.status).toBe(200);
+    expect(r1.body.complete).toBe(false);
+    expect(create).not.toHaveBeenCalled();
+
+    const r2 = await request(app.getHttpServer())
+      .put(q(1))
+      .set('Content-Type', 'application/octet-stream')
+      .send(b);
+    expect(r2.status).toBeLessThan(400);
     expect(create).toHaveBeenCalledTimes(1);
     const dto = create.mock.calls[0]![0] as { expectedTipo: string; files: Array<{ name: string }> };
-    expect(dto.expectedTipo).toBe('FAO');
+    expect(dto.expectedTipo).toBe('FAI');
     expect(dto.files[0]!.name).toBe('ficha.xml');
   });
 
-  it('HTTP 400 se o stream multipart acaba sem closing boundary', async () => {
-    const boundary = '----TestBoundary';
-    const truncated = Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="lote.zip"\r\nContent-Type: application/zip\r\n\r\nPK\x03\x04incomplete`,
-    );
+  it('HTTP 400 se o chunk está vazio', async () => {
     const res = await request(app.getHttpServer())
-      .post('/v1/dental/ledi/batches/upload-zip')
-      .set('Content-Type', `multipart/form-data; boundary=${boundary}`)
-      .send(truncated);
-
+      .put(
+        '/v1/dental/ledi/batches/upload-zip/chunk?uploadId=11111111-2222-4333-8444-555555555555&index=0&total=1&totalBytes=4',
+      )
+      .set('Content-Type', 'application/octet-stream')
+      .send(Buffer.alloc(0));
     expect(res.status).toBe(400);
-    expect(JSON.stringify(res.body).toLowerCase()).toMatch(/unexpected end of form|multipart/);
     expect(create).not.toHaveBeenCalled();
   });
 });

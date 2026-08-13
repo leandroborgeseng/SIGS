@@ -50,10 +50,10 @@ export function createPublicProxy(opts = {}) {
     }
 
     const ct = String(req.headers['content-type'] || '');
-    if (ct.includes('multipart/form-data')) {
+    if (ct.includes('multipart/form-data') || ct.includes('application/octet-stream')) {
       const cl = req.headers['content-length'] || 'chunked';
       console.log(
-        `SIGS public-proxy stream multipart ${req.method} ${req.url} → ${dest.label}:${dest.port} content-length=${cl}`,
+        `SIGS public-proxy stream ${ct.split(';')[0]} ${req.method} ${req.url} → ${dest.label}:${dest.port} content-length=${cl}`,
       );
     }
 

@@ -29,8 +29,8 @@ export function formatUploadError(err: unknown): string {
     if (/unexpected end of form|boundary not found/i.test(err.message)) {
       return (
         `Falha no envio (HTTP ${err.status}): multipart incompleto (${err.message}). ` +
-        `O ZIP chegou truncado na API (conexão cortada, timeout do gateway Railway, ou Content-Type sem boundary). ` +
-        `Não é o clone 10 MB do rewrite Next — o upload LEDI vai em stream. Tente de novo; se persistir, verifique a rede ou envie um ZIP menor.`
+        `O ZIP grande deve ir em partes (octet-stream), não num FormData único. ` +
+        `Recarregue a página após o deploy e envie de novo; se persistir, verifique a rede.`
       );
     }
     return `Falha no envio (HTTP ${err.status}): ${err.message}`;
