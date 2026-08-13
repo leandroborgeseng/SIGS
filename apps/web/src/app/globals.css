@@ -620,6 +620,11 @@ table.data tbody tr:last-child td {
   background: var(--danger-bg);
 }
 
+.alert.ok {
+  border-color: var(--ok-bd);
+  background: var(--ok-bg);
+}
+
 .alert.brand {
   border-color: #c9def6;
   background: var(--brand-soft);
@@ -1067,8 +1072,28 @@ a.search-chip:hover {
 .queue-focus-banner {
   border-left: 4px solid var(--accent, #2563eb);
 }
+.queue-focus-banner.miss {
+  border-left-color: var(--warn);
+  background: color-mix(in srgb, var(--warn-bg) 55%, transparent);
+}
+.queue-focus-miss {
+  border-color: var(--warn-bd);
+  background: var(--warn-bg);
+}
+.queue-cap-banner {
+  border-color: var(--warn-bd);
+  background: var(--warn-bg);
+  margin-bottom: 0;
+}
+.queue-busy-hint {
+  font-size: 13px;
+  align-self: center;
+}
 .queue-empty {
   padding: 8px 0 4px;
+}
+.queue-empty-loading {
+  margin: 4px 0 12px;
 }
 .lote-split {
   display: grid;

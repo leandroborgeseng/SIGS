@@ -63,6 +63,7 @@ describe('CareExtraService', () => {
   it('sync em lote da fila odonto percorre encounters da competência', async () => {
     const prisma = {
       dentalEncounter: {
+        count: jest.fn().mockResolvedValue(2),
         findMany: jest.fn().mockResolvedValue([{ id: 'd1' }, { id: 'd2' }]),
       },
     };
@@ -75,6 +76,9 @@ describe('CareExtraService', () => {
     expect(out.total).toBe(2);
     expect(out.synced).toBe(1);
     expect(out.failed).toBe(1);
+    expect(out.limit).toBe(500);
+    expect(out.capped).toBe(false);
+    expect(out.matchedTotal).toBe(2);
     expect(prisma.dentalEncounter.findMany).toHaveBeenCalled();
   });
 

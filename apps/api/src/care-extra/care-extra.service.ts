@@ -39,6 +39,9 @@ import {
 import { FRANCA_LEDI_DEFAULTS } from './ledi-autofix.pipeline';
 import type { FaoFinding } from './ledi-fao.validator';
 
+/** Cap da fila / sync de faturamento odonto (visível na UI). */
+export const DENTAL_FATURAMENTO_QUEUE_LIMIT = 500;
+
 @Injectable()
 export class CareExtraService {
   constructor(private readonly prisma: PrismaService) {}
@@ -493,18 +496,22 @@ export class CareExtraService {
   }) {
     const competencia = opts.competencia || competenciaFromDate(new Date());
     const { start, end } = competenciaRange(competencia);
+    const openStatuses = ['IN_PROGRESS', 'COMPLETED'];
+    const where = {
+      status: { in: openStatuses },
+      ...(opts.encounterIds?.length
+        ? { id: { in: opts.encounterIds } }
+        : {
+            startedAt: { gte: start, lt: end },
+            ...(opts.facilityId ? { facilityId: opts.facilityId } : {}),
+          }),
+    };
+    const matchedTotal = await this.prisma.dentalEncounter.count({ where });
     const rows = await this.prisma.dentalEncounter.findMany({
-      where: {
-        status: { in: ['IN_PROGRESS', 'COMPLETED'] },
-        ...(opts.encounterIds?.length
-          ? { id: { in: opts.encounterIds } }
-          : {
-              startedAt: { gte: start, lt: end },
-              ...(opts.facilityId ? { facilityId: opts.facilityId } : {}),
-            }),
-      },
+      where,
       select: { id: true },
-      take: 500,
+      take: DENTAL_FATURAMENTO_QUEUE_LIMIT,
+      orderBy: { startedAt: 'desc' },
     });
     let synced = 0;
     let failed = 0;
@@ -523,7 +530,16 @@ export class CareExtraService {
         results.push({ encounterId: row.id, ok: false });
       }
     }
-    return { competencia, synced, failed, total: rows.length, results };
+    return {
+      competencia,
+      synced,
+      failed,
+      total: rows.length,
+      matchedTotal,
+      limit: DENTAL_FATURAMENTO_QUEUE_LIMIT,
+      capped: matchedTotal > rows.length,
+      results,
+    };
   }
 
   async listDentalFaturamentoQueue(opts: {
@@ -534,15 +550,20 @@ export class CareExtraService {
   }) {
     const competencia = opts.competencia || competenciaFromDate(new Date());
     const { start, end } = competenciaRange(competencia);
+    const openStatuses = ['IN_PROGRESS', 'COMPLETED'];
+    const where = {
+      startedAt: { gte: start, lt: end },
+      ...(opts.facilityId ? { facilityId: opts.facilityId } : {}),
+      status: { in: openStatuses },
+    };
+    const matchedTotal = await this.prisma.dentalEncounter.count({ where });
     const rows = await this.prisma.dentalEncounter.findMany({
-      where: {
-        startedAt: { gte: start, lt: end },
-        ...(opts.facilityId ? { facilityId: opts.facilityId } : {}),
-        status: { in: ['IN_PROGRESS', 'COMPLETED'] },
-      },
+      where,
       orderBy: { startedAt: 'desc' },
+      take: DENTAL_FATURAMENTO_QUEUE_LIMIT,
       include: { patient: true, facility: true, professional: true },
     });
+    const capped = matchedTotal > rows.length;
 
     const items = [];
     for (const row of rows) {
@@ -618,7 +639,15 @@ export class CareExtraService {
       open: items.filter((i) => i.encounterStatus === 'IN_PROGRESS').length,
     };
 
-    return { competencia, facilityId: opts.facilityId || null, totals, items };
+    return {
+      competencia,
+      facilityId: opts.facilityId || null,
+      totals,
+      items,
+      limit: DENTAL_FATURAMENTO_QUEUE_LIMIT,
+      matchedTotal,
+      capped,
+    };
   }
 
   /** Monta payload + valida sem gravar finish (painel ao vivo). */
