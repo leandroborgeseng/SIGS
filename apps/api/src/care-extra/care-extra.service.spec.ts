@@ -60,6 +60,24 @@ describe('CareExtraService', () => {
     await expect(service.voidDental('d1', {})).rejects.toThrow(/já finalizado/);
   });
 
+  it('sync em lote da fila odonto percorre encounters da competência', async () => {
+    const prisma = {
+      dentalEncounter: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'd1' }, { id: 'd2' }]),
+      },
+    };
+    const service = new CareExtraService(prisma as never);
+    jest
+      .spyOn(service, 'syncDentalBillingQueue')
+      .mockResolvedValueOnce({ productionBatchId: 'b1', bucket: 'ok', blockers: 0 })
+      .mockRejectedValueOnce(new Error('boom'));
+    const out = await service.syncDentalFaturamentoQueueBatch({ competencia: '2026-08' });
+    expect(out.total).toBe(2);
+    expect(out.synced).toBe(1);
+    expect(out.failed).toBe(1);
+    expect(prisma.dentalEncounter.findMany).toHaveBeenCalled();
+  });
+
   it('bloqueia finish dental sem outcomes', async () => {
     const prisma = {
       dentalEncounter: {

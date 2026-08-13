@@ -37,6 +37,7 @@ import {
   PatchLediFaoBatchItemDto,
   PatchDentalEncounterDto,
   VoidDentalEncounterDto,
+  SyncDentalFaturamentoQueueDto,
 } from './dto';
 
 const XML_UPLOAD = FilesInterceptor('files', 200, {
@@ -293,8 +294,20 @@ export class CareExtraController {
     @Query('competencia') competencia?: string,
     @Query('facilityId') facilityId?: string,
     @Query('bucket') bucket?: string,
+    @Query('forceSync') forceSync?: string,
   ) {
-    return this.service.listDentalFaturamentoQueue({ competencia, facilityId, bucket });
+    return this.service.listDentalFaturamentoQueue({
+      competencia,
+      facilityId,
+      bucket,
+      forceSync: forceSync === '1' || forceSync === 'true',
+    });
+  }
+
+  /** Sync em lote — declarar antes de `:encounterId/sync`. */
+  @Post('dental/faturamento-queue/sync')
+  syncDentalFaturamentoQueueBatch(@Body() dto: SyncDentalFaturamentoQueueDto) {
+    return this.service.syncDentalFaturamentoQueueBatch(dto);
   }
 
   @Post('dental/faturamento-queue/:encounterId/sync')

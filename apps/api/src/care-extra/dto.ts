@@ -78,6 +78,13 @@ export class VoidDentalEncounterDto {
   @IsOptional() @IsString() reason?: string;
 }
 
+/** Revalida pendências LEDI da fila de faturamento odonto (sync em lote). */
+export class SyncDentalFaturamentoQueueDto {
+  @IsOptional() @IsString() competencia?: string;
+  @IsOptional() @IsString() facilityId?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) encounterIds?: string[];
+}
+
 export class FinishDentalEncounterDto {
   /** Se omitido, usa careJson.outcomes */
   @IsOptional() @IsArray() @IsString({ each: true }) outcomes?: string[];

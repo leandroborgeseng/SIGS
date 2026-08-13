@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, PageHeader } from '@/components/ui/PageHeader';
 import { api } from '@/lib/api';
@@ -72,38 +73,100 @@ function bucketSevClass(b: string) {
   return 'INFO';
 }
 
-export default function FaturamentoOdontoPage() {
+function itemMatchesFocus(
+  item: QueueItem,
+  encounterId: string | null,
+  batchId: string | null,
+): boolean {
+  if (encounterId && item.encounterId === encounterId) return true;
+  if (batchId && item.productionBatchId === batchId) return true;
+  return false;
+}
+
+function FaturamentoOdontoInner() {
   const { facilityId } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const focusEncounterId = searchParams.get('encounterId');
+  const focusBatchId = searchParams.get('batchId');
+
   const [competencia, setCompetencia] = useState(currentCompetencia());
   const [bucket, setBucket] = useState('all');
   const [data, setData] = useState<QueueResponse | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [syncNote, setSyncNote] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(
+    async (opts?: { forceSync?: boolean }) => {
+      setBusy(true);
+      setError(null);
+      if (!opts?.forceSync) setSyncNote(null);
+      try {
+        const qs = new URLSearchParams({ competencia });
+        if (facilityId) qs.set('facilityId', facilityId);
+        if (bucket !== 'all') qs.set('bucket', bucket);
+        if (opts?.forceSync) qs.set('forceSync', '1');
+        const res = await api<QueueResponse>(`/v1/dental/faturamento-queue?${qs}`);
+        setData(res);
+        if (opts?.forceSync) {
+          setSyncNote(`Pendências revalidadas · ${res.totals.total} itens na competência`);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Falha ao carregar fila');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [competencia, facilityId, bucket],
+  );
+
+  const syncBatch = useCallback(async () => {
     setBusy(true);
     setError(null);
+    setSyncNote(null);
     try {
-      const qs = new URLSearchParams({ competencia });
-      if (facilityId) qs.set('facilityId', facilityId);
-      if (bucket !== 'all') qs.set('bucket', bucket);
-      const res = await api<QueueResponse>(`/v1/dental/faturamento-queue?${qs}`);
-      setData(res);
+      const body: { competencia: string; facilityId?: string; encounterIds?: string[] } = {
+        competencia,
+      };
+      if (facilityId) body.facilityId = facilityId;
+      if (focusEncounterId) body.encounterIds = [focusEncounterId];
+      const out = await api<{ synced: number; failed: number; total: number }>(
+        '/v1/dental/faturamento-queue/sync',
+        { method: 'POST', body: JSON.stringify(body) },
+      );
+      setSyncNote(
+        `Sync em lote: ${out.synced}/${out.total} ok` +
+          (out.failed ? ` · ${out.failed} falha(s)` : ''),
+      );
+      await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao carregar fila');
-    } finally {
+      setError(err instanceof Error ? err.message : 'Falha ao sincronizar pendências');
       setBusy(false);
     }
-  }, [competencia, facilityId, bucket]);
+  }, [competencia, facilityId, focusEncounterId, load]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (focusEncounterId) setExpanded(focusEncounterId);
+  }, [focusEncounterId]);
+
+  useEffect(() => {
+    if (!focusEncounterId || !data) return;
+    const el = document.getElementById(`queue-${focusEncounterId}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [focusEncounterId, data]);
+
   const sorted = useMemo(() => {
     const items = [...(data?.items || [])];
     items.sort((a, b) => {
+      const aFocus = itemMatchesFocus(a, focusEncounterId, focusBatchId) ? 0 : 1;
+      const bFocus = itemMatchesFocus(b, focusEncounterId, focusBatchId) ? 0 : 1;
+      if (aFocus !== bFocus) return aFocus - bFocus;
       const ra = severityRank(
         a.bucket === 'blocker'
           ? 'BLOCKER'
@@ -126,7 +189,23 @@ export default function FaturamentoOdontoPage() {
       return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
     });
     return items;
-  }, [data]);
+  }, [data, focusEncounterId, focusBatchId]);
+
+  const focusedItems = useMemo(
+    () => sorted.filter((i) => itemMatchesFocus(i, focusEncounterId, focusBatchId)),
+    [sorted, focusEncounterId, focusBatchId],
+  );
+
+  const hasFocus = !!(focusEncounterId || focusBatchId);
+  const visible = hasFocus && focusedItems.length > 0 ? focusedItems : sorted;
+  const focusMiss = hasFocus && focusedItems.length === 0 && !!data;
+
+  function clearFocus() {
+    const qs = new URLSearchParams();
+    if (competencia) qs.set('competencia', competencia);
+    const q = qs.toString();
+    router.replace(q ? `/faturamento/odonto?${q}` : '/faturamento/odonto');
+  }
 
   const t = data?.totals;
 
@@ -143,13 +222,54 @@ export default function FaturamentoOdontoPage() {
             <Link className="btn ghost" href="/faturamento/lote/fao">
               Lote XML
             </Link>
-            <button className="btn" type="button" disabled={busy} onClick={() => void load()}>
+            <button
+              className="btn ghost"
+              type="button"
+              disabled={busy}
+              onClick={() => void syncBatch()}
+              title="Revalida pendências LEDI via sync em lote"
+            >
+              Revalidar pendências
+            </button>
+            <button
+              className="btn"
+              type="button"
+              disabled={busy}
+              onClick={() => void load({ forceSync: true })}
+            >
               Atualizar
             </button>
           </>
         }
       />
       <ErrorBox message={error} />
+      {syncNote && <p className="ok">{syncNote}</p>}
+
+      {hasFocus && (
+        <section className="card queue-focus-banner" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+            <strong>Deep-link ativo</strong>
+            {focusEncounterId && (
+              <span className="muted">
+                encounterId <code>{focusEncounterId.slice(0, 8)}…</code>
+              </span>
+            )}
+            {focusBatchId && (
+              <span className="muted">
+                batchId <code>{focusBatchId.slice(0, 8)}…</code>
+              </span>
+            )}
+            {focusMiss ? (
+              <span className="muted">— não encontrado nesta competência/filtro</span>
+            ) : (
+              <span className="muted">— destacando {focusedItems.length} item(ns)</span>
+            )}
+            <button type="button" className="btn ghost" onClick={clearFocus}>
+              Ver fila completa
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'end' }}>
@@ -262,9 +382,34 @@ export default function FaturamentoOdontoPage() {
 
       <section className="card">
         <h2 style={{ marginTop: 0 }}>Itens a faturar</h2>
-        {!sorted.length && <p className="muted">Nenhum atendimento nesta competência.</p>}
-        {sorted.map((item) => {
+        {!visible.length && (
+          <div className="queue-empty">
+            <p className="muted" style={{ marginTop: 0 }}>
+              {focusMiss
+                ? 'Nenhum item corresponde ao deep-link nesta competência/filtro.'
+                : 'Nenhum atendimento nesta competência.'}
+            </p>
+            <p className="muted">
+              Para XML importado / correção em lote LEDI, use o lote FAO.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <Link className="btn" href="/faturamento/lote/fao">
+                Abrir lote LEDI FAO
+              </Link>
+              <Link className="btn ghost" href="/odonto">
+                Novo atendimento
+              </Link>
+              {hasFocus && (
+                <button type="button" className="btn ghost" onClick={clearFocus}>
+                  Limpar deep-link
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {visible.map((item) => {
           const open = expanded === item.encounterId;
+          const focused = itemMatchesFocus(item, focusEncounterId, focusBatchId);
           const tone = severityTone(
             item.bucket === 'blocker'
               ? 'BLOCKER'
@@ -282,7 +427,8 @@ export default function FaturamentoOdontoPage() {
           return (
             <div
               key={item.encounterId}
-              className={`lote-alert-row ${tone === 'blocker' || tone === 'money' || tone === 'quality' ? tone : ''}`}
+              id={`queue-${item.encounterId}`}
+              className={`lote-alert-row ${tone === 'blocker' || tone === 'money' || tone === 'quality' ? tone : ''} ${focused ? 'queue-focus' : ''}`}
               style={{
                 marginBottom: 10,
                 padding: 12,
@@ -300,6 +446,7 @@ export default function FaturamentoOdontoPage() {
                 }}
               >
                 <div>
+                  {focused && <span className="lote-sev INFO">Em foco</span>}
                   <span className={`lote-sev ${bucketSevClass(item.bucket)}`}>
                     {bucketLabel(item.bucket)}
                   </span>
@@ -310,6 +457,12 @@ export default function FaturamentoOdontoPage() {
                   </span>
                   <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
                     Status atendimento: {item.encounterStatus} · lote: {item.batchStatus}
+                    {item.productionBatchId && (
+                      <>
+                        {' '}
+                        · batch <code>{item.productionBatchId.slice(0, 8)}…</code>
+                      </>
+                    )}
                     {item.summary.blockers > 0 && <> · {item.summary.blockers} blockers</>}
                     {item.topCodes.length > 0 && (
                       <> · {item.topCodes.slice(0, 4).map((c) => `\`${c}\``).join(' ')}</>
@@ -350,5 +503,19 @@ export default function FaturamentoOdontoPage() {
         })}
       </section>
     </AppShell>
+  );
+}
+
+export default function FaturamentoOdontoPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell>
+          <PageHeader title="Fila de faturamento odonto" description="Carregando…" />
+        </AppShell>
+      }
+    >
+      <FaturamentoOdontoInner />
+    </Suspense>
   );
 }

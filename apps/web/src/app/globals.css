@@ -1060,6 +1060,16 @@ a.search-chip:hover {
 .lote-alert-row.info {
   border-left-color: #64748b;
 }
+.lote-alert-row.queue-focus {
+  outline: 2px solid color-mix(in srgb, var(--accent, #2563eb) 70%, #1d4ed8);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #2563eb) 18%, transparent);
+}
+.queue-focus-banner {
+  border-left: 4px solid var(--accent, #2563eb);
+}
+.queue-empty {
+  padding: 8px 0 4px;
+}
 .lote-split {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;

@@ -333,6 +333,12 @@ export default function OdontoAtendimentoPage() {
   const readonly = enc.status !== 'IN_PROGRESS';
   const showTelaC = enc.status === 'COMPLETED' || !!finishSummary;
   const voided = enc.status === 'VOID';
+  const queueBatchId = finishSummary?.productionBatchId || enc.productionBatchId || null;
+  const filaHref = (() => {
+    const qs = new URLSearchParams({ encounterId: enc.id });
+    if (queueBatchId) qs.set('batchId', queueBatchId);
+    return `/faturamento/odonto?${qs}`;
+  })();
 
   return (
     <AppShell>
@@ -344,7 +350,7 @@ export default function OdontoAtendimentoPage() {
             <Link className="btn ghost" href="/odonto">
               Voltar
             </Link>
-            <Link className="btn ghost" href="/faturamento/odonto">
+            <Link className="btn ghost" href={filaHref}>
               Fila faturamento
             </Link>
             <Link className="btn ghost" href="/faturamento/lote/fao">
@@ -394,7 +400,7 @@ export default function OdontoAtendimentoPage() {
             )}
           </ul>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link className="btn" href="/faturamento/odonto">
+            <Link className="btn" href={filaHref}>
               Abrir fila de faturamento
             </Link>
             <Link className="btn ghost" href="/faturamento/lote/fao">

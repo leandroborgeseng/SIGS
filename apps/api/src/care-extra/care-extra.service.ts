@@ -486,10 +486,51 @@ export class CareExtraService {
     return { productionBatchId: batch.id, bucket, blockers };
   }
 
+  async syncDentalFaturamentoQueueBatch(opts: {
+    competencia?: string;
+    facilityId?: string;
+    encounterIds?: string[];
+  }) {
+    const competencia = opts.competencia || competenciaFromDate(new Date());
+    const { start, end } = competenciaRange(competencia);
+    const rows = await this.prisma.dentalEncounter.findMany({
+      where: {
+        status: { in: ['IN_PROGRESS', 'COMPLETED'] },
+        ...(opts.encounterIds?.length
+          ? { id: { in: opts.encounterIds } }
+          : {
+              startedAt: { gte: start, lt: end },
+              ...(opts.facilityId ? { facilityId: opts.facilityId } : {}),
+            }),
+      },
+      select: { id: true },
+      take: 500,
+    });
+    let synced = 0;
+    let failed = 0;
+    const results: Array<{ encounterId: string; ok: boolean; bucket?: string }> = [];
+    for (const row of rows) {
+      try {
+        const out = await this.syncDentalBillingQueue(row.id);
+        synced += 1;
+        results.push({
+          encounterId: row.id,
+          ok: true,
+          bucket: out?.bucket,
+        });
+      } catch {
+        failed += 1;
+        results.push({ encounterId: row.id, ok: false });
+      }
+    }
+    return { competencia, synced, failed, total: rows.length, results };
+  }
+
   async listDentalFaturamentoQueue(opts: {
     competencia?: string;
     facilityId?: string;
     bucket?: string;
+    forceSync?: boolean;
   }) {
     const competencia = opts.competencia || competenciaFromDate(new Date());
     const { start, end } = competenciaRange(competencia);
@@ -505,8 +546,8 @@ export class CareExtraService {
 
     const items = [];
     for (const row of rows) {
-      // Re-sync open items so checklist stays fresh
-      if (row.status === 'IN_PROGRESS' || !row.productionBatchId) {
+      // Re-sync open / missing batch; forceSync revalida todos (refresh útil da fila)
+      if (opts.forceSync || row.status === 'IN_PROGRESS' || !row.productionBatchId) {
         await this.syncDentalBillingQueue(row.id).catch(() => undefined);
       }
       const fresh = await this.prisma.dentalEncounter.findUnique({
