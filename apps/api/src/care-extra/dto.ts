@@ -13,6 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { LEDI_ZIP_MAX_BYTES, LEDI_ZIP_MAX_CHUNKS } from './ledi-zip.limits';
 
 export class DentalProcedureDto {
   @IsOptional() @IsString() tooth?: string;
@@ -178,7 +179,7 @@ export class LediZipChunkQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(200)
+  @Max(LEDI_ZIP_MAX_CHUNKS)
   total!: number;
 
   @IsOptional() @IsString() fileName?: string;
@@ -189,6 +190,7 @@ export class LediZipChunkQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(LEDI_ZIP_MAX_BYTES)
   totalBytes?: number;
 }
 

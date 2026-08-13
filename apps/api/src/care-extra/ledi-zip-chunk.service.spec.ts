@@ -1,7 +1,8 @@
 import { mkdtemp, rm } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { LediZipChunkService } from './ledi-zip-chunk.service';
+import { LediZipChunkService, resolveLediChunkDir } from './ledi-zip-chunk.service';
+import { LEDI_ZIP_CHUNK_BYTES, LEDI_ZIP_MAX_BYTES } from './ledi-zip.limits';
 
 function uuid(): string {
   return 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
@@ -83,5 +84,49 @@ describe('LediZipChunkService', () => {
     });
     const removed = await svc.sweep(Date.now() + 1_000);
     expect(removed).toBe(1);
+  });
+
+  it('resolveLediChunkDir usa volume quando PROCESS_ROLE=all', () => {
+    expect(
+      resolveLediChunkDir({
+        PROCESS_ROLE: 'all',
+        STORAGE_LOCAL_PATH: '/data/storage',
+      }),
+    ).toBe('/data/ledi-chunks');
+    expect(resolveLediChunkDir({ LEDI_CHUNK_DIR: '/custom' })).toBe('/custom');
+    expect(resolveLediChunkDir({ PROCESS_ROLE: 'api' })).toMatch(/sigs-ledi-chunks$/);
+  });
+
+  it('monta ~8 MB sintético em fatias de 512 KiB (sem ZIP de paciente)', async () => {
+    const uploadId = uuid();
+    const totalBytes = 8 * 1024 * 1024;
+    const chunk = LEDI_ZIP_CHUNK_BYTES;
+    const total = Math.ceil(totalBytes / chunk);
+    let last: Awaited<ReturnType<LediZipChunkService['acceptChunk']>> | undefined;
+    for (let i = 0; i < total; i++) {
+      const start = i * chunk;
+      const len = Math.min(chunk, totalBytes - start);
+      const body = Buffer.alloc(len, 0x41);
+      if (i === 0) {
+        body[0] = 0x50;
+        body[1] = 0x4b;
+        body[2] = 0x03;
+        body[3] = 0x04;
+      }
+      last = await svc.acceptChunk({
+        uploadId,
+        index: i,
+        total,
+        body,
+        totalBytes,
+        fileName: 'sintetico.zip',
+      });
+    }
+    expect(last?.complete).toBe(true);
+    if (!last?.complete) return;
+    const assembled = await svc.readAssembled(last.assembledPath);
+    expect(assembled.length).toBe(totalBytes);
+    expect(assembled.subarray(0, 2).toString()).toBe('PK');
+    expect(LEDI_ZIP_MAX_BYTES).toBe(100 * 1024 * 1024);
   });
 });

@@ -16,7 +16,7 @@
 
 ## Railway — caminho rápido (1 serviço) ✅ recomendado p/ primeiro deploy
 
-Arquitetura: **um container** `PROCESS_ROLE=all` — porta pública **:3000** = `docker/public-proxy.mjs` (pipe stream `/api` → Nest **:3001**; UI → Next **:3002**). ZIP LEDI grande **não** sobe pelo gateway: a UI descompacta no browser (`fflate`) e envia XMLs em fatias `POST /api/v1/dental/ledi/batches/upload` + `/:batchId/upload` (≤1 MB / ~80 fichas). `/upload-zip/chunk` fica para CLI. Jobs LEDI **inline** até você ligar Redis.
+Arquitetura: **um container** `PROCESS_ROLE=all` — porta pública **:3000** = `docker/public-proxy.mjs` (pipe stream `/api` → Nest **:3001**; UI → Next **:3002**). ZIP LEDI **até 100 MB**: a UI descompacta no browser só até ~5 MB; acima disso envia fatias `POST /api/v1/dental/ledi/batches/upload-zip/chunk` (512 KiB octet-stream). Tmp das fatias em `/data/ledi-chunks` (volume). Última fatia enfileira análise (job inline sem Redis). XMLs soltos seguem em `POST /upload`.
 
 ### 1. Código no GitHub
 

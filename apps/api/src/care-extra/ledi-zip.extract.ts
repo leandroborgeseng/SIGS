@@ -3,10 +3,12 @@
  * pastas internas (`sistemas/<unidade>/*.xml`), Deflate/Store, Zip64,
  * extra Unix, data descriptor, nomes CP437/IBM850/UTF-8.
  * Ignora __MACOSX, AppleDouble (._*), .DS_Store e path traversal.
- * Não copia o e-SUS — parser próprio (JSZip).
+ * ZIP grande (13–100 MB): yauzl em stream a partir do arquivo em disco.
+ * ZIP pequeno / Buffer: JSZip. Não copia o e-SUS — parser próprio.
  */
 
 import JSZip from 'jszip';
+import yauzl from 'yauzl';
 
 export type ExtractedXml = { name: string; xml: string };
 
@@ -149,4 +151,98 @@ export async function extractXmlFilesFromZipBuffer(buf: Buffer): Promise<Extract
 export async function countLediXmlInZipBuffer(buf: Buffer): Promise<number> {
   const zip = await loadLediZip(buf);
   return listLediXmlEntries(zip).length;
+}
+
+function emptyZipError(): Error {
+  return new Error(
+    'ZIP sem arquivos .xml (confira se comprimiu a pasta certa; o SIGS ignora __MACOSX, AppleDouble e .DS_Store).',
+  );
+}
+
+function tooManyXmlError(n: number, max: number): Error {
+  return new Error(
+    `ZIP tem ${n} arquivos .xml; o limite por lote é ${max}. Divida o lote (por unidade/período) ou envie em partes.`,
+  );
+}
+
+function readYauzlEntryBuffer(
+  zipfile: yauzl.ZipFile,
+  entry: yauzl.Entry,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    zipfile.openReadStream(entry, (err, stream) => {
+      if (err || !stream) {
+        reject(err || new Error('Falha ao ler entrada do ZIP'));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      stream.on('data', (c: Buffer) => chunks.push(c));
+      stream.on('error', reject);
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+    });
+  });
+}
+
+/**
+ * Unzip em stream a partir do disco (não carrega o ZIP inteiro em RAM).
+ * Pastas e-SUS (`sistemas/<unidade>/*.xml`); ignora `__MACOSX`.
+ */
+export function extractXmlFilesFromZipPath(zipPath: string): Promise<ExtractedXml[]> {
+  const max = lediBatchMaxFiles();
+  return new Promise((resolve, reject) => {
+    yauzl.open(
+      zipPath,
+      { lazyEntries: true, autoClose: true, decodeStrings: false },
+      (err, zipfile) => {
+      if (err || !zipfile) {
+        reject(mapZipLoadError(err || new Error('ZIP inválido')));
+        return;
+      }
+      const used = new Map<string, number>();
+      const out: ExtractedXml[] = [];
+      let xmlSeen = 0;
+
+      const fail = (e: unknown) => {
+        try {
+          zipfile.close();
+        } catch {
+          /* ignore */
+        }
+        reject(e instanceof Error ? e : new Error(String(e)));
+      };
+
+      zipfile.on('error', (e) => fail(mapZipLoadError(e)));
+      zipfile.on('end', () => {
+        if (!out.length) {
+          reject(emptyZipError());
+          return;
+        }
+        resolve(out);
+      });
+      zipfile.on('entry', (entry: yauzl.Entry) => {
+        const raw = entry.fileName as unknown as Buffer | string;
+        const name = decodeZipFileName(Buffer.isBuffer(raw) ? raw : Buffer.from(String(raw), 'binary'));
+        if (!isLediXmlZipEntry(name)) {
+          zipfile.readEntry();
+          return;
+        }
+        xmlSeen += 1;
+        if (xmlSeen > max) {
+          fail(tooManyXmlError(xmlSeen, max));
+          return;
+        }
+        void readYauzlEntryBuffer(zipfile, entry)
+          .then((bytes) => {
+            const xml = decodeXmlBytes(bytes);
+            if (xml.trim() && !xml.includes('\u0000')) {
+              out.push({ name: uniqueBaseName(name, used), xml });
+            }
+            zipfile.readEntry();
+          })
+          .catch((e) => fail(mapZipLoadError(e)));
+      });
+      zipfile.readEntry();
+    },
+    );
+  });
 }

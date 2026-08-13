@@ -2,7 +2,7 @@
  * Encaminha o Request para a API interna em streaming (sem bufferizar o ZIP).
  * Usado pelos Route Handlers /api/v1/dental/ledi/... quando o Next ainda
  * recebe o upload (next dev / PROCESS_ROLE=web). Em PROCESS_ROLE=all o
- * docker/public-proxy.mjs pega /api antes do Next.
+ * docker/public-proxy.mjs pega /api antes do Next. Teto documentado: 100 MB.
  */
 
 function apiOrigin(): string {

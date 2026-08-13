@@ -29,6 +29,7 @@ import {
   listLediXmlEntries,
   loadLediZip,
 } from './ledi-zip.extract';
+import { LEDI_ZIP_MAX_BYTES, LEDI_ZIP_MAX_LABEL } from './ledi-zip.limits';
 import { JobsService } from '../infra/jobs/jobs.service';
 import { JOB_NAMES } from '../infra/queue/queue.service';
 import { StorageService } from '../infra/storage/storage.service';
@@ -57,7 +58,7 @@ const XML_UPLOAD = FilesInterceptor('files', 200, {
 });
 
 const ZIP_UPLOAD = FileInterceptor('file', {
-  limits: { fileSize: 80 * 1024 * 1024, fieldSize: 1024 * 1024, fields: 16, files: 1 },
+  limits: { fileSize: LEDI_ZIP_MAX_BYTES, fieldSize: 1024 * 1024, fields: 16, files: 1 },
 });
 
 function mapUploadedXmls(files?: Express.Multer.File[]) {
@@ -191,7 +192,7 @@ export class CareExtraController {
     }
   }
 
-  /** Upload de um .zip multipart (caminho legado / CLI — até 80mb). A UI não usa: unzip no browser. */
+  /** Upload de um .zip multipart (caminho legado / CLI — até 100 MB). A UI grande usa /chunk. */
   @Post('dental/ledi/batches/upload-zip')
   @UseInterceptors(ZIP_UPLOAD)
   async createFaoBatchFromZip(
@@ -218,8 +219,8 @@ export class CareExtraController {
   }
 
   /**
-   * Fatia raw do ZIP (legado CLI / ferramentas). A UI descompacta no browser
-   * e envia XMLs em POST /upload — o ZIP grande não passa pelo gateway.
+   * Fatia raw do ZIP (UI: ZIP > ~5 MB; CLI). Junta em disco; a última fatia
+   * enfileira análise (não extrai 8k–20k XML neste request HTTP).
    */
   @Post('dental/ledi/batches/upload-zip/chunk')
   @Put('dental/ledi/batches/upload-zip/chunk')
@@ -242,15 +243,27 @@ export class CareExtraController {
     });
     if (!progress.complete) return progress;
     try {
-      const buf = await this.zipChunks.readAssembled(progress.assembledPath);
-      return await this.ingestLediZip(
-        buf,
-        {
+      const stored = await this.storage.putFromFile(
+        this.storage.buildKey(['uploads', 'ledi-zip', `${q.uploadId}.zip`]),
+        progress.assembledPath,
+        'application/zip',
+      );
+      const job = await this.jobs.enqueue({
+        type: JOB_NAMES.LEDI_IMPORT_ZIP,
+        idempotencyKey: `ledi-import-zip:${q.uploadId}`,
+        payload: {
+          objectKey: stored.key,
           name: progress.name || progress.fileName.replace(/\.zip$/i, ''),
           expectedTipo: progress.expectedTipo,
         },
-        res,
-      );
+      });
+      res?.status(202);
+      return {
+        async: true as const,
+        jobId: job.id,
+        status: job.status,
+        message: `ZIP recebido (até ${LEDI_ZIP_MAX_LABEL}). Analisando no servidor. Consulte GET /api/v1/jobs/${job.id}`,
+      };
     } catch (e) {
       throw new BadRequestException(e instanceof Error ? e.message : 'ZIP inválido');
     } finally {

@@ -1,6 +1,6 @@
 /**
- * Unzip LEDI no browser (fflate). O ZIP não passa pelo gateway —
- * só os XMLs, em fatias pequenas, pelo POST /upload que já funciona.
+ * Unzip LEDI no browser (fflate) — só ZIP ≤ ~5 MB (Arquivo.zip / amostra).
+ * ZIP maior sobe em /upload-zip/chunk; o Node descompacta com yauzl.
  */
 
 import { unzip } from 'fflate';

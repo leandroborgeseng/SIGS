@@ -4,7 +4,7 @@ import { JobsService } from './jobs.service';
 import { JOB_NAMES, QueueService } from '../queue/queue.service';
 import { LediFaoBatchService } from '../../care-extra/ledi-fao-batch.service';
 import { StorageService } from '../storage/storage.service';
-import { extractXmlFilesFromZipBuffer } from '../../care-extra/ledi-zip.extract';
+import { extractXmlFilesFromZipBuffer, extractXmlFilesFromZipPath } from '../../care-extra/ledi-zip.extract';
 import type { AutoFixLediFaoBatchDto } from '../../care-extra/dto';
 
 @Injectable()
@@ -92,9 +92,11 @@ export class LediJobProcessors {
     );
     try {
       if (!objectKey) throw new Error('Import ZIP sem objectKey');
-      const buf = await this.storage.getBuffer(objectKey);
-      await this.jobs.markProgress(jobRunId, 25, 'Extraindo XMLs do ZIP…');
-      const files = await extractXmlFilesFromZipBuffer(buf);
+      const localPath = this.storage.tryLocalPath(objectKey);
+      await this.jobs.markProgress(jobRunId, 25, 'Extraindo XMLs do ZIP no servidor…');
+      const files = localPath
+        ? await extractXmlFilesFromZipPath(localPath)
+        : await extractXmlFilesFromZipBuffer(await this.storage.getBuffer(objectKey));
       await this.jobs.markProgress(jobRunId, 45, `Analisando ${files.length} fichas…`);
       const batch = await this.batches().create({ name, expectedTipo, files });
       const summary = {

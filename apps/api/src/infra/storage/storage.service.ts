@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from 'crypto';
+import { createReadStream } from 'fs';
+import { copyFile, mkdir, readFile, stat, writeFile } from 'fs/promises';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
   CreateBucketCommand,
@@ -8,7 +10,6 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 
 export type StoredObject = {
@@ -110,6 +111,49 @@ export class StorageService implements OnModuleInit {
       await writeFile(full, buf);
     }
     return { key, sha256, size: buf.length, contentType };
+  }
+
+  /** Path absoluto no disco local, ou null se o driver for S3. */
+  tryLocalPath(key: string): string | null {
+    if (this.driver !== 'local') return null;
+    return path.join(this.localRoot, key);
+  }
+
+  private hashFile(filePath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const hash = createHash('sha256');
+      const stream = createReadStream(filePath);
+      stream.on('data', (c) => hash.update(c));
+      stream.on('error', reject);
+      stream.on('end', () => resolve(hash.digest('hex')));
+    });
+  }
+
+  /** Copia arquivo em disco para o storage sem Buffer na RAM (ZIP 13–100 MB). */
+  async putFromFile(
+    key: string,
+    filePath: string,
+    contentType = 'application/octet-stream',
+  ): Promise<StoredObject> {
+    const st = await stat(filePath);
+    const sha256 = await this.hashFile(filePath);
+    if (this.driver === 's3' && this.s3) {
+      await this.s3.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          Body: createReadStream(filePath),
+          ContentType: contentType,
+          ContentLength: st.size,
+          Metadata: { sha256 },
+        }),
+      );
+    } else {
+      const full = path.join(this.localRoot, key);
+      await mkdir(path.dirname(full), { recursive: true });
+      await copyFile(filePath, full);
+    }
+    return { key, sha256, size: st.size, contentType };
   }
 
   async getBuffer(key: string): Promise<Buffer> {

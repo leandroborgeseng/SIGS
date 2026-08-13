@@ -1,13 +1,14 @@
 /**
  * Upload de lote LEDI (FAI / FAO / PROC).
  *
- * ZIP: descompacta no browser (fflate) e envia XMLs em fatias ≤1 MB / ~80
- * fichas via POST /upload e POST /:batchId/upload — o caminho que já funciona
- * para Arquivo.zip / XMLs soltos. Não manda o ZIP pelo gateway (/chunk).
+ * ZIP ≤ ~5 MB: descompacta no browser (fflate) e envia XMLs em fatias
+ * (Arquivo.zip / amostra). ZIP maior: NÃO unzipa no Safari — fatias
+ * octet-stream 512 KiB em POST /upload-zip/chunk; unzip + análise no Node.
  */
 
-import { apiUpload, getToken, isNetworkError, NetworkError, ApiError } from '@/lib/api';
+import { api, apiBinary, apiUpload, getToken, isNetworkError, NetworkError, ApiError } from '@/lib/api';
 import { IoReadError, isIoReadError, formatBytes, readBinaryFile } from '@/lib/read-binary-file';
+import { isAsyncJobResponse, waitForJob } from '@/lib/jobs';
 import {
   assertLediTipoMatch,
   isMemoryError,
@@ -23,14 +24,133 @@ export type LediUploadResult<T> = {
   failedNames: string[];
 };
 
-/** Alinhado ao FileInterceptor ZIP na API (80 MB). */
-export const MAX_ZIP_BYTES = 80 * 1024 * 1024;
+/** Alinhado ao FileInterceptor ZIP na API (100 MB). */
+export const MAX_ZIP_BYTES = 100 * 1024 * 1024;
+/** Acima disto o Safari não unzipa — sobe o ZIP em chunks para o Node. */
+export const BROWSER_UNZIP_MAX_BYTES = 5 * 1024 * 1024;
+export const ZIP_CHUNK_BYTES = 512 * 1024;
 /** Limite prático por XML no multipart da API. */
 export const MAX_XML_BYTES = 5 * 1024 * 1024;
 const TIPO_SAMPLE = 8;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+function newUploadId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+export function shouldUnzipZipInBrowser(size: number): boolean {
+  return size > 0 && size <= BROWSER_UNZIP_MAX_BYTES;
+}
+
+async function postChunkWithRetry<T>(
+  path: string,
+  body: Blob,
+  opts: { bytesHint: number; onProgress?: (msg: string) => void; label: string },
+): Promise<T> {
+  const attempts = 3;
+  let last: unknown;
+  for (let i = 0; i < attempts; i++) {
+    if (i > 0) {
+      opts.onProgress?.(`Reenviando ${opts.label} (tentativa ${i + 1}/${attempts})…`);
+      await sleep(700 * i);
+    }
+    try {
+      return await apiBinary<T>(path, body, { bytesHint: opts.bytesHint });
+    } catch (e) {
+      last = e;
+      if (!isNetworkError(e) && !(e instanceof NetworkError)) throw e;
+      if (e instanceof ApiError) throw e;
+    }
+  }
+  throw last;
+}
+
+function chunkQuery(opts: {
+  uploadId: string;
+  index: number;
+  total: number;
+  fileName: string;
+  expectedTipo: LediLoteTipo;
+  name?: string;
+  totalBytes: number;
+}): string {
+  const q = new URLSearchParams({
+    uploadId: opts.uploadId,
+    index: String(opts.index),
+    total: String(opts.total),
+    fileName: opts.fileName,
+    expectedTipo: opts.expectedTipo,
+    totalBytes: String(opts.totalBytes),
+  });
+  if (opts.name) q.set('name', opts.name);
+  return `/v1/dental/ledi/batches/upload-zip/chunk?${q.toString()}`;
+}
+
+async function uploadZipViaServerChunks<T extends { id: string; summary?: { total?: number } }>(opts: {
+  zip: File;
+  name?: string;
+  expectedTipo: LediLoteTipo;
+  onProgress?: (msg: string) => void;
+}): Promise<LediUploadResult<T>> {
+  const zip = opts.zip;
+  assertZipSize(zip);
+  const total = Math.max(1, Math.ceil(zip.size / ZIP_CHUNK_BYTES));
+  const uploadId = newUploadId();
+  let last: unknown;
+  for (let i = 0; i < total; i++) {
+    const start = i * ZIP_CHUNK_BYTES;
+    const blob = zip.slice(start, Math.min(start + ZIP_CHUNK_BYTES, zip.size));
+    const label = `parte ${i + 1}/${total}`;
+    opts.onProgress?.(label);
+    last = await postChunkWithRetry(
+      chunkQuery({
+        uploadId,
+        index: i,
+        total,
+        fileName: zip.name,
+        expectedTipo: opts.expectedTipo,
+        name: opts.name,
+        totalBytes: zip.size,
+      }),
+      blob,
+      { bytesHint: blob.size, onProgress: opts.onProgress, label },
+    );
+  }
+
+  opts.onProgress?.('analisando no servidor');
+  if (isAsyncJobResponse(last)) {
+    const job = await waitForJob(last.jobId, {
+      timeoutMs: 30 * 60_000,
+      intervalMs: 1500,
+      onProgress: (j) => {
+        opts.onProgress?.(j.progressMessage || 'analisando no servidor');
+      },
+    });
+    if (job.status !== 'completed') {
+      throw new Error(job.errorMessage || `Análise do ZIP falhou (${job.status}).`);
+    }
+    const batchId = String((job.result as { batchId?: unknown } | null)?.batchId || '');
+    if (!batchId) throw new Error('Análise concluiu sem lote — tente enviar de novo.');
+    const batch = await api<T>(`/v1/dental/ledi/batches/${batchId}`);
+    const uploaded = Number((batch as { summary?: { total?: number } }).summary?.total) || 0;
+    return { batch, uploaded, failedNames: [] };
+  }
+  if (last && typeof last === 'object' && last !== null && 'id' in last) {
+    const batch = last as T;
+    return { batch, uploaded: Number(batch.summary?.total) || 0, failedNames: [] };
+  }
+  throw new Error('Resposta inesperada após o envio do ZIP.');
 }
 
 function wrapErr(err: unknown, fileName?: string, fileSize?: number): Error {
@@ -69,7 +189,7 @@ function assertZipSize(file: File): void {
   }
   if (file.size > MAX_ZIP_BYTES) {
     const have = formatBytes(file.size) || '?';
-    const lim = formatBytes(MAX_ZIP_BYTES) || '80 MB';
+    const lim = formatBytes(MAX_ZIP_BYTES) || '100 MB';
     throw new Error(
       `ZIP “${file.name}” tem ${have}; o limite de upload é ${lim}. Divida o lote ou compacte menos fichas.`,
     );
@@ -240,7 +360,16 @@ export async function uploadLediBatchMultipart<
     let failedNames: string[] = [];
 
     if (zip) {
-      entries = await unzipZipFile(zip, opts.onProgress);
+      if (shouldUnzipZipInBrowser(zip.size)) {
+        entries = await unzipZipFile(zip, opts.onProgress);
+      } else {
+        return await uploadZipViaServerChunks<T>({
+          zip,
+          name: opts.name,
+          expectedTipo: opts.expectedTipo,
+          onProgress: opts.onProgress,
+        });
+      }
     } else {
       if (!xmls.length) throw new Error('Selecione arquivos .xml ou um .zip');
       const read = await xmlFilesToEntries(xmls, opts.onProgress);

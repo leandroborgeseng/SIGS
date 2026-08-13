@@ -6,6 +6,7 @@ import {
   isApiPath,
   isStreamedBody,
   isZipChunkPath,
+  PUBLIC_PROXY_MAX_BODY_BYTES,
 } from './public-proxy.mjs';
 
 test('isApiPath só casa /api', () => {
@@ -27,6 +28,60 @@ test('isZipChunkPath casa POST /upload-zip/chunk', () => {
   assert.equal(isStreamedBody('/api/v1/dental/ledi/batches/upload-zip/chunk', ''), true);
   assert.equal(isStreamedBody('/api/health', 'application/octet-stream'), true);
   assert.equal(isStreamedBody('/api/health', 'application/json'), false);
+});
+
+test('413 se Content-Length > 100 MB', async () => {
+  assert.equal(PUBLIC_PROXY_MAX_BODY_BYTES, 100 * 1024 * 1024);
+
+  const api = http.createServer((_req, res) => {
+    res.writeHead(200);
+    res.end('should-not-reach');
+  });
+  await listen(api, 0);
+  const web = http.createServer((_req, res) => {
+    res.writeHead(500);
+    res.end('web');
+  });
+  await listen(web, 0);
+  const proxy = createPublicProxy({
+    apiPort: api.address().port,
+    webPort: web.address().port,
+  });
+  await listen(proxy, 0);
+  try {
+    const result = await new Promise((resolve, reject) => {
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port: proxy.address().port,
+          path: '/api/v1/dental/ledi/batches/upload-zip/chunk',
+          method: 'POST',
+          headers: {
+            'content-type': 'application/octet-stream',
+            'content-length': String(PUBLIC_PROXY_MAX_BODY_BYTES + 1),
+          },
+        },
+        (res) => {
+          const chunks = [];
+          res.on('data', (c) => chunks.push(c));
+          res.on('end', () => {
+            resolve({
+              status: res.statusCode,
+              json: JSON.parse(Buffer.concat(chunks).toString('utf8')),
+            });
+          });
+        },
+      );
+      req.on('error', reject);
+      req.end();
+    });
+    assert.equal(result.status, 413);
+    assert.match(String(result.json.message), /100 MB/);
+  } finally {
+    await close(proxy);
+    await close(api);
+    await close(web);
+  }
 });
 
 test('pipe multipart >10mb chega inteiro na API (sem clone/truncate)', async () => {

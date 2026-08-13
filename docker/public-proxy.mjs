@@ -5,8 +5,8 @@
  *   PORT (3000) ─┬─ /api/*  →  API_PORT (3001) Nest
  *                └─ resto   →  WEB_INTERNAL_PORT (3002) Next
  *
- * O rewrite do Next clona o body (default 10mb; mesmo com 80mb ainda trunca).
- * ZIP LEDI multipart tem de chegar no Nest pelo pipe deste processo.
+ * O rewrite do Next clona o body (default 10mb; mesmo com 100mb ainda trunca).
+ * ZIP LEDI grande sobe em fatias octet-stream 512 KiB por este pipe até o Nest.
  */
 import http from 'node:http';
 import path from 'node:path';
@@ -22,6 +22,9 @@ const HOP = new Set([
   'transfer-encoding',
   'upgrade',
 ]);
+
+/** Teto de Content-Length no proxy (ZIP LEDI até 100 MB). Fatias de 512 KiB passam. */
+export const PUBLIC_PROXY_MAX_BODY_BYTES = 100 * 1024 * 1024;
 
 export function isApiPath(urlPath = '/') {
   const p = String(urlPath).split('?')[0] || '/';
@@ -63,6 +66,19 @@ export function createPublicProxy(opts = {}) {
     }
     if (!headers['x-forwarded-proto']) {
       headers['x-forwarded-proto'] = req.socket?.encrypted ? 'https' : 'http';
+    }
+
+    const cl = Number(req.headers['content-length']);
+    if (Number.isFinite(cl) && cl > PUBLIC_PROXY_MAX_BODY_BYTES) {
+      res.writeHead(413, { 'content-type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          statusCode: 413,
+          message: `Corpo excede ${Math.round(PUBLIC_PROXY_MAX_BODY_BYTES / (1024 * 1024))} MB (limite do proxy). Envie o ZIP em fatias /upload-zip/chunk.`,
+        }),
+      );
+      req.resume();
+      return;
     }
 
     const ct = String(req.headers['content-type'] || '');

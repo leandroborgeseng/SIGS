@@ -12,6 +12,11 @@ if [[ -z "${STORAGE_LOCAL_PATH:-}" && -d /data ]]; then
   export STORAGE_LOCAL_PATH=/data/storage
   mkdir -p "$STORAGE_LOCAL_PATH"
 fi
+# PROCESS_ROLE=all: tmp das fatias ZIP no volume (sobrevive restart; 13–100 MB)
+if [[ -z "${LEDI_CHUNK_DIR:-}" && -d /data && ( "$ROLE" == "all" || "$ROLE" == "api" ) ]]; then
+  export LEDI_CHUNK_DIR=/data/ledi-chunks
+  mkdir -p "$LEDI_CHUNK_DIR"
+fi
 
 redact_db() {
   local url="${DATABASE_URL:-}"

@@ -24,8 +24,8 @@ Ficha FAO (XML ou Thrift LEDI)
 | `POST` | `/v1/dental/ledi/batches` | `{ name?, files: [{ name, xml }], expectedTipo? }` |
 | `POST` | `/v1/dental/ledi/batches/upload` | multipart `files` (XML) + `expectedTipo` — **não** setar `Content-Type` no fetch |
 | `POST` | `/v1/dental/ledi/batches/:id/upload` | multipart `files` — **append** ao mesmo `batchId` (fatias da UI). `?summarize=0` nas fatias intermediárias |
-| `POST` (PUT compat) | `/v1/dental/ledi/batches/upload-zip/chunk` | legado CLI: corpo `application/octet-stream` + query `uploadId`… Junta em disco; última fatia ingere (job async se ≥1500 XMLs). A UI **não** usa — unzip no browser. |
-| `POST` | `/v1/dental/ledi/batches/upload-zip` | multipart `file` (.zip) — legado; o gateway Railway costuma truncar ZIPs ~14 MB |
+| `POST` (PUT compat) | `/v1/dental/ledi/batches/upload-zip/chunk` | UI (ZIP > ~5 MB) e CLI: corpo `application/octet-stream` 512 KiB + query `uploadId`… Junta em disco (até **100 MB**); última fatia enfileira job `ledi.import-zip` (unzip yauzl no Node). |
+| `POST` | `/v1/dental/ledi/batches/upload-zip` | multipart `file` (.zip) — legado CLI; teto **100 MB**. Gateway Railway ainda pode truncar multipart grande — preferir `/chunk`. |
 | `POST` | `/v1/dental/ledi/batches/from-zip` | `{ zipBase64 }` — fallback legado |
 | `GET` | `/v1/dental/ledi/batches` | lista lotes |
 | `GET` | `/v1/dental/ledi/batches/:id` | resumo + topCodes |
@@ -62,7 +62,7 @@ Resposta do validador:
 ## UI
 
 - `/odonto` — atendimento clínico; finish envia campos críticos.
-- `/faturamento/lote/fao` — upload em lote (ZIP descompactado no browser; XMLs em fatias `/upload` + `/:id/upload`; tipo LEDI conferido — FAI nesta tela é recusado), inconsistências, auto-correção (`stNaoPossuiCpf` / INE) e edição manual (CIAP/CID, consulta); download ZIP.
+- `/faturamento/lote/fao` — upload em lote (ZIP ≤ ~5 MB unzip no browser; ZIP maior em fatias `/upload-zip/chunk` + análise no servidor; tipo LEDI conferido — FAI nesta tela é recusado), inconsistências, auto-correção (`stNaoPossuiCpf` / INE) e edição manual (CIAP/CID, consulta); download ZIP.
 
 Deploy: `docs/planejamento/deploy-railway-coolify.md`.
 

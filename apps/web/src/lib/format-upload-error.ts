@@ -33,7 +33,7 @@ export function formatUploadError(err: unknown): string {
     if (/unexpected end of form|boundary not found/i.test(err.message)) {
       return (
         `Falha no envio (HTTP ${err.status}): multipart incompleto (${err.message}). ` +
-        `O ZIP é aberto no navegador; só os XMLs sobem em lotes pequenos. ` +
+        `O ZIP grande sobe em partes; XMLs soltos em lotes pequenos. ` +
         `Recarregue a página após o deploy e envie de novo; se persistir, verifique a rede.`
       );
     }

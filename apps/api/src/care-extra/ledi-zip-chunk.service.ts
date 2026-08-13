@@ -6,6 +6,7 @@ import { BadRequestException, Inject, Injectable, Logger, Optional, OnModuleDest
 import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile, appendFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { LEDI_ZIP_MAX_BYTES, LEDI_ZIP_MAX_CHUNKS } from './ledi-zip.limits';
 
 export const LEDI_CHUNK_OPTIONS = 'LEDI_CHUNK_OPTIONS';
 
@@ -18,8 +19,16 @@ export type LediZipChunkOptions = {
 };
 
 const UPLOAD_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MAX_ZIP_BYTES = 80 * 1024 * 1024;
-const MAX_CHUNKS = 200;
+
+/** PROCESS_ROLE=all: tmp no volume (/data/ledi-chunks). Senão os.tmpdir(). */
+export function resolveLediChunkDir(env: NodeJS.ProcessEnv = process.env): string {
+  const explicit = env.LEDI_CHUNK_DIR?.trim();
+  if (explicit) return explicit;
+  if (env.PROCESS_ROLE === 'all' && env.STORAGE_LOCAL_PATH) {
+    return path.join(path.dirname(env.STORAGE_LOCAL_PATH), 'ledi-chunks');
+  }
+  return path.join(os.tmpdir(), 'sigs-ledi-chunks');
+}
 
 export type LediZipChunkMeta = {
   createdAt: number;
@@ -67,9 +76,9 @@ export class LediZipChunkService implements OnModuleInit, OnModuleDestroy {
   private sweepTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(@Optional() @Inject(LEDI_CHUNK_OPTIONS) opts?: LediZipChunkOptions) {
-    this.root = opts?.root || process.env.LEDI_CHUNK_DIR || path.join(os.tmpdir(), 'sigs-ledi-chunks');
+    this.root = opts?.root || resolveLediChunkDir();
     this.maxChunkBytes = opts?.maxChunkBytes ?? Number(process.env.LEDI_CHUNK_MAX_BYTES || 2.5 * 1024 * 1024);
-    this.maxTotalBytes = opts?.maxTotalBytes ?? Number(process.env.LEDI_CHUNK_MAX_TOTAL || MAX_ZIP_BYTES);
+    this.maxTotalBytes = opts?.maxTotalBytes ?? Number(process.env.LEDI_CHUNK_MAX_TOTAL || LEDI_ZIP_MAX_BYTES);
     this.ttlMs = opts?.ttlMs ?? Number(process.env.LEDI_CHUNK_TTL_MS || 2 * 60 * 60 * 1000);
     this.sweepMs = opts?.sweepMs ?? Number(process.env.LEDI_CHUNK_SWEEP_MS ?? 15 * 60 * 1000);
   }
@@ -112,8 +121,8 @@ export class LediZipChunkService implements OnModuleInit, OnModuleDestroy {
     if (!Number.isInteger(index) || !Number.isInteger(total) || index < 0 || total < 1 || index >= total) {
       throw new BadRequestException('índice/total de chunk inválido');
     }
-    if (total > MAX_CHUNKS) {
-      throw new BadRequestException(`ZIP em demasiadas partes (${total}; máx. ${MAX_CHUNKS}).`);
+    if (total > LEDI_ZIP_MAX_CHUNKS) {
+      throw new BadRequestException(`ZIP em demasiadas partes (${total}; máx. ${LEDI_ZIP_MAX_CHUNKS}).`);
     }
     const body = input.body;
     if (!Buffer.isBuffer(body) || body.length === 0) {

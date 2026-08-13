@@ -1,10 +1,14 @@
 import {
   extractXmlFilesFromZipBuffer,
+  extractXmlFilesFromZipPath,
   isJunkZipEntry,
   isLediXmlZipEntry,
   lediBatchMaxFiles,
 } from './ledi-zip.extract';
 import JSZip from 'jszip';
+import { mkdtemp, rm, writeFile } from 'fs/promises';
+import os from 'os';
+import path from 'path';
 
 async function zipBuf(build: (z: JSZip) => void): Promise<Buffer> {
   const zip = new JSZip();
@@ -71,5 +75,25 @@ describe('ledi-zip.extract', () => {
     expect(isJunkZipEntry('__MACOSX/foo.xml')).toBe(true);
     expect(isLediXmlZipEntry('sistemas/1/cadastroprocedimentos-1.esus.xml')).toBe(true);
     expect(isLediXmlZipEntry('sistemas/1/._cadastroprocedimentos-1.esus.xml')).toBe(false);
+  });
+
+  it('yauzl em disco extrai pasta e-SUS e ignora __MACOSX', async () => {
+    const buf = await zipBuf((zip) => {
+      zip.file(
+        'sistemas/5974691/cadastroatendimentoindividual-1.esus.xml',
+        '<tipoDadoSerializado>4</tipoDadoSerializado><fichaAtendimentoIndividualMasterTransport/>',
+      );
+      zip.file('__MACOSX/sistemas/._x.xml', '\u0000x');
+    });
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'ledi-yauzl-'));
+    const zipPath = path.join(dir, 'lote.zip');
+    try {
+      await writeFile(zipPath, buf);
+      const files = await extractXmlFilesFromZipPath(zipPath);
+      expect(files).toHaveLength(1);
+      expect(files[0]!.name).toContain('cadastroatendimentoindividual');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

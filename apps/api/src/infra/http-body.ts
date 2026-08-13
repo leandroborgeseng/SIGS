@@ -10,7 +10,11 @@ import {
 } from 'express';
 
 export const HTTP_JSON_BODY_LIMIT = process.env.HTTP_BODY_LIMIT || '50mb';
-/** Raw parser só na rota de chunk ZIP — default Express/Nest é 100kb/1mb. */
+/**
+ * Raw parser só na rota de chunk ZIP (UI envia 512 KiB).
+ * O teto do ZIP montado é 100 MB (`LEDI_ZIP_MAX_BYTES`) — não usar 100mb aqui,
+ * senão um cliente poderia mandar o arquivo inteiro numa request e estourar RAM.
+ */
 export const HTTP_OCTET_CHUNK_LIMIT = process.env.HTTP_OCTET_CHUNK_LIMIT || '2mb';
 
 export function isMultipartRequest(req: { headers?: { 'content-type'?: string } }): boolean {

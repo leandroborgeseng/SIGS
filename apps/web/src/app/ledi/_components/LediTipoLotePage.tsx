@@ -720,8 +720,9 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>1. Enviar XMLs {meta.label}</h3>
         <p className="muted">
-          ZIP (pasta e-SUS ou achatado) é aberto no navegador; as fichas sobem em lotes de ~80
-          XMLs. Tipo LEDI conferido antes do envio
+          ZIP até 100 MB. Até ~5 MB o navegador abre o arquivo; acima disso o ZIP sobe em partes
+          (512 KiB) e a análise roda no servidor — o Safari não descompacta 13 MB+. Pasta e-SUS
+          ou achatado. Tipo LEDI conferido
           {expectedTipo === 'FAI' ? (
             <>
               {' '}

@@ -12,8 +12,8 @@ async function bootstrap() {
   assertBootEnv('api');
 
   const app = await NestFactory.create(AppModule, { bodyParser: false });
-  // JSON/urlencoded: fallback ZIP base64 e patches. Multipart ZIP usa multer (até 80mb).
-  // Chunk ZIP: octet-stream raw (≥2mb). skipUnparsedBody: JSON não pode consumir esses streams.
+  // JSON/urlencoded: fallback ZIP base64 e patches. Multipart ZIP usa multer (até 100 MB).
+  // Chunk ZIP: octet-stream raw (~2mb por fatia de 512 KiB). skipUnparsedBody: JSON não pode consumir esses streams.
   applyHttpBodyParsers(app);
 
   app.use((req: Request, res: Response, next: NextFunction) => {

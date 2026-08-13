@@ -956,7 +956,8 @@ export default function OdontoLotePage() {
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>1. Enviar XMLs ou ZIP</h3>
         <p className="muted">
-          ZIP é aberto no navegador (não sobe pelo gateway). FAI nesta tela gera aviso — use{' '}
+          ZIP até 100 MB. Até ~5 MB abre no navegador; acima disso sobe em partes e analisa no
+          servidor (Safari não unzipa 13 MB+). FAI nesta tela gera aviso — use{' '}
           <Link href="/faturamento/lote/fai">Lote FAI</Link> para tipo 4.
         </p>
         <div className="field">
