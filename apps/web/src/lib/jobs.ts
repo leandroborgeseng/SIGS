@@ -32,11 +32,20 @@ export async function waitForJob(
   }
 }
 
-export function isAsyncJobResponse(data: unknown): data is { async: true; jobId: string } {
-  return (
-    !!data &&
-    typeof data === 'object' &&
-    (data as { async?: boolean }).async === true &&
-    typeof (data as { jobId?: unknown }).jobId === 'string'
-  );
+/** Última fatia ZIP devolve 202 + jobId — aceita sem `async: true` (proxy/Nest). */
+export function extractJobId(data: unknown): string | null {
+  if (!data || typeof data !== 'object') return null;
+  const jobId = (data as { jobId?: unknown }).jobId;
+  if (typeof jobId === 'string' && jobId.length >= 8) return jobId;
+  return null;
+}
+
+export function isAsyncJobResponse(data: unknown): data is { async?: boolean; jobId: string } {
+  return extractJobId(data) != null;
+}
+
+export function jobProgressLabel(job: Pick<JobStatus, 'progressPct' | 'progressMessage'>): string {
+  const msg = job.progressMessage?.trim() || 'analisando no servidor';
+  const pct = typeof job.progressPct === 'number' ? job.progressPct : null;
+  return pct != null && pct > 0 ? `${msg} (${pct}%)` : msg;
 }

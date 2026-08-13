@@ -63,6 +63,7 @@ Resposta do validador:
 
 - `/odonto` — atendimento clínico; finish envia campos críticos.
 - `/faturamento/lote/fao` — upload em lote (ZIP ≤ ~5 MB unzip no browser; ZIP maior em fatias `/upload-zip/chunk` + análise no servidor; tipo LEDI conferido — FAI nesta tela é recusado), inconsistências, auto-correção (`stNaoPossuiCpf` / INE) e edição manual (CIAP/CID, consulta); download ZIP.
+- `/faturamento/lote/fai` — mesmo upload em fatias; após a última fatia (HTTP 202) a UI faz poll `GET /v1/jobs/:id` (ou `by-key` se o 202 se perder) até o lote abrir com summary; fatia falha → Retomar/Recomeçar; Dry-run + Corrigir em lote só com ajustes seguros (não inventa CIAP/CID/conduta).
 
 Deploy: `docs/planejamento/deploy-railway-coolify.md`.
 

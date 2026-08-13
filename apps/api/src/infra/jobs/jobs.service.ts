@@ -57,6 +57,12 @@ export class JobsService {
     return this.serialize(job);
   }
 
+  async getByIdempotencyKey(key: string) {
+    const job = await this.prisma.jobRun.findUnique({ where: { idempotencyKey: key } });
+    if (!job) throw new NotFoundException('Job não encontrado');
+    return this.serialize(job);
+  }
+
   async markActive(id: string) {
     return this.prisma.jobRun.update({
       where: { id },

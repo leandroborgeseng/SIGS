@@ -3,6 +3,7 @@
 import { ApiError, isNetworkError, NetworkError } from '@/lib/api';
 import { isIoReadError } from '@/lib/read-binary-file';
 import { isLediTipoMismatchError } from '@/lib/ledi-xml-batch';
+import { isChunkUploadError } from '@/lib/ledi-batch-upload';
 
 function formatMb(bytes?: number): string | null {
   if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return null;
@@ -10,6 +11,16 @@ function formatMb(bytes?: number): string | null {
 }
 
 export function formatUploadError(err: unknown): string {
+  if (isChunkUploadError(err)) {
+    const cause = (err as Error & { cause?: unknown }).cause;
+    const extra =
+      cause instanceof ApiError
+        ? ` Detalhe HTTP ${cause.status}: ${cause.message}`
+        : cause instanceof Error && cause.message && cause.message !== err.message
+          ? ` Detalhe: ${cause.message}`
+          : '';
+    return err.message + extra;
+  }
   if (isLediTipoMismatchError(err)) {
     return err instanceof Error ? err.message : 'Tipo LEDI não corresponde a esta tela.';
   }

@@ -111,7 +111,7 @@ describe('POST /v1/dental/ledi/batches/upload-zip/chunk', () => {
       .post(q(1))
       .set('Content-Type', 'application/octet-stream')
       .send(b);
-    expect(r2.status).toBeLessThan(400);
+    expect(r2.status).toBe(202);
     expect(r2.body.async).toBe(true);
     expect(r2.body.jobId).toBe('job-chunk');
     expect(create).not.toHaveBeenCalled();

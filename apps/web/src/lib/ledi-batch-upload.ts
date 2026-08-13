@@ -8,7 +8,7 @@
 
 import { api, apiBinary, apiUpload, getToken, isNetworkError, NetworkError, ApiError } from '@/lib/api';
 import { IoReadError, isIoReadError, formatBytes, readBinaryFile } from '@/lib/read-binary-file';
-import { isAsyncJobResponse, waitForJob } from '@/lib/jobs';
+import { extractJobId, isAsyncJobResponse, jobProgressLabel, waitForJob } from '@/lib/jobs';
 import {
   assertLediTipoMatch,
   isMemoryError,
@@ -23,6 +23,75 @@ export type LediUploadResult<T> = {
   uploaded: number;
   failedNames: string[];
 };
+
+export type LediChunkResume = {
+  uploadId: string;
+  startIndex: number;
+};
+
+export class ChunkUploadError extends Error {
+  readonly code = 'CHUNK_UPLOAD' as const;
+  readonly uploadId: string;
+  readonly failedIndex: number;
+  readonly total: number;
+  readonly fileName: string;
+
+  constructor(opts: {
+    uploadId: string;
+    failedIndex: number;
+    total: number;
+    fileName: string;
+    cause?: unknown;
+  }) {
+    super(
+      `Falhou na parte ${opts.failedIndex + 1}/${opts.total} de “${opts.fileName}”. ` +
+        `Clique em Retomar envio (continua deste ponto) ou Recomeçar (do zero).`,
+    );
+    this.name = 'ChunkUploadError';
+    this.uploadId = opts.uploadId;
+    this.failedIndex = opts.failedIndex;
+    this.total = opts.total;
+    this.fileName = opts.fileName;
+    if (opts.cause !== undefined) {
+      (this as Error & { cause?: unknown }).cause = opts.cause;
+    }
+  }
+}
+
+export function isChunkUploadError(err: unknown): err is ChunkUploadError {
+  return err instanceof ChunkUploadError;
+}
+
+export function parseParteProgress(msg: string): { current: number; total: number } | null {
+  const m = /parte\s+(\d+)\s*\/\s*(\d+)/i.exec(msg);
+  if (!m) return null;
+  const current = Number(m[1]);
+  const total = Number(m[2]);
+  if (!Number.isFinite(current) || !Number.isFinite(total) || total < 1) return null;
+  return { current, total };
+}
+
+export function isAnalyzingProgress(msg: string): boolean {
+  return /analisando|extraindo|lendo zip|conferindo job|conferindo se o job/i.test(msg);
+}
+
+function lediImportJobKey(uploadId: string): string {
+  return `ledi-import-zip:${uploadId}`;
+}
+
+async function recoverJobAfterLastChunk(
+  uploadId: string,
+): Promise<{ async: true; jobId: string } | null> {
+  try {
+    const job = await api<{ id: string }>(
+      `/v1/jobs/by-key/${encodeURIComponent(lediImportJobKey(uploadId))}`,
+    );
+    if (job?.id) return { async: true, jobId: job.id };
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 /** Alinhado ao FileInterceptor ZIP na API (100 MB). */
 export const MAX_ZIP_BYTES = 100 * 1024 * 1024;
@@ -97,63 +166,104 @@ function chunkQuery(opts: {
   return `/v1/dental/ledi/batches/upload-zip/chunk?${q.toString()}`;
 }
 
+async function waitForImportJob<T extends { id: string; summary?: { total?: number } }>(
+  jobId: string,
+  onProgress?: (msg: string) => void,
+): Promise<LediUploadResult<T>> {
+  const job = await waitForJob(jobId, {
+    timeoutMs: 30 * 60_000,
+    intervalMs: 1500,
+    onProgress: (j) => {
+      onProgress?.(jobProgressLabel(j));
+    },
+  });
+  if (job.status !== 'completed') {
+    throw new Error(job.errorMessage || `Análise do ZIP falhou (${job.status}).`);
+  }
+  const batchId = String((job.result as { batchId?: unknown } | null)?.batchId || '');
+  if (!batchId) throw new Error('Análise concluiu sem lote — tente enviar de novo.');
+  const batch = await api<T>(`/v1/dental/ledi/batches/${batchId}`);
+  const uploaded = Number((batch as { summary?: { total?: number } }).summary?.total) || 0;
+  return { batch, uploaded, failedNames: [] };
+}
+
 async function uploadZipViaServerChunks<T extends { id: string; summary?: { total?: number } }>(opts: {
   zip: File;
   name?: string;
   expectedTipo: LediLoteTipo;
   onProgress?: (msg: string) => void;
+  resume?: LediChunkResume;
 }): Promise<LediUploadResult<T>> {
   const zip = opts.zip;
   assertZipSize(zip);
   const total = Math.max(1, Math.ceil(zip.size / ZIP_CHUNK_BYTES));
-  const uploadId = newUploadId();
+  const uploadId = opts.resume?.uploadId || newUploadId();
+  const startIndex = Math.max(0, Math.min(opts.resume?.startIndex ?? 0, total - 1));
   let last: unknown;
-  for (let i = 0; i < total; i++) {
+  for (let i = startIndex; i < total; i++) {
     const start = i * ZIP_CHUNK_BYTES;
     const blob = zip.slice(start, Math.min(start + ZIP_CHUNK_BYTES, zip.size));
     const label = `parte ${i + 1}/${total}`;
-    opts.onProgress?.(label);
-    last = await postChunkWithRetry(
-      chunkQuery({
+    opts.onProgress?.(
+      i === total - 1 ? `${label} — última fatia; em seguida o servidor analisa` : label,
+    );
+    try {
+      last = await postChunkWithRetry(
+        chunkQuery({
+          uploadId,
+          index: i,
+          total,
+          fileName: zip.name,
+          expectedTipo: opts.expectedTipo,
+          name: opts.name,
+          totalBytes: zip.size,
+        }),
+        blob,
+        { bytesHint: blob.size, onProgress: opts.onProgress, label },
+      );
+    } catch (e) {
+      if (i === total - 1) {
+        opts.onProgress?.('analisando no servidor — conferindo se o job já existe…');
+        const recovered = await recoverJobAfterLastChunk(uploadId);
+        if (recovered) {
+          last = recovered;
+          break;
+        }
+      }
+      throw new ChunkUploadError({
         uploadId,
-        index: i,
+        failedIndex: i,
         total,
         fileName: zip.name,
-        expectedTipo: opts.expectedTipo,
-        name: opts.name,
-        totalBytes: zip.size,
-      }),
-      blob,
-      { bytesHint: blob.size, onProgress: opts.onProgress, label },
-    );
+        cause: e,
+      });
+    }
   }
 
   opts.onProgress?.('analisando no servidor');
-  if (isAsyncJobResponse(last)) {
-    const job = await waitForJob(last.jobId, {
-      timeoutMs: 30 * 60_000,
-      intervalMs: 1500,
-      onProgress: (j) => {
-        opts.onProgress?.(j.progressMessage || 'analisando no servidor');
-      },
-    });
-    if (job.status !== 'completed') {
-      throw new Error(job.errorMessage || `Análise do ZIP falhou (${job.status}).`);
-    }
-    const batchId = String((job.result as { batchId?: unknown } | null)?.batchId || '');
-    if (!batchId) throw new Error('Análise concluiu sem lote — tente enviar de novo.');
-    const batch = await api<T>(`/v1/dental/ledi/batches/${batchId}`);
-    const uploaded = Number((batch as { summary?: { total?: number } }).summary?.total) || 0;
-    return { batch, uploaded, failedNames: [] };
+  let jobId = extractJobId(last);
+  if (!jobId) {
+    const recovered = await recoverJobAfterLastChunk(uploadId);
+    jobId = extractJobId(recovered);
+    if (recovered) last = recovered;
   }
-  if (last && typeof last === 'object' && last !== null && 'id' in last) {
+  if (jobId) {
+    return waitForImportJob<T>(jobId, opts.onProgress);
+  }
+  if (isAsyncJobResponse(last)) {
+    return waitForImportJob<T>(last.jobId, opts.onProgress);
+  }
+  if (last && typeof last === 'object' && last !== null && 'id' in last && !('jobId' in last)) {
     const batch = last as T;
     return { batch, uploaded: Number(batch.summary?.total) || 0, failedNames: [] };
   }
-  throw new Error('Resposta inesperada após o envio do ZIP.');
+  throw new Error(
+    'Última fatia enviada, mas o servidor não devolveu o job. Recarregue os lotes recentes ou envie de novo.',
+  );
 }
 
 function wrapErr(err: unknown, fileName?: string, fileSize?: number): Error {
+  if (err instanceof ChunkUploadError) return err;
   if (err instanceof IoReadError || err instanceof NetworkError || err instanceof ApiError) {
     return err;
   }
@@ -345,6 +455,7 @@ export async function uploadLediBatchMultipart<
   name?: string;
   expectedTipo: LediLoteTipo;
   onProgress?: (msg: string) => void;
+  resume?: LediChunkResume;
 }): Promise<LediUploadResult<T>> {
   if (!opts.files.length) throw new Error('Selecione arquivos .xml ou um .zip');
   if (!getToken()) throw new Error('Sessão expirada — faça login de novo.');
@@ -360,16 +471,16 @@ export async function uploadLediBatchMultipart<
     let failedNames: string[] = [];
 
     if (zip) {
-      if (shouldUnzipZipInBrowser(zip.size)) {
-        entries = await unzipZipFile(zip, opts.onProgress);
-      } else {
+      if (opts.resume || !shouldUnzipZipInBrowser(zip.size)) {
         return await uploadZipViaServerChunks<T>({
           zip,
           name: opts.name,
           expectedTipo: opts.expectedTipo,
           onProgress: opts.onProgress,
+          resume: opts.resume,
         });
       }
+      entries = await unzipZipFile(zip, opts.onProgress);
     } else {
       if (!xmls.length) throw new Error('Selecione arquivos .xml ou um .zip');
       const read = await xmlFilesToEntries(xmls, opts.onProgress);

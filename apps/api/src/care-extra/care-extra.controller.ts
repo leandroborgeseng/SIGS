@@ -224,7 +224,6 @@ export class CareExtraController {
    */
   @Post('dental/ledi/batches/upload-zip/chunk')
   @Put('dental/ledi/batches/upload-zip/chunk')
-  @HttpCode(200)
   async uploadZipChunk(
     @Req() req: Request,
     @Query() q: LediZipChunkQueryDto,
@@ -241,7 +240,10 @@ export class CareExtraController {
       name: q.name,
       totalBytes: q.totalBytes,
     });
-    if (!progress.complete) return progress;
+    if (!progress.complete) {
+      res?.status(200);
+      return progress;
+    }
     try {
       const stored = await this.storage.putFromFile(
         this.storage.buildKey(['uploads', 'ledi-zip', `${q.uploadId}.zip`]),

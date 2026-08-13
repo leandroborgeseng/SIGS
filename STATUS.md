@@ -1,6 +1,6 @@
 # STATUS — SIGS
 
-- **etapa_atual:** Autofix FAI no lote LEDI (mesmo espírito do FAO; só correções seguras)
+- **etapa_atual:** FAI lote fechamento (ZIP sistemas.zip → partes + poll do job + autofix visível)
 - **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI Onda 1 + fila APS + LEDI P1 + autofix FAI):**
   - Área `/faturamento` (hub · filas `/faturamento/odonto` e `/faturamento/aps` · lotes `/faturamento/lote/{fao,fai,proc}`)
   - Gaps clínicos B–D: lotação, `CodeSearchSelect`, preview FAO, Tela C, fila, condutas LEDI
@@ -29,6 +29,7 @@
 ## Retomar daqui (2026-08-13)
 
 ### Entregue nesta onda
+- **FAI lote fechamento:** `/faturamento/lote/fai` mostra **parte x/y**, depois **analisando no servidor** com poll `GET /v1/jobs/:id` (a última fatia devolve 202). Se o 202 se perder, `GET /v1/jobs/by-key/ledi-import-zip:{uploadId}`. Fatia falha no meio → **Retomar** (mesmo uploadId) ou **Recomeçar**. Autofix visível no detalhe: Dry-run + Corrigir em lote (só ajustes seguros; **não** inventa CIAP/CID/conduta).
 - **Autofix FAI (lote XML):** catálogo de reparo + `POST /v1/dental/ledi/batches/:id/dry-run|auto-fix` no XML persistido. Seguros: stNaoPossuiCpf, turno=2, local UBS, IBGE Franca, tpCdsOrigem=3, UUID, encoding, dígitos CNS/CPF se checksum ok, qtd proc=1. **Não** inventa CIAP/CID, conduta, profissional, paciente (só sugere na ficha). UI `/faturamento/lote/fai`: Dry-run com preview + **Corrigir em lote (ajustes seguros)**.
 - **Agenda TR restante (MVP fechável):** grade do dia (horários × profissional, faixa 07:00–19:00 ou dia inteiro) + tipos CONSULTA (tipoAtendimento=2) e ENCAIXE (tipo 5). Modelo `AppointmentSlot` genérico: `/odonto/agenda` abre FAO; `/aps/agenda` abre FAI. Sem mexer no upload ZIP/LEDI.
 - **LEDI P1:** finish/patch da ficha APS (FAI tipo 4) e odonto (FAO) gravam `ProductionRecord` `source=native` com Encounter + Condition (CIAP/CID) + Procedure (SIGTAP). `ProductionBatch`/XML LEDI inalterados; se o motor falhar, o finish segue.
@@ -51,4 +52,4 @@
 - **Hotfix prod:** entrypoint trata `prisma db push` + `--accept-data-loss` após dedupe de `appointment_id` (unique agenda odonto)
 - Colunas novas em `appointment_slots`: `item_type` (default CONSULTA), `care_line` (default GENERAL)
 
-_Atualizado em 2026-08-13 (autofix FAI lote LEDI + agenda RF-12.1)_
+_Atualizado em 2026-08-13 (FAI lote fechamento: poll 202 + retomar/recomeçar + autofix visível)_
