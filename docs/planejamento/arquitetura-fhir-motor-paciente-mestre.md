@@ -139,7 +139,7 @@ O lote `/odonto/lote` permanece a **UI de faturamento**; por baixo migra para o 
 | **A4** | Stub `POST /export/rnds` (contrato) | ✅ stub |
 | **RF-12.13** | Catálogo SIGTAP predefinido no odontograma + `done` → FAO | ✅ |
 | **RF-12.11** | Histórico de odontograma (mesmo paciente + unidade; copiar snapshot) | ✅ |
-| **→** | Ficha APS origem (FAI tipo 4) + **LEDI P1** (campos individuais no motor) | próximo |
+| **LEDI P1** | Ficha APS (FAI) e FAO origem → persist SigsEncounter + Condition/Procedure no motor | ✅ |
 
 ### Endpoints ` /v1/clinical-core`
 
@@ -175,4 +175,5 @@ O lote `/odonto/lote` permanece a **UI de faturamento**; por baixo migra para o 
 - `apps/api/prisma/schema.prisma` — `PatientIdentifier`, `PatientMatchCandidate`
 - `apps/api/src/clinical-core/` — tipos FHIR-like + `RulesEngine`
 - `apps/api/src/clinical-core/adapters/ledi-xml.adapter.ts`
+- `apps/api/src/clinical-core/adapters/native-ficha.adapter.ts` — FAI/FAO nativo → Sigs*
 - `docs/rastreabilidade/cobertura-ledi-erros.md` — códigos do RulePack LEDI
