@@ -1,6 +1,6 @@
 # Desenho — Atendimento odontológico (SIGS)
 
-**Status:** proposta para aprovação (sem implementação nesta fatia)  
+**Status:** Onda 1 + Stream F / VOID pós-COMPLETED implementados (API + ficha)  
 **Atualizado:** 2026-08-12  
 **Contexto:** uso solo → faturamento Siaps primeiro → depois UI clínica completa  
 **Fontes:** Thrift FAO 5.5.24 · `ledi-fao.validator.ts` · `ledi-dental.mapper.ts` · `dental-encounter-mapping.md` · RF-12 Anexo I · docs/conhecimento/15 · lote Franca
@@ -228,8 +228,9 @@ Princípio: **specs + validadores SIGS** como fonte de verdade; legado só para 
 6. Manual usuário stub + matriz RF-12.2–12.7 / 12.9  
 
 ### Onda 2 — Qualidade Previne na origem
-- Alertas B1–B6, INE obrigatório eSB, desencorajar vigilância 99  
-- Procedimento 1ª consulta programada quando fluxo “primeira consulta”
+- [x] Alertas B1–B6 + qualidade na ficha/`preview-fao` (Stream F; não BLOCKER Siaps)
+- [x] Desencorajar vigilância 99 (warning + catálogo)
+- [ ] Procedimento 1ª consulta programada quando fluxo “primeira consulta” (UX dedicada)
 
 ### Onda 3 — TR clínico rico + design fase 2
 - Agenda, odontograma, prótese, patologias, atestados  
@@ -247,12 +248,12 @@ Checklist factual pós Streams A–D (`84e50f5` / `62e71a4`):
 - [x] Finish cria `ProductionBatch` e JSON/XML FAO no fluxo de faturamento  
 - [x] Finish incompleto lista códigos do registry (mesmo catálogo do lote)  
 - [x] **Tela C** pós-fechamento + deep-link fila (`encounterId` / `batchId`)  
-- [x] **VOID só rascunho** (`IN_PROGRESS`); `COMPLETED` recusado até estorno  
+- [x] **VOID rascunho** (`IN_PROGRESS`) + **VOID local pós-`COMPLETED`** (`acknowledgeLocalOnly`; sem recall Ministério)  
 - [x] Paths canônicos: `/faturamento`, `/faturamento/odonto`, `/faturamento/lote/fao` (aliases redirecionam)  
 - [x] Condutas = `LEDI_CONDUTA_ODONTO` (sem códigos inventados / sem R$ na UI de risco)  
 - [x] Sem dados reais de paciente em fixtures  
-- [ ] VOID / estorno pós-`COMPLETED` (gap §12)  
-- [ ] Onda 2 Previne na origem (Stream F — **adiado**)
+- [x] VOID local pós-`COMPLETED` (batch `error` + audit; limite §12)  
+- [x] Onda 2 / Stream F — Previne na origem (painel B1–B6 + vigilância 99)
 
 ---
 
@@ -268,9 +269,9 @@ Checklist factual pós Streams A–D (`84e50f5` / `62e71a4`):
 
 ---
 
-## 12. Stream B — gaps clínicos (2026-08-12)
+## 12. Stream B — gaps clínicos (2026-08-12) + F / VOID (atualizado)
 
-Implementado na UI/API nesta fatia:
+Implementado na UI/API:
 
 | Item | Situação |
 |---|---|
@@ -278,10 +279,13 @@ Implementado na UI/API nesta fatia:
 | CIAP/CID com busca | `CodeSearchSelect` em `/odonto/[id]` |
 | Validação ao vivo | debounce ~900ms → PATCH rascunho + `preview-fao` |
 | Tela C pós-fechamento | card resumo + links fila/lote/lista |
-| VOID rascunho | `POST /v1/dental-encounters/:id/void` só se `IN_PROGRESS` |
+| VOID rascunho | `POST …/void` se `IN_PROGRESS` → VOID + batch `error` |
+| VOID pós-`COMPLETED` | `POST …/void` com `acknowledgeLocalOnly=true` → VOID + batch `error` + audit; **sem** recall Ministério |
+| Stream F — Previne na origem | `preview-fao` devolve `previne` / `vigilanciaOnly99`; painel B1–B6 na ficha; **não** BLOCKER Siaps |
 
-### Gap restante (não inventar regra LEDI)
+### Limite documentado (não fingir estorno remoto)
 
-- **VOID / anulação pós-`COMPLETED`**: schema prevê `VOID`, mas não há estorno Siaps/LEDI, cancelamento de `ProductionBatch` ready nem XML de exclusão. UI/API **recusam** anular finalizado até existir desenho de estorno.
+- Anulação pós-`COMPLETED` é **local**: encounter `VOID`, `ProductionBatch` → `status=error` (sai da fila `ready`), audit `void` com `ministryRecall: false`.
+- Se o batch já estiver `sent` / XML já tiver ido ao Siaps/Ministério, o SIGS **não** gera XML de exclusão nem recall — o operador usa canais oficiais.
 - Condutas lote = LEDI + UI sem R$ → **feito** (Stream D).
-- Onda 2 Previne completa → **adiado** (Stream F).
+- Motor Previne = `analyzePrevineEsbXray` + registry LEDI existente (sem motor paralelo).

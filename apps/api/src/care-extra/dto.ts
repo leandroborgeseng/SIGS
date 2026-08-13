@@ -73,9 +73,17 @@ export class PatchDentalEncounterDto {
   @IsOptional() @IsString() dataHoraFinalAtendimento?: string;
 }
 
-/** Anula rascunho odonto (IN_PROGRESS → VOID). Não cobre estorno LEDI pós-finish. */
+/**
+ * Anula odonto: rascunho (`IN_PROGRESS`) ou pós-fechamento (`COMPLETED`).
+ * Pós-COMPLETED é anulação local (fila/lote); não faz recall no Ministério/Siaps.
+ */
 export class VoidDentalEncounterDto {
   @IsOptional() @IsString() reason?: string;
+  /**
+   * Obrigatório quando status = COMPLETED: confirma ciência de que a anulação
+   * é só no SIGS (sem estorno/XML de exclusão no Ministério).
+   */
+  @IsOptional() @IsBoolean() acknowledgeLocalOnly?: boolean;
 }
 
 /** Revalida pendências LEDI da fila de faturamento odonto (sync em lote). */

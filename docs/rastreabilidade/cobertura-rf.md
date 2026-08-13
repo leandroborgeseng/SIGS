@@ -42,7 +42,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-12.3 | Obr | coberto | automatizado | paciente na abertura + identificação na ficha |
 | RF-12.5 | Obr | coberto | automatizado | `tipoAtendimento` (default 5) + UI select |
 | RF-12.6 | Obr | coberto | automatizado | `tiposEncamOdonto` = `LEDI_CONDUTA_ODONTO` (UI + lote) |
-| RF-12.7 | Obr | coberto | automatizado | vigilância + finish/`validateFaoJson` + preview |
+| RF-12.7 | Obr | coberto | automatizado | vigilância + finish/`validateFaoJson` + preview; aviso Previne 99 (não BLOCKER) |
 | RF-12.8 | Obr | coberto | previsto | `tiposFornecimOdonto` UI + mapper |
 | RF-12.9 | Obr | coberto | previsto | anamnese texto livre Onda 1 |
 | RF-12.1 | Obr | parcial | n/a | agenda TR **não** implementada (só abertura de encounter) |

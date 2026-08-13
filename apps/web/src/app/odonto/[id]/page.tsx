@@ -8,6 +8,7 @@ import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError } from '@/lib/api';
 import { displayPatientName, formatDateTime } from '@/lib/labels';
+import { getLediError } from '@/lib/ledi/error-registry';
 
 type Catalog = {
   config: {
@@ -59,6 +60,12 @@ type Encounter = {
   professional?: { id: string; civilName: string } | null;
   procedures: Array<{ tooth?: string; code: string; label: string; done?: boolean }>;
   care: Care;
+  voidMeta?: {
+    postCompleted?: boolean;
+    localOnly?: boolean;
+    ministryRecall?: boolean;
+    warning?: string | null;
+  };
 };
 
 type FaoFinding = {
@@ -68,10 +75,38 @@ type FaoFinding = {
   hint?: string;
 };
 
+type PrevineGap = {
+  code: string;
+  indicator: string;
+  severity: string;
+  message: string;
+  hint?: string;
+  repair?: string;
+};
+
+type PrevineXray = {
+  channel: string;
+  gaps: PrevineGap[];
+  summary: { moneyRisks: number; qualityWarns: number; infos: number; gapCount: number };
+  signals?: { vigilanciaOnly99?: boolean };
+};
+
 type FaoReport = {
   conformant: boolean;
   summary: { blockers: number; moneyRisks: number; qualityWarns: number };
   findings: FaoFinding[];
+  previneXray?: PrevineXray;
+  previneReady?: boolean;
+  siapsReady?: boolean;
+};
+
+type PreviewResponse = {
+  fao: FaoReport;
+  siapsReady: boolean;
+  previne?: PrevineXray | null;
+  previneReady?: boolean;
+  vigilanciaOnly99?: boolean;
+  canFinish?: boolean;
 };
 
 function toggleNum(list: number[], id: number): number[] {
@@ -80,6 +115,10 @@ function toggleNum(list: number[], id: number): number[] {
 
 function toggleStr(list: string[], id: string): string[] {
   return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+}
+
+function findingTitle(code: string, fallback: string): string {
+  return getLediError(code)?.title || fallback;
 }
 
 export default function OdontoAtendimentoPage() {
@@ -95,7 +134,7 @@ export default function OdontoAtendimentoPage() {
   const [procCode, setProcCode] = useState('0301010030');
   const [procLabel, setProcLabel] = useState('Consulta odontológica');
   const [tooth, setTooth] = useState('11');
-  const [preview, setPreview] = useState<{ fao: FaoReport; siapsReady: boolean } | null>(null);
+  const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -144,9 +183,7 @@ export default function OdontoAtendimentoPage() {
 
   async function refreshPreview(opts?: { quiet?: boolean }) {
     try {
-      const res = await api<{ fao: FaoReport; siapsReady: boolean }>(
-        `/v1/dental-encounters/${id}/preview-fao`,
-      );
+      const res = await api<PreviewResponse>(`/v1/dental-encounters/${id}/preview-fao`);
       setPreview(res);
       return res;
     } catch (err) {
@@ -275,16 +312,32 @@ export default function OdontoAtendimentoPage() {
         blockers: res.fao.summary.blockers,
       });
       setOk(
-        res.fao.conformant
+        res.fao.summary.blockers === 0
           ? 'Atendimento finalizado e enviado à fila de faturamento.'
           : 'Finalizado com avisos.',
       );
       await load();
-      setPreview({ fao: res.fao, siapsReady: res.fao.summary.blockers === 0 });
+      setPreview({
+        fao: res.fao,
+        siapsReady: res.fao.summary.blockers === 0,
+        previne: res.fao.previneXray || null,
+        previneReady: res.fao.previneReady,
+        vigilanciaOnly99: !!res.fao.previneXray?.signals?.vigilanciaOnly99,
+        canFinish: res.fao.summary.blockers === 0,
+      });
     } catch (err) {
       if (err instanceof ApiError && err.body && typeof err.body === 'object' && 'fao' in (err.body as object)) {
         const body = err.body as { message?: string; fao?: FaoReport };
-        setPreview(body.fao ? { fao: body.fao, siapsReady: false } : null);
+        setPreview(
+          body.fao
+            ? {
+                fao: body.fao,
+                siapsReady: false,
+                previne: body.fao.previneXray || null,
+                canFinish: false,
+              }
+            : null,
+        );
         setError(body.message || err.message);
       } else {
         setError(err instanceof Error ? err.message : 'Falha ao finalizar');
@@ -295,19 +348,50 @@ export default function OdontoAtendimentoPage() {
   }
 
   async function voidEncounter() {
-    if (!enc || enc.status !== 'IN_PROGRESS') return;
-    if (!confirm('Anular este atendimento em andamento? Ele sairá da fila de faturamento.')) return;
+    if (!enc || (enc.status !== 'IN_PROGRESS' && enc.status !== 'COMPLETED')) return;
+
+    if (enc.status === 'IN_PROGRESS') {
+      if (!confirm('Anular este atendimento em andamento? Ele sairá da fila de faturamento.')) {
+        return;
+      }
+    } else {
+      const okVoid = confirm(
+        [
+          'Anular atendimento já FINALIZADO?',
+          '',
+          'Isto é anulação LOCAL no SIGS:',
+          '• status → VOID e lote sai da fila (error)',
+          '• NÃO há estorno/XML de exclusão no Ministério/Siaps',
+          '• se o XML já foi enviado, o recall não é feito por aqui',
+          '',
+          'Confirma anulação local?',
+        ].join('\n'),
+      );
+      if (!okVoid) return;
+    }
+
     setBusy(true);
     setError(null);
     setOk(null);
     try {
       const row = await api<Encounter>(`/v1/dental-encounters/${id}/void`, {
         method: 'POST',
-        json: { reason: 'Anulado na UI clínica (rascunho)' },
+        json: {
+          reason:
+            enc.status === 'COMPLETED'
+              ? 'Anulado na UI clínica (pós-COMPLETED, local)'
+              : 'Anulado na UI clínica (rascunho)',
+          ...(enc.status === 'COMPLETED' ? { acknowledgeLocalOnly: true } : {}),
+        },
       });
       skipLiveRef.current = true;
       setEnc(row);
-      setOk('Atendimento anulado (VOID).');
+      setFinishSummary(null);
+      setOk(
+        row.voidMeta?.warning
+          ? `Atendimento anulado (VOID). ${row.voidMeta.warning}`
+          : 'Atendimento anulado (VOID).',
+      );
       setPreview(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao anular');
@@ -320,6 +404,16 @@ export default function OdontoAtendimentoPage() {
     () => preview?.fao.findings.filter((f) => f.severity === 'BLOCKER') || [],
     [preview],
   );
+
+  const previneGaps = useMemo(() => {
+    const gaps = preview?.previne?.gaps || preview?.fao.previneXray?.gaps || [];
+    return gaps.filter((g) => g.severity !== 'INFO');
+  }, [preview]);
+
+  const vigilanciaOnly99Live = useMemo(() => {
+    if (!care?.vigilanciaSaudeBucal?.length) return false;
+    return care.vigilanciaSaudeBucal.every((v) => v === 99);
+  }, [care]);
 
   if (!enc || !care || !catalog) {
     return (
@@ -337,12 +431,14 @@ export default function OdontoAtendimentoPage() {
   const readonly = enc.status !== 'IN_PROGRESS';
   const showTelaC = enc.status === 'COMPLETED' || !!finishSummary;
   const voided = enc.status === 'VOID';
+  const canVoid = enc.status === 'IN_PROGRESS' || enc.status === 'COMPLETED';
   const queueBatchId = finishSummary?.productionBatchId || enc.productionBatchId || null;
   const filaHref = (() => {
     const qs = new URLSearchParams({ encounterId: enc.id });
     if (queueBatchId) qs.set('batchId', queueBatchId);
     return `/faturamento/odonto?${qs}`;
   })();
+  const previneSummary = preview?.previne?.summary || preview?.fao.previneXray?.summary;
 
   return (
     <AppShell helpId="odonto.atendimento">
@@ -371,8 +467,9 @@ export default function OdontoAtendimentoPage() {
         <section className="card" style={{ marginBottom: 16 }}>
           <h2 style={{ marginTop: 0 }}>Atendimento anulado</h2>
           <p className="muted">
-            Status <strong>VOID</strong> — não fatura. Anulação de ficha já finalizada (pós-produção LEDI)
-            permanece como gap documentado.
+            Status <strong>VOID</strong> — não fatura. Anulação pós-finalização é{' '}
+            <strong>local no SIGS</strong> (fila/lote em error); não há recall automático no
+            Ministério/Siaps.
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link className="btn" href="/odonto">
@@ -414,7 +511,19 @@ export default function OdontoAtendimentoPage() {
             <Link className="btn ghost" href="/odonto">
               Voltar à lista
             </Link>
+            <button
+              className="btn ghost"
+              type="button"
+              disabled={busy}
+              onClick={() => void voidEncounter()}
+              style={{ marginLeft: 'auto' }}
+            >
+              Anular (local)
+            </button>
           </div>
+          <p className="muted" style={{ marginBottom: 0, fontSize: 13 }}>
+            Anular após finalizar retira da fila no SIGS. Não estorna XML já enviado ao Ministério.
+          </p>
         </section>
       )}
 
@@ -609,6 +718,13 @@ export default function OdontoAtendimentoPage() {
           </div>
 
           <h2>Vigilância saúde bucal *</h2>
+          {(vigilanciaOnly99Live || preview?.vigilanciaOnly99) && (
+            <p className="muted" style={{ color: 'var(--warn, #a15c00)' }}>
+              Qualidade Previne: vigilância só com <code>99</code> (não se aplica) mascara produção.
+              Prefira códigos específicos quando houver condição observada. Não bloqueia o envio
+              Siaps.
+            </p>
+          )}
           {catalog.vigilanciaSaudeBucal.map((v) => (
             <label key={v.id} className="check">
               <input
@@ -670,15 +786,17 @@ export default function OdontoAtendimentoPage() {
               >
                 Validar agora
               </button>
-              <button
-                className="btn ghost"
-                type="button"
-                disabled={busy}
-                onClick={() => void voidEncounter()}
-                style={{ marginLeft: 'auto' }}
-              >
-                Anular
-              </button>
+              {canVoid && (
+                <button
+                  className="btn ghost"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void voidEncounter()}
+                  style={{ marginLeft: 'auto' }}
+                >
+                  Anular
+                </button>
+              )}
             </div>
           )}
         </form>
@@ -690,23 +808,47 @@ export default function OdontoAtendimentoPage() {
             <>
               <p>
                 {preview.siapsReady ? (
-                  <strong className="ok">Siaps-ready</strong>
+                  <strong className="ok">Siaps-ready (eixo A)</strong>
                 ) : (
                   <strong>BLOCKER: {preview.fao.summary.blockers}</strong>
                 )}
                 <br />
                 <span className="muted">
-                  qualidade {preview.fao.summary.moneyRisks} · warn {preview.fao.summary.qualityWarns}
+                  LEDI warn {preview.fao.summary.qualityWarns}
+                  {previneSummary
+                    ? ` · Previne riscos ${previneSummary.moneyRisks} · warn ${previneSummary.qualityWarns}`
+                    : ''}
                 </span>
               </p>
+              <p className="muted" style={{ fontSize: 13 }}>
+                Finalizar exige zero BLOCKER Siaps. Alertas Previne (B1–B6) orientam qualidade e{' '}
+                <strong>não</strong> bloqueiam o envio.
+              </p>
+              <h3 style={{ marginBottom: 4 }}>Siaps / LEDI</h3>
               <ul className="findings">
                 {blockers.map((f, i) => (
                   <li key={`${f.code}-${i}`}>
-                    <code>{f.code}</code> — {f.message}
+                    <code>{f.code}</code> — {findingTitle(f.code, f.message)}
                     {f.hint ? <div className="muted">{f.hint}</div> : null}
                   </li>
                 ))}
                 {!blockers.length && <li className="muted">Nenhum blocker.</li>}
+              </ul>
+
+              <h3 style={{ marginBottom: 4 }}>Previne ESB (eixo B)</h3>
+              <ul className="findings">
+                {previneGaps.map((g, i) => (
+                  <li key={`${g.code}-${i}`}>
+                    <span className="muted">[{g.indicator}]</span>{' '}
+                    <code>{g.code}</code> — {findingTitle(g.code, g.message)}
+                    {(g.repair || g.hint) && (
+                      <div className="muted">{g.repair || g.hint}</div>
+                    )}
+                  </li>
+                ))}
+                {!previneGaps.length && (
+                  <li className="muted">Sem gaps Previne relevantes neste recorte.</li>
+                )}
               </ul>
             </>
           ) : (

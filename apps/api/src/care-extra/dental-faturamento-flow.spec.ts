@@ -277,4 +277,61 @@ describe('fluxo odonto → faturamento-queue', () => {
     expect(queue.totals.ok).toBeGreaterThanOrEqual(1);
     expect(queue.totals.ready).toBeGreaterThanOrEqual(1);
   });
+
+  it('preview expõe Previne (eixo B) sem bloquear Siaps; VOID pós-COMPLETED retira da fila', async () => {
+    const prisma = createPrismaMemory();
+    const service = new CareExtraService(prisma as never);
+
+    const opened = await service.openDental({
+      patientId: PATIENT.id,
+      facilityId: FACILITY.id,
+      professionalId: PROFESSIONAL.id,
+      assignmentId: ASSIGNMENT.id,
+      encounterType: 'CONSULTA',
+    });
+
+    await service.patchDental(opened.id, {
+      outcomes: ['ALTA'],
+      vigilanciaSaudeBucal: [99],
+      problemasCondicoes: [{ ciap: 'D82' }],
+      procedures: [{ code: '0101020010', label: 'Consulta odonto', done: true }],
+      tipoAtendimento: 5,
+    });
+
+    const preview = await service.previewDentalFao(opened.id);
+    expect(preview.siapsReady).toBe(true);
+    expect(preview.canFinish).toBe(true);
+    expect(preview.vigilanciaOnly99).toBe(true);
+    expect(preview.previne).toBeTruthy();
+    expect(preview.previne?.gaps.some((g) => g.code === 'PREVINE_VIGILANCIA_99')).toBe(true);
+    // Avisos Previne não viram BLOCKER Siaps
+    expect(preview.fao.summary.blockers).toBe(0);
+
+    const finished = await service.finishDental(opened.id, {
+      outcomes: ['ALTA'],
+      vigilanciaSaudeBucal: [99],
+      problemasCondicoes: [{ ciap: 'D82' }],
+    });
+    expect(finished.encounter.status).toBe('COMPLETED');
+    expect(finished.fao.summary.blockers).toBe(0);
+    expect(finished.productionBatch.status).toBe('ready');
+
+    const voided = await service.voidDental(opened.id, {
+      reason: 'lançamento incorreto',
+      acknowledgeLocalOnly: true,
+    });
+    expect(voided.status).toBe('VOID');
+    expect(voided.voidMeta?.ministryRecall).toBe(false);
+    expect(voided.voidMeta?.localOnly).toBe(true);
+
+    const batch = await prisma.productionBatch.findUnique({
+      where: { id: opened.productionBatchId! },
+    });
+    expect(batch?.status).toBe('error');
+    expect(batch?.errorMessage).toMatch(/VOID local pós-COMPLETED/);
+
+    const competencia = competenciaFromDate(new Date('2026-08-12T14:00:00.000Z'));
+    const queue = await service.listDentalFaturamentoQueue({ competencia });
+    expect(queue.items.find((i) => i.encounterId === opened.id)).toBeUndefined();
+  });
 });

@@ -117,6 +117,10 @@ export class CareExtraService {
         { id: 5, label: 'Não identificado / sem marcador' },
         { id: 6, label: 'Fluorose' },
         { id: 7, label: 'Outro' },
+        {
+          id: 99,
+          label: 'Não se aplica (99) — evitar em massa (qualidade Previne)',
+        },
       ],
       condutas: LEDI_CONDUTA_ODONTO.map((c) => ({
         id: c.code,
@@ -355,6 +359,25 @@ export class CareExtraService {
       include: { patient: true, facility: true, professional: true },
     });
     if (!row) return null;
+
+    if (row.status === 'VOID') {
+      if (row.productionBatchId) {
+        await this.prisma.productionBatch.update({
+          where: { id: row.productionBatchId },
+          data: {
+            status: 'error',
+            errorMessage: 'Atendimento anulado (VOID) — fora da fila de faturamento',
+            statusChangedAt: new Date(),
+          },
+        });
+      }
+      return {
+        productionBatchId: row.productionBatchId,
+        bucket: 'incomplete',
+        blockers: 0,
+        voided: true,
+      };
+    }
 
     const care = this.parseCare(row.careJson);
     const procedures = JSON.parse(row.proceduresJson || '[]') as unknown[];
@@ -650,15 +673,27 @@ export class CareExtraService {
     };
   }
 
-  /** Monta payload + valida sem gravar finish (painel ao vivo). */
+  /**
+   * Monta payload + valida sem gravar finish (painel ao vivo).
+   * Eixo A (Siaps) = blockers LEDI; eixo B (Previne B1–B6) vem em `previne` /
+   * `fao.previneXray` e **não** impede finish se `siapsReady`.
+   */
   async previewDentalFao(id: string) {
     const built = await this.buildPayloadForEncounter(id, {});
     const fao = validateFaoJson(built.payload as unknown as Record<string, unknown>);
+    const previne = fao.previneXray || null;
+    const vigilanciaOnly99 = !!previne?.signals?.vigilanciaOnly99;
     return {
       encounterId: id,
       lotacao: built.lotacao,
       fao,
       siapsReady: fao.summary.blockers === 0,
+      /** Alias explícito do raio-x (mesmo objeto em `fao.previneXray`). */
+      previne,
+      previneReady: fao.previneReady,
+      vigilanciaOnly99,
+      /** Finish só exige Siaps; Previne é orientação. */
+      canFinish: fao.summary.blockers === 0,
       payload: built.payload,
     };
   }
@@ -752,46 +787,115 @@ export class CareExtraService {
   }
 
   /**
-   * Anula rascunho clínico (IN_PROGRESS → VOID).
-   * Não implementa estorno/cancelamento LEDI de ficha já COMPLETED (gap documentado).
+   * Anula atendimento odontológico → VOID.
+   * - IN_PROGRESS: anula rascunho e marca batch `error`.
+   * - COMPLETED: anulação **local** (encounter VOID + batch `error`); exige
+   *   `acknowledgeLocalOnly`. Não há XML de exclusão / recall no Ministério —
+   *   se o lote já foi enviado (`sent`), o SIGS só deixa de faturar localmente.
    */
-  async voidDental(id: string, dto: { reason?: string } = {}) {
+  async voidDental(
+    id: string,
+    dto: { reason?: string; acknowledgeLocalOnly?: boolean } = {},
+  ) {
     const row = await this.prisma.dentalEncounter.findUnique({ where: { id } });
     if (!row) throw new NotFoundException('Atendimento odontológico não encontrado');
     if (row.status === 'VOID') {
-      return this.getDental(id);
+      const already = await this.getDental(id);
+      return {
+        ...already,
+        voidMeta: {
+          postCompleted: false,
+          localOnly: false,
+          ministryRecall: false,
+          batchStatusBefore: null as string | null,
+          warning: null as string | null,
+          alreadyVoid: true,
+        },
+      };
     }
-    if (row.status === 'COMPLETED') {
-      throw new BadRequestException(
-        'Anulação de atendimento já finalizado (VOID pós-produção LEDI/Siaps) não está implementada. Use fluxo de estorno quando existir.',
-      );
-    }
-    if (row.status !== 'IN_PROGRESS') {
+    if (row.status !== 'IN_PROGRESS' && row.status !== 'COMPLETED') {
       throw new BadRequestException(`Status ${row.status} não permite anulação`);
     }
 
+    const postCompleted = row.status === 'COMPLETED';
+    if (postCompleted && !dto.acknowledgeLocalOnly) {
+      throw new BadRequestException(
+        'Anulação pós-finalização exige acknowledgeLocalOnly=true (anulação local no SIGS; sem recall no Ministério/Siaps).',
+      );
+    }
+
+    let batchStatusBefore: string | null = null;
+    let batchPayload: Record<string, unknown> = {};
+    if (row.productionBatchId) {
+      const batch = await this.prisma.productionBatch.findUnique({
+        where: { id: row.productionBatchId },
+      });
+      batchStatusBefore = batch?.status ?? null;
+      try {
+        batchPayload = JSON.parse(batch?.payloadJson || '{}') as Record<string, unknown>;
+      } catch {
+        batchPayload = {};
+      }
+    }
+
+    const finishedAt = row.finishedAt || new Date();
     const updated = await this.prisma.dentalEncounter.update({
       where: { id },
-      data: { status: 'VOID', finishedAt: new Date() },
+      data: { status: 'VOID', finishedAt },
       include: { patient: true, facility: true, professional: true },
     });
 
+    const batchAlreadySent = batchStatusBefore === 'sent';
+    const errorMessage = postCompleted
+      ? batchAlreadySent
+        ? 'VOID local pós-COMPLETED — lote já marcado sent; sem recall Ministério/Siaps'
+        : 'VOID local pós-COMPLETED — retirado da fila de faturamento (sem estorno LEDI remoto)'
+      : 'Atendimento anulado (VOID) antes do fechamento';
+
     if (row.productionBatchId) {
+      const voidMeta = {
+        ...batchPayload,
+        voided: true,
+        voidAt: new Date().toISOString(),
+        voidPhase: postCompleted ? 'post_completed' : 'draft',
+        ministryRecall: false,
+        bucket: 'incomplete',
+      };
       await this.prisma.productionBatch.update({
         where: { id: row.productionBatchId },
         data: {
           status: 'error',
-          errorMessage: 'Atendimento anulado (VOID) antes do fechamento',
+          errorMessage,
+          payloadJson: JSON.stringify(voidMeta),
           statusChangedAt: new Date(),
         },
       });
     }
 
-    await this.prisma.audit('void', 'dental_encounter', id, [RF.ODONTO.id], {
+    await this.prisma.audit('void', 'dental_encounter', id, [RF.ODONTO.id, RF.PROD.id], {
       reason: dto.reason || null,
       productionBatchId: row.productionBatchId,
+      previousStatus: row.status,
+      postCompleted,
+      acknowledgeLocalOnly: !!dto.acknowledgeLocalOnly,
+      batchStatusBefore,
+      ministryRecall: false,
+      localOnly: postCompleted,
     });
-    return this.serializeDental(updated);
+
+    const serialized = this.serializeDental(updated);
+    return {
+      ...serialized,
+      voidMeta: {
+        postCompleted,
+        localOnly: postCompleted,
+        ministryRecall: false,
+        batchStatusBefore,
+        warning: postCompleted
+          ? 'Anulação local no SIGS. Não há estorno/XML de exclusão no Ministério; se o XML já foi enviado, trate o recall pelos canais oficiais.'
+          : null,
+      },
+    };
   }
 
   async finishDental(id: string, dto: FinishDentalEncounterDto) {

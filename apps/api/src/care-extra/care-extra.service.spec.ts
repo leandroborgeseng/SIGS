@@ -8,6 +8,7 @@ describe('CareExtraService', () => {
           id: 'd1',
           status: 'IN_PROGRESS',
           productionBatchId: 'b1',
+          finishedAt: null,
         }),
         update: jest.fn().mockResolvedValue({
           id: 'd1',
@@ -33,6 +34,11 @@ describe('CareExtraService', () => {
         }),
       },
       productionBatch: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'b1',
+          status: 'draft',
+          payloadJson: '{}',
+        }),
         update: jest.fn().mockResolvedValue({ id: 'b1' }),
       },
       audit: jest.fn().mockResolvedValue(undefined),
@@ -40,24 +46,107 @@ describe('CareExtraService', () => {
     const service = new CareExtraService(prisma as never);
     const out = await service.voidDental('d1', { reason: 'teste' });
     expect(out.status).toBe('VOID');
-    expect(prisma.productionBatch.update).toHaveBeenCalled();
+    expect(out.voidMeta?.postCompleted).toBe(false);
+    expect(prisma.productionBatch.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'b1' },
+        data: expect.objectContaining({ status: 'error' }),
+      }),
+    );
     expect(prisma.audit).toHaveBeenCalledWith(
       'void',
       'dental_encounter',
       'd1',
       expect.any(Array),
-      expect.objectContaining({ reason: 'teste' }),
+      expect.objectContaining({ reason: 'teste', postCompleted: false }),
     );
   });
 
-  it('recusa VOID de dental já COMPLETED', async () => {
+  it('anula dental COMPLETED → VOID com acknowledgeLocalOnly (sem recall Ministério)', async () => {
+    const prisma = {
+      dentalEncounter: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'd1',
+          status: 'COMPLETED',
+          productionBatchId: 'b1',
+          finishedAt: new Date('2026-08-12T12:00:00.000Z'),
+        }),
+        update: jest.fn().mockResolvedValue({
+          id: 'd1',
+          status: 'VOID',
+          proceduresJson: '[]',
+          odontogramJson: '{}',
+          outcomesJson: '[]',
+          careJson: '{}',
+          assignmentId: null,
+          patientId: 'p1',
+          facilityId: 'f1',
+          professionalId: null,
+          encounterType: 'CONSULTA',
+          anamnese: null,
+          startedAt: new Date(),
+          finishedAt: new Date('2026-08-12T12:00:00.000Z'),
+          productionBatchId: 'b1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          patient: {},
+          facility: {},
+          professional: null,
+        }),
+      },
+      productionBatch: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'b1',
+          status: 'ready',
+          payloadJson: JSON.stringify({ encounterId: 'd1', bucket: 'ok' }),
+        }),
+        update: jest.fn().mockResolvedValue({ id: 'b1', status: 'error' }),
+      },
+      audit: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new CareExtraService(prisma as never);
+    const out = await service.voidDental('d1', {
+      reason: 'erro de lançamento',
+      acknowledgeLocalOnly: true,
+    });
+    expect(out.status).toBe('VOID');
+    expect(out.voidMeta).toEqual(
+      expect.objectContaining({
+        postCompleted: true,
+        localOnly: true,
+        ministryRecall: false,
+        batchStatusBefore: 'ready',
+      }),
+    );
+    expect(prisma.productionBatch.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'error',
+          errorMessage: expect.stringMatching(/VOID local pós-COMPLETED/),
+        }),
+      }),
+    );
+    expect(prisma.audit).toHaveBeenCalledWith(
+      'void',
+      'dental_encounter',
+      'd1',
+      expect.any(Array),
+      expect.objectContaining({
+        postCompleted: true,
+        ministryRecall: false,
+        acknowledgeLocalOnly: true,
+      }),
+    );
+  });
+
+  it('recusa VOID de COMPLETED sem acknowledgeLocalOnly', async () => {
     const prisma = {
       dentalEncounter: {
         findUnique: jest.fn().mockResolvedValue({ id: 'd1', status: 'COMPLETED' }),
       },
     };
     const service = new CareExtraService(prisma as never);
-    await expect(service.voidDental('d1', {})).rejects.toThrow(/já finalizado/);
+    await expect(service.voidDental('d1', {})).rejects.toThrow(/acknowledgeLocalOnly/);
   });
 
   it('sync em lote da fila odonto percorre encounters da competência', async () => {
