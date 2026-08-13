@@ -20,6 +20,7 @@ import type { TreatmentProgress } from '@/app/odonto/lote/treatment-types';
 import { ErrorGuideModal } from '@/app/odonto/lote/ErrorGuideModal';
 import { FichaFixModal } from '@/app/odonto/lote/FichaFixModal';
 import { LoteQualityPanel } from '@/app/odonto/lote/LoteQualityPanel';
+import { baselineFromTreatment } from '@/app/odonto/lote/ModalQualityMiniDash';
 import {
   bodyForRepairUi,
   lookupRepair,
@@ -173,6 +174,24 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
   const activeRepair = useMemo(
     () => (codeFilter ? lookupRepair(codeFilter) : undefined),
     [codeFilter],
+  );
+
+  const lotQuality = useMemo(() => {
+    if (!batch) return null;
+    return {
+      total: batch.summary.total,
+      siapsReady: batch.summary.siapsReady,
+      previneReady: batch.summary.previneReady,
+      readyForFinalSend: batch.summary.readyForFinalSend,
+      withBlockers: batch.summary.withBlockers,
+    };
+  }, [batch]);
+  const lotQualityBaseline = useMemo(
+    () =>
+      batch
+        ? baselineFromTreatment(batch.summary.total, batch.summary.treatment, lotQuality || undefined)
+        : null,
+    [batch, lotQuality],
   );
 
   const loadBatches = useCallback(async () => {
@@ -795,6 +814,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
           onClose={() => setErrorModalOpen(false)}
           onFixAllAffected={() => void applySelectedRepair(codeFilter)}
           onOpenFicha={(id) => void openItem(id)}
+          lotQuality={lotQuality}
+          lotQualityBaseline={lotQualityBaseline}
         />
       ) : null}
 
@@ -803,6 +824,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
         selected={selected}
         busy={busy}
         variant={meta.variant}
+        lotQuality={lotQuality}
+        lotQualityBaseline={lotQualityBaseline}
         form={{
           ciap,
           cid10,

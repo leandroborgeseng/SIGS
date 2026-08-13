@@ -12,6 +12,10 @@ import {
 } from './error-catalog';
 import { JUSTIFICATIVA_NAO_POSSUI_CPF } from './justificativa-cpf';
 import { CONDUTAS_ODONTO } from './condutas-odonto';
+import {
+  ModalQualityMiniDash,
+  type LotQualitySnapshot,
+} from './ModalQualityMiniDash';
 
 type FindingLike = {
   code: string;
@@ -81,6 +85,8 @@ type Props = {
   onFocusField: (field?: string) => void;
   /** Esconde campos só de FAO (condutas/vigilância/consulta). */
   variant?: 'fao' | 'fai' | 'proc';
+  lotQuality?: LotQualitySnapshot | null;
+  lotQualityBaseline?: LotQualitySnapshot | null;
 };
 
 export function FichaFixModal({
@@ -94,6 +100,8 @@ export function FichaFixModal({
   onApplyGap,
   onFocusField,
   variant = 'fao',
+  lotQuality,
+  lotQualityBaseline,
 }: Props) {
   if (!selected) return null;
 
@@ -137,6 +145,14 @@ export function FichaFixModal({
         </div>
       }
     >
+      {lotQuality ? (
+        <ModalQualityMiniDash
+          current={lotQuality}
+          baseline={lotQualityBaseline}
+          dense
+        />
+      ) : null}
+
       {selected.odontoLoteSupported === false ? (
         <div className="alert danger" style={{ marginBottom: 12 }}>
           Esta ficha <strong>não é FAO</strong>. Use o fluxo do tipo indicado

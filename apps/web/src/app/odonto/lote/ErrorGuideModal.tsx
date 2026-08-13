@@ -8,6 +8,10 @@ import {
 } from './repair-catalog';
 import { resolveSeverity, severityLabel } from './error-catalog';
 import { JUSTIFICATIVA_NAO_POSSUI_CPF } from './justificativa-cpf';
+import {
+  ModalQualityMiniDash,
+  type LotQualitySnapshot,
+} from './ModalQualityMiniDash';
 
 export type AffectedFichaRow = {
   id: string;
@@ -29,6 +33,9 @@ type Props = {
   onClose: () => void;
   onFixAllAffected: () => void;
   onOpenFicha: (id: string) => void;
+  /** Qualidade atual do lote (atualiza a cada correção). */
+  lotQuality?: LotQualitySnapshot | null;
+  lotQualityBaseline?: LotQualitySnapshot | null;
 };
 
 export function ErrorGuideModal({
@@ -43,6 +50,8 @@ export function ErrorGuideModal({
   onClose,
   onFixAllAffected,
   onOpenFicha,
+  lotQuality,
+  lotQualityBaseline,
 }: Props) {
   const sev = resolveSeverity(code, repair.channel === 'PREVINE' ? 'MONEY_RISK' : 'BLOCKER');
   const fields = fieldsForRepairUi(repair.ui);
@@ -82,6 +91,13 @@ export function ErrorGuideModal({
         </div>
       }
     >
+      {lotQuality ? (
+        <ModalQualityMiniDash
+          current={lotQuality}
+          baseline={lotQualityBaseline}
+          dense
+        />
+      ) : null}
       <div className="lote-guide-grid">
           <div>
             <h4 style={{ marginTop: 0 }}>1. Entenda o problema</h4>

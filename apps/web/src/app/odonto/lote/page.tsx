@@ -22,6 +22,7 @@ import type { TreatmentProgress } from './treatment-types';
 import { ErrorGuideModal } from './ErrorGuideModal';
 import { FichaFixModal } from './FichaFixModal';
 import { LoteQualityPanel } from './LoteQualityPanel';
+import { baselineFromTreatment } from './ModalQualityMiniDash';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 
 type BatchSummary = {
@@ -291,6 +292,23 @@ export default function OdontoLotePage() {
   }, [batch?.id, loadBatch]);
 
   const total = batch?.summary.total || 0;
+  const lotQuality = useMemo(() => {
+    if (!batch) return null;
+    return {
+      total: batch.summary.total,
+      siapsReady: batch.summary.siapsReady,
+      previneReady: batch.summary.previneReady,
+      readyForFinalSend: batch.summary.readyForFinalSend,
+      withBlockers: batch.summary.withBlockers,
+    };
+  }, [batch]);
+  const lotQualityBaseline = useMemo(
+    () =>
+      batch
+        ? baselineFromTreatment(batch.summary.total, batch.summary.treatment, lotQuality || undefined)
+        : null,
+    [batch, lotQuality],
+  );
   const maxLedi = Math.max(1, ...(batch?.summary.topCodes?.map((c) => c.files) || [1]));
   const maxPrev = Math.max(1, ...(batch?.summary.previne?.codeCounts?.map((c) => c.files) || [1]));
 
@@ -1478,6 +1496,8 @@ export default function OdontoLotePage() {
               onClose={closeErrorModal}
               onFixAllAffected={() => void applySelectedRepair(codeFilter, { allAffected: true })}
               onOpenFicha={(id) => void openItem(id)}
+              lotQuality={lotQuality}
+              lotQualityBaseline={lotQualityBaseline}
             />
           ) : null}
 
@@ -1485,6 +1505,8 @@ export default function OdontoLotePage() {
             open={fichaModalOpen && !!selected}
             selected={selected}
             busy={busy}
+            lotQuality={lotQuality}
+            lotQualityBaseline={lotQualityBaseline}
             form={{
               ciap,
               cid10,
