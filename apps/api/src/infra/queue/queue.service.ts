@@ -5,6 +5,7 @@ import { ModuleRef } from '@nestjs/core';
 export const JOB_NAMES = {
   LEDI_AUTO_FIX: 'ledi.auto-fix',
   LEDI_EXPORT_ZIP: 'ledi.export-zip',
+  LEDI_IMPORT_ZIP: 'ledi.import-zip',
   SIGTAP_IMPORT: 'sigtap.import',
 } as const;
 

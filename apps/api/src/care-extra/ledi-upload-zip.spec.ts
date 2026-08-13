@@ -6,6 +6,7 @@ import { CareExtraController } from './care-extra.controller';
 import { CareExtraService } from './care-extra.service';
 import { LediFaoBatchService } from './ledi-fao-batch.service';
 import { JobsService } from '../infra/jobs/jobs.service';
+import { StorageService } from '../infra/storage/storage.service';
 import { applyHttpBodyParsers } from '../infra/http-body';
 
 describe('POST /v1/dental/ledi/batches/upload-zip', () => {
@@ -18,7 +19,14 @@ describe('POST /v1/dental/ledi/batches/upload-zip', () => {
       providers: [
         { provide: CareExtraService, useValue: {} },
         { provide: LediFaoBatchService, useValue: { create } },
-        { provide: JobsService, useValue: {} },
+        { provide: JobsService, useValue: { enqueue: jest.fn() } },
+        {
+          provide: StorageService,
+          useValue: {
+            put: jest.fn(),
+            buildKey: (parts: string[]) => parts.join('/'),
+          },
+        },
       ],
     }).compile();
 

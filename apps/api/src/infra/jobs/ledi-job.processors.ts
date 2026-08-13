@@ -4,6 +4,7 @@ import { JobsService } from './jobs.service';
 import { JOB_NAMES, QueueService } from '../queue/queue.service';
 import { LediFaoBatchService } from '../../care-extra/ledi-fao-batch.service';
 import { StorageService } from '../storage/storage.service';
+import { extractXmlFilesFromZipBuffer } from '../../care-extra/ledi-zip.extract';
 import type { AutoFixLediFaoBatchDto } from '../../care-extra/dto';
 
 @Injectable()
@@ -20,6 +21,7 @@ export class LediJobProcessors {
   register() {
     this.queue.registerProcessor(JOB_NAMES.LEDI_AUTO_FIX, (payload) => this.runAutoFix(payload));
     this.queue.registerProcessor(JOB_NAMES.LEDI_EXPORT_ZIP, (payload) => this.runExportZip(payload));
+    this.queue.registerProcessor(JOB_NAMES.LEDI_IMPORT_ZIP, (payload) => this.runImportZip(payload));
   }
 
   private batches() {
@@ -68,6 +70,44 @@ export class LediJobProcessors {
       return result;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      await this.jobs.markFailed(jobRunId, msg);
+      throw err;
+    }
+  }
+
+  private async runImportZip(payload: Record<string, unknown>) {
+    const jobRunId = String(payload.jobRunId);
+    const objectKey = String(payload.objectKey || '');
+    const name = typeof payload.name === 'string' ? payload.name : undefined;
+    const expectedTipo =
+      payload.expectedTipo === 'FAI' || payload.expectedTipo === 'PROCEDIMENTOS'
+        ? payload.expectedTipo
+        : 'FAO';
+    const xmlCount = typeof payload.xmlCount === 'number' ? payload.xmlCount : undefined;
+    await this.jobs.markActive(jobRunId);
+    await this.jobs.markProgress(
+      jobRunId,
+      8,
+      xmlCount ? `Lendo ZIP (${xmlCount} XMLs)…` : 'Lendo ZIP…',
+    );
+    try {
+      if (!objectKey) throw new Error('Import ZIP sem objectKey');
+      const buf = await this.storage.getBuffer(objectKey);
+      await this.jobs.markProgress(jobRunId, 25, 'Extraindo XMLs do ZIP…');
+      const files = await extractXmlFilesFromZipBuffer(buf);
+      await this.jobs.markProgress(jobRunId, 45, `Analisando ${files.length} fichas…`);
+      const batch = await this.batches().create({ name, expectedTipo, files });
+      const summary = {
+        batchId: batch.id,
+        total: batch.summary?.total,
+        withBlockers: batch.summary?.withBlockers,
+        expectedTipo,
+      };
+      await this.jobs.markCompleted(jobRunId, summary);
+      return summary;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.log.error(`import-zip job ${jobRunId}: ${msg}`);
       await this.jobs.markFailed(jobRunId, msg);
       throw err;
     }

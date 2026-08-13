@@ -19,9 +19,17 @@ import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { CareExtraService } from './care-extra.service';
 import { LediFaoBatchService } from './ledi-fao-batch.service';
-import { extractXmlFilesFromZipBuffer } from './ledi-zip.extract';
+import {
+  extractXmlFilesFromLoadedZip,
+  lediBatchMaxFiles,
+  lediImportAsyncThreshold,
+  listLediXmlEntries,
+  loadLediZip,
+} from './ledi-zip.extract';
 import { JobsService } from '../infra/jobs/jobs.service';
 import { JOB_NAMES } from '../infra/queue/queue.service';
+import { StorageService } from '../infra/storage/storage.service';
+import { randomUUID } from 'crypto';
 import {
   CreateDentalEncounterDto,
   CreateHomeCareVisitDto,
@@ -62,7 +70,64 @@ export class CareExtraController {
     private readonly service: CareExtraService,
     private readonly faoBatches: LediFaoBatchService,
     private readonly jobs: JobsService,
+    private readonly storage: StorageService,
   ) {}
+
+  /**
+   * ZIP típico e-SUS (`sistemas/<unidade>/*.xml`, milhares de fichas):
+   * acima do limiar, enfileira análise para não estourar timeout do gateway.
+   */
+  private async ingestLediZip(
+    buf: Buffer,
+    opts: { name?: string; expectedTipo?: string },
+    res?: Response,
+  ) {
+    const zip = await loadLediZip(buf);
+    const xmlCount = listLediXmlEntries(zip).length;
+    if (!xmlCount) {
+      throw new Error(
+        'ZIP sem arquivos .xml (confira se comprimiu a pasta certa; o SIGS ignora __MACOSX, AppleDouble e .DS_Store).',
+      );
+    }
+    const maxFiles = lediBatchMaxFiles();
+    if (xmlCount > maxFiles) {
+      throw new Error(
+        `ZIP tem ${xmlCount} arquivos .xml; o limite por lote é ${maxFiles}. Divida o lote (por unidade/período) ou envie em partes.`,
+      );
+    }
+    const expectedTipo = (opts.expectedTipo as 'FAO' | 'FAI' | 'PROCEDIMENTOS') || 'FAO';
+    const threshold = lediImportAsyncThreshold();
+    if (xmlCount >= threshold) {
+      const stored = await this.storage.put(
+        this.storage.buildKey(['uploads', 'ledi-zip', `${randomUUID()}.zip`]),
+        buf,
+        'application/zip',
+      );
+      const job = await this.jobs.enqueue({
+        type: JOB_NAMES.LEDI_IMPORT_ZIP,
+        payload: {
+          objectKey: stored.key,
+          name: opts.name,
+          expectedTipo,
+          xmlCount,
+        },
+      });
+      res?.status(202);
+      return {
+        async: true as const,
+        jobId: job.id,
+        status: job.status,
+        xmlCount,
+        message: `ZIP com ${xmlCount} XMLs enfileirado para análise. Consulte GET /api/v1/jobs/${job.id}`,
+      };
+    }
+    const files = await extractXmlFilesFromLoadedZip(zip);
+    return this.faoBatches.create({
+      name: opts.name,
+      expectedTipo,
+      files,
+    });
+  }
 
   @Get('catalog/dental')
   catalogDental() {
@@ -101,7 +166,10 @@ export class CareExtraController {
 
   /** ZIP via JSON base64 — fallback legado (corpo ~1.33× maior; preferir /upload-zip). */
   @Post('dental/ledi/batches/from-zip')
-  async createFaoBatchFromZipJson(@Body() dto: CreateLediFaoBatchFromZipDto) {
+  async createFaoBatchFromZipJson(
+    @Body() dto: CreateLediFaoBatchFromZipDto,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
     const raw = (dto.zipBase64 || '').replace(/^data:.*?;base64,/, '').trim();
     if (!raw) throw new BadRequestException('zipBase64 vazio');
     let buf: Buffer;
@@ -112,12 +180,7 @@ export class CareExtraController {
     }
     if (buf.length < 4) throw new BadRequestException('ZIP muito pequeno');
     try {
-      const files = await extractXmlFilesFromZipBuffer(buf);
-      return this.faoBatches.create({
-        name: dto.name,
-        expectedTipo: dto.expectedTipo || 'FAO',
-        files,
-      });
+      return await this.ingestLediZip(buf, { name: dto.name, expectedTipo: dto.expectedTipo }, res);
     } catch (e) {
       throw new BadRequestException(e instanceof Error ? e.message : 'ZIP inválido');
     }
@@ -130,17 +193,20 @@ export class CareExtraController {
     @UploadedFile() file: Express.Multer.File,
     @Body('name') name?: string,
     @Body('expectedTipo') expectedTipo?: string,
+    @Res({ passthrough: true }) res?: Response,
   ) {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Envie um arquivo .zip no campo "file".');
     }
     try {
-      const files = await extractXmlFilesFromZipBuffer(file.buffer);
-      return this.faoBatches.create({
-        name: name || file.originalname?.replace(/\.zip$/i, '') || undefined,
-        expectedTipo: (expectedTipo as 'FAO' | 'FAI' | 'PROCEDIMENTOS') || 'FAO',
-        files,
-      });
+      return await this.ingestLediZip(
+        file.buffer,
+        {
+          name: name || file.originalname?.replace(/\.zip$/i, '') || undefined,
+          expectedTipo,
+        },
+        res,
+      );
     } catch (e) {
       throw new BadRequestException(e instanceof Error ? e.message : 'ZIP inválido');
     }

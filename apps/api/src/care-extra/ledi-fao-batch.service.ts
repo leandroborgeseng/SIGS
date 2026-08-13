@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -7,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../infra/storage/storage.service';
+import { lediBatchMaxFiles } from './ledi-zip.extract';
 import { RF } from '../common/rf';
 import { type FaoFinding } from './ledi-fao.validator';
 import { extractFaoMasterFromXml } from './ledi-fao-xml.parser';
@@ -293,16 +295,23 @@ export class LediFaoBatchService {
           masterJson = null;
         }
       }
-      const stored = await this.storage.putXml(scope, f.name.slice(0, 80), xml);
+      const xmlBytes = Buffer.byteLength(xml, 'utf8');
+      const sha256 = createHash('sha256').update(xml, 'utf8').digest('hex');
+      // Fichas LEDI típicas cabem inline; evitar milhares de putXml no request.
+      let objectKey: string | null = null;
+      if (xmlBytes > this.inlineMaxBytes()) {
+        const stored = await this.storage.putXml(scope, f.name.slice(0, 80), xml);
+        objectKey = stored.key;
+      }
       const inline = this.inlineOrEmpty(xml);
       out.push({
         fileName: f.name.slice(0, 255),
         status: this.findingsStatus(findings),
         originalXml: inline,
         currentXml: inline,
-        originalObjectKey: stored.key,
-        currentObjectKey: stored.key,
-        xmlSha256: stored.sha256,
+        originalObjectKey: objectKey,
+        currentObjectKey: objectKey,
+        xmlSha256: sha256,
         findingsJson: JSON.stringify(findings),
         previneJson: report.previneXray ? JSON.stringify(report.previneXray) : null,
         fichaTipo: tipo.id,
@@ -314,12 +323,40 @@ export class LediFaoBatchService {
     return out;
   }
 
+  /** Postgres limita ~32767 binds por statement; lotes e-SUS passam de 5k fichas. */
+  private async createManyItems(
+    data: Array<{
+      batchId: string;
+      fileName: string;
+      status: string;
+      originalXml: string;
+      currentXml: string;
+      originalObjectKey: string | null;
+      currentObjectKey: string | null;
+      xmlSha256: string;
+      findingsJson: string;
+      previneJson: string | null;
+      fichaTipo: string;
+      fichaTipoCode: number | null;
+      masterJson: string | null;
+      autoFixableCodes: string;
+    }>,
+  ) {
+    const chunk = 80;
+    for (let i = 0; i < data.length; i += chunk) {
+      await this.prisma.lediFaoBatchItem.createMany({ data: data.slice(i, i + chunk) });
+    }
+  }
+
   async create(dto: CreateLediFaoBatchDto) {
     if (!dto.files?.length) {
       throw new BadRequestException('Envie ao menos um arquivo XML.');
     }
-    if (dto.files.length > 5000) {
-      throw new BadRequestException('Limite de 5000 arquivos por lote.');
+    const maxFiles = lediBatchMaxFiles();
+    if (dto.files.length > maxFiles) {
+      throw new BadRequestException(
+        `Limite de ${maxFiles} arquivos por lote (recebidos: ${dto.files.length}). Divida o ZIP (por unidade/período) ou envie em partes.`,
+      );
     }
 
     const expectedTipo = this.normalizeExpectedTipo(dto.expectedTipo);
@@ -345,9 +382,7 @@ export class LediFaoBatchService {
         ...this.summarizeBatch(prepared),
         expectedTipo,
       };
-      await this.prisma.lediFaoBatchItem.createMany({
-        data: prepared.map((p) => ({ ...p, batchId: batchStub.id })),
-      });
+      await this.createManyItems(prepared.map((p) => ({ ...p, batchId: batchStub.id })));
       await this.prisma.lediFaoBatch.update({
         where: { id: batchStub.id },
         data: {
@@ -391,9 +426,7 @@ export class LediFaoBatchService {
     }
     const expectedTipo = await this.expectedTipoOf(batchId);
     const prepared = await this.prepareItems(files, expectedTipo, batchId);
-    await this.prisma.lediFaoBatchItem.createMany({
-      data: prepared.map((p) => ({ ...p, batchId })),
-    });
+    await this.createManyItems(prepared.map((p) => ({ ...p, batchId })));
     await this.refreshBatchSummary(batchId);
     return this.get(batchId);
   }

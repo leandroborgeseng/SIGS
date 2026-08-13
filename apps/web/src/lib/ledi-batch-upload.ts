@@ -4,8 +4,9 @@
  * e costuma gerar Safari “Load failed” em ZIPs médios/grandes atrás do proxy).
  */
 
-import { apiUpload, ApiError, getToken, isNetworkError, NetworkError } from '@/lib/api';
+import { apiUpload, api, ApiError, getToken, isNetworkError, NetworkError } from '@/lib/api';
 import { IoReadError, isIoReadError, formatBytes } from '@/lib/read-binary-file';
+import { isAsyncJobResponse, waitForJob } from '@/lib/jobs';
 
 export type LediUploadResult<T> = {
   batch: T;
@@ -112,7 +113,7 @@ export async function uploadLediBatchMultipart<
       const sizeLabel = formatBytes(zip.size) || `${zip.size} B`;
       opts.onProgress?.(`Enviando ZIP ${zip.name} (${sizeLabel}) via multipart…`);
 
-      const batch = await postFormWithRetry<T>(
+      const uploaded = await postFormWithRetry<T | { async: true; jobId: string; xmlCount?: number }>(
         '/v1/dental/ledi/batches/upload-zip',
         () => {
           const form = new FormData();
@@ -127,6 +128,33 @@ export async function uploadLediBatchMultipart<
           label: zip.name,
         },
       );
+
+      let batch: T;
+      if (isAsyncJobResponse(uploaded)) {
+        const n = uploaded.xmlCount;
+        opts.onProgress?.(
+          n
+            ? `ZIP aceito (${n} XMLs). Analisando no servidor — lotes grandes como sistemas.zip não cabem no request HTTP…`
+            : 'ZIP aceito. Analisando no servidor…',
+        );
+        const job = await waitForJob(uploaded.jobId, {
+          timeoutMs: 15 * 60_000,
+          onProgress: (j) => {
+            const pct = j.progressPct != null ? ` ${j.progressPct}%` : '';
+            opts.onProgress?.(j.progressMessage ? `${j.progressMessage}${pct}` : `Processando ZIP…${pct}`);
+          },
+        });
+        if (job.status !== 'completed') {
+          throw new Error(job.errorMessage || `Falha ao importar ZIP (${job.status})`);
+        }
+        const batchId = job.result?.batchId;
+        if (typeof batchId !== 'string' || !batchId) {
+          throw new Error('Importação concluiu sem id de lote — recarregue Faturamento → Lote.');
+        }
+        batch = await api<T>(`/v1/dental/ledi/batches/${batchId}`);
+      } else {
+        batch = uploaded;
+      }
 
       return { batch, uploaded: batch.summary?.total ?? 0, failedNames: [] };
     }
