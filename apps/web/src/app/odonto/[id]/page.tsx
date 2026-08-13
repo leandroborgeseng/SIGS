@@ -190,6 +190,36 @@ type PreviewResponse = {
   canFinish?: boolean;
 };
 
+type OdontogramHistoryItem = {
+  id: string;
+  startedAt: string;
+  finishedAt?: string | null;
+  status: string;
+  encounterType?: string;
+  professionalName?: string | null;
+  odontogram: Record<string, string>;
+  markedCount: number;
+  hasDeciduous?: boolean;
+  procedures: Array<{
+    tooth?: string;
+    region?: string;
+    code: string;
+    label: string;
+    done?: boolean;
+  }>;
+};
+
+type OdontogramHistoryResponse = {
+  encounterId: string;
+  items: OdontogramHistoryItem[];
+};
+
+const DENTAL_STATUS_LABEL: Record<string, string> = {
+  IN_PROGRESS: 'Em atendimento',
+  COMPLETED: 'Finalizado',
+  VOID: 'Anulado',
+};
+
 function toggleNum(list: number[], id: number): number[] {
   return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 }
@@ -219,6 +249,9 @@ export default function OdontoAtendimentoPage() {
   const [selectedKey, setSelectedKey] = useState('11');
   const [odontogram, setOdontogram] = useState<Record<string, string>>({});
   const [showDeciduous, setShowDeciduous] = useState(false);
+  const [history, setHistory] = useState<OdontogramHistoryItem[]>([]);
+  const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
+  const [historySnapKey, setHistorySnapKey] = useState('');
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
@@ -233,9 +266,12 @@ export default function OdontoAtendimentoPage() {
   const liveSeqRef = useRef(0);
 
   const load = useCallback(async () => {
-    const [cat, row] = await Promise.all([
+    const [cat, row, hist] = await Promise.all([
       api<Catalog>('/v1/catalog/dental'),
       api<Encounter>(`/v1/dental-encounters/${id}`),
+      api<OdontogramHistoryResponse>(`/v1/dental-encounters/${id}/odontogram-history`).catch(
+        () => ({ encounterId: id, items: [] as OdontogramHistoryItem[] }),
+      ),
     ]);
     skipLiveRef.current = true;
     setCatalog(cat);
@@ -252,6 +288,9 @@ export default function OdontoAtendimentoPage() {
     }
     setProcedures(row.procedures || []);
     setOdontogram(row.odontogram || {});
+    setHistory(hist.items || []);
+    setHistoryOpenId(null);
+    setHistorySnapKey('');
     const marked = Object.keys(row.odontogram || {});
     if (marked.some((t) => /^\d{2}$/.test(t) && Number(t) >= 51)) setShowDeciduous(true);
     if (row.status === 'COMPLETED') {
@@ -792,6 +831,78 @@ export default function OdontoAtendimentoPage() {
                 <p className="muted" style={{ fontSize: 12 }}>
                   {catalog.odontogram.note}
                 </p>
+              )}
+
+              <h3 style={{ marginBottom: 4 }}>Histórico de odontogramas (RF-12.11)</h3>
+              <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+                Atendimentos anteriores deste paciente nesta unidade (VOID não entra). Clique para
+                ver o snapshot — não altera o odontograma atual.
+              </p>
+              {history.length === 0 ? (
+                <p className="muted">Nenhum odontograma anterior nesta unidade.</p>
+              ) : (
+                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 8px' }}>
+                  {history.map((item) => {
+                    const open = historyOpenId === item.id;
+                    return (
+                      <li key={item.id} style={{ marginBottom: 8 }}>
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          onClick={() => {
+                            setHistoryOpenId(open ? null : item.id);
+                            setHistorySnapKey('');
+                          }}
+                          style={{ textAlign: 'left' }}
+                        >
+                          {formatDateTime(item.startedAt)}
+                          {' · '}
+                          {item.professionalName || 'sem profissional'}
+                          {' · '}
+                          {DENTAL_STATUS_LABEL[item.status] || item.status}
+                          {' · '}
+                          {item.markedCount} marcação{item.markedCount === 1 ? '' : 'ões'}
+                        </button>
+                        {open && catalog.odontogram && (
+                          <div
+                            style={{
+                              marginTop: 8,
+                              padding: 10,
+                              border: '1px solid var(--border, #cbd5e1)',
+                              borderRadius: 8,
+                            }}
+                          >
+                            <OdontogramGrid
+                              value={item.odontogram || {}}
+                              conditions={catalog.odontogram.conditions}
+                              arches={catalog.odontogram.arches}
+                              scopes={catalog.odontogram.scopes}
+                              selectedKey={historySnapKey}
+                              onSelectKey={setHistorySnapKey}
+                              hideEditor
+                              showDeciduous={
+                                item.hasDeciduous ||
+                                Object.keys(item.odontogram || {}).some(
+                                  (t) => /^\d{2}$/.test(t) && Number(t) >= 51,
+                                )
+                              }
+                            />
+                            {item.procedures?.length ? (
+                              <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 13 }}>
+                                {item.procedures.map((p, idx) => (
+                                  <li key={`${p.code}-${p.tooth || p.region || 'enc'}-${idx}`}>
+                                    {procedureLine(p)}
+                                    {p.done === false ? ' (planejado)' : ' (concluído)'}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </>
           ) : (

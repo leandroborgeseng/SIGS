@@ -130,10 +130,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'odonto.atendimento',
     title: 'Atendimento odontológico',
     module: 'Odontologia',
-    version: '1.4.0',
+    version: '1.5.0',
     updatedAt: '2026-08-13',
-    summary: 'Abertura com lotação, ficha LEDI, odontograma + catálogo SIGTAP (RF-12.13), Tela C e fila /faturamento/odonto.',
-    body: `Em /odonto escolha paciente, profissional e lotação — ou abra a partir de /odonto/agenda (slot do dia). Na ficha, CIAP/CID com busca, condutas LEDI, odontograma (dente/Q/S/BOCA) e procedimentos predefinidos (planejado ou concluído). Painel valida ~1s após editar. Finalizar e faturar exige zero BLOCKER. Pós-fechamento: fila /faturamento/odonto e lote /faturamento/lote/fao.`,
+    summary: 'Abertura com lotação, ficha LEDI, odontograma + histórico (RF-12.11) + catálogo SIGTAP (RF-12.13), Tela C e fila /faturamento/odonto.',
+    body: `Em /odonto escolha paciente, profissional e lotação — ou abra a partir de /odonto/agenda (slot do dia). Na ficha, CIAP/CID com busca, condutas LEDI, odontograma (dente/Q/S/BOCA), histórico de odontogramas anteriores desta unidade e procedimentos predefinidos (planejado ou concluído). Painel valida ~1s após editar. Finalizar e faturar exige zero BLOCKER. Pós-fechamento: fila /faturamento/odonto e lote /faturamento/lote/fao.`,
   },
   {
     id: 'odonto.agenda',

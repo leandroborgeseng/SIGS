@@ -38,6 +38,9 @@ import {
 import {
   normalizeOdontogram,
   odontogramCatalog,
+  odontogramHasDeciduous,
+  odontogramMarkedCount,
+  ODONTOGRAM_HISTORY_LIMIT,
   type OdontogramMap,
 } from './dental-odontogram';
 import {
@@ -259,6 +262,66 @@ export class CareExtraService {
     });
     if (!row) throw new NotFoundException('Atendimento odontológico não encontrado');
     return this.serializeDental(row);
+  }
+
+  /**
+   * RF-12.11 — odontogramas de atendimentos anteriores do mesmo paciente
+   * na mesma unidade. VOID fica de fora. Não copia o atual.
+   */
+  async listDentalOdontogramHistory(id: string) {
+    const current = await this.prisma.dentalEncounter.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        patientId: true,
+        facilityId: true,
+        startedAt: true,
+      },
+    });
+    if (!current) throw new NotFoundException('Atendimento odontológico não encontrado');
+
+    const rows = await this.prisma.dentalEncounter.findMany({
+      where: {
+        patientId: current.patientId,
+        facilityId: current.facilityId,
+        id: { not: current.id },
+        status: { not: 'VOID' },
+        startedAt: { lte: current.startedAt },
+      },
+      orderBy: [{ startedAt: 'desc' }, { createdAt: 'desc' }],
+      take: ODONTOGRAM_HISTORY_LIMIT,
+      include: { professional: true },
+    });
+
+    return {
+      encounterId: current.id,
+      patientId: current.patientId,
+      facilityId: current.facilityId,
+      rf: RF.ODONTOGRAM_HISTORY.id,
+      limit: ODONTOGRAM_HISTORY_LIMIT,
+      items: rows.map((row) => {
+        const odontogram = this.parseOdontogram(row.odontogramJson);
+        let procedures: unknown[] = [];
+        try {
+          procedures = JSON.parse(row.proceduresJson || '[]');
+          if (!Array.isArray(procedures)) procedures = [];
+        } catch {
+          procedures = [];
+        }
+        return {
+          id: row.id,
+          startedAt: row.startedAt,
+          finishedAt: row.finishedAt,
+          status: row.status,
+          encounterType: row.encounterType,
+          professionalName: row.professional?.civilName ?? null,
+          odontogram,
+          markedCount: odontogramMarkedCount(odontogram),
+          hasDeciduous: odontogramHasDeciduous(odontogram),
+          procedures,
+        };
+      }),
+    };
   }
 
   async openDental(dto: CreateDentalEncounterDto) {

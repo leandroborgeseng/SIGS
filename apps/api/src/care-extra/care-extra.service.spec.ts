@@ -233,3 +233,111 @@ describe('CareExtraService', () => {
     expect(prisma.homeCareVisit.create).not.toHaveBeenCalled();
   });
 });
+
+describe('RF-12.11 histórico de odontograma', () => {
+  const current = {
+    id: 'curr',
+    patientId: 'p1',
+    facilityId: 'f1',
+    startedAt: new Date('2026-08-13T12:00:00.000Z'),
+  };
+
+  function prev(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'prev1',
+      startedAt: new Date('2026-08-01T10:00:00.000Z'),
+      finishedAt: new Date('2026-08-01T11:00:00.000Z'),
+      status: 'COMPLETED',
+      encounterType: 'CONSULTA',
+      odontogramJson: JSON.stringify({ '11': 'C', Q1: 'S' }),
+      proceduresJson: JSON.stringify([
+        { code: '0101020066', label: 'Selante', tooth: '11', done: true },
+      ]),
+      professional: { civilName: 'Dr. Anterior' },
+      ...overrides,
+    };
+  }
+
+  it('lista snapshots do mesmo paciente e unidade (sem VOID nem o atual)', async () => {
+    const prisma = {
+      dentalEncounter: {
+        findUnique: jest.fn().mockResolvedValue(current),
+        findMany: jest.fn().mockResolvedValue([prev()]),
+      },
+    };
+    const service = new CareExtraService(prisma as never);
+    const out = await service.listDentalOdontogramHistory('curr');
+    expect(out.encounterId).toBe('curr');
+    expect(out.patientId).toBe('p1');
+    expect(out.facilityId).toBe('f1');
+    expect(out.rf).toBe('RF-12.11');
+    expect(out.items).toHaveLength(1);
+    expect(out.items[0]).toEqual(
+      expect.objectContaining({
+        id: 'prev1',
+        status: 'COMPLETED',
+        professionalName: 'Dr. Anterior',
+        markedCount: 2,
+        hasDeciduous: false,
+        odontogram: { '11': 'C', Q1: 'S' },
+      }),
+    );
+    expect(out.items[0].procedures).toEqual([
+      expect.objectContaining({ code: '0101020066', tooth: '11', done: true }),
+    ]);
+    expect(prisma.dentalEncounter.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          patientId: 'p1',
+          facilityId: 'f1',
+          id: { not: 'curr' },
+          status: { not: 'VOID' },
+          startedAt: { lte: current.startedAt },
+        }),
+        take: 50,
+      }),
+    );
+  });
+
+  it('histórico vazio quando não há atendimentos anteriores na unidade', async () => {
+    const prisma = {
+      dentalEncounter: {
+        findUnique: jest.fn().mockResolvedValue(current),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new CareExtraService(prisma as never);
+    const out = await service.listDentalOdontogramHistory('curr');
+    expect(out.items).toEqual([]);
+  });
+
+  it('404 se o atendimento não existe', async () => {
+    const prisma = {
+      dentalEncounter: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn(),
+      },
+    };
+    const service = new CareExtraService(prisma as never);
+    await expect(service.listDentalOdontogramHistory('missing')).rejects.toThrow(
+      /não encontrado/,
+    );
+    expect(prisma.dentalEncounter.findMany).not.toHaveBeenCalled();
+  });
+
+  it('odontograma inválido no snapshot vira mapa vazio', async () => {
+    const prisma = {
+      dentalEncounter: {
+        findUnique: jest.fn().mockResolvedValue(current),
+        findMany: jest.fn().mockResolvedValue([
+          prev({ odontogramJson: '{broken', proceduresJson: 'not-json' }),
+        ]),
+      },
+    };
+    const service = new CareExtraService(prisma as never);
+    const out = await service.listDentalOdontogramHistory('curr');
+    expect(out.items[0].odontogram).toEqual({});
+    expect(out.items[0].markedCount).toBe(0);
+    expect(out.items[0].procedures).toEqual([]);
+  });
+});

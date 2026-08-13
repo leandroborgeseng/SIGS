@@ -1,7 +1,7 @@
 # Manual técnico — LEDI odonto / AD / coletivo
 
 **Versão:** 0.1.0-dev  
-**RF:** RF-12.1, RF-12.13, RF-3.54, RF-3.53, RF-10.3, RF-10.20, RF-2.60
+**RF:** RF-12.1, RF-12.11, RF-12.13, RF-3.54, RF-3.53, RF-10.3, RF-10.20, RF-2.60
 
 ## Finish
 
@@ -13,6 +13,7 @@
 
 Odonto exige **lotação**, **vigilanciaSaudeBucal[]**, **problemasCondicoes[]** e emite `headerTransport.lotacaoFormPrincipal`.  
 Catálogo RF-12.13: `GET /v1/catalog/dental` → `predefinedProcedures`. Só procedimentos com `done !== false` entram em `procedimentosRealizados` (FAO).  
+Histórico RF-12.11: `GET /v1/dental-encounters/:id/odontogram-history` — odontogramas anteriores do mesmo paciente na mesma unidade (`status ≠ VOID`, cap 50). Snapshot de leitura; não altera o atendimento atual.  
 Validação XML/JSON: `POST /v1/dental/ledi/validate-xml` — ver `ledi-fao-rnds-validacao.md`.
 
 ## Aliases UI → id

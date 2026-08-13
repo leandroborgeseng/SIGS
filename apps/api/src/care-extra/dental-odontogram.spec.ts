@@ -4,7 +4,9 @@ import {
   isValidOdontogramScope,
   normalizeOdontogram,
   odontogramCatalog,
+  odontogramHasDeciduous,
   odontogramMarkedCount,
+  ODONTOGRAM_HISTORY_LIMIT,
   procedurePlacementFromKey,
   selectionKeyFromProcedure,
 } from './dental-odontogram';
@@ -44,6 +46,9 @@ describe('dental-odontogram', () => {
       BOCA: 'P',
     });
     expect(odontogramMarkedCount(map)).toBe(5);
+    expect(odontogramHasDeciduous(map)).toBe(false);
+    expect(odontogramHasDeciduous({ '85': 'C' })).toBe(true);
+    expect(ODONTOGRAM_HISTORY_LIMIT).toBe(50);
   });
 
   it('rejeita chave ou condição inválidos', () => {
@@ -74,5 +79,6 @@ describe('dental-odontogram', () => {
     expect(cat.scopes.mouth.code).toBe('BOCA');
     expect(cat.note).toMatch(/quadrante/i);
     expect(cat.note).toMatch(/RF-12\.13/);
+    expect(cat.note).toMatch(/RF-12\.11/);
   });
 });

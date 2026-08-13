@@ -20,11 +20,13 @@ type Props = {
   conditions: OdontogramCondition[];
   arches: OdontogramArches;
   scopes?: OdontogramScopes;
-  selectedKey: string;
-  onSelectKey: (key: string) => void;
-  onChange: (next: Record<string, string>) => void;
+  selectedKey?: string;
+  onSelectKey?: (key: string) => void;
+  onChange?: (next: Record<string, string>) => void;
   disabled?: boolean;
   showDeciduous?: boolean;
+  /** Snapshot somente leitura (RF-12.11) — esconde o editor de condição. */
+  hideEditor?: boolean;
 };
 
 const CONDITION_COLOR: Record<string, string> = {
@@ -163,17 +165,22 @@ export function OdontogramGrid({
   conditions,
   arches,
   scopes,
-  selectedKey,
+  selectedKey = '',
   onSelectKey,
   onChange,
   disabled,
   showDeciduous,
+  hideEditor,
 }: Props) {
   const current = selectedKey ? value[selectedKey] : undefined;
   const isTooth = /^\d{2}$/.test(selectedKey);
 
+  function selectKey(key: string) {
+    onSelectKey?.(key);
+  }
+
   function setCondition(code: string | null) {
-    if (disabled || !selectedKey) return;
+    if (disabled || hideEditor || !selectedKey || !onChange) return;
     const next = { ...value };
     if (!code) delete next[selectedKey];
     else next[selectedKey] = code;
@@ -185,8 +192,9 @@ export function OdontogramGrid({
   return (
     <div className="odontogram" style={{ display: 'grid', gap: 10 }}>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        Clique no dente (FDI) ou no escopo (quadrante / sextante / boca) e marque a condição. A
-        seleção preenche tooth ou region do procedimento SIGTAP. Marcações: {marked}.
+        {hideEditor
+          ? `Snapshot somente leitura. Marcações: ${marked}.`
+          : `Clique no dente (FDI) ou no escopo (quadrante / sextante / boca) e marque a condição. A seleção preenche tooth ou region do procedimento SIGTAP. Marcações: ${marked}.`}
       </p>
       {showDeciduous && (
         <>
@@ -199,7 +207,7 @@ export function OdontogramGrid({
               value={value}
               selectedKey={selectedKey}
               disabled={disabled}
-              onSelectKey={onSelectKey}
+              onSelectKey={selectKey}
             />
           </div>
         </>
@@ -208,38 +216,38 @@ export function OdontogramGrid({
         <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
           Superior permanente
         </div>
-        <ArchRow
-          teeth={arches.upperPermanent}
-          value={value}
-          selectedKey={selectedKey}
-          disabled={disabled}
-          onSelectKey={onSelectKey}
-        />
+          <ArchRow
+            teeth={arches.upperPermanent}
+            value={value}
+            selectedKey={selectedKey}
+            disabled={disabled}
+            onSelectKey={selectKey}
+          />
       </div>
       <div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
           Inferior permanente
         </div>
-        <ArchRow
-          teeth={arches.lowerPermanent}
-          value={value}
-          selectedKey={selectedKey}
-          disabled={disabled}
-          onSelectKey={onSelectKey}
-        />
+          <ArchRow
+            teeth={arches.lowerPermanent}
+            value={value}
+            selectedKey={selectedKey}
+            disabled={disabled}
+            onSelectKey={selectKey}
+          />
       </div>
       {showDeciduous && (
         <div>
           <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
             Inferior decídua
           </div>
-          <ArchRow
-            teeth={arches.lowerDeciduous}
-            value={value}
-            selectedKey={selectedKey}
-            disabled={disabled}
-            onSelectKey={onSelectKey}
-          />
+            <ArchRow
+              teeth={arches.lowerDeciduous}
+              value={value}
+              selectedKey={selectedKey}
+              disabled={disabled}
+              onSelectKey={selectKey}
+            />
         </div>
       )}
 
@@ -260,7 +268,7 @@ export function OdontogramGrid({
                 marked={value[q.code]}
                 selected={selectedKey === q.code}
                 disabled={disabled}
-                onSelect={() => onSelectKey(q.code)}
+                onSelect={() => selectKey(q.code)}
               />
             ))}
           </div>
@@ -276,7 +284,7 @@ export function OdontogramGrid({
                 marked={value[s.code]}
                 selected={selectedKey === s.code}
                 disabled={disabled}
-                onSelect={() => onSelectKey(s.code)}
+                onSelect={() => selectKey(s.code)}
               />
             ))}
           </div>
@@ -290,44 +298,55 @@ export function OdontogramGrid({
               marked={value[scopes.mouth.code]}
               selected={selectedKey === scopes.mouth.code}
               disabled={disabled}
-              onSelect={() => onSelectKey(scopes.mouth.code)}
+              onSelect={() => selectKey(scopes.mouth.code)}
             />
           </div>
         </div>
       )}
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-        <span className="muted" style={{ fontSize: 13 }}>
-          {isTooth ? 'Dente' : 'Escopo'} {selectedKey || '—'}:
-        </span>
-        {conditions.map((c) => (
+      {hideEditor ? (
+        selectedKey ? (
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+            {isTooth ? 'Dente' : 'Escopo'} {selectedKey}:{' '}
+            {current
+              ? `${current} — ${conditions.find((c) => c.code === current)?.label || current}`
+              : 'sem marcação'}
+          </p>
+        ) : null
+      ) : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          <span className="muted" style={{ fontSize: 13 }}>
+            {isTooth ? 'Dente' : 'Escopo'} {selectedKey || '—'}:
+          </span>
+          {conditions.map((c) => (
+            <button
+              key={c.code}
+              type="button"
+              className="btn ghost"
+              disabled={disabled || !selectedKey}
+              onClick={() => setCondition(c.code)}
+              style={{
+                padding: '4px 8px',
+                fontSize: 12,
+                borderColor: current === c.code ? CONDITION_COLOR[c.code] : undefined,
+                background: current === c.code ? CONDITION_COLOR[c.code] : undefined,
+                color: current === c.code ? '#fff' : undefined,
+              }}
+            >
+              {c.code} — {c.label}
+            </button>
+          ))}
           <button
-            key={c.code}
             type="button"
             className="btn ghost"
-            disabled={disabled || !selectedKey}
-            onClick={() => setCondition(c.code)}
-            style={{
-              padding: '4px 8px',
-              fontSize: 12,
-              borderColor: current === c.code ? CONDITION_COLOR[c.code] : undefined,
-              background: current === c.code ? CONDITION_COLOR[c.code] : undefined,
-              color: current === c.code ? '#fff' : undefined,
-            }}
+            disabled={disabled || !selectedKey || !current}
+            onClick={() => setCondition(null)}
+            style={{ padding: '4px 8px', fontSize: 12 }}
           >
-            {c.code} — {c.label}
+            Limpar
           </button>
-        ))}
-        <button
-          type="button"
-          className="btn ghost"
-          disabled={disabled || !selectedKey || !current}
-          onClick={() => setCondition(null)}
-          style={{ padding: '4px 8px', fontSize: 12 }}
-        >
-          Limpar
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

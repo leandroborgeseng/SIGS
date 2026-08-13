@@ -177,6 +177,14 @@ export function odontogramMarkedCount(map: OdontogramMap): number {
   return Object.keys(map).length;
 }
 
+/** Cap da timeline RF-12.11 (atendimentos anteriores, mesma unidade). */
+export const ODONTOGRAM_HISTORY_LIMIT = 50;
+
+/** Decídua FDI 5x–8x — UI do histórico pode ligar a arcada automaticamente. */
+export function odontogramHasDeciduous(map: OdontogramMap): boolean {
+  return Object.keys(map).some((k) => /^\d{2}$/.test(k) && Number(k) >= 51);
+}
+
 export function odontogramCatalog() {
   return {
     conditions: ODONTOGRAM_CONDITIONS.map((c) => ({ code: c.code, label: c.label })),
@@ -196,6 +204,7 @@ export function odontogramCatalog() {
     note:
       'RF-12.12: marcação por dente (FDI), quadrante (Q1–Q4), sextante (S1–S6) e boca. ' +
       'RF-12.13: catálogo predefinido (GET /v1/catalog/dental) + done → FAO só com realizados. ' +
-      'Gap: Thrift FAO oficial não serializa tooth/region — ficam no careJson/mapper. Histórico (RF-12.11) depois.',
+      'RF-12.11: GET /v1/dental-encounters/:id/odontogram-history (mesmo paciente e unidade; sem VOID). ' +
+      'Gap: Thrift FAO oficial não serializa tooth/region — ficam no careJson/mapper.',
   };
 }

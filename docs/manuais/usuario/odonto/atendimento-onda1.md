@@ -4,11 +4,11 @@ title: Atendimento odontológico — Onda 1
 type: user
 module: odontologia
 feature: dental-encounter
-version: 1.4.0
+version: 1.5.0
 product_min: 0.2.0
 status: draft
 audience: [profissional, gestor]
-related_rf: [RF-12.1, RF-12.2, RF-12.3, RF-12.5, RF-12.6, RF-12.7, RF-12.8, RF-12.9, RF-12.12, RF-12.13]
+related_rf: [RF-12.1, RF-12.2, RF-12.3, RF-12.5, RF-12.6, RF-12.7, RF-12.8, RF-12.9, RF-12.11, RF-12.12, RF-12.13]
 related_screens: [/odonto, /odonto/agenda, /odonto/[id], /faturamento/odonto]
 updated_at: 2026-08-13
 authors: [SIGS]
@@ -17,7 +17,7 @@ authors: [SIGS]
 # Atendimento odontológico — Onda 1 (+ Previne na origem)
 
 **Telas:** `/odonto` · `/odonto/agenda` · `/odonto/[id]` · pós-fechamento (Tela C) → `/faturamento/odonto`  
-**API:** `POST/PATCH/GET /v1/dental-encounters` · `POST /v1/appointments/:id/open-dental` · `GET …/preview-fao` · `POST …/finish` · `POST …/void`  
+**API:** `POST/PATCH/GET /v1/dental-encounters` · `GET …/odontogram-history` · `POST /v1/appointments/:id/open-dental` · `GET …/preview-fao` · `POST …/finish` · `POST …/void`  
 **Desenho:** `docs/planejamento/desenho-atendimento-odontologico.md`
 
 ## Como usar
@@ -25,12 +25,13 @@ authors: [SIGS]
 1. **Agendado:** `/odonto/agenda` → Abrir atendimento (tipo **2**). **Espontâneo:** `/odonto` → paciente, profissional e **lotação/equipe** → **Abrir** (tipo padrão **5**).
 2. Na ficha: vigilância ≥1, CIAP/CID ≥1 (`CodeSearchSelect`), conduta ≥1 (catálogo LEDI), fornecimentos opcional, anamnese texto.
 3. **Odontograma:** clique no dente FDI ou escopo Q/S/BOCA, marque condição. Em seguida escolha um procedimento **predefinido** (SIGTAP) compatível com o local e use **Adicionar planejado** ou **Adicionar e concluir**. Só os concluídos (`done`) vão para a FAO.
-4. Painel LEDI + **Previne ESB (B1–B6)** atualiza ~1s após editar; ou use **Validar agora**.
-5. Evite vigilância só `99` (não se aplica) em massa — aviso de qualidade; **não** bloqueia Finalizar se Siaps ok.
-6. **Finalizar e faturar** — só exige zero BLOCKER Siaps (avisos Previne orientam).
-7. Tela C: atalho para fila com `encounterId`/`batchId`.
-8. Fila e lote: `/faturamento/odonto` · `/faturamento/lote/fao`.
-9. **Anular:** rascunho (`IN_PROGRESS`) ou pós-finalização (`COMPLETED`) com confirmação. Pós-COMPLETED é **anulação local** (sai da fila); não há recall no Ministério.
+4. **Histórico (RF-12.11):** na mesma seção, lista odontogramas de atendimentos anteriores deste paciente **nesta unidade**. Abra o item para ver o snapshot (somente leitura; não altera o atual).
+5. Painel LEDI + **Previne ESB (B1–B6)** atualiza ~1s após editar; ou use **Validar agora**.
+6. Evite vigilância só `99` (não se aplica) em massa — aviso de qualidade; **não** bloqueia Finalizar se Siaps ok.
+7. **Finalizar e faturar** — só exige zero BLOCKER Siaps (avisos Previne orientam).
+8. Tela C: atalho para fila com `encounterId`/`batchId`.
+9. Fila e lote: `/faturamento/odonto` · `/faturamento/lote/fao`.
+10. **Anular:** rascunho (`IN_PROGRESS`) ou pós-finalização (`COMPLETED`) com confirmação. Pós-COMPLETED é **anulação local** (sai da fila); não há recall no Ministério.
 
 ## Parametrização
 
@@ -42,5 +43,5 @@ authors: [SIGS]
 
 ## RF (Onda 1 + F + odontograma)
 
-Cobertos no mínimo: RF-12.2, 12.3, 12.5, 12.6, 12.7, 12.8, 12.9, **12.13** (catálogo predefinido + concluir).  
-Parcial: RF-12.1 agenda do dia + open-dental; RF-12.12 odontograma FDI + quadrante/sextante/boca (sem histórico RF-12.11). Depois: agenda TR rica, prótese.
+Cobertos no mínimo: RF-12.2, 12.3, 12.5, 12.6, 12.7, 12.8, 12.9, **12.11** (histórico na unidade), **12.13** (catálogo predefinido + concluir).  
+Parcial: RF-12.1 agenda do dia + open-dental; RF-12.12 odontograma FDI + quadrante/sextante/boca. Depois: agenda TR rica, prótese.

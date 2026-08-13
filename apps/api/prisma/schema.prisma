@@ -340,6 +340,7 @@ model DentalEncounter {
   appointment  AppointmentSlot? @relation(fields: [appointmentId], references: [id])
 
   @@index([facilityId, status])
+  @@index([patientId, facilityId, startedAt])
   @@map("dental_encounters")
 }
 

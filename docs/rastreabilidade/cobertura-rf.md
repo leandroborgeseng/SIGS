@@ -1,7 +1,7 @@
 # Cobertura RF — rastreabilidade
 
 **CSV completo:** [cobertura-rf.csv](cobertura-rf.csv)
-**Total linhas:** 599 · **cobertos:** 8 · **parciais:** 37 · **adiados:** 114 · **backlog SAMU:** 30 (não iniciado / onda `samu-backlog`)
+**Total linhas:** 599 · **cobertos:** 9 · **parciais:** 37 · **adiados:** 114 · **backlog SAMU:** 30 (não iniciado / onda `samu-backlog`)
 
 Legenda status: `coberto` = escopo Onda 1/código atual atende o RF mínimo com evidência; `parcial` = há código mas falta fatia TR/e-SUS. Não inventar cobertura.
 
@@ -15,7 +15,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | 2. Módulo de Cadastros | 59 | 58 | 1 | 7 |
 | 3. Módulo Ambulatorial | 73 | 63 | 10 | 2 |
 | 10. Módulo de Integração com o e-SUS | 20 | 20 | 0 | 2 |
-| 12. Módulo de Odontologia | 20 | 20 | 0 | 13 |
+| 12. Módulo de Odontologia | 20 | 20 | 0 | 14 |
 | 14. Módulo de Vacinação | 19 | 16 | 3 | 4 |
 
 ## Implementados / parciais (amostra)
@@ -48,7 +48,8 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-12.1 | Obr | parcial | automatizado | `/odonto/agenda` · `POST /v1/appointments/:id/open-dental` · `DentalEncounter.appointmentId` · tipoAtendimento=2; sem grade/tipos de item TR |
 | RF-12.4 | Obr | parcial | previsto | início tratamento (status/campo; sem fluxo rico) |
 | RF-12.16 | Obr | parcial | automatizado | problemas CIAP/CID (`CodeSearchSelect`); patologias ricas depois |
-| RF-12.12 | Obr | parcial | automatizado | odontograma FDI + Q1–Q4 / S1–S6 / BOCA em `/odonto/[id]` · `odontogramJson` · proc. `tooth`\|`region` → mapper; gap: Thrift FAO sem tooth/region; sem histórico |
+| RF-12.12 | Obr | parcial | automatizado | odontograma FDI + Q1–Q4 / S1–S6 / BOCA em `/odonto/[id]` · `odontogramJson` · proc. `tooth`\|`region` → mapper; gap: Thrift FAO sem tooth/region |
+| RF-12.11 | Obr | coberto | n/a | `GET /v1/dental-encounters/:id/odontogram-history` · timeline na ficha `/odonto/[id]` (mesmo paciente + unidade; sem VOID; snapshot leitura) |
 | RF-12.13 | Obr | coberto | automatizado | catálogo predefinido `GET /v1/catalog/dental#predefinedProcedures` · PATCH lista + `done` · FAO só `done !== false` · UI `/odonto/[id]` |
 | RF-12.20 | Obr | parcial | previsto | lista `/odonto` cronológica básica |
 | RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` + UI `/ad` |

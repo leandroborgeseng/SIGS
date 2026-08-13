@@ -138,6 +138,7 @@ O lote `/odonto/lote` permanece a **UI de faturamento**; por baixo migra para o 
 | **A2** | `POST /migrate` → `ProductionRecord` + Paciente Mestre | ✅ |
 | **A4** | Stub `POST /export/rnds` (contrato) | ✅ stub |
 | **RF-12.13** | Catálogo SIGTAP predefinido no odontograma + `done` → FAO | ✅ |
+| **RF-12.11** | Histórico de odontograma (mesmo paciente + unidade) | ✅ |
 | **→** | Ficha APS origem (FAI tipo 4) + **LEDI P1** (campos individuais no motor) | próximo |
 
 ### Endpoints ` /v1/clinical-core`
