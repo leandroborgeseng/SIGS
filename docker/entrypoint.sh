@@ -80,19 +80,75 @@ require_runtime_env() {
 
 require_runtime_env
 
+prep_appointment_id_unique() {
+  # Deduplica appointment_id antes do unique (MVP agenda odonto).
+  # No-op se tabela/coluna ainda não existir — db push cria o schema.
+  local sql="prisma/sql/prep-appointment-id-unique.sql"
+  if [[ ! -f "$sql" ]]; then
+    echo "WARN: $sql ausente — pulando prep de unique appointment_id"
+    return 0
+  fi
+  echo "SIGS migrate · prep unique appointment_id (dedupe)…"
+  if npx prisma db execute --file "$sql" --schema prisma/schema.prisma; then
+    echo "SIGS migrate · prep ok"
+  else
+    echo "INFO: prep SQL não aplicado (schema ainda inexistente ou DB sem coluna) — db push segue"
+  fi
+}
+
 migrate_db() {
   cd /app/apps/api
+  local log
+  log="$(mktemp)"
+
+  prep_appointment_id_unique
+
   echo "SIGS migrate · prisma db push…"
-  if ! npx prisma db push --skip-generate; then
-    echo "ERROR: prisma db push falhou (confira DATABASE_URL / rede Postgres)."
-    exit 1
+  set +e
+  npx prisma db push --skip-generate >"$log" 2>&1
+  local rc=$?
+  set -e
+  cat "$log"
+
+  if [[ "$rc" -eq 0 ]]; then
+    rm -f "$log"
+    echo "SIGS migrate · ok"
+    return 0
   fi
-  echo "SIGS migrate · ok"
+
+  if grep -qiE 'accept-data-loss|data loss when applying' "$log"; then
+    echo "WARN: prisma exigiu --accept-data-loss (ex.: unique em dental_encounters.appointment_id)."
+    echo "      Não é falha de DATABASE_URL. Deduplicando e repetindo com flag segura p/ este caso."
+    echo "      Risco: duplicatas reais de appointment_id são nullificadas (fica o mais recente)."
+    echo "      NULLs múltiplos em PG são OK sob UNIQUE."
+    prep_appointment_id_unique
+    set +e
+    npx prisma db push --skip-generate --accept-data-loss >"$log" 2>&1
+    rc=$?
+    set -e
+    cat "$log"
+    rm -f "$log"
+    if [[ "$rc" -eq 0 ]]; then
+      echo "SIGS migrate · ok (após prep + --accept-data-loss)"
+      return 0
+    fi
+    echo "ERROR: prisma db push falhou mesmo com --accept-data-loss."
+    echo "  Revise o log Prisma acima (constraint/FK/tipo), não assuma DATABASE_URL."
+    return 1
+  fi
+
+  rm -f "$log"
+  echo "ERROR: prisma db push falhou."
+  echo "  Causas comuns: Postgres inacessível, DATABASE_URL inválida/rede, ou schema incompatível."
+  echo "  Se a mensagem falar em data loss / --accept-data-loss, trate como schema — não como URL."
+  return 1
 }
 
 start_api() {
   cd /app/apps/api
-  migrate_db
+  if ! migrate_db; then
+    exit 1
+  fi
   local port="${PORT:-3001}"
   echo "Starting API :${port} (health → /api/health)"
   exec node dist/main.js
@@ -100,8 +156,8 @@ start_api() {
 
 start_worker() {
   cd /app/apps/api
-  # Worker assume schema já migrado pela API; tenta push idempotente.
-  npx prisma db push --skip-generate || true
+  # Worker assume schema já migrado pela API; tenta push idempotente (soft).
+  migrate_db || echo "WARN: migrate no worker falhou — API deve ter migrado"
   echo "Starting worker (REDIS_URL set)"
   exec node dist/worker.main.js
 }
@@ -120,7 +176,9 @@ start_all() {
   export API_INTERNAL_URL="${API_INTERNAL_URL:-http://127.0.0.1:${API_PORT}}"
 
   cd /app/apps/api
-  migrate_db
+  if ! migrate_db; then
+    exit 1
+  fi
 
   PORT="$API_PORT" node dist/main.js &
   API_PID=$!

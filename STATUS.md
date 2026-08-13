@@ -43,5 +43,6 @@
 - Working tree limpa de código: só lixo local untracked (`data/esus`, `data/sigtap`, `sus_intelligence`, `tools/*-home`, `contexts/`) — **não commitar**
 - Após pull: `prisma db push` (ou migrate) se schema local atrasado — campo `appointment_id` em `dental_encounters`
 - Sem Stream novo / sem odontograma extra nesta pausa
+- **Hotfix prod:** entrypoint trata `prisma db push` + `--accept-data-loss` após dedupe de `appointment_id` (unique agenda odonto) — não culpar DATABASE_URL nesse caso
 
-_Atualizado em 2026-08-12 (handoff PC off)_
+_Atualizado em 2026-08-12 (hotfix Railway unique appointment_id)_

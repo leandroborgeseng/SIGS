@@ -314,7 +314,8 @@ model DentalEncounter {
   professionalId    String?   @map("professional_id")
   /// Lotação usada (CNS+CBO+CNES+INE)
   assignmentId      String?   @map("assignment_id")
-  /// Slot de agenda que originou o atendimento (RF-12.1)
+  /// Slot de agenda que originou o atendimento (RF-12.1).
+  /// @unique em optional: no PostgreSQL vários NULL são permitidos; só não-nulos são únicos.
   appointmentId     String?   @unique @map("appointment_id")
   encounterType     String    @default("CONSULTA") @map("encounter_type")
   /// IN_PROGRESS | COMPLETED | VOID
