@@ -1,21 +1,22 @@
 # STATUS — SIGS
 
-- **etapa_atual**: Odontograma com escopos Q/S/BOCA (RF-12.12 parcial) na ficha odonto
-- **entregue (A–F + odontograma):**
+- **etapa_atual**: Agenda odonto MVP (RF-12.1 parcial) + odontograma (RF-12.12 parcial)
+- **entregue (A–F + odontograma + agenda):**
   - Área `/faturamento` (hub · fila `/faturamento/odonto` · lotes `/faturamento/lote/{fao,fai,proc}`)
   - Gaps clínicos B–D: lotação, `CodeSearchSelect`, preview FAO, Tela C, fila, condutas LEDI
-  - **Stream F (Previne na origem):** painel B1–B6 / qualidade em `/odonto/[id]` + `preview-fao` (`previne` / `vigilanciaOnly99`); não vira BLOCKER Siaps
-  - **VOID pós-COMPLETED:** anulação local (encounter VOID + batch `error` + audit); exige `acknowledgeLocalOnly`; sem recall Ministério
-  - **Odontograma:** grade FDI + escopos Q1–Q4 / S1–S6 / BOCA · condições tipadas · PATCH `odontogram` → `odontogramJson` → LEDI `odontograma` · seleção amarra `tooth` ou `region` do SIGTAP
+  - **Stream F (Previne na origem):** painel B1–B6 / qualidade em `/odonto/[id]` + `preview-fao`
+  - **VOID pós-COMPLETED:** anulação local (encounter VOID + batch `error` + audit)
+  - **Odontograma MVP:** grade FDI · condições · PATCH `odontogram` → LEDI
+  - **Agenda odonto (RF-12.1 parcial):** `/odonto/agenda` lista do dia · criar slot · `POST /v1/appointments/:id/open-dental` → encounter com `appointmentId` · slot PRESENT · tipoAtendimento=2
 - **como usar:**
-  1. `/odonto` — paciente + profissional + **lotação/equipe** → abrir
-  2. `/odonto/[id]` — seções A + odontograma (dente/escopo); painel LEDI + Previne ~1s após editar; Finalizar e faturar
-  3. Tela C → `/faturamento/odonto?encounterId=…&batchId=…` · **Anular (local)** se necessário
-  4. Fila: **Atualizar** / **Revalidar pendências**; lote FAO: `/faturamento/lote/fao`
-- **API:** `GET /v1/catalog/dental` (`odontogram.scopes`) · `GET …/preview-fao` · `POST …/void`
+  1. `/odonto/agenda` — dia + profissional + paciente → **Agendar** → **Abrir atendimento**
+  2. `/odonto` — abertura espontânea (tipo 5) se não houver slot
+  3. `/odonto/[id]` — ficha + odontograma + LEDI/Previne → Finalizar e faturar
+  4. Fila / lote FAO em `/faturamento/…`
+- **API:** `GET/POST /v1/appointments` · `POST …/:id/open-dental` · `GET /v1/catalog/dental` · `POST …/void`
 - **params:** `REQUIRE_INE_DENTAL_OPEN` · `DENTAL_DEFAULT_TIPO_ATENDIMENTO=5` · `MUNICIPIO_IBGE`
-- **limite documentado:** VOID pós-envio não faz estorno/XML de exclusão no Ministério — só anulação local; Thrift FAO sem tooth/region (careJson/mapper); sem histórico odontograma / procedimentos predefinidos ricos (RF-12.13)
+- **limite documentado:** agenda sem tipos de item/grade multi-profissional; VOID sem recall Ministério; odontograma sem quadrante/sextante/histórico ricos
 - **deploy:** hardening Railway — fail-fast env, health `/api/health`+`/api/ready`, Redis/Bull opcional
-- **próximo:** smoke Railway · RF-12.13/16 ricos · agenda 12.1 quando priorizado
+- **próximo:** smoke Railway · RF-12.13/16 ricos · agenda TR (tipos de item)
 
 _Atualizado em 2026-08-12_

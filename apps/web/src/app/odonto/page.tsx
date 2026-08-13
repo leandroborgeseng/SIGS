@@ -125,6 +125,9 @@ export default function OdontoPage() {
         actions={
           <>
             <HelpLink id="odonto.atendimento" />
+            <Link className="btn btn-secondary" href="/odonto/agenda">
+              Agenda do dia
+            </Link>
             <Link className="btn ghost" href="/faturamento/lote/fao">
               Lote LEDI FAO
             </Link>

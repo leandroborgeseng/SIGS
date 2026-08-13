@@ -28,6 +28,8 @@ export class CreateDentalEncounterDto {
   @IsOptional() @IsString() cbo?: string;
   @IsOptional() @IsString() encounterType?: string;
   @IsOptional() @IsString() anamnese?: string;
+  /** Abre a partir de AppointmentSlot (RF-12.1) — marca slot PRESENT e tipoAtendimento=2 */
+  @IsOptional() @IsString() appointmentId?: string;
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

@@ -3,13 +3,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { CareExtraService } from '../care-extra/care-extra.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { APPOINTMENT_STATUS, AppointmentStatus, RF } from '../common/rf';
-import { BookSlotDto, CreateSlotDto, UpdateSlotStatusDto } from './dto';
+import { BookSlotDto, CreateSlotDto, OpenDentalFromSlotDto, UpdateSlotStatusDto } from './dto';
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly careExtra: CareExtraService,
+  ) {}
 
   list(
     from?: string,
@@ -34,7 +38,13 @@ export class AppointmentsService {
         NOT: { status: 'DELETED' },
       },
       orderBy: { startsAt: 'asc' },
-      include: { professional: true, patient: true, facility: true },
+      include: {
+        professional: true,
+        patient: true,
+        facility: true,
+        dentalEncounter: { select: { id: true, status: true } },
+        encounter: { select: { id: true, status: true } },
+      },
     });
   }
 
@@ -63,7 +73,9 @@ export class AppointmentsService {
         status: 'SCHEDULED',
       },
     });
-    await this.prisma.audit('create', 'appointment_slot', row.id, [RF.AGENDA.id]);
+    await this.prisma.audit('create', 'appointment_slot', row.id, [RF.AGENDA.id, RF.ODONTO.id], {
+      notes: dto.notes,
+    });
     return row;
   }
 
@@ -111,5 +123,16 @@ export class AppointmentsService {
   /** Soft-delete via status DELETED — só se SCHEDULED. */
   async remove(id: string) {
     return this.updateStatus(id, { status: 'DELETED' });
+  }
+
+  /** RF-12.1 — abre ficha odonto a partir do slot. */
+  openDental(id: string, dto: OpenDentalFromSlotDto) {
+    return this.careExtra.openDentalFromAppointment(id, {
+      assignmentId: dto.assignmentId,
+      cbo: dto.cbo,
+      anamnese: dto.anamnese,
+      encounterType: dto.encounterType,
+      procedures: dto.procedures,
+    });
   }
 }

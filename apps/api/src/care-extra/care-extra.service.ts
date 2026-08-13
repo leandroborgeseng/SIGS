@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
@@ -206,6 +211,7 @@ export class CareExtraService {
     facilityId: string;
     professionalId: string | null;
     assignmentId?: string | null;
+    appointmentId?: string | null;
     encounterType: string;
     status: string;
     anamnese: string | null;
@@ -242,15 +248,55 @@ export class CareExtraService {
   }
 
   async openDental(dto: CreateDentalEncounterDto) {
-    if (!(await this.prisma.patient.findUnique({ where: { id: dto.patientId } }))) {
+    let patientId = dto.patientId;
+    let facilityId = dto.facilityId;
+    let professionalId = dto.professionalId;
+    let appointmentId = dto.appointmentId;
+    let fromAgenda = false;
+
+    if (appointmentId) {
+      const slot = await this.prisma.appointmentSlot.findUnique({ where: { id: appointmentId } });
+      if (!slot || slot.status === 'DELETED') {
+        throw new NotFoundException('Agendamento não encontrado');
+      }
+      if (!slot.patientId) {
+        throw new BadRequestException('Agendamento sem paciente — vincule o cidadão antes de abrir odonto');
+      }
+      if (['CANCELLED', 'NO_SHOW', 'COMPLETED'].includes(slot.status)) {
+        throw new BadRequestException(`Não é possível abrir odonto com status ${slot.status}`);
+      }
+      if (dto.patientId && dto.patientId !== slot.patientId) {
+        throw new BadRequestException('patientId não confere com o paciente do agendamento');
+      }
+      const linked = await this.prisma.dentalEncounter.findUnique({
+        where: { appointmentId },
+        include: { patient: true, facility: true, professional: true },
+      });
+      if (linked) {
+        if (linked.status === 'IN_PROGRESS') {
+          await this.prisma.audit('reuse_appointment', 'dental_encounter', linked.id, [RF.ODONTO.id], {
+            appointmentId,
+          });
+          return this.serializeDental(linked);
+        }
+        throw new ConflictException('Agendamento já vinculado a um atendimento odontológico');
+      }
+      patientId = slot.patientId;
+      facilityId = dto.facilityId || slot.facilityId || '';
+      if (!facilityId) throw new BadRequestException('facilityId obrigatório (slot sem unidade)');
+      professionalId = dto.professionalId || slot.professionalId;
+      fromAgenda = true;
+    }
+
+    if (!(await this.prisma.patient.findUnique({ where: { id: patientId } }))) {
       throw new BadRequestException('patientId inválido');
     }
-    const facility = await this.prisma.facility.findUnique({ where: { id: dto.facilityId } });
+    const facility = await this.prisma.facility.findUnique({ where: { id: facilityId } });
     if (!facility) throw new BadRequestException('facilityId inválido');
 
     const lotacao = await this.resolveLotacao({
-      professionalId: dto.professionalId,
-      facilityId: dto.facilityId,
+      professionalId,
+      facilityId,
       facilityCnes: facility.cnes,
       assignmentId: dto.assignmentId,
       cbo: dto.cbo || FRANCA_LEDI_DEFAULTS.cboOdontoPadrao,
@@ -267,14 +313,21 @@ export class CareExtraService {
     const care = defaultDentalCareDraft({
       assignmentId: dto.assignmentId || null,
       cbo: dto.cbo || lotacao.cboCodigo_2002,
+      ...(fromAgenda
+        ? {
+            tipoAtendimento: 2,
+            tiposConsultaOdonto: [1],
+          }
+        : {}),
     });
 
     const row = await this.prisma.dentalEncounter.create({
       data: {
-        patientId: dto.patientId,
-        facilityId: dto.facilityId,
-        professionalId: dto.professionalId,
+        patientId,
+        facilityId,
+        professionalId,
         assignmentId: dto.assignmentId,
+        appointmentId: appointmentId || null,
         encounterType: dto.encounterType || 'CONSULTA',
         anamnese: dto.anamnese,
         proceduresJson: JSON.stringify(dto.procedures || []),
@@ -285,15 +338,23 @@ export class CareExtraService {
       include: { patient: true, facility: true, professional: true },
     });
 
+    if (appointmentId) {
+      await this.prisma.appointmentSlot.update({
+        where: { id: appointmentId },
+        data: { status: 'PRESENT' },
+      });
+    }
+
     const batch = await this.prisma.productionBatch.create({
       data: {
         kind: 'dental_encounter',
         status: 'draft',
-        rfIdsCsv: [RF.ODONTO.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id].join(','),
+        rfIdsCsv: [RF.ODONTO.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id, RF.AGENDA.id].join(','),
         payloadJson: JSON.stringify({
           encounterId: row.id,
           facilityId: row.facilityId,
           patientId: row.patientId,
+          appointmentId: appointmentId || null,
           competencia: competenciaFromDate(row.startedAt),
           queue: true,
         }),
@@ -308,12 +369,46 @@ export class CareExtraService {
     });
     await this.syncDentalBillingQueue(withBatch.id).catch(() => undefined);
 
-    await this.prisma.audit('open', 'dental_encounter', row.id, [RF.ODONTO.id], {
+    await this.prisma.audit('open', 'dental_encounter', row.id, [RF.ODONTO.id, RF.AGENDA.id], {
       requireIne: requireIneOnDentalOpen(),
       tipoAtendimento: care.tipoAtendimento,
       productionBatchId: batch.id,
+      appointmentId: appointmentId || null,
+      fromAgenda,
     });
     return this.serializeDental(withBatch);
+  }
+
+  /** Atalho RF-12.1: abre odonto a partir do AppointmentSlot. */
+  async openDentalFromAppointment(
+    appointmentId: string,
+    opts: {
+      assignmentId?: string;
+      cbo?: string;
+      anamnese?: string;
+      encounterType?: string;
+      procedures?: CreateDentalEncounterDto['procedures'];
+      facilityId?: string;
+    } = {},
+  ) {
+    const slot = await this.prisma.appointmentSlot.findUnique({ where: { id: appointmentId } });
+    if (!slot || slot.status === 'DELETED') throw new NotFoundException('Agendamento não encontrado');
+    if (!slot.patientId) {
+      throw new BadRequestException('Agendamento sem paciente — vincule o cidadão antes de abrir odonto');
+    }
+    const facilityId = opts.facilityId || slot.facilityId;
+    if (!facilityId) throw new BadRequestException('facilityId obrigatório (slot sem unidade)');
+    return this.openDental({
+      appointmentId,
+      patientId: slot.patientId,
+      facilityId,
+      professionalId: slot.professionalId,
+      assignmentId: opts.assignmentId,
+      cbo: opts.cbo,
+      anamnese: opts.anamnese,
+      encounterType: opts.encounterType,
+      procedures: opts.procedures,
+    });
   }
 
   async patchDental(id: string, dto: PatchDentalEncounterDto) {
@@ -990,9 +1085,18 @@ export class CareExtraService {
       },
       include: { patient: true, facility: true, professional: true },
     });
-    await this.prisma.audit('finish', 'dental_encounter', id, [RF.ODONTO.id, RF.PROD.id], {
+
+    if (updated.appointmentId) {
+      await this.prisma.appointmentSlot.update({
+        where: { id: updated.appointmentId },
+        data: { status: 'COMPLETED' },
+      });
+    }
+
+    await this.prisma.audit('finish', 'dental_encounter', id, [RF.ODONTO.id, RF.PROD.id, RF.AGENDA.id], {
       productionBatchId: batch.id,
       faoConformant: faoReport.conformant,
+      appointmentId: updated.appointmentId,
     });
     return {
       encounter: this.serializeDental(updated),

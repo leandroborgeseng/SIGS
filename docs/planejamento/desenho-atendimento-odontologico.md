@@ -1,6 +1,6 @@
 # Desenho — Atendimento odontológico (SIGS)
 
-**Status:** Onda 1 + Stream F / VOID + odontograma FDI+escopos (RF-12.12 parcial)  
+**Status:** Onda 1 + Stream F / VOID + odontograma FDI+escopos + agenda dia (RF-12.1/12.12 parcial)  
 **Atualizado:** 2026-08-12  
 **Contexto:** uso solo → faturamento Siaps primeiro → depois UI clínica completa  
 **Fontes:** Thrift FAO 5.5.24 · `ledi-fao.validator.ts` · `ledi-dental.mapper.ts` · `dental-odontogram.ts` · `dental-encounter-mapping.md` · RF-12 Anexo I · docs/conhecimento/15 · lote Franca
@@ -15,8 +15,9 @@ Substituir o stub `/odonto` por um **fluxo clínico** que:
 2. Garante **todos os campos obrigatórios de faturamento (eixo A — Siaps)** no momento do **fechamento**.
 3. Orienta (sem bloquear envio) os campos de **qualidade Previne ESB (eixo B)**.
 4. Reusa o motor já existente: `buildDentalLediPayload` → `validateFaoJson` → `ProductionBatch` (+ futuro ZIP LEDI).
+5. Permite **entrada a partir da agenda do dia** (`/odonto/agenda` · `AppointmentSlot` → `DentalEncounter.appointmentId`).
 
-**Não-objetivo nesta fase:** agenda avançada, prótese, telemonitoramento, atestados, odontograma rico (RF-12.10–20) — entram em ondas posteriores.
+**Não-objetivo nesta fase:** agenda TR completa (tipos de item, multi-grade), prótese, telemonitoramento, atestados, odontograma rico (RF-12.10–20) — entram em ondas posteriores.
 
 ---
 

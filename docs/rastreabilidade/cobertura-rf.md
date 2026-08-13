@@ -45,7 +45,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-12.7 | Obr | coberto | automatizado | vigilância + finish/`validateFaoJson` + preview; aviso Previne 99 (não BLOCKER) |
 | RF-12.8 | Obr | coberto | previsto | `tiposFornecimOdonto` UI + mapper |
 | RF-12.9 | Obr | coberto | previsto | anamnese texto livre Onda 1 |
-| RF-12.1 | Obr | parcial | n/a | agenda TR **não** implementada (só abertura de encounter) |
+| RF-12.1 | Obr | parcial | automatizado | `/odonto/agenda` · `POST /v1/appointments/:id/open-dental` · `DentalEncounter.appointmentId` · tipoAtendimento=2; sem grade/tipos de item TR |
 | RF-12.4 | Obr | parcial | previsto | início tratamento (status/campo; sem fluxo rico) |
 | RF-12.16 | Obr | parcial | automatizado | problemas CIAP/CID (`CodeSearchSelect`); patologias ricas depois |
 | RF-12.12 | Obr | parcial | automatizado | odontograma FDI + Q1–Q4 / S1–S6 / BOCA em `/odonto/[id]` · `odontogramJson` · proc. `tooth`\|`region` → mapper; gap: Thrift FAO sem tooth/region; sem histórico |

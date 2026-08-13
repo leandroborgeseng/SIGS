@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
-import { BookSlotDto, CreateSlotDto, UpdateSlotStatusDto } from './dto';
+import { BookSlotDto, CreateSlotDto, OpenDentalFromSlotDto, UpdateSlotStatusDto } from './dto';
 
 @Controller('v1/appointments')
 export class AppointmentsController {
@@ -25,6 +25,12 @@ export class AppointmentsController {
   @Post(':id/book')
   book(@Param('id') id: string, @Body() dto: BookSlotDto) {
     return this.service.book(id, dto);
+  }
+
+  /** RF-12.1 — abre atendimento odonto a partir do slot */
+  @Post(':id/open-dental')
+  openDental(@Param('id') id: string, @Body() dto: OpenDentalFromSlotDto) {
+    return this.service.openDental(id, dto);
   }
 
   @Patch(':id/status')

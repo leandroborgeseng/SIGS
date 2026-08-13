@@ -146,6 +146,9 @@ export default function AgendaPage() {
         actions={
           <>
             <HelpLink id="agenda.slots" />
+            <Link className="btn btn-secondary" href="/odonto/agenda">
+              Agenda odonto
+            </Link>
             <Link className="btn btn-secondary" href="/atendimento">
               Fila
             </Link>
@@ -240,6 +243,11 @@ export default function AgendaPage() {
                           </option>
                         ))}
                     </select>
+                    {s.patient ? (
+                      <Link className="btn btn-secondary" href="/odonto/agenda">
+                        Odonto
+                      </Link>
+                    ) : null}
                     <button
                       type="button"
                       className="btn btn-danger"

@@ -192,10 +192,12 @@ model AppointmentSlot {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  facility     Facility?    @relation(fields: [facilityId], references: [id])
-  professional Professional @relation(fields: [professionalId], references: [id])
-  patient      Patient?     @relation(fields: [patientId], references: [id])
-  encounter    Encounter?
+  facility         Facility?        @relation(fields: [facilityId], references: [id])
+  professional     Professional     @relation(fields: [professionalId], references: [id])
+  patient          Patient?         @relation(fields: [patientId], references: [id])
+  encounter        Encounter?
+  /// Atendimento odontológico aberto a partir deste slot (RF-12.1)
+  dentalEncounter  DentalEncounter?
 
   @@index([facilityId, startsAt])
   @@map("appointment_slots")
@@ -312,6 +314,8 @@ model DentalEncounter {
   professionalId    String?   @map("professional_id")
   /// Lotação usada (CNS+CBO+CNES+INE)
   assignmentId      String?   @map("assignment_id")
+  /// Slot de agenda que originou o atendimento (RF-12.1)
+  appointmentId     String?   @unique @map("appointment_id")
   encounterType     String    @default("CONSULTA") @map("encounter_type")
   /// IN_PROGRESS | COMPLETED | VOID
   status            String    @default("IN_PROGRESS")
@@ -329,9 +333,10 @@ model DentalEncounter {
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
 
-  patient      Patient       @relation(fields: [patientId], references: [id])
-  facility     Facility      @relation(fields: [facilityId], references: [id])
-  professional Professional? @relation(fields: [professionalId], references: [id])
+  patient      Patient          @relation(fields: [patientId], references: [id])
+  facility     Facility         @relation(fields: [facilityId], references: [id])
+  professional Professional?    @relation(fields: [professionalId], references: [id])
+  appointment  AppointmentSlot? @relation(fields: [appointmentId], references: [id])
 
   @@index([facilityId, status])
   @@map("dental_encounters")

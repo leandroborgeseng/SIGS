@@ -71,7 +71,7 @@ export const RF = {
     tipo: 'Obrigatório',
     fonte: 'ambos',
     teste_faturamento: 'previsto',
-    nota: 'Atendimento odontológico (stub MVP)',
+    nota: 'Agenda odonto + abertura encounter (MVP parcial)',
   },
   HOME_CARE: {
     id: 'RF-3.54',

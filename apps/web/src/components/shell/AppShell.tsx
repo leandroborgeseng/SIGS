@@ -17,7 +17,10 @@ const NAV = [
   {
     id: 'clinico',
     group: 'Atendimento clínico',
-    items: [{ href: '/odonto', label: 'Odontologia' }],
+    items: [
+      { href: '/odonto', label: 'Odontologia' },
+      { href: '/odonto/agenda', label: 'Agenda odonto' },
+    ],
   },
   {
     id: 'faturamento',
@@ -78,7 +81,11 @@ type NavGroupId = (typeof NAV)[number]['id'];
 
 function itemMatches(pathname: string, href: string) {
   if (href === '/faturamento') return pathname === '/faturamento';
+  if (href === '/odonto/agenda') {
+    return pathname === '/odonto/agenda' || pathname.startsWith('/odonto/agenda/');
+  }
   if (href === '/odonto') {
+    if (pathname.startsWith('/odonto/agenda')) return false;
     return pathname === '/odonto' || /^\/odonto\/[^/]+/.test(pathname);
   }
   return pathname === href || pathname.startsWith(`${href}/`);
