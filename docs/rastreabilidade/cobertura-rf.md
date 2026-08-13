@@ -1,7 +1,9 @@
 # Cobertura RF — rastreabilidade
 
 **CSV completo:** [cobertura-rf.csv](cobertura-rf.csv)
-**Total linhas:** 599 · **implementados:** 0 · **parciais:** 36 · **adiados:** 114 · **backlog SAMU:** 30 (não iniciado / onda `samu-backlog`)
+**Total linhas:** 599 · **cobertos:** 7 · **parciais:** 38 · **adiados:** 114 · **backlog SAMU:** 30 (não iniciado / onda `samu-backlog`)
+
+Legenda status: `coberto` = escopo Onda 1/código atual atende o RF mínimo com evidência; `parcial` = há código mas falta fatia TR/e-SUS. Não inventar cobertura.
 
 Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrita-fase1.md)
 
@@ -13,7 +15,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | 2. Módulo de Cadastros | 59 | 58 | 1 | 7 |
 | 3. Módulo Ambulatorial | 73 | 63 | 10 | 2 |
 | 10. Módulo de Integração com o e-SUS | 20 | 20 | 0 | 2 |
-| 12. Módulo de Odontologia | 20 | 20 | 0 | 0 |
+| 12. Módulo de Odontologia | 20 | 20 | 0 | 13 |
 | 14. Módulo de Vacinação | 19 | 16 | 3 | 4 |
 
 ## Implementados / parciais (amostra)
@@ -36,7 +38,18 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-10.20 | Obr | parcial | automatizado | preflight + `POST /production/send` + UI `/producao` |
 | RF-14.1 | Obr | parcial | automatizado | `apps/api/src/vaccinations` |
 | RF-14.2 | Obr | parcial | n/a | cartão vacinal UI + API |
-| RF-12.1 | Obr | parcial | automatizado | `ledi-dental-v2` + UI `/odonto` (lotação, CIAP/CID, preview ao vivo, Tela C; VOID só rascunho) |
+| RF-12.2 | Obr | coberto | automatizado | lotação/`assignmentId` na abertura `/odonto` + header LEDI |
+| RF-12.3 | Obr | coberto | automatizado | paciente na abertura + identificação na ficha |
+| RF-12.5 | Obr | coberto | automatizado | `tipoAtendimento` (default 5) + UI select |
+| RF-12.6 | Obr | coberto | automatizado | `tiposEncamOdonto` = `LEDI_CONDUTA_ODONTO` (UI + lote) |
+| RF-12.7 | Obr | coberto | automatizado | vigilância + finish/`validateFaoJson` + preview |
+| RF-12.8 | Obr | coberto | previsto | `tiposFornecimOdonto` UI + mapper |
+| RF-12.9 | Obr | coberto | previsto | anamnese texto livre Onda 1 |
+| RF-12.1 | Obr | parcial | n/a | agenda TR **não** implementada (só abertura de encounter) |
+| RF-12.4 | Obr | parcial | previsto | início tratamento (status/campo; sem fluxo rico) |
+| RF-12.16 | Obr | parcial | automatizado | problemas CIAP/CID (`CodeSearchSelect`); patologias ricas depois |
+| RF-12.12 | Obr | parcial | previsto | dente/proc stub — odontograma completo depois |
+| RF-12.20 | Obr | parcial | previsto | lista `/odonto` cronológica básica |
 | RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` + UI `/ad` |
 | RF-3.53 | Obr | parcial | automatizado | `ledi-collective-v2` + UI `/coletivo` |
 | RF-9.2 | Obr | parcial | previsto | BPA stub via produção |

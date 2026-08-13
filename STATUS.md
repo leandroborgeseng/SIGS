@@ -1,14 +1,21 @@
 # STATUS — SIGS
 
-- **etapa_atual**: Stream C — UX fila `/faturamento/odonto` (sync lote · deep-link · empty CTA)
+- **etapa_atual**: Stream E — DoD docs/testes/matriz (pós A+B+C+D em `main`)
+- **entregue (A–D):**
+  - Área `/faturamento` (hub · fila `/faturamento/odonto` · lotes `/faturamento/lote/{fao,fai,proc}`)
+  - Nav em sanfona (grupo Faturamento & Validação)
+  - Gaps clínicos B: lotação na abertura, `CodeSearchSelect`, debounce ~900ms + preview FAO, Tela C
+  - Fila C: deep-link `encounterId`/`batchId`, `forceSync`, revalidar pendências, empty CTA
+  - Sem R$ na UI de risco (contagens `moneyRisks` / severidade LEDI)
+  - Condutas = catálogo LEDI canônico (`LEDI_CONDUTA_ODONTO`)
 - **como usar:**
-  1. `/odonto` — escolher paciente, profissional e **lotação/equipe** → abrir
-  2. `/odonto/[id]` — preencher; painel LEDI valida ~1s após editar; Finalizar e faturar
-  3. Pós-fechamento (Tela C): `/faturamento/odonto?encounterId=…&batchId=…` destaca o item
-  4. Fila: **Atualizar** (`forceSync`) ou **Revalidar pendências** (`POST …/sync`); empty → CTA lote FAO
-  5. Lote XML: `/faturamento/lote/fao` · aliases antigos redirecionam
-- **API:** `GET /v1/dental/faturamento-queue?forceSync=1` · `POST /v1/dental/faturamento-queue/sync` · `POST …/void` (rascunho)
+  1. `/odonto` — paciente + profissional + **lotação/equipe** → abrir
+  2. `/odonto/[id]` — seções A; painel LEDI ~1s após editar; Finalizar e faturar
+  3. Tela C → `/faturamento/odonto?encounterId=…&batchId=…`
+  4. Fila: **Atualizar** / **Revalidar pendências**; lote FAO: `/faturamento/lote/fao`
+- **API:** `GET /v1/dental/faturamento-queue?forceSync=1` · `POST …/sync` · `POST …/void` (só rascunho)
 - **params:** `REQUIRE_INE_DENTAL_OPEN` · `DENTAL_DEFAULT_TIPO_ATENDIMENTO=5` · `MUNICIPIO_IBGE`
-- **gap:** VOID de atendimento já `COMPLETED` (estorno LEDI) — ver `docs/planejamento/desenho-atendimento-odontologico.md` §12
+- **gap:** VOID pós-`COMPLETED` (estorno LEDI) — desenho §12
+- **próximo:** smoke Railway (deploy A–D) · **Onda 2 / Stream F (Previne na origem) adiado**
 
 _Atualizado em 2026-08-12_

@@ -187,18 +187,19 @@ Onda 2 (TR): tabelas/odontograma, prótese, patologias — sem bloquear faturame
 
 ## 7. Alinhamento RF-12 (Obrigatório TR)
 
-| RF | No desenho onda 1? | Nota |
+| RF | Matriz (Stream E) | Nota |
 |---|---|---|
-| 12.2 Profissional | sim | lotação |
-| 12.3 Paciente | sim | identificação |
-| 12.4 Início tratamento | parcial | status OPEN |
-| 12.5 Tipo atendimento | sim | |
-| 12.6 Conduta/desfecho | sim | |
-| 12.7 Vigilância | sim | |
-| 12.8 Fornecimentos | depois | não BLOCKER |
-| 12.9 Anamnese | sim (texto) | |
-| 12.1 Agenda | depois | |
-| 12.10–20 | depois | tele, odontograma rico, prótese, exames, atestados |
+| 12.2 Profissional | **coberto** | lotação UI + `assignmentId` |
+| 12.3 Paciente | **coberto** | identificação |
+| 12.4 Início tratamento | parcial | status/campo |
+| 12.5 Tipo atendimento | **coberto** | default 5 |
+| 12.6 Conduta/desfecho | **coberto** | `LEDI_CONDUTA_ODONTO` |
+| 12.7 Vigilância | **coberto** | finish + preview |
+| 12.8 Fornecimentos | **coberto** | UI + mapper (não BLOCKER) |
+| 12.9 Anamnese | **coberto** | texto livre |
+| 12.1 Agenda | parcial | só abertura encounter |
+| 12.12 / 12.13 / 12.16 / 12.20 | parcial | stubs / CIAP-CID / lista |
+| 12.10–11, 14–15, 17–19 | não iniciado | tele, prótese, exames, atestados |
 
 ---
 
@@ -238,11 +239,20 @@ Princípio: **specs + validadores SIGS** como fonte de verdade; legado só para 
 
 ## 10. Critérios de aceite (onda 1)
 
-- [ ] Abrir atendimento com lotação e paciente válidos  
-- [ ] Preencher só campos A e obter `validateFaoJson` sem BLOCKER  
-- [ ] Finish cria `ProductionBatch` e XML/JSON FAO espelhável no validador do lote  
-- [ ] Tentativa de finish incompleto lista códigos do registry (mesmos do `/odonto/lote`)  
-- [ ] Sem dados reais de paciente em fixtures  
+Checklist factual pós Streams A–D (`84e50f5` / `62e71a4`):
+
+- [x] Abrir atendimento com **lotação UI** (`assignmentId` via `GET /v1/assignments`) e paciente válidos  
+- [x] Preencher campos A; **debounce ~900ms** → PATCH rascunho + `preview-fao` (`validateFaoJson`)  
+- [x] **CodeSearchSelect** para CIAP/CID na ficha `/odonto/[id]` (e no lote FAO)  
+- [x] Finish cria `ProductionBatch` e JSON/XML FAO no fluxo de faturamento  
+- [x] Finish incompleto lista códigos do registry (mesmo catálogo do lote)  
+- [x] **Tela C** pós-fechamento + deep-link fila (`encounterId` / `batchId`)  
+- [x] **VOID só rascunho** (`IN_PROGRESS`); `COMPLETED` recusado até estorno  
+- [x] Paths canônicos: `/faturamento`, `/faturamento/odonto`, `/faturamento/lote/fao` (aliases redirecionam)  
+- [x] Condutas = `LEDI_CONDUTA_ODONTO` (sem códigos inventados / sem R$ na UI de risco)  
+- [x] Sem dados reais de paciente em fixtures  
+- [ ] VOID / estorno pós-`COMPLETED` (gap §12)  
+- [ ] Onda 2 Previne na origem (Stream F — **adiado**)
 
 ---
 
@@ -273,5 +283,5 @@ Implementado na UI/API nesta fatia:
 ### Gap restante (não inventar regra LEDI)
 
 - **VOID / anulação pós-`COMPLETED`**: schema prevê `VOID`, mas não há estorno Siaps/LEDI, cancelamento de `ProductionBatch` ready nem XML de exclusão. UI/API **recusam** anular finalizado até existir desenho de estorno.
-- Condutas lote vs LEDI / anti-R$ → Stream D.
-- Onda 2 Previne completa → fora de escopo.
+- Condutas lote = LEDI + UI sem R$ → **feito** (Stream D).
+- Onda 2 Previne completa → **adiado** (Stream F).
