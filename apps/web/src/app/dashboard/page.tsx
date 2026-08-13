@@ -130,7 +130,7 @@ export default function DashboardPage() {
         <p style={{ marginTop: 0 }}>
           Envie os XMLs do município, corrija inconsistências e baixe o lote pronto para o Siaps/RNDS.
         </p>
-        <Link className="btn btn-primary" href="/odonto/lote">
+        <Link className="btn btn-primary" href="/faturamento/lote/fao">
           Abrir Lote LEDI FAO
         </Link>
       </div>

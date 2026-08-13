@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (user) router.replace(facilityId ? '/odonto/lote' : '/selecionar-unidade');
+    if (user) router.replace(facilityId ? '/dashboard' : '/selecionar-unidade');
   }, [user, facilityId, router]);
 
   async function onSubmit(e: FormEvent) {

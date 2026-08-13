@@ -195,12 +195,12 @@ export function ModalQualityMiniDash({ current, baseline, dense }: Props) {
       </div>
 
       <MiniBar value={siaps} total={total} tone="ok" label="Siaps (podem enviar)" />
-      <MiniBar value={previne} total={total} tone="money" label="Previne (qualidade $$ / indicador)" />
+      <MiniBar value={previne} total={total} tone="money" label="Previne (qualidade da informação)" />
       <MiniBar value={finalOk} total={total} tone="quality" label="Envio final OK (Siaps + Previne)" />
 
       <p className="muted" style={{ margin: '8px 0 0', fontSize: 11, lineHeight: 1.4 }}>
-        Meta: subir <strong>Envio final OK</strong>. Siaps alto com Previne baixo = já envia, mas com
-        qualidade incompleta para o financiamento.
+        Meta: subir <strong>Envio final OK</strong>. Siaps alto com Previne baixo = já envia, mas a
+        qualidade da informação ainda está incompleta.
       </p>
     </div>
   );

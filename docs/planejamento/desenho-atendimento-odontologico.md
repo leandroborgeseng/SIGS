@@ -255,3 +255,23 @@ Princípio: **specs + validadores SIGS** como fonte de verdade; legado só para 
 | 3 | Fornecimentos (`tiposFornecimOdonto`) | **Entram na Onda 1** (RF-12.8) |
 
 **Status:** Onda 1 **aprovada para implementação**.
+
+---
+
+## 12. Stream B — gaps clínicos (2026-08-12)
+
+Implementado na UI/API nesta fatia:
+
+| Item | Situação |
+|---|---|
+| Lotação na abertura (`assignmentId`) | UI `/odonto` escolhe lotação/equipe via `GET /v1/assignments` |
+| CIAP/CID com busca | `CodeSearchSelect` em `/odonto/[id]` |
+| Validação ao vivo | debounce ~900ms → PATCH rascunho + `preview-fao` |
+| Tela C pós-fechamento | card resumo + links fila/lote/lista |
+| VOID rascunho | `POST /v1/dental-encounters/:id/void` só se `IN_PROGRESS` |
+
+### Gap restante (não inventar regra LEDI)
+
+- **VOID / anulação pós-`COMPLETED`**: schema prevê `VOID`, mas não há estorno Siaps/LEDI, cancelamento de `ProductionBatch` ready nem XML de exclusão. UI/API **recusam** anular finalizado até existir desenho de estorno.
+- Condutas lote vs LEDI / anti-R$ → Stream D.
+- Onda 2 Previne completa → fora de escopo.

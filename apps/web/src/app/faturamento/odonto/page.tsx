@@ -12,7 +12,7 @@ import {
   severityLabel,
   severityRank,
   severityTone,
-} from '@/app/odonto/lote/error-catalog';
+} from '@/app/faturamento/lote/fao/error-catalog';
 
 type Finding = { severity: string; code: string; message: string; hint?: string };
 
@@ -57,7 +57,7 @@ function currentCompetencia() {
 
 function bucketLabel(b: string) {
   if (b === 'blocker') return 'Bloqueia envio';
-  if (b === 'money') return 'Risco faturamento';
+  if (b === 'money') return 'Qualidade incompleta';
   if (b === 'quality') return 'Indicadores';
   if (b === 'ok') return 'Pronto';
   if (b === 'incomplete') return 'Em preenchimento';
@@ -140,7 +140,7 @@ export default function FaturamentoOdontoPage() {
             <Link className="btn ghost" href="/odonto">
               Atendimentos
             </Link>
-            <Link className="btn ghost" href="/odonto/lote">
+            <Link className="btn ghost" href="/faturamento/lote/fao">
               Lote XML
             </Link>
             <button className="btn" type="button" disabled={busy} onClick={() => void load()}>
@@ -166,7 +166,7 @@ export default function FaturamentoOdontoPage() {
             <select value={bucket} onChange={(e) => setBucket(e.target.value)}>
               <option value="all">Todos</option>
               <option value="blocker">Bloqueia envio</option>
-              <option value="money">Risco faturamento</option>
+              <option value="money">Qualidade incompleta</option>
               <option value="quality">Indicadores</option>
               <option value="incomplete">Em preenchimento</option>
               <option value="ok">Prontos</option>
@@ -194,7 +194,7 @@ export default function FaturamentoOdontoPage() {
               className={`lote-bar-row ${bucket === 'money' ? 'active' : ''}`}
               onClick={() => setBucket('money')}
             >
-              <span className="lote-sev MONEY_RISK">Risco faturamento</span>
+              <span className="lote-sev MONEY_RISK">Qualidade incompleta</span>
               <span className="lote-bar-track">
                 <span
                   className="lote-bar-fill money"

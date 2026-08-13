@@ -1,9 +1,10 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
+import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 import { ErrorBox, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError } from '@/lib/api';
 import { displayPatientName, formatDateTime } from '@/lib/labels';
@@ -98,12 +99,21 @@ export default function OdontoAtendimentoPage() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [liveValidating, setLiveValidating] = useState(false);
+  const [finishSummary, setFinishSummary] = useState<{
+    siapsReady: boolean;
+    productionBatchId?: string;
+    blockers: number;
+  } | null>(null);
+  const skipLiveRef = useRef(true);
+  const liveSeqRef = useRef(0);
 
   const load = useCallback(async () => {
     const [cat, row] = await Promise.all([
       api<Catalog>('/v1/catalog/dental'),
       api<Encounter>(`/v1/dental-encounters/${id}`),
     ]);
+    skipLiveRef.current = true;
     setCatalog(cat);
     setEnc(row);
     setCare(row.care);
@@ -111,59 +121,134 @@ export default function OdontoAtendimentoPage() {
     const p0 = row.care.problemasCondicoes?.[0];
     setCiap(p0?.ciap || '');
     setCid10(p0?.cid10 || '');
+    const proc0 = row.procedures?.[0];
+    if (proc0) {
+      setTooth(proc0.tooth || '11');
+      setProcCode(proc0.code || '0301010030');
+      setProcLabel(proc0.label || 'Consulta odontológica');
+    }
+    if (row.status === 'COMPLETED') {
+      setFinishSummary((prev) =>
+        prev || {
+          siapsReady: true,
+          productionBatchId: row.productionBatchId || undefined,
+          blockers: 0,
+        },
+      );
+    }
   }, [id]);
 
   useEffect(() => {
     void load().catch((e) => setError(e instanceof Error ? e.message : 'Falha'));
   }, [load]);
 
-  async function refreshPreview() {
+  async function refreshPreview(opts?: { quiet?: boolean }) {
     try {
       const res = await api<{ fao: FaoReport; siapsReady: boolean }>(
         `/v1/dental-encounters/${id}/preview-fao`,
       );
       setPreview(res);
+      return res;
     } catch (err) {
       setPreview(null);
-      if (err instanceof ApiError) {
+      if (!opts?.quiet && err instanceof ApiError) {
         setError(err.message);
       }
+      return null;
     }
   }
 
-  async function save(e?: FormEvent): Promise<boolean> {
+  const buildPatchBody = useCallback(() => {
+    if (!care) return null;
+    const problemas =
+      ciap.trim() || cid10.trim()
+        ? [{ ciap: ciap.trim() || undefined, cid10: cid10.trim() || undefined }]
+        : [];
+    return {
+      anamnese,
+      ...care,
+      problemasCondicoes: problemas,
+      procedures: [{ tooth, code: procCode, label: procLabel, done: true }],
+    };
+  }, [care, anamnese, ciap, cid10, tooth, procCode, procLabel]);
+
+  const draftFingerprint = useMemo(
+    () => JSON.stringify(buildPatchBody()),
+    [buildPatchBody],
+  );
+
+  async function save(e?: FormEvent, opts?: { quiet?: boolean }): Promise<boolean> {
     e?.preventDefault();
     if (!care || !enc || enc.status !== 'IN_PROGRESS') return false;
-    setBusy(true);
-    setError(null);
-    setOk(null);
+    const body = buildPatchBody();
+    if (!body) return false;
+    if (!opts?.quiet) {
+      setBusy(true);
+      setError(null);
+      setOk(null);
+    }
     try {
-      const problemas =
-        ciap.trim() || cid10.trim()
-          ? [{ ciap: ciap.trim() || undefined, cid10: cid10.trim() || undefined }]
-          : [];
-      const procedimentos = [{ tooth, code: procCode, label: procLabel, done: true }];
       const row = await api<Encounter>(`/v1/dental-encounters/${id}`, {
         method: 'PATCH',
-        json: {
-          anamnese,
-          ...care,
-          problemasCondicoes: problemas,
-          procedures: procedimentos,
-        },
+        json: body,
       });
+      skipLiveRef.current = true;
       setEnc(row);
       setCare(row.care);
-      setOk('Rascunho salvo.');
-      await refreshPreview();
+      if (!opts?.quiet) {
+        setOk('Rascunho salvo.');
+        await refreshPreview();
+      }
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao salvar');
+      if (!opts?.quiet) {
+        setError(err instanceof Error ? err.message : 'Falha ao salvar');
+      }
       return false;
     } finally {
-      setBusy(false);
+      if (!opts?.quiet) setBusy(false);
     }
   }
+
+  /** Salva rascunho + preview FAO (debounce / Validar agora). */
+  async function syncAndPreview(opts?: { fromLive?: boolean; showErrors?: boolean }) {
+    if (!care || !enc || enc.status !== 'IN_PROGRESS') return;
+    const body = buildPatchBody();
+    if (!body) return;
+    const seq = ++liveSeqRef.current;
+    if (opts?.fromLive) setLiveValidating(true);
+    try {
+      const row = await api<Encounter>(`/v1/dental-encounters/${id}`, {
+        method: 'PATCH',
+        json: body,
+      });
+      if (seq !== liveSeqRef.current) return;
+      skipLiveRef.current = true;
+      setEnc(row);
+      setCare(row.care);
+      await refreshPreview({ quiet: !opts?.showErrors });
+    } catch (err) {
+      if (opts?.showErrors) {
+        setError(err instanceof Error ? err.message : 'Falha ao validar');
+      }
+    } finally {
+      if (opts?.fromLive && seq === liveSeqRef.current) setLiveValidating(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!enc || enc.status !== 'IN_PROGRESS' || !care) return;
+    if (skipLiveRef.current) {
+      skipLiveRef.current = false;
+      return;
+    }
+    const t = window.setTimeout(() => {
+      void syncAndPreview({ fromLive: true });
+    }, 900);
+    return () => window.clearTimeout(t);
+    // Intencional: só reage ao fingerprint do rascunho (debounce sem spam).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftFingerprint]);
 
   async function finish() {
     if (!care) return;
@@ -171,15 +256,27 @@ export default function OdontoAtendimentoPage() {
     setError(null);
     setOk(null);
     try {
-      const saved = await save();
-      if (!saved) return;
-      const res = await api<{ fao: FaoReport; productionBatch?: { id: string } }>(
-        `/v1/dental-encounters/${id}/finish`,
-        { method: 'POST', json: { enforceFaoConformity: true } },
-      );
+      const saved = await save(undefined, { quiet: true });
+      if (!saved) {
+        setError('Não foi possível salvar antes de finalizar.');
+        return;
+      }
+      const res = await api<{
+        fao: FaoReport;
+        productionBatch?: { id: string };
+        encounter?: Encounter;
+      }>(`/v1/dental-encounters/${id}/finish`, {
+        method: 'POST',
+        json: { enforceFaoConformity: true },
+      });
+      setFinishSummary({
+        siapsReady: res.fao.conformant && res.fao.summary.blockers === 0,
+        productionBatchId: res.productionBatch?.id,
+        blockers: res.fao.summary.blockers,
+      });
       setOk(
         res.fao.conformant
-          ? `Finalizado Siaps-ready · lote ${res.productionBatch?.id?.slice(0, 8) || ''}…`
+          ? 'Atendimento finalizado e enviado à fila de faturamento.'
           : 'Finalizado com avisos.',
       );
       await load();
@@ -192,6 +289,28 @@ export default function OdontoAtendimentoPage() {
       } else {
         setError(err instanceof Error ? err.message : 'Falha ao finalizar');
       }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function voidEncounter() {
+    if (!enc || enc.status !== 'IN_PROGRESS') return;
+    if (!confirm('Anular este atendimento em andamento? Ele sairá da fila de faturamento.')) return;
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    try {
+      const row = await api<Encounter>(`/v1/dental-encounters/${id}/void`, {
+        method: 'POST',
+        json: { reason: 'Anulado na UI clínica (rascunho)' },
+      });
+      skipLiveRef.current = true;
+      setEnc(row);
+      setOk('Atendimento anulado (VOID).');
+      setPreview(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao anular');
     } finally {
       setBusy(false);
     }
@@ -212,6 +331,8 @@ export default function OdontoAtendimentoPage() {
   }
 
   const readonly = enc.status !== 'IN_PROGRESS';
+  const showTelaC = enc.status === 'COMPLETED' || !!finishSummary;
+  const voided = enc.status === 'VOID';
 
   return (
     <AppShell>
@@ -223,7 +344,10 @@ export default function OdontoAtendimentoPage() {
             <Link className="btn ghost" href="/odonto">
               Voltar
             </Link>
-            <Link className="btn ghost" href="/odonto/lote">
+            <Link className="btn ghost" href="/faturamento/odonto">
+              Fila faturamento
+            </Link>
+            <Link className="btn ghost" href="/faturamento/lote/fao">
               Lote LEDI
             </Link>
           </>
@@ -231,6 +355,57 @@ export default function OdontoAtendimentoPage() {
       />
       <ErrorBox message={error} />
       {ok && <p className="ok">{ok}</p>}
+
+      {voided && (
+        <section className="card" style={{ marginBottom: 16 }}>
+          <h2 style={{ marginTop: 0 }}>Atendimento anulado</h2>
+          <p className="muted">
+            Status <strong>VOID</strong> — não fatura. Anulação de ficha já finalizada (pós-produção LEDI)
+            permanece como gap documentado.
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Link className="btn" href="/odonto">
+              Voltar à lista
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {showTelaC && !voided && (
+        <section className="card" style={{ marginBottom: 16 }}>
+          <h2 style={{ marginTop: 0 }}>Pós-fechamento</h2>
+          <p style={{ marginTop: 0 }}>
+            {(finishSummary?.siapsReady ?? preview?.siapsReady) ? (
+              <strong className="ok">Siaps-ready · finalizado</strong>
+            ) : (
+              <strong>Finalizado — revise avisos no painel LEDI</strong>
+            )}
+          </p>
+          <ul className="muted" style={{ marginTop: 0 }}>
+            <li>Status: {enc.status}</li>
+            <li>Fim: {formatDateTime(enc.finishedAt)}</li>
+            {(finishSummary?.productionBatchId || enc.productionBatchId) && (
+              <li>
+                Lote de produção:{' '}
+                <code>
+                  {(finishSummary?.productionBatchId || enc.productionBatchId || '').slice(0, 8)}…
+                </code>
+              </li>
+            )}
+          </ul>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Link className="btn" href="/faturamento/odonto">
+              Abrir fila de faturamento
+            </Link>
+            <Link className="btn ghost" href="/faturamento/lote/fao">
+              Lote LEDI FAO
+            </Link>
+            <Link className="btn ghost" href="/odonto">
+              Voltar à lista
+            </Link>
+          </div>
+        </section>
+      )}
 
       <div
         style={{
@@ -240,7 +415,7 @@ export default function OdontoAtendimentoPage() {
           alignItems: 'start',
         }}
       >
-        <form className="card" onSubmit={save}>
+        <form className="card" onSubmit={(e) => void save(e)}>
           <h2 style={{ marginTop: 0 }}>Identificação</h2>
           <p className="muted">
             CPF: {enc.patient.cpf || '—'} · CNS: {enc.patient.cns || '—'} · Sexo:{' '}
@@ -404,14 +579,22 @@ export default function OdontoAtendimentoPage() {
 
           <h2>Problemas (CIAP/CID) *</h2>
           <div className="row-2">
-            <label>
-              CIAP
-              <input disabled={readonly} value={ciap} onChange={(e) => setCiap(e.target.value)} />
-            </label>
-            <label>
-              CID-10
-              <input disabled={readonly} value={cid10} onChange={(e) => setCid10(e.target.value)} />
-            </label>
+            <CodeSearchSelect
+              kind="ciap"
+              label="CIAP"
+              value={ciap}
+              onChange={setCiap}
+              disabled={readonly}
+              placeholder="Buscar CIAP…"
+            />
+            <CodeSearchSelect
+              kind="cid10"
+              label="CID-10"
+              value={cid10}
+              onChange={setCid10}
+              disabled={readonly}
+              placeholder="Buscar CID-10…"
+            />
           </div>
 
           <h2>Vigilância saúde bucal *</h2>
@@ -461,7 +644,7 @@ export default function OdontoAtendimentoPage() {
           ))}
 
           {!readonly && (
-            <div className="actions" style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+            <div className="actions" style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn ghost" type="submit" disabled={busy}>
                 Salvar rascunho
               </button>
@@ -471,10 +654,19 @@ export default function OdontoAtendimentoPage() {
               <button
                 className="btn ghost"
                 type="button"
-                disabled={busy}
-                onClick={() => void refreshPreview()}
+                disabled={busy || liveValidating}
+                onClick={() => void syncAndPreview({ showErrors: true })}
               >
                 Validar agora
+              </button>
+              <button
+                className="btn ghost"
+                type="button"
+                disabled={busy}
+                onClick={() => void voidEncounter()}
+                style={{ marginLeft: 'auto' }}
+              >
+                Anular
               </button>
             </div>
           )}
@@ -482,6 +674,7 @@ export default function OdontoAtendimentoPage() {
 
         <aside className="card">
           <h2 style={{ marginTop: 0 }}>Painel LEDI FAO</h2>
+          {liveValidating && <p className="muted">Validando…</p>}
           {preview ? (
             <>
               <p>
@@ -492,7 +685,7 @@ export default function OdontoAtendimentoPage() {
                 )}
                 <br />
                 <span className="muted">
-                  $ {preview.fao.summary.moneyRisks} · warn {preview.fao.summary.qualityWarns}
+                  qualidade {preview.fao.summary.moneyRisks} · warn {preview.fao.summary.qualityWarns}
                 </span>
               </p>
               <ul className="findings">
@@ -506,7 +699,9 @@ export default function OdontoAtendimentoPage() {
               </ul>
             </>
           ) : (
-            <p className="muted">Salve ou clique em “Validar agora”.</p>
+            <p className="muted">
+              A validação roda ~1s após editar (salva rascunho + preview). Ou use “Validar agora”.
+            </p>
           )}
           {enc.productionBatchId && (
             <p>

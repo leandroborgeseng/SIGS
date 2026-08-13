@@ -11,7 +11,7 @@ export type LediFichaTipo = {
   label: string;
   /** Onde corrigir no SIGS hoje */
   correctionPath: string;
-  /** true = tela /odonto/lote (validador FAO) */
+  /** true = tela /faturamento/lote/fao (validador FAO) */
   odontoLoteSupported: boolean;
   masterTag?: string;
 };
@@ -27,14 +27,14 @@ const BY_CODE: Record<number, Omit<LediFichaTipo, 'code'>> = {
   4: {
     id: 'FAI',
     label: 'Atendimento Individual (FAI)',
-    correctionPath: 'APS → Lote LEDI FAI (`/aps/lote`)',
+    correctionPath: 'Faturamento → Lote LEDI FAI (`/faturamento/lote/fai`)',
     odontoLoteSupported: false,
     masterTag: 'fichaAtendimentoIndividualMasterTransport',
   },
   5: {
     id: 'FAO',
     label: 'Atendimento Odontológico (FAO)',
-    correctionPath: 'Odontologia → Lote LEDI FAO (`/odonto/lote`)',
+    correctionPath: 'Faturamento → Lote LEDI FAO (`/faturamento/lote/fao`)',
     odontoLoteSupported: true,
     masterTag: 'fichaAtendimentoOdontologicoMasterTransport',
   },
@@ -48,7 +48,7 @@ const BY_CODE: Record<number, Omit<LediFichaTipo, 'code'>> = {
   7: {
     id: 'PROCEDIMENTOS',
     label: 'Ficha de Procedimentos',
-    correctionPath: 'Produção → Lote Procedimentos (`/procedimentos/lote`)',
+    correctionPath: 'Faturamento → Lote Procedimentos (`/faturamento/lote/proc`)',
     odontoLoteSupported: false,
     masterTag: 'fichaProcedimentoMasterTransport',
   },

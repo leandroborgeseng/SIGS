@@ -27,7 +27,7 @@ export default function SelectUnitPage() {
       setItems(rows);
       if (!facilityId && rows.length === 1) {
         selectFacility(rows[0].id);
-        router.replace('/odonto/lote');
+        router.replace('/dashboard');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha ao listar unidades');
@@ -53,7 +53,7 @@ export default function SelectUnitPage() {
 
   function choose(id: string) {
     selectFacility(id);
-    router.push('/odonto/lote');
+    router.push('/dashboard');
   }
 
   if (loading || !user) return <div className="content">Carregando…</div>;

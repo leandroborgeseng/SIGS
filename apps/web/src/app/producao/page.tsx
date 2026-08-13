@@ -293,7 +293,7 @@ export default function ProductionPage() {
       <PageHeader
         title="Produção / LEDI / BPA"
         eyebrow="Gestão"
-        description="Avalie estruturas antes de enviar — bloqueios, riscos de perda de produção e de dinheiro."
+        description="Avalie estruturas antes de enviar — bloqueios e riscos de qualidade da produção/informação."
         actions={
           <>
             <HelpLink id="producao.ledi" />
@@ -395,7 +395,7 @@ export default function ProductionPage() {
               )}
             </div>
             <div className="card">
-              <div className="section-label">Risco de perder produção / dinheiro</div>
+              <div className="section-label">Risco de qualidade / perda de produção</div>
               {report.summary.moneyLossRisks.length || report.summary.productionLossRisks.length ? (
                 <ul style={{ margin: 0, paddingLeft: 18 }}>
                   {[...new Set([...report.summary.moneyLossRisks, ...report.summary.productionLossRisks])]
@@ -405,7 +405,7 @@ export default function ProductionPage() {
                     ))}
                 </ul>
               ) : (
-                <p style={{ margin: 0, color: 'var(--ink-3)' }}>Nenhum risco financeiro listado.</p>
+                <p style={{ margin: 0, color: 'var(--ink-3)' }}>Nenhum risco de qualidade listado.</p>
               )}
               {report.sigtap.unknownCodes.length ? (
                 <p style={{ marginTop: 8 }}>

@@ -81,6 +81,7 @@ type Props = {
   onChange: (code: string) => void;
   placeholder?: string;
   allowEmpty?: boolean;
+  disabled?: boolean;
 };
 
 export function CodeSearchSelect({
@@ -90,6 +91,7 @@ export function CodeSearchSelect({
   onChange,
   placeholder,
   allowEmpty = true,
+  disabled = false,
 }: Props) {
   const id = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -155,18 +157,22 @@ export function CodeSearchSelect({
         aria-expanded={open}
         aria-autocomplete="list"
         autoComplete="off"
+        disabled={disabled}
         value={inputValue}
         placeholder={placeholder || (kind === 'ciap' ? 'Buscar CIAP…' : 'Buscar CID-10…')}
         onFocus={() => {
+          if (disabled) return;
           setOpen(true);
           setQuery(value || '');
         }}
         onChange={(e) => {
+          if (disabled) return;
           const typed = e.target.value;
           setQuery(typed);
           setOpen(true);
         }}
         onBlur={() => {
+          if (disabled) return;
           // se digitou um código exato do catálogo, aplica
           const typed = query.trim().toUpperCase();
           if (!typed) return;
@@ -178,6 +184,7 @@ export function CodeSearchSelect({
           if (hit) onChange(hit.code);
         }}
         onKeyDown={(e) => {
+          if (disabled) return;
           if (e.key === 'Escape') setOpen(false);
           if (e.key === 'Enter' && filtered[0]) {
             e.preventDefault();
@@ -189,7 +196,7 @@ export function CodeSearchSelect({
       />
       {loadingState ? <div className="muted" style={{ fontSize: 12 }}>Carregando catálogo…</div> : null}
       {loadError ? <div className="muted" style={{ fontSize: 12, color: 'var(--danger)' }}>{loadError}</div> : null}
-      {open && !loadingState && !loadError ? (
+      {open && !disabled && !loadingState && !loadError ? (
         <div className="code-search-menu" role="listbox">
           {allowEmpty ? (
             <button

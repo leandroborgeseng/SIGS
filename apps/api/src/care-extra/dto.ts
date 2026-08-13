@@ -73,6 +73,11 @@ export class PatchDentalEncounterDto {
   @IsOptional() @IsString() dataHoraFinalAtendimento?: string;
 }
 
+/** Anula rascunho odonto (IN_PROGRESS → VOID). Não cobre estorno LEDI pós-finish. */
+export class VoidDentalEncounterDto {
+  @IsOptional() @IsString() reason?: string;
+}
+
 export class FinishDentalEncounterDto {
   /** Se omitido, usa careJson.outcomes */
   @IsOptional() @IsArray() @IsString({ each: true }) outcomes?: string[];
@@ -115,7 +120,7 @@ export class CreateLediFaoBatchDto {
   @IsOptional() @IsString() name?: string;
   /**
    * Canal do lote: FAO (odonto) | FAI (individual) | PROCEDIMENTOS.
-   * Default FAO para compatibilidade com /odonto/lote.
+   * Default FAO para compatibilidade com /faturamento/lote/fao.
    */
   @IsOptional() @IsString() expectedTipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
   @IsArray()

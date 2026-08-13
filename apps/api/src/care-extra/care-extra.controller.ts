@@ -36,6 +36,7 @@ import {
   AutoFixLediFaoBatchDto,
   PatchLediFaoBatchItemDto,
   PatchDentalEncounterDto,
+  VoidDentalEncounterDto,
 } from './dto';
 
 const XML_UPLOAD = FilesInterceptor('files', 200, {
@@ -329,6 +330,11 @@ export class CareExtraController {
   @Post('dental-encounters/:id/finish')
   finishDental(@Param('id') id: string, @Body() dto: FinishDentalEncounterDto) {
     return this.service.finishDental(id, dto);
+  }
+
+  @Post('dental-encounters/:id/void')
+  voidDental(@Param('id') id: string, @Body() dto: VoidDentalEncounterDto) {
+    return this.service.voidDental(id, dto);
   }
 
   @Get('home-care-visits')

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
@@ -11,6 +11,15 @@ import { displayPatientName, formatDateTime } from '@/lib/labels';
 
 type Patient = { id: string; civilName: string; socialName?: string | null };
 type Professional = { id: string; civilName: string };
+type Assignment = {
+  id: string;
+  cbo: string;
+  roleLabel?: string | null;
+  active: boolean;
+  professionalId: string;
+  professional: Professional;
+  team?: { id: string; name: string; ine?: string | null } | null;
+};
 type Row = {
   id: string;
   status: string;
@@ -20,34 +29,66 @@ type Row = {
   productionBatchId?: string | null;
 };
 
+function statusLabel(status: string) {
+  if (status === 'IN_PROGRESS') return 'Em atendimento';
+  if (status === 'COMPLETED') return 'Finalizado';
+  if (status === 'VOID') return 'Anulado';
+  return status;
+}
+
 export default function OdontoPage() {
   const router = useRouter();
   const { facilityId } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [patientId, setPatientId] = useState('');
   const [professionalId, setProfessionalId] = useState('');
+  const [assignmentId, setAssignmentId] = useState('');
   const [anamnese, setAnamnese] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const assignmentsForProfessional = useMemo(
+    () =>
+      assignments.filter(
+        (a) => a.active && (!professionalId || a.professionalId === professionalId),
+      ),
+    [assignments, professionalId],
+  );
+
   async function load() {
     const qs = facilityId ? `?facilityId=${facilityId}` : '';
-    const [list, pts, profs] = await Promise.all([
+    const assignQs = new URLSearchParams({ activeOnly: '1' });
+    if (facilityId) assignQs.set('facilityId', facilityId);
+    const [list, pts, profs, assigns] = await Promise.all([
       api<Row[]>(`/v1/dental-encounters${qs}`),
       api<Patient[]>('/v1/patients'),
       api<Professional[]>('/v1/professionals'),
+      api<Assignment[]>(`/v1/assignments?${assignQs}`),
     ]);
     setRows(list);
     setPatients(pts);
     setProfessionals(profs);
+    setAssignments(assigns);
     if (!professionalId && profs[0]) setProfessionalId(profs[0].id);
   }
 
   useEffect(() => {
     void load().catch((e) => setError(e instanceof Error ? e.message : 'Falha'));
   }, [facilityId]);
+
+  useEffect(() => {
+    const match = assignmentsForProfessional;
+    if (!match.length) {
+      setAssignmentId('');
+      return;
+    }
+    if (!match.some((a) => a.id === assignmentId)) {
+      setAssignmentId(match[0].id);
+    }
+  }, [assignmentsForProfessional, assignmentId, professionalId]);
 
   async function open(e: FormEvent) {
     e.preventDefault();
@@ -62,6 +103,7 @@ export default function OdontoPage() {
           patientId,
           facilityId,
           professionalId: professionalId || undefined,
+          assignmentId: assignmentId || undefined,
           anamnese: anamnese || undefined,
           encounterType: 'CONSULTA',
           procedures: [{ tooth: '11', code: '0301010030', label: 'Consulta odontológica', done: false }],
@@ -83,10 +125,10 @@ export default function OdontoPage() {
         actions={
           <>
             <HelpLink id="odonto.atendimento" />
-            <Link className="btn ghost" href="/odonto/lote">
+            <Link className="btn ghost" href="/faturamento/lote/fao">
               Lote LEDI FAO
             </Link>
-            <Link className="btn ghost" href="/odonto/faturamento">
+            <Link className="btn ghost" href="/faturamento/odonto">
               Fila faturamento
             </Link>
           </>
@@ -98,7 +140,7 @@ export default function OdontoPage() {
         <h2 style={{ marginTop: 0 }}>Novo atendimento</h2>
         <p className="muted" style={{ marginTop: 0 }}>
           Tipo padrão: <strong>5 — consulta no dia</strong>. Cada abertura entra na{' '}
-          <Link href="/odonto/faturamento">fila de faturamento</Link> do mês.
+          <Link href="/faturamento/odonto">fila de faturamento</Link> do mês.
         </p>
         <form onSubmit={open} className="grid-form">
           <label>
@@ -114,7 +156,13 @@ export default function OdontoPage() {
           </label>
           <label>
             Profissional
-            <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)}>
+            <select
+              value={professionalId}
+              onChange={(e) => {
+                setProfessionalId(e.target.value);
+                setAssignmentId('');
+              }}
+            >
               <option value="">—</option>
               {professionals.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -123,6 +171,33 @@ export default function OdontoPage() {
               ))}
             </select>
           </label>
+          <label className="span-2">
+            Lotação / equipe
+            <select
+              value={assignmentId}
+              onChange={(e) => setAssignmentId(e.target.value)}
+              disabled={!assignmentsForProfessional.length}
+            >
+              {!assignmentsForProfessional.length ? (
+                <option value="">Nenhuma lotação ativa nesta unidade</option>
+              ) : (
+                assignmentsForProfessional.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    CBO {a.cbo}
+                    {a.team?.name ? ` · ${a.team.name}` : ''}
+                    {a.team?.ine ? ` · INE ${a.team.ine}` : ' · sem INE'}
+                    {a.roleLabel ? ` · ${a.roleLabel}` : ''}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+          {!assignmentsForProfessional.length && professionalId ? (
+            <p className="muted span-2" style={{ margin: 0 }}>
+              Cadastre lotação em <Link href="/lotacoes">/lotacoes</Link> (CBO + equipe com INE se
+              obrigatório).
+            </p>
+          ) : null}
           <label className="span-2">
             Anamnese (opcional)
             <textarea value={anamnese} onChange={(e) => setAnamnese(e.target.value)} rows={2} />
@@ -149,7 +224,7 @@ export default function OdontoPage() {
               <tr key={r.id}>
                 <td>{formatDateTime(r.startedAt)}</td>
                 <td>{displayPatientName(r.patient)}</td>
-                <td>{r.status}</td>
+                <td>{statusLabel(r.status)}</td>
                 <td>
                   <Link href={`/odonto/${r.id}`}>Abrir</Link>
                 </td>

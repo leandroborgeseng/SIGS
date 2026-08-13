@@ -681,10 +681,54 @@ export class CareExtraService {
     return { row, care, lotacao, payload, outcomes, finishedAt };
   }
 
+  /**
+   * Anula rascunho clínico (IN_PROGRESS → VOID).
+   * Não implementa estorno/cancelamento LEDI de ficha já COMPLETED (gap documentado).
+   */
+  async voidDental(id: string, dto: { reason?: string } = {}) {
+    const row = await this.prisma.dentalEncounter.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Atendimento odontológico não encontrado');
+    if (row.status === 'VOID') {
+      return this.getDental(id);
+    }
+    if (row.status === 'COMPLETED') {
+      throw new BadRequestException(
+        'Anulação de atendimento já finalizado (VOID pós-produção LEDI/Siaps) não está implementada. Use fluxo de estorno quando existir.',
+      );
+    }
+    if (row.status !== 'IN_PROGRESS') {
+      throw new BadRequestException(`Status ${row.status} não permite anulação`);
+    }
+
+    const updated = await this.prisma.dentalEncounter.update({
+      where: { id },
+      data: { status: 'VOID', finishedAt: new Date() },
+      include: { patient: true, facility: true, professional: true },
+    });
+
+    if (row.productionBatchId) {
+      await this.prisma.productionBatch.update({
+        where: { id: row.productionBatchId },
+        data: {
+          status: 'error',
+          errorMessage: 'Atendimento anulado (VOID) antes do fechamento',
+          statusChangedAt: new Date(),
+        },
+      });
+    }
+
+    await this.prisma.audit('void', 'dental_encounter', id, [RF.ODONTO.id], {
+      reason: dto.reason || null,
+      productionBatchId: row.productionBatchId,
+    });
+    return this.serializeDental(updated);
+  }
+
   async finishDental(id: string, dto: FinishDentalEncounterDto) {
     const rowCheck = await this.prisma.dentalEncounter.findUnique({ where: { id } });
     if (!rowCheck) throw new NotFoundException('Atendimento odontológico não encontrado');
     if (rowCheck.status === 'COMPLETED') throw new BadRequestException('Já finalizado');
+    if (rowCheck.status === 'VOID') throw new BadRequestException('Atendimento anulado');
 
     const built = await this.buildPayloadForEncounter(id, dto);
     const faoReport = validateFaoJson(built.payload as unknown as Record<string, unknown>);

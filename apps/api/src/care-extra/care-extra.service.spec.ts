@@ -1,6 +1,65 @@
 import { CareExtraService } from './care-extra.service';
 
 describe('CareExtraService', () => {
+  it('anula rascunho dental IN_PROGRESS → VOID', async () => {
+    const prisma = {
+      dentalEncounter: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'd1',
+          status: 'IN_PROGRESS',
+          productionBatchId: 'b1',
+        }),
+        update: jest.fn().mockResolvedValue({
+          id: 'd1',
+          status: 'VOID',
+          proceduresJson: '[]',
+          odontogramJson: '{}',
+          outcomesJson: '[]',
+          careJson: '{}',
+          assignmentId: null,
+          patientId: 'p1',
+          facilityId: 'f1',
+          professionalId: null,
+          encounterType: 'CONSULTA',
+          anamnese: null,
+          startedAt: new Date(),
+          finishedAt: new Date(),
+          productionBatchId: 'b1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          patient: {},
+          facility: {},
+          professional: null,
+        }),
+      },
+      productionBatch: {
+        update: jest.fn().mockResolvedValue({ id: 'b1' }),
+      },
+      audit: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new CareExtraService(prisma as never);
+    const out = await service.voidDental('d1', { reason: 'teste' });
+    expect(out.status).toBe('VOID');
+    expect(prisma.productionBatch.update).toHaveBeenCalled();
+    expect(prisma.audit).toHaveBeenCalledWith(
+      'void',
+      'dental_encounter',
+      'd1',
+      expect.any(Array),
+      expect.objectContaining({ reason: 'teste' }),
+    );
+  });
+
+  it('recusa VOID de dental já COMPLETED', async () => {
+    const prisma = {
+      dentalEncounter: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'd1', status: 'COMPLETED' }),
+      },
+    };
+    const service = new CareExtraService(prisma as never);
+    await expect(service.voidDental('d1', {})).rejects.toThrow(/já finalizado/);
+  });
+
   it('bloqueia finish dental sem outcomes', async () => {
     const prisma = {
       dentalEncounter: {

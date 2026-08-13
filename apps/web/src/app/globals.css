@@ -152,13 +152,52 @@ textarea {
   overflow-y: auto;
 }
 
-.nav-group {
+.nav-accordion {
+  margin-bottom: 2px;
+}
+
+.nav-group,
+.nav-group-btn {
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--ink-4);
   padding: 14px 10px 6px;
+}
+
+.nav-group-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 8px;
+}
+
+.nav-group-btn:hover {
+  color: var(--ink-2);
+  background: var(--surface-2);
+}
+
+.nav-chevron {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+  opacity: 0.75;
+}
+
+.nav-group-btn[aria-expanded='true'] .nav-chevron {
+  transform: rotate(90deg);
+}
+
+.nav-group-items {
+  padding-bottom: 4px;
 }
 
 .nav-item {
@@ -1095,7 +1134,7 @@ a.search-chip:hover {
   align-items: flex-start;
   margin-bottom: 14px;
 }
-.lote-treat-money {
+.lote-treat-side {
   display: flex;
   gap: 20px;
   flex-wrap: wrap;

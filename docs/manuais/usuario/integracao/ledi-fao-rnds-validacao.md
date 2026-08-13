@@ -12,10 +12,11 @@
 
 # Lote de XMLs (corrigir e baixar)
 
-1. Abra o lote do tipo certo:
-   - **FAO (odonto):** `/odonto/lote`
-   - **FAI (individual):** `/aps/lote`
-   - **Procedimentos:** `/procedimentos/lote`
+1. Abra o lote do tipo certo (menu **Faturamento & Validação**):
+   - **FAO (odonto):** `/faturamento/lote/fao` (alias `/odonto/lote`)
+   - **FAI (individual):** `/faturamento/lote/fai` (alias `/aps/lote`)
+   - **Procedimentos:** `/faturamento/lote/proc` (alias `/procedimentos/lote`)
+   - **Fila odonto:** `/faturamento/odonto`
 2. Envie vários `.xml` / um `.zip` e aguarde a validação.
 3. Veja o resumo (blockers, Siaps-ready, barras de erro).
 4. **Opcional:** clique **Dry-run** para simular a auto-correção sem gravar (mostra quantos alertas somem).

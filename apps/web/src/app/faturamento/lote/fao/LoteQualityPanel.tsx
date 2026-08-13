@@ -99,9 +99,9 @@ export function LoteQualityPanel({
             <em>não</em> garante indicador Previne.
           </li>
           <li style={{ marginBottom: 6 }}>
-            <strong>Prontas Previne ({previneReady ?? 0} · {pPrevine}%)</strong> — sem risco de
-            faturamento/indicador ESB (INE, B1–B6, vigilância etc.). Uma ficha pode estar no Siaps e
-            ainda assim fora do Previne.
+            <strong>Prontas Previne ({previneReady ?? 0} · {pPrevine}%)</strong> — sem alerta de
+            qualidade Previne ESB (INE, B1–B6, vigilância etc.). Uma ficha pode estar no Siaps e ainda
+            assim fora do Previne.
           </li>
           <li style={{ marginBottom: 6 }}>
             <strong>Envio final OK ({readyForFinalSend ?? 0} · {pFinal}%)</strong> — Siaps <em>e</em>{' '}
@@ -125,7 +125,7 @@ export function LoteQualityPanel({
             </>
           ) : null}
           . O alvo ideal de fechamento é subir o <strong>Envio final OK</strong> ({pFinal}% agora).
-          Ordem: vermelho (bloqueio) → laranja (risco $$) → verde (indicadores).
+          Ordem: vermelho (bloqueio) → laranja (qualidade) → verde (indicadores).
         </p>
       </div>
     </div>

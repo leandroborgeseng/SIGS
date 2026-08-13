@@ -6,23 +6,33 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
+const NAV_STORAGE_KEY = 'sigs.nav.openGroup';
+
 const NAV = [
   {
-    group: 'Faturamento LEDI',
-    items: [
-      { href: '/odonto/lote', label: 'Lote LEDI FAO' },
-      { href: '/odonto/faturamento', label: 'Fila faturamento odonto' },
-      { href: '/aps/lote', label: 'Lote LEDI FAI' },
-      { href: '/procedimentos/lote', label: 'Lote Procedimentos' },
-      { href: '/odonto', label: 'Odontologia' },
-      { href: '/producao', label: 'Produção / BPA' },
-    ],
-  },
-  {
+    id: 'inicio',
     group: 'Início',
     items: [{ href: '/dashboard', label: 'Painel' }],
   },
   {
+    id: 'clinico',
+    group: 'Atendimento clínico',
+    items: [{ href: '/odonto', label: 'Odontologia' }],
+  },
+  {
+    id: 'faturamento',
+    group: 'Faturamento & Validação',
+    items: [
+      { href: '/faturamento', label: 'Visão geral' },
+      { href: '/faturamento/odonto', label: 'Fila odonto' },
+      { href: '/faturamento/lote/fao', label: 'Lote LEDI FAO' },
+      { href: '/faturamento/lote/fai', label: 'Lote LEDI FAI' },
+      { href: '/faturamento/lote/proc', label: 'Lote Procedimentos' },
+      { href: '/producao', label: 'Produção / BPA' },
+    ],
+  },
+  {
+    id: 'cadastros',
     group: 'Cadastros',
     items: [
       { href: '/pacientes', label: 'Pacientes' },
@@ -32,6 +42,7 @@ const NAV = [
     ],
   },
   {
+    id: 'operacao',
     group: 'Operação',
     items: [
       { href: '/agenda', label: 'Agenda' },
@@ -46,6 +57,7 @@ const NAV = [
     ],
   },
   {
+    id: 'gestao',
     group: 'Gestão',
     items: [
       { href: '/relatorios', label: 'Relatórios' },
@@ -56,10 +68,31 @@ const NAV = [
     ],
   },
   {
+    id: 'suporte',
     group: 'Suporte',
     items: [{ href: '/ajuda', label: 'Central de Ajuda' }],
   },
-];
+] as const;
+
+type NavGroupId = (typeof NAV)[number]['id'];
+
+function itemMatches(pathname: string, href: string) {
+  if (href === '/faturamento') return pathname === '/faturamento';
+  if (href === '/odonto') {
+    return pathname === '/odonto' || /^\/odonto\/[^/]+/.test(pathname);
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function groupForPath(pathname: string): NavGroupId {
+  for (const g of NAV) {
+    if (g.items.some((item) => itemMatches(pathname, item.href))) return g.id;
+  }
+  if (pathname.startsWith('/faturamento')) return 'faturamento';
+  if (pathname.startsWith('/odonto')) return 'clinico';
+  if (pathname.startsWith('/admin')) return 'gestao';
+  return 'inicio';
+}
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -73,6 +106,7 @@ export function AppShell({ children, helpId }: { children: ReactNode; helpId?: s
   const pathname = usePathname();
   const router = useRouter();
   const [facilityName, setFacilityName] = useState('Unidade');
+  const [openGroup, setOpenGroup] = useState<NavGroupId | null>(() => groupForPath(pathname));
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -105,6 +139,29 @@ export function AppShell({ children, helpId }: { children: ReactNode; helpId?: s
     return () => window.removeEventListener('keydown', onKey);
   }, [router]);
 
+  useEffect(() => {
+    const fromRoute = groupForPath(pathname);
+    setOpenGroup(fromRoute);
+    try {
+      localStorage.setItem(NAV_STORAGE_KEY, fromRoute);
+    } catch {
+      /* ignore */
+    }
+  }, [pathname]);
+
+  function toggleGroup(id: NavGroupId) {
+    setOpenGroup((prev) => {
+      const next = prev === id ? null : id;
+      try {
+        if (next) localStorage.setItem(NAV_STORAGE_KEY, next);
+        else localStorage.removeItem(NAV_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
   if (loading || !user) {
     return (
       <div className="content">
@@ -121,23 +178,42 @@ export function AppShell({ children, helpId }: { children: ReactNode; helpId?: s
           <strong>SIGS Franca</strong>
         </div>
         <nav>
-          {NAV.map((g) => (
-            <div key={g.group}>
-              <div className="nav-group">{g.group}</div>
-              {g.items.map((item) => {
-                const active = pathname === item.href || pathname.startsWith(item.href + '/');
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`nav-item${active ? ' active' : ''}`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
+          {NAV.map((g) => {
+            const expanded = openGroup === g.id;
+            const panelId = `nav-panel-${g.id}`;
+            return (
+              <div key={g.id} className="nav-accordion">
+                <button
+                  type="button"
+                  className="nav-group-btn"
+                  aria-expanded={expanded}
+                  aria-controls={panelId}
+                  onClick={() => toggleGroup(g.id)}
+                >
+                  <span>{g.group}</span>
+                  <span className="nav-chevron" aria-hidden>
+                    ▸
+                  </span>
+                </button>
+                {expanded ? (
+                  <div id={panelId} className="nav-group-items" role="region" aria-label={g.group}>
+                    {g.items.map((item) => {
+                      const active = itemMatches(pathname, item.href);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`nav-item${active ? ' active' : ''}`}
+                        >
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </nav>
         <div className="sidebar-footer">
           <div className="avatar">{initials(user.name)}</div>

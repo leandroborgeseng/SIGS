@@ -23,6 +23,7 @@ import { ErrorGuideModal } from './ErrorGuideModal';
 import { FichaFixModal } from './FichaFixModal';
 import { LoteQualityPanel } from './LoteQualityPanel';
 import { baselineFromTreatment } from './ModalQualityMiniDash';
+import { isLediCondutaOdontoId } from './condutas-odonto';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 
 type BatchSummary = {
@@ -632,7 +633,7 @@ export default function OdontoLotePage() {
     } else if (next.severity === 'BLOCKER') {
       setOk(`${baseMsg} Próximo bloqueio de envio: “${title}”.`);
     } else if (next.severity === 'MONEY_RISK') {
-      setOk(`${baseMsg} Bloqueios de envio ok. Agora risco de faturamento: “${title}”.`);
+      setOk(`${baseMsg} Bloqueios de envio ok. Agora qualidade incompleta: “${title}”.`);
     } else {
       setOk(`${baseMsg} Próximo: “${title}”.`);
     }
@@ -817,7 +818,7 @@ export default function OdontoLotePage() {
       const codes = condutas
         .split(/[,;\s]+/)
         .map((x) => Number(x))
-        .filter((n) => Number.isFinite(n) && n > 0);
+        .filter((n) => Number.isFinite(n) && isLediCondutaOdontoId(n));
       if (codes.length) body.tiposEncamOdonto = codes;
     }
     if (procExtra.trim()) {
@@ -986,8 +987,8 @@ export default function OdontoLotePage() {
           <div className="card" style={{ marginBottom: 16 }}>
             <h3 style={{ marginTop: 0 }}>2. Diagnóstico — {batch.name}</h3>
             <p className="muted" style={{ marginTop: 0 }}>
-              Ordem de trabalho: primeiro liberar o envio, depois proteger o faturamento/Previne, por último
-              melhorar indicadores e informação ao governo.
+              Ordem de trabalho: primeiro liberar o envio, depois melhorar a qualidade da informação
+              (Previne), por último indicadores e info ao governo.
             </p>
 
             <div className="lote-priority">
@@ -1000,9 +1001,9 @@ export default function OdontoLotePage() {
               </div>
               <div className="lote-priority-card money">
                 <div className="step">2º · Laranja</div>
-                <strong>Risco de faturamento</strong>
+                <strong>Qualidade incompleta</strong>
                 <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                  Envia, mas pode perder ponto/repasse (Previne e produção que não pontua).
+                  Envia, mas a informação ainda precisa melhorar (Previne / dados de qualidade).
                 </div>
               </div>
               <div className="lote-priority-card quality">
@@ -1115,7 +1116,7 @@ export default function OdontoLotePage() {
               <div>
                 <h4 style={{ marginBottom: 6 }}>Raio-x Previne (qualidade / indicadores)</h4>
                 <p className="muted" style={{ marginTop: 0, marginBottom: 8 }}>
-                  O <strong>Previne Brasil</strong> dá nota (e influencia repasse) conforme a saúde bucal da cidade.
+                  O <strong>Previne Brasil</strong> mede a qualidade da saúde bucal da cidade (indicadores B1–B6).
                   Em linguagem simples:
                 </p>
                 <ul className="muted" style={{ marginTop: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.45 }}>

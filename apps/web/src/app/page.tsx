@@ -12,12 +12,12 @@ export default function HomePage() {
     if (loading) return;
     if (!user) router.replace('/login');
     else if (!facilityId) router.replace('/selecionar-unidade');
-    else router.replace('/odonto/lote');
+    else router.replace('/dashboard');
   }, [loading, user, facilityId, router]);
 
   return (
     <div className="content">
-      <p>Abrindo Lote LEDI FAO…</p>
+      <p>Abrindo painel…</p>
     </div>
   );
 }

@@ -54,7 +54,7 @@ export function allErrorExplanations(): ErrorExplain[] {
   return Object.values(ERROR_CATALOG).sort((a, b) => a.code.localeCompare(b.code));
 }
 
-/** Prioridade de tratamento: 1 bloqueio → 2 faturamento → 3 indicadores → 4 info. */
+/** Prioridade de tratamento: 1 bloqueio → 2 qualidade → 3 indicadores → 4 info. */
 export function severityRank(sev?: string): number {
   if (sev === 'BLOCKER') return 1;
   if (sev === 'MONEY_RISK') return 2;
@@ -70,7 +70,7 @@ export function resolveSeverity(code: string, fallback?: string): ErrorSeverity 
 /** Rótulo curto para badge na UI. */
 export function severityLabel(sev?: string): string {
   if (sev === 'BLOCKER') return 'Bloqueia envio';
-  if (sev === 'MONEY_RISK') return 'Risco faturamento';
+  if (sev === 'MONEY_RISK') return 'Qualidade incompleta';
   if (sev === 'INFO') return 'Info governo';
   if (sev === 'QUALITY_WARN') return 'Indicadores';
   return sev || '';

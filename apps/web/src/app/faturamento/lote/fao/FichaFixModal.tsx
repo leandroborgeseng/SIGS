@@ -378,7 +378,7 @@ export function FichaFixModal({
                 >
                   {CONDUTAS_ODONTO.map((c) => (
                     <option key={c.code} value={String(c.code)}>
-                      {c.code} — {c.label}
+                      {c.code} · {c.key} — {c.label}
                     </option>
                   ))}
                 </select>

@@ -1,14 +1,7 @@
 'use client';
 
 import type { TreatmentProgress } from './treatment-types';
-import {
-  deltaDown,
-  estimateRecoveredBrl,
-  estimateRiskBrl,
-  formatBrl,
-  pct,
-  ESTIMATE_BRL,
-} from './treatment-estimate';
+import { deltaDown, pct } from './treatment-estimate';
 
 export type TreatBucket = '' | 'bloqueio' | 'risco' | 'indicadores' | 'ideal';
 
@@ -45,8 +38,6 @@ export function TreatmentDashboard({
   if (!treatment?.current) return null;
   const { baseline: b, current: c } = treatment;
   const total = Math.max(c.fichas, 1);
-  const riscoAgora = estimateRiskBrl(c);
-  const recuperado = estimateRecoveredBrl(treatment);
   const liberadas = deltaDown(b.bloqueioEnvio, c.bloqueioEnvio);
   const melhoradas = deltaDown(b.riscoFaturamento, c.riscoFaturamento);
   const alertasBaixaram =
@@ -64,22 +55,32 @@ export function TreatmentDashboard({
         <div>
           <h4 style={{ margin: 0 }}>Painel de tratamento</h4>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
-            Meta: zerar bloqueios → reduzir risco de faturamento → maximizar fichas ideais para o governo.
-            Os valores em R$ são <strong>estimativa de priorização</strong> (não tabela oficial).
+            Meta: zerar bloqueios → melhorar qualidade da informação → maximizar fichas ideais para o
+            governo. Acompanhe <strong>números e qualidade</strong>.
           </p>
         </div>
-        <div className="lote-treat-money">
+        <div className="lote-treat-side">
           <div>
             <div className="muted" style={{ fontSize: 11 }}>
-              Ainda em risco (est.)
+              Ainda com alerta de qualidade
             </div>
-            <strong style={{ color: 'var(--danger)', fontSize: 20 }}>{formatBrl(riscoAgora)}</strong>
+            <strong style={{ color: 'var(--warn)', fontSize: 20 }}>
+              {c.riscoFaturamento + c.indicadores}
+            </strong>
+            <div className="muted" style={{ fontSize: 11 }}>
+              fichas
+            </div>
           </div>
           <div>
             <div className="muted" style={{ fontSize: 11 }}>
-              Já recuperado (est.)
+              Já melhoradas vs início
             </div>
-            <strong style={{ color: 'var(--ok)', fontSize: 20 }}>{formatBrl(recuperado)}</strong>
+            <strong style={{ color: 'var(--ok)', fontSize: 20 }}>
+              {liberadas + melhoradas}
+            </strong>
+            <div className="muted" style={{ fontSize: 11 }}>
+              fichas
+            </div>
           </div>
         </div>
       </div>
@@ -135,7 +136,7 @@ export function TreatmentDashboard({
           )}
           <ProgressBar value={c.bloqueioEnvio} max={Math.max(b.bloqueioEnvio, c.bloqueioEnvio, 1)} tone="blocker" />
           <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            Est. {formatBrl(c.bloqueioEnvio * ESTIMATE_BRL.porFichaBloqueada)} em produção parada
+            Sem estas correções a ficha não passa no Siaps
           </div>
         </button>
 
@@ -145,7 +146,7 @@ export function TreatmentDashboard({
           onClick={() => onFilterBucket?.(activeBucket === 'risco' ? '' : 'risco')}
         >
           <div className="step">2º · Laranja</div>
-          <strong>Não fatura bem</strong>
+          <strong>Qualidade incompleta</strong>
           <div className="lote-treat-nums">
             <span>{c.riscoFaturamento} fichas</span>
             <span className="muted">{c.alertasRisco} alertas</span>
@@ -161,7 +162,7 @@ export function TreatmentDashboard({
             tone="money"
           />
           <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            Est. {formatBrl(c.riscoFaturamento * ESTIMATE_BRL.porFichaRisco)} em risco Previne
+            Enviam, mas a informação ainda precisa melhorar (Previne / dados)
           </div>
         </button>
 

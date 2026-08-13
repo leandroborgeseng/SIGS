@@ -36,7 +36,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-10.20 | Obr | parcial | automatizado | preflight + `POST /production/send` + UI `/producao` |
 | RF-14.1 | Obr | parcial | automatizado | `apps/api/src/vaccinations` |
 | RF-14.2 | Obr | parcial | n/a | cartão vacinal UI + API |
-| RF-12.1 | Obr | parcial | automatizado | `ledi-dental-v2` + UI `/odonto` |
+| RF-12.1 | Obr | parcial | automatizado | `ledi-dental-v2` + UI `/odonto` (lotação, CIAP/CID, preview ao vivo, Tela C; VOID só rascunho) |
 | RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` + UI `/ad` |
 | RF-3.53 | Obr | parcial | automatizado | `ledi-collective-v2` + UI `/coletivo` |
 | RF-9.2 | Obr | parcial | previsto | BPA stub via produção |
@@ -56,7 +56,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-13.2 | Obr | parcial | n/a | `RegulationProcedure` seed |
 | RF-13.4 | Obr | parcial | n/a | fila `/regulacao` |
 | RF-13.8 | Obr | parcial | n/a | authorize/deny/return/close |
-| RF-2.60 | Obr | parcial | n/a | `assignments` + UI `/lotacoes` + header LEDI |
+| RF-2.60 | Obr | parcial | n/a | `assignments` + UI `/lotacoes` + header LEDI + escolha na abertura `/odonto` |
 | RF-5.* | Obr/Des | não iniciado | n/a | backlog SAMU — `Samu/` · doc 12 |
 | RF-16.1 | Obr | parcial | n/a | `apps/api/src/reports` |
 | RF-16.7 | Obr | parcial | n/a | `apps/api/src/reports#vaccinations` |

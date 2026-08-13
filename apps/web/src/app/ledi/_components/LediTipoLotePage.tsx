@@ -14,17 +14,17 @@ import {
   resolveSeverity,
   severityLabel,
   severityRank,
-} from '@/app/odonto/lote/error-catalog';
-import { TreatmentDashboard, type TreatBucket } from '@/app/odonto/lote/TreatmentDashboard';
-import type { TreatmentProgress } from '@/app/odonto/lote/treatment-types';
-import { ErrorGuideModal } from '@/app/odonto/lote/ErrorGuideModal';
-import { FichaFixModal } from '@/app/odonto/lote/FichaFixModal';
-import { LoteQualityPanel } from '@/app/odonto/lote/LoteQualityPanel';
-import { baselineFromTreatment } from '@/app/odonto/lote/ModalQualityMiniDash';
+} from '@/app/faturamento/lote/fao/error-catalog';
+import { TreatmentDashboard, type TreatBucket } from '@/app/faturamento/lote/fao/TreatmentDashboard';
+import type { TreatmentProgress } from '@/app/faturamento/lote/fao/treatment-types';
+import { ErrorGuideModal } from '@/app/faturamento/lote/fao/ErrorGuideModal';
+import { FichaFixModal } from '@/app/faturamento/lote/fao/FichaFixModal';
+import { LoteQualityPanel } from '@/app/faturamento/lote/fao/LoteQualityPanel';
+import { baselineFromTreatment } from '@/app/faturamento/lote/fao/ModalQualityMiniDash';
 import {
   bodyForRepairUi,
   lookupRepair,
-} from '@/app/odonto/lote/repair-catalog';
+} from '@/app/faturamento/lote/fao/repair-catalog';
 
 type LoteTipo = 'FAI' | 'PROCEDIMENTOS';
 
@@ -90,7 +90,7 @@ const META: Record<
     title: 'Lote LEDI FAI',
     help: 'Atendimento Individual (tipo 4). Mesmo fluxo do FAO: guia por alerta → auto/semi → ficha.',
     label: 'FAI',
-    siblingHref: '/procedimentos/lote',
+    siblingHref: '/faturamento/lote/proc',
     siblingLabel: 'Lote Procedimentos',
     variant: 'fai',
   },
@@ -98,7 +98,7 @@ const META: Record<
     title: 'Lote LEDI Procedimentos',
     help: 'Ficha de Procedimentos (tipo 7). Prioridade: CPF/CNS, turno, CNES; ABPG → SIGTAP na ficha.',
     label: 'Procedimentos',
-    siblingHref: '/aps/lote',
+    siblingHref: '/faturamento/lote/fai',
     siblingLabel: 'Lote FAI',
     variant: 'proc',
   },
@@ -549,7 +549,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
         description={meta.help}
         actions={
           <>
-            <Link className="btn btn-secondary" href="/odonto/lote">
+            <Link className="btn btn-secondary" href="/faturamento/lote/fao">
               Lote FAO (odonto)
             </Link>
             <Link className="btn btn-secondary" href={meta.siblingHref}>

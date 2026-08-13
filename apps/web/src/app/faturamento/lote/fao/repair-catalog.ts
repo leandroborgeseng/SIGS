@@ -382,7 +382,7 @@ export const REEXPORT_REPAIRS: Record<string, AlertRepair> = {
   }),
   FAI_ROOT_NOT_FOUND: REEXPORT({
     title: 'Ficha individual incompleta',
-    where: 'Reexportar /aps/lote',
+    where: 'Reexportar /faturamento/lote/fai',
     how: 'Reexporte o XML completo da FAI.',
     channel: 'LEDI',
   }),
@@ -394,7 +394,7 @@ export const REEXPORT_REPAIRS: Record<string, AlertRepair> = {
   }),
   PROC_ROOT_NOT_FOUND: REEXPORT({
     title: 'Ficha de procedimentos incompleta',
-    where: 'Reexportar /procedimentos/lote',
+    where: 'Reexportar /faturamento/lote/proc',
     how: 'Reexporte o XML completo de procedimentos.',
     channel: 'LEDI',
   }),
@@ -706,7 +706,7 @@ function defaultSteps(mode: RepairMode, title: string): string[] {
       'Preencha os campos padrão abaixo (INE, CIAP, CNES…), se o botão pedir.',
       'Clique em “Corrigir todas as afetadas” (ou selecione e corrija só algumas).',
       'Confira no painel se o contador deste erro diminuiu.',
-      'Trate o próximo alerta vermelho; só depois os laranjas (faturamento).',
+      'Trate o próximo alerta vermelho; só depois os laranjas (qualidade da informação).',
     ];
   }
   if (mode === 'individual') {

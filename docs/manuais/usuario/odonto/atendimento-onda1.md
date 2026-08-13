@@ -10,7 +10,7 @@
 2. Preencha: vigilância ≥1, CIAP/CID ≥1, conduta ≥1, fornecimentos (opcional), local/turno/gestante.
 3. **Validar agora** — painel lista BLOCKERs LEDI.
 4. **Finalizar e faturar** — só grava se zero BLOCKER (`enforceFaoConformity`).
-5. Lote XML legado continua em `/odonto/lote`.
+5. Fila e lote XML: `/faturamento/odonto` · `/faturamento/lote/fao` (aliases antigos redirecionam).
 
 ## Parametrização
 

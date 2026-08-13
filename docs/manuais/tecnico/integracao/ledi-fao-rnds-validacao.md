@@ -34,7 +34,7 @@ Ficha FAO (XML ou Thrift LEDI)
 | `GET` | `/v1/catalog/dental` | catálogo vigilância / condutas / tipoAtendimento |
 | `POST` | `/v1/dental-encounters/:id/finish` | exige `vigilanciaSaudeBucal[]` + `problemasCondicoes[]`; `enforceFaoConformity` (default true) |
 
-Telas: `/odonto/lote` (FAO) · `/aps/lote` (FAI) · `/procedimentos/lote` (PROC).
+Telas: `/faturamento/lote/fao` (FAO) · `/faturamento/lote/fai` (FAI) · `/faturamento/lote/proc` (PROC) · `/faturamento/odonto` (fila). Aliases 308: `/odonto/lote`, `/aps/lote`, `/procedimentos/lote`, `/odonto/faturamento`.
 
 Resposta do validador:
 
@@ -56,8 +56,8 @@ Resposta do validador:
 
 ## UI
 
-- `/odonto` — importar/colar XML único e ver relatório; finish envia campos críticos.
-- `/odonto/lote` — upload em lote, inconsistências, auto-correção (`stNaoPossuiCpf` / INE) e edição manual (CIAP/CID, consulta); download ZIP.
+- `/odonto` — atendimento clínico; finish envia campos críticos.
+- `/faturamento/lote/fao` — upload em lote, inconsistências, auto-correção (`stNaoPossuiCpf` / INE) e edição manual (CIAP/CID, consulta); download ZIP.
 
 Deploy: `docs/planejamento/deploy-railway-coolify.md`.
 
