@@ -22,7 +22,7 @@
 | Sessão | `GET /v1/auth/me` |
 | Unidades | `GET/POST /v1/facilities` |
 | Pacientes | `GET/POST /v1/patients` |
-| Agenda | `GET/POST/PATCH/DELETE /v1/appointments` · `POST …/:id/open-dental` (RF-12.1) · UI `/odonto/agenda` |
+| Agenda | `GET/POST/PATCH/DELETE /v1/appointments` · `GET …/day-grid` · `GET …/catalog` · `POST …/:id/open-dental` · `POST …/:id/open-aps` · UI `/odonto/agenda` · `/aps/agenda` |
 | Fila | `GET /v1/encounters/queue`, `POST /v1/encounters`, clínico/finish |
 | Vacina | `GET /v1/catalog/vaccination`, `POST /v1/vaccinations` |
 | Relatórios | `GET /v1/reports/encounters\|vaccinations` |

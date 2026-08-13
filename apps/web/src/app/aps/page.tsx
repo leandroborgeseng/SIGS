@@ -124,6 +124,9 @@ export default function ApsPage() {
         actions={
           <>
             <HelpLink id="aps.atendimento" />
+            <Link className="btn btn-secondary" href="/aps/agenda">
+              Agenda APS
+            </Link>
             <Link className="btn ghost" href="/faturamento/aps">
               Fila faturamento
             </Link>

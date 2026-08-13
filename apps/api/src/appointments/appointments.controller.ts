@@ -1,10 +1,43 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
-import { BookSlotDto, CreateSlotDto, OpenDentalFromSlotDto, UpdateSlotStatusDto } from './dto';
+import {
+  BookSlotDto,
+  CreateSlotDto,
+  OpenApsFromSlotDto,
+  OpenDentalFromSlotDto,
+  UpdateSlotStatusDto,
+} from './dto';
 
 @Controller('v1/appointments')
 export class AppointmentsController {
   constructor(private readonly service: AppointmentsService) {}
+
+  @Get('catalog')
+  catalog() {
+    return this.service.catalog();
+  }
+
+  @Get('day-grid')
+  dayGrid(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('professionalId') professionalId?: string,
+    @Query('facilityId') facilityId?: string,
+    @Query('careLine') careLine?: string,
+    @Query('itemType') itemType?: string,
+    @Query('slotMinutes') slotMinutes?: string,
+  ) {
+    const minutes = slotMinutes ? Number(slotMinutes) : undefined;
+    return this.service.dayGrid({
+      from,
+      to,
+      professionalId,
+      facilityId,
+      careLine,
+      itemType,
+      slotMinutes: Number.isFinite(minutes) ? minutes : undefined,
+    });
+  }
 
   @Get()
   list(
@@ -13,8 +46,10 @@ export class AppointmentsController {
     @Query('professionalId') professionalId?: string,
     @Query('status') status?: string,
     @Query('facilityId') facilityId?: string,
+    @Query('careLine') careLine?: string,
+    @Query('itemType') itemType?: string,
   ) {
-    return this.service.list(from, to, professionalId, status, facilityId);
+    return this.service.list(from, to, professionalId, status, facilityId, careLine, itemType);
   }
 
   @Post()
@@ -31,6 +66,12 @@ export class AppointmentsController {
   @Post(':id/open-dental')
   openDental(@Param('id') id: string, @Body() dto: OpenDentalFromSlotDto) {
     return this.service.openDental(id, dto);
+  }
+
+  /** RF-3.5 — abre atendimento APS/FAI a partir do slot */
+  @Post(':id/open-aps')
+  openAps(@Param('id') id: string, @Body() dto: OpenApsFromSlotDto) {
+    return this.service.openAps(id, dto);
   }
 
   @Patch(':id/status')

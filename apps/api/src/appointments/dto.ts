@@ -1,6 +1,7 @@
 import { IsArray, IsDateString, IsIn, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { APPOINTMENT_STATUS } from '../common/rf';
+import { APPOINTMENT_CARE_LINES, APPOINTMENT_ITEM_TYPES } from './appointments.constants';
 
 export class CreateSlotDto {
   @IsString() professionalId!: string;
@@ -9,6 +10,10 @@ export class CreateSlotDto {
   @IsDateString() startsAt!: string;
   @IsDateString() endsAt!: string;
   @IsOptional() @IsString() notes?: string;
+  /** CONSULTA (tipoAtendimento=2) | ENCAIXE (tipoAtendimento=5) */
+  @IsOptional() @IsIn([...APPOINTMENT_ITEM_TYPES]) itemType?: (typeof APPOINTMENT_ITEM_TYPES)[number];
+  /** GENERAL | ODONTO | APS */
+  @IsOptional() @IsIn([...APPOINTMENT_CARE_LINES]) careLine?: (typeof APPOINTMENT_CARE_LINES)[number];
 }
 
 export class UpdateSlotStatusDto {
@@ -39,4 +44,10 @@ export class OpenDentalFromSlotDto {
   @ValidateNested({ each: true })
   @Type(() => DentalProcedureOpenDto)
   procedures?: DentalProcedureOpenDto[];
+}
+
+/** Abre Encounter FAI (/aps) a partir do slot genérico. */
+export class OpenApsFromSlotDto {
+  @IsOptional() @IsString() assignmentId?: string;
+  @IsOptional() @IsString() cbo?: string;
 }

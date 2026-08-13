@@ -189,6 +189,10 @@ model AppointmentSlot {
   endsAt         DateTime @map("ends_at")
   status         String   @default("SCHEDULED")
   notes          String?
+  /// CONSULTA (LEDI tipoAtendimento=2) | ENCAIXE (tipoAtendimento=5)
+  itemType       String   @default("CONSULTA") @map("item_type")
+  /// GENERAL | ODONTO | APS — linha de cuidado para abrir ficha
+  careLine       String   @default("GENERAL") @map("care_line")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -200,6 +204,7 @@ model AppointmentSlot {
   dentalEncounter  DentalEncounter?
 
   @@index([facilityId, startsAt])
+  @@index([facilityId, careLine, startsAt])
   @@map("appointment_slots")
 }
 

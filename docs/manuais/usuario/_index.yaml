@@ -9,8 +9,16 @@ articles:
     status: draft
   - id: odonto.atendimento
     path: odonto/atendimento-onda1.md
-    version: 1.1.0
+    version: 1.6.0
     status: draft
+  - id: odonto.agenda
+    path: odonto/agenda.md
+    version: 0.2.0
+    status: draft
+  - id: aps.agenda
+    path: ambulatorial/agenda-aps.md
+    version: 0.1.0
+    status: stub
   - id: faturamento.hub
     path: faturamento/hub.md
     version: 0.2.0

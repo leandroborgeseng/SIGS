@@ -64,7 +64,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 2,Módulo de Cadastros,14,RF-2.14,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de procedimentos não padronizados no SUS.
 2,Módulo de Cadastros,15,RF-2.15,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de protocolos de atendimento.
 2,Módulo de Cadastros,16,RF-2.16,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de vínculo do profissional aos plantões disponíveis.
-2,Módulo de Cadastros,17,RF-2.17,Obrigatório,ambos,parcial,P0-P6,apps/api/src/appointments,n/a,Cadastro de agendas profissionais com tipos de atendimento por agenda.
+2,Módulo de Cadastros,17,RF-2.17,Obrigatório,ambos,parcial,P0-P6,apps/api/src/appointments (day-grid + itemType + careLine),n/a,Cadastro de agendas profissionais com tipos de atendimento por agenda. (MVP: CONSULTA/ENCAIXE; sem cadastro livre)
 2,Módulo de Cadastros,18,RF-2.18,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de procedimentos agendáveis.
 2,Módulo de Cadastros,19,RF-2.19,Obrigatório,ambos,parcial,P0-P6,apps/api/.../organization.py#teams,n/a,Cadastro de equipes de saúde vinculadas às regras do SUS e da gestão.
 2,Módulo de Cadastros,20,RF-2.20,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de vacinas.
@@ -82,7 +82,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 2,Módulo de Cadastros,33,RF-2.33,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro e listagem dos tipos de atendimento.
 2,Módulo de Cadastros,34,RF-2.34,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de contratos e serviços de saúde.
 2,Módulo de Cadastros,35,RF-2.35,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de pactuações municipais de procedimentos.
-2,Módulo de Cadastros,36,RF-2.36,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de tipos de item de agenda.
+2,Módulo de Cadastros,36,RF-2.36,Obrigatório,ambos,parcial,P0-P6,apps/api/src/appointments/appointments.constants.ts,automatizado,Cadastro de tipos de item de agenda. (MVP fechado: CONSULTA=tipo 2 e ENCAIXE=tipo 5; sem CRUD de catálogo)
 2,Módulo de Cadastros,37,RF-2.37,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de informativos exibidos na abertura do sistema (mensagem, jpg, etc.)."
 2,Módulo de Cadastros,38,RF-2.38,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de indicadores de saúde: nome, período, descrição, objetivo, definição do script, escopo do contexto, área de resultado, parâmetros."
 2,Módulo de Cadastros,39,RF-2.39,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de numeração de APAC conforme portarias, com geração automática de quantidades."
@@ -112,7 +112,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 3,Módulo Ambulatorial,2,RF-3.2,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Definição de serviço a ser executado no ato da entrada do paciente.
 3,Módulo Ambulatorial,3,RF-3.3,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Identificação do responsável pelo paciente, vinculado ao cadastro de pacientes."
 3,Módulo Ambulatorial,4,RF-3.4,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Localização do paciente registrado na entrada por tipo de atendimento, etapas, nível de urgência, período, situação, dados do paciente."
-3,Módulo Ambulatorial,5,RF-3.5,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Entrada do paciente a partir da agenda prévia.
+3,Módulo Ambulatorial,5,RF-3.5,Obrigatório,ambos,parcial,P0-P6,apps/api/src/appointments#open-aps;apps/web/src/app/aps/agenda,automatizado,Entrada do paciente a partir da agenda prévia. (FAI /aps a partir do slot; SOAP /atendimento já aceitava appointmentId)
 3,Módulo Ambulatorial,6,RF-3.6,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Encaminhamento para etapa pré-cadastrada na entrada do paciente.
 3,Módulo Ambulatorial,7,RF-3.7,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Marcação de não comparecimento de paciente agendado, com registro automático."
 3,Módulo Ambulatorial,8,RF-3.8,Desejável,ambos,não iniciado,P0-P6,,previsto,Informar CBO no ato da entrada do paciente.
@@ -440,7 +440,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 11,Módulo de PPI (Programação Pactuada Integrada),6,RF-11.6,Obrigatório,TR,não iniciado,depois,,n/a,Autorização de procedimentos a partir da PPI.
 11,Módulo de PPI (Programação Pactuada Integrada),7,RF-11.7,Obrigatório,TR,não iniciado,depois,,n/a,Acompanhamento das cotas de PPI pelos municípios.
 11,Módulo de PPI (Programação Pactuada Integrada),8,RF-11.8,Obrigatório,TR,não iniciado,depois,,n/a,Agendamento de procedimentos por PPI.
-12,Módulo de Odontologia,1,RF-12.1,Obrigatório,e-SUS,parcial,P0-P6,apps/web/src/app/odonto (abertura encounter),n/a,Agendamento de atendimentos odontológicos. (agenda TR não; só abertura de encounter)
+12,Módulo de Odontologia,1,RF-12.1,Obrigatório,e-SUS,parcial,P0-P6,apps/web/src/app/odonto/agenda;apps/api/src/appointments (day-grid + open-dental),automatizado,Agendamento de atendimentos odontológicos. (grade do dia + CONSULTA/ENCAIXE; sem salas/cadastro livre TR)
 12,Módulo de Odontologia,2,RF-12.2,Obrigatório,e-SUS,coberto,P0-P6,apps/api/src/care-extra;apps/web/src/app/odonto (assignmentId),automatizado,Definição de profissional para atendimento odontológico.
 12,Módulo de Odontologia,3,RF-12.3,Obrigatório,e-SUS,coberto,P0-P6,apps/api/src/care-extra;apps/web/src/app/odonto,automatizado,Identificação do paciente para atendimento odontológico.
 12,Módulo de Odontologia,4,RF-12.4,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra/ledi-dental.mapper.ts,previsto,Informação do início do tratamento.

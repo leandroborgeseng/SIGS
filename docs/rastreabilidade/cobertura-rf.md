@@ -1,7 +1,7 @@
 # Cobertura RF — rastreabilidade
 
 **CSV completo:** [cobertura-rf.csv](cobertura-rf.csv)
-**Total linhas:** 599 · **cobertos:** 9 · **parciais:** 37 · **adiados:** 114 · **backlog SAMU:** 30 (não iniciado / onda `samu-backlog`)
+**Total linhas:** 599 · **cobertos:** 9 · **parciais:** 39 · **adiados:** 114 · **backlog SAMU:** 30 (não iniciado / onda `samu-backlog`)
 
 Legenda status: `coberto` = escopo Onda 1/código atual atende o RF mínimo com evidência; `parcial` = há código mas falta fatia TR/e-SUS. Não inventar cobertura.
 
@@ -26,7 +26,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-1.4 | Obr | parcial | n/a | `apps/api/src/auth#users` |
 | RF-1.14 | Obr | parcial | n/a | `apps/api/.../audit + auth` |
 | RF-2.2 | Obr | parcial | n/a | `apps/api/src/organization#professionals` |
-| RF-2.17 | Obr | parcial | n/a | `apps/api/src/appointments` |
+| RF-2.17 | Obr | parcial | n/a | `GET/POST /v1/appointments` · `day-grid` · `itemType` CONSULTA/ENCAIXE · `careLine` APS/ODONTO |
 | RF-2.19 | Obr | parcial | n/a | `apps/api/src/organization#teams` |
 | RF-2.27 | Obr | parcial | n/a | `apps/api/src/patients` (+ PATCH + UI) |
 | RF-2.29 | Obr | parcial | n/a | `apps/api/src/territory` + UI `/territorio` |
@@ -45,7 +45,9 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-12.7 | Obr | coberto | automatizado | vigilância + finish/`validateFaoJson` + preview; aviso Previne 99 (não BLOCKER) |
 | RF-12.8 | Obr | coberto | previsto | `tiposFornecimOdonto` UI + mapper |
 | RF-12.9 | Obr | coberto | previsto | anamnese texto livre Onda 1 |
-| RF-12.1 | Obr | parcial | automatizado | `/odonto/agenda` · `POST /v1/appointments/:id/open-dental` · `DentalEncounter.appointmentId` · tipoAtendimento=2; sem grade/tipos de item TR |
+| RF-12.1 | Obr | parcial | automatizado | `/odonto/agenda` + `/aps/agenda` · grade horários×profissional · CONSULTA (tipo 2) / ENCAIXE (tipo 5) · `POST …/open-dental` · `POST …/open-aps`; sem cadastro livre de tipos, salas, grade municipal |
+| RF-2.36 | Obr | parcial | automatizado | catálogo fechado CONSULTA/ENCAIXE em `GET /v1/appointments/catalog` (não é cadastro TR completo) |
+| RF-3.5 | Obr | parcial | automatizado | `POST /v1/appointments/:id/open-aps` → Encounter FAI `/aps/[id]` |
 | RF-12.4 | Obr | parcial | previsto | início tratamento (status/campo; sem fluxo rico) |
 | RF-12.16 | Obr | parcial | automatizado | problemas CIAP/CID (`CodeSearchSelect`); patologias ricas depois |
 | RF-12.12 | Obr | parcial | automatizado | odontograma FDI + Q1–Q4 / S1–S6 / BOCA em `/odonto/[id]` · `odontogramJson` · proc. `tooth`\|`region` → mapper; PATCH snapshot aplica o mapa no atual; gap: Thrift FAO sem tooth/region |

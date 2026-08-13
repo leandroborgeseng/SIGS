@@ -149,6 +149,9 @@ export default function AgendaPage() {
             <Link className="btn btn-secondary" href="/odonto/agenda">
               Agenda odonto
             </Link>
+            <Link className="btn btn-secondary" href="/aps/agenda">
+              Agenda APS
+            </Link>
             <Link className="btn btn-secondary" href="/atendimento">
               Fila
             </Link>

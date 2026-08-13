@@ -7,3 +7,7 @@ articles:
     path: plataforma/ui-fase2.md
     version: 1.0.0
     status: draft
+  - id: plataforma.agenda
+    path: plataforma/agenda.md
+    version: 0.1.0
+    status: draft

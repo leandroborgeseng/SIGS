@@ -19,6 +19,7 @@ const NAV = [
     group: 'Atendimento clínico',
     items: [
       { href: '/aps', label: 'Atendimento APS' },
+      { href: '/aps/agenda', label: 'Agenda APS' },
       { href: '/odonto', label: 'Odontologia' },
       { href: '/odonto/agenda', label: 'Agenda odonto' },
     ],
@@ -86,12 +87,16 @@ function itemMatches(pathname: string, href: string) {
   if (href === '/odonto/agenda') {
     return pathname === '/odonto/agenda' || pathname.startsWith('/odonto/agenda/');
   }
+  if (href === '/aps/agenda') {
+    return pathname === '/aps/agenda' || pathname.startsWith('/aps/agenda/');
+  }
   if (href === '/odonto') {
     if (pathname.startsWith('/odonto/agenda')) return false;
     return pathname === '/odonto' || /^\/odonto\/[^/]+/.test(pathname);
   }
   if (href === '/aps') {
-    return pathname === '/aps' || pathname.startsWith('/aps/');
+    if (pathname.startsWith('/aps/agenda')) return false;
+    return pathname === '/aps' || /^\/aps\/[^/]+/.test(pathname);
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }

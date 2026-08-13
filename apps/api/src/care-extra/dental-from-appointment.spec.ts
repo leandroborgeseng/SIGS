@@ -38,6 +38,8 @@ describe('openDental from appointment (RF-12.1)', () => {
     facilityId: string | null;
     professionalId: string;
     status: string;
+    itemType?: string;
+    careLine?: string;
   }) {
     const created: Record<string, unknown>[] = [];
     const prisma = {
@@ -110,6 +112,42 @@ describe('openDental from appointment (RF-12.1)', () => {
       expect.objectContaining({ data: { status: 'PRESENT' } }),
     );
     expect(created[0]).toEqual(expect.objectContaining({ appointmentId: 's1' }));
+  });
+
+  it('encaixe abre com tipoAtendimento=5 e sem tiposConsultaOdonto', async () => {
+    const slot = {
+      id: 's1',
+      patientId: PATIENT.id,
+      facilityId: FACILITY.id,
+      professionalId: PROFESSIONAL.id,
+      status: 'SCHEDULED',
+      itemType: 'ENCAIXE',
+      careLine: 'ODONTO',
+    };
+    const { prisma, created } = makePrisma(slot);
+    const service = new CareExtraService(prisma as never);
+    jest.spyOn(service, 'syncDentalBillingQueue' as never).mockResolvedValue(undefined as never);
+
+    const out = await service.openDentalFromAppointment('s1', { assignmentId: ASSIGNMENT.id });
+    expect(out.care.tipoAtendimento).toBe(5);
+    expect(out.care.tiposConsultaOdonto).toEqual([]);
+    expect(created[0]).toEqual(expect.objectContaining({ appointmentId: 's1' }));
+  });
+
+  it('bloqueia abrir odonto a partir de slot APS', async () => {
+    const { prisma } = makePrisma({
+      id: 's1',
+      patientId: PATIENT.id,
+      facilityId: FACILITY.id,
+      professionalId: PROFESSIONAL.id,
+      status: 'SCHEDULED',
+      itemType: 'CONSULTA',
+      careLine: 'APS',
+    });
+    const service = new CareExtraService(prisma as never);
+    await expect(service.openDentalFromAppointment('s1', {})).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('reusa encounter IN_PROGRESS já vinculado', async () => {

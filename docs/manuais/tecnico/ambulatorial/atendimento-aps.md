@@ -9,7 +9,7 @@ Duas frentes na mesma entidade `Encounter`:
 | Frente | UI | Origem |
 |---|---|---|
 | Fila SOAP | `/atendimento` (grupo Operação) | `POST /v1/encounters` sem `faiOrigin` |
-| **Ficha FAI tipo 4** | `/aps` (grupo Atendimento clínico) | `POST /v1/encounters` com `faiOrigin: true` |
+| **Ficha FAI tipo 4** | `/aps` · `/aps/agenda` (grupo Atendimento clínico) | `POST /v1/encounters` com `faiOrigin: true` · `POST /v1/appointments/:id/open-aps` |
 
 Não misturar com `/odonto` (FAO tipo 5).
 
@@ -23,6 +23,7 @@ Não misturar com `/odonto` (FAO tipo 5).
 | GET | `/api/v1/encounters/faturamento-queue` | Fila APS do mês (`competencia`, `facilityId`, `bucket`, `forceSync`) |
 | POST | `/api/v1/encounters/faturamento-queue/sync` | Revalida pendências em lote |
 | POST | `/api/v1/encounters/faturamento-queue/:id/sync` | Revalida um atendimento |
+| POST | `/api/v1/appointments/:id/open-aps` | Abre FAI a partir do slot (RF-3.5); `itemType` CONSULTA→tipo 2, ENCAIXE→tipo 5 |
 | POST | `/api/v1/encounters` | Sem `faiOrigin`: abre `WAITING` (reusa fila do dia). Com `faiOrigin`: IN_PROGRESS + lotação/INE + `ProductionBatch` draft |
 | GET | `/api/v1/encounters/:id` | Detalhe + `clinical` + `care` (rascunho FAI) |
 | GET | `/api/v1/encounters/:id/preview-fai` | Payload `ledi-individual-v2` + `validateFaiJson` (Siaps-ready) |

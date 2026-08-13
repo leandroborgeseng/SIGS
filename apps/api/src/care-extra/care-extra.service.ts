@@ -30,6 +30,7 @@ import { buildDentalLediPayload } from './ledi-dental.mapper';
 import { buildHomeCareLediPayload } from './ledi-homecare.mapper';
 import { buildCollectiveLediPayload } from './ledi-collective.mapper';
 import { validateFaoJson, validateFaoXml } from './ledi-fao.validator';
+import { tipoAtendimentoFromItemType } from '../appointments/appointments.constants';
 import {
   defaultDentalCareDraft,
   dentalMunicipioIbgeFallback,
@@ -402,11 +403,15 @@ export class CareExtraService {
     let professionalId = dto.professionalId;
     let appointmentId = dto.appointmentId;
     let fromAgenda = false;
+    let agendaItemType = 'CONSULTA';
 
     if (appointmentId) {
       const slot = await this.prisma.appointmentSlot.findUnique({ where: { id: appointmentId } });
       if (!slot || slot.status === 'DELETED') {
         throw new NotFoundException('Agendamento não encontrado');
+      }
+      if (slot.careLine === 'APS') {
+        throw new BadRequestException('Este slot é da agenda APS — abra a ficha em /aps/agenda');
       }
       if (!slot.patientId) {
         throw new BadRequestException('Agendamento sem paciente — vincule o cidadão antes de abrir odonto');
@@ -414,6 +419,7 @@ export class CareExtraService {
       if (['CANCELLED', 'NO_SHOW', 'COMPLETED'].includes(slot.status)) {
         throw new BadRequestException(`Não é possível abrir odonto com status ${slot.status}`);
       }
+      agendaItemType = slot.itemType || 'CONSULTA';
       if (dto.patientId && dto.patientId !== slot.patientId) {
         throw new BadRequestException('patientId não confere com o paciente do agendamento');
       }
@@ -464,8 +470,8 @@ export class CareExtraService {
       cbo: dto.cbo || lotacao.cboCodigo_2002,
       ...(fromAgenda
         ? {
-            tipoAtendimento: 2,
-            tiposConsultaOdonto: [1],
+            tipoAtendimento: tipoAtendimentoFromItemType(agendaItemType),
+            tiposConsultaOdonto: agendaItemType === 'ENCAIXE' ? [] : [1],
           }
         : {}),
     });

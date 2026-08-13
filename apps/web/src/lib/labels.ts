@@ -19,6 +19,11 @@ export const APPOINTMENT_STATUS_LABEL: Record<string, { label: string; tone: str
   DELETED: { label: 'Excluído', tone: 'danger' },
 };
 
+export const APPOINTMENT_ITEM_TYPE_LABEL: Record<string, { label: string; tone: string }> = {
+  CONSULTA: { label: 'Consulta agendada', tone: 'brand' },
+  ENCAIXE: { label: 'Encaixe', tone: 'warn' },
+};
+
 export function displayPatientName(p: { civilName: string; socialName?: string | null }) {
   if (p.socialName?.trim()) return `${p.socialName} (${p.civilName})`;
   return p.civilName;
@@ -36,4 +41,18 @@ export function formatDateTime(iso?: string | null) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+export function formatTime(iso?: string | null) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+export function toDatetimeLocalValue(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }

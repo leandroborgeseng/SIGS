@@ -38,6 +38,7 @@ import {
   requireIneOnApsOpen,
   type ApsCareDraft,
 } from './aps-care.draft';
+import { tipoAtendimentoFromItemType } from '../appointments/appointments.constants';
 import {
   APS_FATURAMENTO_QUEUE_LIMIT,
   apsMissingChecklist,
@@ -229,6 +230,30 @@ export class EncountersService {
   }
 
   async open(dto: OpenEncounterDto) {
+    if (dto.appointmentId) {
+      const slot = await this.prisma.appointmentSlot.findUnique({ where: { id: dto.appointmentId } });
+      if (!slot || slot.status === 'DELETED') throw new BadRequestException('appointmentId inválido');
+      if (['CANCELLED', 'NO_SHOW', 'COMPLETED'].includes(slot.status)) {
+        throw new BadRequestException(`Não é possível abrir atendimento com status ${slot.status}`);
+      }
+      const linked = await this.prisma.encounter.findUnique({
+        where: { appointmentId: dto.appointmentId },
+        include: { patient: true, facility: true, professional: true },
+      });
+      if (linked) {
+        if (linked.status === 'IN_PROGRESS' || linked.status === 'WAITING') {
+          await this.prisma.audit('reuse_appointment', 'encounter', linked.id, [RF.ENCOUNTER_ENTRY.id], {
+            appointmentId: dto.appointmentId,
+          });
+          return { ...this.serialize(linked), reused: true as const };
+        }
+        throw new ConflictException('Agendamento já vinculado a um atendimento');
+      }
+      if (!dto.patientId && slot.patientId) dto.patientId = slot.patientId;
+      if (!dto.facilityId && slot.facilityId) dto.facilityId = slot.facilityId;
+      if (!dto.professionalId) dto.professionalId = slot.professionalId;
+    }
+
     const patient = await this.prisma.patient.findUnique({ where: { id: dto.patientId } });
     if (!patient) throw new BadRequestException('patientId inválido');
     const facility = await this.prisma.facility.findUnique({ where: { id: dto.facilityId } });
@@ -236,12 +261,6 @@ export class EncountersService {
     if (dto.professionalId) {
       const p = await this.prisma.professional.findUnique({ where: { id: dto.professionalId } });
       if (!p) throw new BadRequestException('professionalId inválido');
-    }
-    if (dto.appointmentId) {
-      const slot = await this.prisma.appointmentSlot.findUnique({ where: { id: dto.appointmentId } });
-      if (!slot) throw new BadRequestException('appointmentId inválido');
-      const linked = await this.prisma.encounter.findUnique({ where: { appointmentId: dto.appointmentId } });
-      if (linked) throw new ConflictException('Agendamento já vinculado a um atendimento');
     }
 
     if (dto.faiOrigin) {
@@ -292,6 +311,32 @@ export class EncountersService {
     return { ...row, reused: false as const };
   }
 
+  /** RF-3.5 — abre ficha FAI (/aps) a partir do AppointmentSlot genérico. */
+  async openApsFromAppointment(
+    appointmentId: string,
+    opts: { assignmentId?: string; cbo?: string; facilityId?: string } = {},
+  ) {
+    const slot = await this.prisma.appointmentSlot.findUnique({ where: { id: appointmentId } });
+    if (!slot || slot.status === 'DELETED') throw new NotFoundException('Agendamento não encontrado');
+    if (slot.careLine === 'ODONTO') {
+      throw new BadRequestException('Este slot é da agenda odonto — abra a ficha em /odonto/agenda');
+    }
+    if (!slot.patientId) {
+      throw new BadRequestException('Agendamento sem paciente — vincule o cidadão antes de abrir APS');
+    }
+    const facilityId = opts.facilityId || slot.facilityId;
+    if (!facilityId) throw new BadRequestException('facilityId obrigatório (slot sem unidade)');
+    return this.open({
+      faiOrigin: true,
+      appointmentId,
+      patientId: slot.patientId,
+      facilityId,
+      professionalId: slot.professionalId,
+      assignmentId: opts.assignmentId,
+      cbo: opts.cbo,
+    });
+  }
+
   private async openFai(
     dto: OpenEncounterDto,
     facility: { id: string; cnes: string; ibgeCode: string | null },
@@ -337,9 +382,14 @@ export class EncountersService {
       throw new BadRequestException('Unidade sem IBGE e sem MUNICIPIO_IBGE configurado.');
     }
 
+    const slot = dto.appointmentId
+      ? await this.prisma.appointmentSlot.findUnique({ where: { id: dto.appointmentId } })
+      : null;
+    const tipoFromSlot = slot ? tipoAtendimentoFromItemType(slot.itemType) : undefined;
     const care = defaultApsCareDraft({
       assignmentId,
       cbo: dto.cbo || lotacao.cboCodigo_2002,
+      ...(tipoFromSlot ? { tipoAtendimento: tipoFromSlot } : {}),
     });
 
     const row = await this.prisma.encounter.create({
@@ -351,7 +401,8 @@ export class EncountersService {
         appointmentId: dto.appointmentId,
         careLocation: dto.careLocation || 'UBS',
         shift: dto.shift || 'TARDE',
-        encounterType: dto.encounterType || 'CONSULTA_NO_DIA',
+        encounterType:
+          dto.encounterType || (tipoFromSlot === 2 ? 'CONSULTA_AGENDADA' : 'CONSULTA_NO_DIA'),
         lateRegistration: dto.lateRegistration ?? false,
         status: 'IN_PROGRESS',
         clinicalJson: JSON.stringify(care),
@@ -389,11 +440,12 @@ export class EncountersService {
       include: { patient: true, facility: true, professional: true },
     });
 
-    await this.prisma.audit('open_fai', 'encounter', row.id, [RF.ENCOUNTER_ENTRY.id, RF.ESUS.id], {
+    await this.prisma.audit('open_fai', 'encounter', row.id, [RF.ENCOUNTER_ENTRY.id, RF.ESUS.id, RF.AGENDA.id], {
       requireIne: requireIneOnApsOpen(),
       tipoAtendimento: care.tipoAtendimento,
       productionBatchId: batch.id,
       assignmentId,
+      appointmentId: dto.appointmentId || null,
     });
     return { ...this.serialize(withBatch), reused: false as const };
   }

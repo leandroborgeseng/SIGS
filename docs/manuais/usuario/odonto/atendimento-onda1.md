@@ -22,7 +22,7 @@ authors: [SIGS]
 
 ## Como usar
 
-1. **Agendado:** `/odonto/agenda` → Abrir atendimento (tipo **2**). **Espontâneo:** `/odonto` → paciente, profissional e **lotação/equipe** → **Abrir** (tipo padrão **5**).
+1. **Agendado / encaixe:** `/odonto/agenda` → tipo CONSULTA (tipo **2**) ou ENCAIXE (tipo **5**) → Abrir atendimento. **Espontâneo sem slot:** `/odonto` → paciente, profissional e **lotação/equipe** → **Abrir** (tipo padrão **5**).
 2. Na ficha: vigilância ≥1, CIAP/CID ≥1 (`CodeSearchSelect`), conduta ≥1 (catálogo LEDI), fornecimentos opcional, anamnese texto.
 3. **Odontograma:** clique no dente FDI ou escopo Q/S/BOCA, marque condição. Em seguida escolha um procedimento **predefinido** (SIGTAP) compatível com o local e use **Adicionar planejado** ou **Adicionar e concluir**. Só os concluídos (`done`) vão para a FAO.
 4. **Histórico (RF-12.11):** na mesma seção, lista odontogramas de atendimentos anteriores deste paciente **nesta unidade**. Abra o item para ver o snapshot. Em atendimento em andamento, **Usar neste atendimento** copia o odontograma e os procedimentos concluídos (`done`) para o atual (confirmação; não altera VOID/COMPLETED).
@@ -44,4 +44,4 @@ authors: [SIGS]
 ## RF (Onda 1 + F + odontograma)
 
 Cobertos no mínimo: RF-12.2, 12.3, 12.5, 12.6, 12.7, 12.8, 12.9, **12.11** (histórico + copiar snapshot), **12.13** (catálogo predefinido + concluir).  
-Parcial: RF-12.1 agenda do dia + open-dental; RF-12.12 odontograma FDI + quadrante/sextante/boca. Depois: agenda TR rica, prótese.
+Parcial: RF-12.1 grade do dia + CONSULTA/ENCAIXE + open-dental; RF-12.12 odontograma FDI + quadrante/sextante/boca. Depois: cadastro livre de tipos de item, salas, prótese.
