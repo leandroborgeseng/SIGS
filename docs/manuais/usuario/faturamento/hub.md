@@ -13,11 +13,12 @@ related_screens:
   [
     /faturamento,
     /faturamento/odonto,
+    /faturamento/aps,
     /faturamento/lote/fao,
     /faturamento/lote/fai,
     /faturamento/lote/proc,
   ]
-updated_at: 2026-08-12
+updated_at: 2026-08-13
 authors: [SIGS]
 ---
 
@@ -30,6 +31,7 @@ Hub com atalhos (separado do clínico `/odonto`):
 | Destino | Uso |
 |---|---|
 | `/faturamento/odonto` | Fila mensal odonto (cores LEDI; Atualizar / Revalidar) |
+| `/faturamento/aps` | Fila mensal APS / FAI tipo 4 (mesmo padrão) |
 | `/faturamento/lote/fao` | Lote XML FAO (tipo 5) — export ZIP |
 | `/faturamento/lote/fai` | Lote FAI (tipo 4) — export ZIP |
 | `/faturamento/lote/proc` | Lote Procedimentos (tipo 7) — export ZIP |

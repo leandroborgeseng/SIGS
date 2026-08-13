@@ -124,6 +124,9 @@ export default function ApsPage() {
         actions={
           <>
             <HelpLink id="aps.atendimento" />
+            <Link className="btn ghost" href="/faturamento/aps">
+              Fila faturamento
+            </Link>
             <Link className="btn ghost" href="/faturamento/lote/fai">
               Lote LEDI FAI
             </Link>
@@ -140,7 +143,8 @@ export default function ApsPage() {
         <p className="muted" style={{ marginTop: 0 }}>
           Tipo padrão: <strong>5 — consulta no dia</strong> (ficha LEDI tipo 4). Condutas e
           encaminhamentos são do catálogo FAI, não odonto. Finalizar gera{' '}
-          <code>ProductionBatch</code> <code>individual_encounter</code>. XMLs legado:{' '}
+          <code>ProductionBatch</code> <code>individual_encounter</code>. Fila do mês:{' '}
+          <Link href="/faturamento/aps">/faturamento/aps</Link>. XMLs legado:{' '}
           <Link href="/faturamento/lote/fai">/faturamento/lote/fai</Link>.
         </p>
         <form onSubmit={open} className="grid-form">

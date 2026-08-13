@@ -224,7 +224,16 @@ describe('fluxo odonto → faturamento-queue', () => {
 
   it('open → patch → finish → aparece na fila (com sync)', async () => {
     const prisma = createPrismaMemory();
-    const service = new CareExtraService(prisma as never);
+    const persistNativeEncounter = jest.fn().mockImplementation(async (input: {
+      fichaTipo: string;
+      conditions: unknown[];
+      procedures: unknown[];
+    }) => ({
+      record: { id: `pr-${input.fichaTipo}` },
+      created: true,
+      encounter: { conditions: input.conditions, procedures: input.procedures },
+    }));
+    const service = new CareExtraService(prisma as never, { persistNativeEncounter } as never);
 
     const opened = await service.openDental({
       patientId: PATIENT.id,
@@ -246,6 +255,9 @@ describe('fluxo odonto → faturamento-queue', () => {
     });
     expect(patched.care.outcomes).toEqual(['ALTA']);
     expect(patched.care.vigilanciaSaudeBucal).toEqual([1]);
+    expect(persistNativeEncounter).toHaveBeenCalledWith(
+      expect.objectContaining({ fichaTipo: 'FAO', status: 'in-progress' }),
+    );
 
     const finished = await service.finishDental(opened.id, {
       outcomes: ['ALTA'],
@@ -256,6 +268,9 @@ describe('fluxo odonto → faturamento-queue', () => {
     expect(finished.productionBatch.id).toBe(opened.productionBatchId);
     expect(finished.fao.summary.blockers).toBe(0);
     expect(finished.productionBatch.status).toBe('ready');
+    expect(finished.clinicalCore).toEqual(
+      expect.objectContaining({ productionRecordId: 'pr-FAO', fichaTipo: 'FAO' }),
+    );
 
     const sync = await service.syncDentalBillingQueue(opened.id);
     expect(sync).toEqual(

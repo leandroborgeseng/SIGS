@@ -4,12 +4,20 @@ import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { HelpLink, PageHeader } from '@/components/ui/PageHeader';
 
-const FILA = {
-  href: '/faturamento/odonto',
-  title: 'Fila faturamento odonto',
-  desc: 'Produção do mês, cores LEDI e atalho para exportar no lote FAO quando houver prontas Siaps.',
-  cta: 'Abrir fila',
-};
+const FILAS = [
+  {
+    href: '/faturamento/odonto',
+    title: 'Fila faturamento odonto',
+    desc: 'Produção do mês, cores LEDI e atalho para exportar no lote FAO quando houver prontas Siaps.',
+    cta: 'Abrir fila',
+  },
+  {
+    href: '/faturamento/aps',
+    title: 'Fila faturamento APS',
+    desc: 'Atendimento individual (FAI tipo 4) do mês — mesmas cores LEDI e atalho para o lote FAI.',
+    cta: 'Abrir fila',
+  },
+];
 
 const LOTES = [
   {
@@ -43,23 +51,27 @@ export default function FaturamentoHubPage() {
     <AppShell helpId="faturamento.hub">
       <PageHeader
         title="Faturamento & Validação"
-        description="Fila odonto e os três lotes LEDI (FAO · FAI · Procedimentos) — separado do atendimento clínico."
+        description="Filas odonto/APS e os três lotes LEDI (FAO · FAI · Procedimentos) — separado do atendimento clínico."
         actions={<HelpLink id="faturamento.hub" />}
       />
 
       <section style={{ marginBottom: 20, maxWidth: 720 }}>
         <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>
-          Fila
+          Filas
         </h3>
-        <Link href={FILA.href} className="unit-card" style={{ textAlign: 'left' }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 600 }}>{FILA.title}</div>
-            <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>{FILA.desc}</div>
-          </div>
-          <span className="btn btn-secondary" style={{ pointerEvents: 'none', flexShrink: 0 }}>
-            {FILA.cta}
-          </span>
-        </Link>
+        <div className="stack" style={{ gap: 10 }}>
+          {FILAS.map((fila) => (
+            <Link key={fila.href} href={fila.href} className="unit-card" style={{ textAlign: 'left' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 600 }}>{fila.title}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>{fila.desc}</div>
+              </div>
+              <span className="btn btn-secondary" style={{ pointerEvents: 'none', flexShrink: 0 }}>
+                {fila.cta}
+              </span>
+            </Link>
+          ))}
+        </div>
       </section>
 
       <section style={{ marginBottom: 20, maxWidth: 720 }}>

@@ -29,6 +29,7 @@ const NAV = [
     items: [
       { href: '/faturamento', label: 'Visão geral' },
       { href: '/faturamento/odonto', label: 'Fila odonto' },
+      { href: '/faturamento/aps', label: 'Fila APS' },
       { href: '/faturamento/lote/fao', label: 'Lote LEDI FAO' },
       { href: '/faturamento/lote/fai', label: 'Lote LEDI FAI' },
       { href: '/faturamento/lote/proc', label: 'Lote Procedimentos' },

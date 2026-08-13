@@ -105,3 +105,109 @@ describe('clinical-core A0', () => {
     expect(r.requestedIds).toEqual(['a', 'b']);
   });
 });
+
+describe('clinical-core persistNativeEncounter (LEDI P1)', () => {
+  it('grava ProductionRecord com Encounter + Condition/Procedure e source=native', async () => {
+    const created: Record<string, unknown>[] = [];
+    const prisma = {
+      patient: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'p1',
+          mergedIntoId: null,
+          cpf: '39053344705',
+          cns: '703601040321538',
+        }),
+      },
+      patientIdentifier: {
+        upsert: jest.fn().mockImplementation(({ create }: { create: unknown }) => Promise.resolve(create)),
+      },
+      productionRecord: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+          const row = { id: 'pr-1', ...data };
+          created.push(row);
+          return Promise.resolve(row);
+        }),
+        update: jest.fn(),
+      },
+      clinicalAuditEvent: { create: jest.fn().mockResolvedValue({ id: 'aud-1' }) },
+    };
+    const { ClinicalCoreService } = await import('./clinical-core.service');
+    const core = new ClinicalCoreService(prisma as never);
+    const out = await core.persistNativeEncounter({
+      fichaTipo: 'FAI',
+      encounterId: 'e-fai',
+      uuidFicha: 'uuid-ledi',
+      status: 'finished',
+      periodStart: '2026-08-13T12:00:00.000Z',
+      periodEnd: '2026-08-13T12:20:00.000Z',
+      patient: {
+        id: 'p1',
+        civilName: 'Paciente Demo',
+        cpf: '39053344705',
+        cns: '703601040321538',
+        birthDate: '1990-05-10',
+        sex: 'F',
+      },
+      cnes: '2035871',
+      cbo: '225125',
+      practitionerCns: '898001234567890',
+      ine: '0002321246',
+      tipoAtendimento: 5,
+      procedures: [{ code: '0301010064', quantity: 1 }],
+      conditions: [{ ciap: 'K86', cid10: 'I10' }],
+    });
+    expect(out.created).toBe(true);
+    expect(out.record.id).toBe('pr-1');
+    expect(created[0]!.fichaTipo).toBe('FAI');
+    expect(created[0]!.source).toBe('native');
+    expect(created[0]!.sourceXml).toBeNull();
+    expect(created[0]!.uuidFicha).toBe('uuid-ledi');
+    const enc = JSON.parse(String(created[0]!.encounterJson));
+    expect(enc.resourceType).toBe('Encounter');
+    expect(enc.conditions).toEqual([
+      expect.objectContaining({ resourceType: 'Condition', ciap: 'K86', cid10: 'I10' }),
+    ]);
+    expect(enc.procedures).toEqual([
+      expect.objectContaining({ resourceType: 'Procedure', code: '0301010064' }),
+    ]);
+    expect(prisma.clinicalAuditEvent.create).toHaveBeenCalled();
+  });
+
+  it('atualiza o mesmo ProductionRecord quando a chave nativa já existe', async () => {
+    const prisma = {
+      patient: { findUnique: jest.fn().mockResolvedValue({ id: 'p1', mergedIntoId: null }) },
+      patientIdentifier: { upsert: jest.fn().mockResolvedValue({}) },
+      productionRecord: {
+        findUnique: jest.fn().mockImplementation(({ where: { uuidFicha } }: { where: { uuidFicha: string } }) => {
+          if (uuidFicha === 'native:FAI:e-fai') return Promise.resolve({ id: 'pr-old' });
+          return Promise.resolve(null);
+        }),
+        create: jest.fn(),
+        update: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 'pr-old', ...data }),
+        ),
+      },
+      clinicalAuditEvent: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const { ClinicalCoreService } = await import('./clinical-core.service');
+    const core = new ClinicalCoreService(prisma as never);
+    const out = await core.persistNativeEncounter({
+      fichaTipo: 'FAI',
+      encounterId: 'e-fai',
+      uuidFicha: 'uuid-ledi-final',
+      status: 'finished',
+      patient: { id: 'p1', cpf: '39053344705' },
+      procedures: [{ code: '0301010064' }],
+      conditions: [{ ciap: 'K86' }],
+    });
+    expect(out.created).toBe(false);
+    expect(prisma.productionRecord.create).not.toHaveBeenCalled();
+    expect(prisma.productionRecord.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'pr-old' },
+        data: expect.objectContaining({ uuidFicha: 'uuid-ledi-final', source: 'native' }),
+      }),
+    );
+  });
+});

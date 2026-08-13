@@ -13,5 +13,9 @@ articles:
     status: draft
   - id: faturamento.hub
     path: faturamento/hub.md
-    version: 0.1.0
+    version: 0.2.0
     status: draft
+  - id: faturamento.fila-aps
+    path: faturamento/fila-aps.md
+    version: 0.1.0
+    status: stub

@@ -34,6 +34,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/aps/faturamento',
+        destination: '/faturamento/aps',
+        permanent: true,
+      },
+      {
         source: '/aps/lote',
         destination: '/faturamento/lote/fai',
         permanent: true,

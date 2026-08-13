@@ -131,7 +131,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 3,Módulo Ambulatorial,21,RF-3.21,Desejável,ambos,não iniciado,P0-P6,,previsto,Visualizar lembretes na pré-consulta.
 3,Módulo Ambulatorial,22,RF-3.22,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Salvar pré-consulta encaminhando o paciente à próxima etapa.
 3,Módulo Ambulatorial,23,RF-3.23,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Chamada do paciente pelo painel.
-3,Módulo Ambulatorial,24,RF-3.24,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters#clinical + /aps preview-fai,automatizado,"Lista de pacientes aguardando consulta médica (cor de classificação, etapa, dados do paciente, tempo de atendimento)."
+3,Módulo Ambulatorial,24,RF-3.24,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters#clinical + /aps preview-fai + /faturamento/aps,automatizado,"Lista de pacientes aguardando consulta médica (cor de classificação, etapa, dados do paciente, tempo de atendimento)."
 3,Módulo Ambulatorial,25,RF-3.25,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Visualizar etapas já ocorridas com o paciente no ato do atendimento.
 3,Módulo Ambulatorial,26,RF-3.26,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Preenchimento da ficha padrão da unidade como primeiro processo do atendimento, com campos editáveis."
 3,Módulo Ambulatorial,27,RF-3.27,Desejável,ambos,não iniciado,P0-P6,,previsto,Visualizar vacinas registradas do paciente.
@@ -414,7 +414,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 9,Módulo de Faturamento,7,RF-9.7,Obrigatório,ambos,não iniciado,depois,,previsto,Divisão física e financeira dos laboratórios terceirizados para atender ao TAC.
 10,Módulo de Integração com o e-SUS,1,RF-10.1,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,SIGTAP.
 10,Módulo de Integração com o e-SUS,2,RF-10.2,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,CNES.
-10,Módulo de Integração com o e-SUS,3,RF-10.3,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/ledi + encounters/vaccinations finish,automatizado,e-SUS.
+10,Módulo de Integração com o e-SUS,3,RF-10.3,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/ledi + encounters/vaccinations finish + clinical-core persistNative,automatizado,e-SUS.
 10,Módulo de Integração com o e-SUS,4,RF-10.4,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,BPA.
 10,Módulo de Integração com o e-SUS,5,RF-10.5,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,RAAS.
 10,Módulo de Integração com o e-SUS,6,RF-10.6,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,SISAIH01.

@@ -39,7 +39,7 @@ Ficha FAO (XML ou Thrift LEDI)
 | `GET` | `/v1/catalog/dental` | catálogo vigilância / condutas / tipoAtendimento |
 | `POST` | `/v1/dental-encounters/:id/finish` | exige `vigilanciaSaudeBucal[]` + `problemasCondicoes[]`; `enforceFaoConformity` (default true) |
 
-Telas: `/faturamento/lote/fao` (FAO) · `/faturamento/lote/fai` (FAI) · `/faturamento/lote/proc` (PROC) · `/faturamento/odonto` (fila). Aliases 308: `/odonto/lote`, `/aps/lote`, `/procedimentos/lote`, `/odonto/faturamento`.
+Telas: `/faturamento/lote/fao` (FAO) · `/faturamento/lote/fai` (FAI) · `/faturamento/lote/proc` (PROC) · `/faturamento/odonto` (fila FAO) · `/faturamento/aps` (fila FAI). Aliases 308: `/odonto/lote`, `/aps/lote`, `/procedimentos/lote`, `/odonto/faturamento`, `/aps/faturamento`.
 
 Resposta do validador:
 

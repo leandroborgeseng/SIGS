@@ -3,6 +3,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { evaluatePatientMatch, type MatchPerson } from './patient-match';
 import { runRulesEngine, type RulesEngineInput } from './rules-engine';
 import { lediXmlToComposition } from './adapters/ledi-xml.adapter';
+import {
+  nativeFichaToEncounter,
+  nativeKeyFor,
+  type NativeFichaInput,
+} from './adapters/native-ficha.adapter';
 import type { SigsEncounter, SigsPatient } from './sigs-fhir.types';
 
 @Injectable()
@@ -304,6 +309,74 @@ export class ClinicalCoreService {
       },
     });
     return { patient, record, created: true };
+  }
+
+  /**
+   * LEDI P1: persiste Encounter + Condition/Procedure mínimos a partir da ficha nativa.
+   * Upsert por uuidFicha LEDI ou chave `native:FAI|FAO:{id}`. Não grava XML.
+   */
+  async persistNativeEncounter(input: NativeFichaInput & { actorId?: string }) {
+    const encounter = nativeFichaToEncounter(input);
+    const nativeKey = nativeKeyFor(input.fichaTipo, input.encounterId);
+    const uuidFicha = input.uuidFicha || nativeKey;
+
+    const patientRow = await this.prisma.patient.findUnique({ where: { id: input.patient.id } });
+    if (!patientRow) throw new NotFoundException('Paciente não encontrado');
+    const master = patientRow.mergedIntoId
+      ? await this.prisma.patient.findUniqueOrThrow({ where: { id: patientRow.mergedIntoId } })
+      : patientRow;
+
+    await this.upsertIdentifiers(
+      master.id,
+      (encounter.patient?.identifiers || []).map((i) => ({ ...i, source: 'native' })),
+    );
+
+    const keys = [...new Set([uuidFicha, nativeKey])];
+    let existing: { id: string } | null = null;
+    for (const k of keys) {
+      existing = await this.prisma.productionRecord.findUnique({ where: { uuidFicha: k } });
+      if (existing) break;
+    }
+
+    const data = {
+      patientId: master.id,
+      fichaTipo: input.fichaTipo,
+      uuidFicha,
+      facilityCnes: encounter.cnes || null,
+      professionalCns: encounter.practitionerCns || null,
+      cbo: encounter.cbo || null,
+      ine: encounter.ine || null,
+      periodStart: encounter.periodStart ? new Date(encounter.periodStart) : null,
+      periodEnd: encounter.periodEnd ? new Date(encounter.periodEnd) : null,
+      encounterJson: JSON.stringify(encounter),
+      sourceXml: null as string | null,
+      source: 'native',
+    };
+
+    const record = existing
+      ? await this.prisma.productionRecord.update({ where: { id: existing.id }, data })
+      : await this.prisma.productionRecord.create({ data });
+
+    await this.prisma.clinicalAuditEvent.create({
+      data: {
+        action: 'persist',
+        entityType: 'ProductionRecord',
+        entityId: record.id,
+        actorId: input.actorId || 'system',
+        payloadJson: JSON.stringify({
+          source: 'native',
+          fichaTipo: input.fichaTipo,
+          encounterId: input.encounterId,
+          uuidFicha,
+          nativeKey,
+          created: !existing,
+          conditionCount: encounter.conditions.length,
+          procedureCount: encounter.procedures.length,
+        }),
+      },
+    });
+
+    return { patient: master, record, created: !existing, encounter };
   }
 
   /** Dry-run de migração (só audita). */

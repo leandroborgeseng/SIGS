@@ -3,6 +3,7 @@ import { EncountersService } from './encounters.service';
 import { buildIndividualEncounterLediPayload } from './ledi-individual.mapper';
 import { validateFaiJson } from '../care-extra/ledi-fai.validator';
 import { LEDI_CONDUTA } from '../ledi/db-enums';
+import { ClinicalCoreService } from '../clinical-core/clinical-core.service';
 
 const FACILITY = { id: 'f1', cnes: '2035871', ibgeCode: '3516200', name: 'UBS Demo' };
 const PATIENT = {
@@ -156,6 +157,17 @@ describe('APS FAI tipo 4 — origem', () => {
       },
       appointmentSlot: { update: jest.fn() },
       audit: jest.fn(),
+      patientIdentifier: {
+        upsert: jest.fn().mockImplementation(({ create }: { create: unknown }) => Promise.resolve(create)),
+      },
+      productionRecord: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 'pr-fai', ...data }),
+        ),
+        update: jest.fn(),
+      },
+      clinicalAuditEvent: { create: jest.fn().mockResolvedValue({ id: 'aud-1' }) },
     };
     return { prisma, created };
   }
@@ -236,7 +248,8 @@ describe('APS FAI tipo 4 — origem', () => {
       facility: FACILITY,
       professional: PROFESSIONAL,
     });
-    const service = new EncountersService(prisma as never);
+    const core = new ClinicalCoreService(prisma as never);
+    const service = new EncountersService(prisma as never, core);
     const out = await service.finish('e-fai', { outcomes: ['ALTA'] });
     expect(out.productionBatch.status).toBe('ready');
     expect(out.productionBatch.kind).toBe('individual_encounter');
@@ -246,5 +259,68 @@ describe('APS FAI tipo 4 — origem', () => {
         data: expect.objectContaining({ status: 'COMPLETED' }),
       }),
     );
+    if (!('fai' in out)) throw new Error('esperado finish FAI');
+    expect(out.clinicalCore).toEqual(
+      expect.objectContaining({
+        productionRecordId: 'pr-fai',
+        fichaTipo: 'FAI',
+        conditionCount: 1,
+        procedureCount: 1,
+      }),
+    );
+    expect(prisma.productionRecord.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ fichaTipo: 'FAI', source: 'native', sourceXml: null }),
+      }),
+    );
+    const enc = JSON.parse(
+      String((prisma.productionRecord.create as jest.Mock).mock.calls[0][0].data.encounterJson),
+    );
+    expect(enc.resourceType).toBe('Encounter');
+    expect(enc.conditions).toEqual([expect.objectContaining({ ciap: 'K86', cid10: 'I10' })]);
+    expect(enc.procedures[0].code).toBe('0301010064');
+  });
+
+  it('finish FAI mantém ProductionBatch se o motor falhar', async () => {
+    const { prisma, created } = makePrisma();
+    const care = {
+      faiOrigin: true,
+      tipoAtendimento: 5,
+      localAtendimento: 1,
+      turno: 2,
+      outcomes: ['ALTA'],
+      problemasCondicoes: [{ ciap: 'K86', cid10: 'I10' }],
+      procedimentos: [{ code: '0301010064', label: 'Consulta médica', quantidade: 1 }],
+      stNaoPossuiCpf: false,
+      assignmentId: ASSIGNMENT.id,
+      cbo: '225125',
+    };
+    created.push({
+      id: 'e-fai',
+      patientId: PATIENT.id,
+      facilityId: FACILITY.id,
+      professionalId: PROFESSIONAL.id,
+      teamId: 't1',
+      status: 'IN_PROGRESS',
+      startedAt: new Date('2026-08-13T12:00:00.000Z'),
+      finishedAt: null,
+      careLocation: 'UBS',
+      shift: 'TARDE',
+      encounterType: 'CONSULTA_NO_DIA',
+      clinicalJson: JSON.stringify(care),
+      productionBatchId: 'batch-1',
+      appointmentId: null,
+      patient: PATIENT,
+      facility: FACILITY,
+      professional: PROFESSIONAL,
+    });
+    const core = {
+      persistNativeEncounter: jest.fn().mockRejectedValue(new Error('motor indisponível')),
+    };
+    const service = new EncountersService(prisma as never, core as never);
+    const out = await service.finish('e-fai', { outcomes: ['ALTA'] });
+    expect(out.productionBatch.status).toBe('ready');
+    if (!('fai' in out)) throw new Error('esperado finish FAI');
+    expect(out.clinicalCore).toBeNull();
   });
 });

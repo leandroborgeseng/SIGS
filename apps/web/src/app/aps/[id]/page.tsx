@@ -95,6 +95,7 @@ export default function ApsAtendimentoPage() {
   const [sigtapHits, setSigtapHits] = useState<Array<{ code: string; name: string }>>([]);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [liveValidating, setLiveValidating] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -207,13 +208,20 @@ export default function ApsAtendimentoPage() {
     if (!care) return;
     setBusy(true);
     setError(null);
+    setOk(null);
     try {
       await saveDraft(care);
-      await api(`/v1/encounters/${id}/finish`, {
+      const res = await api<{ productionBatch?: { id: string } }>(`/v1/encounters/${id}/finish`, {
         method: 'POST',
         json: { outcomes: care.outcomes },
       });
-      router.push('/aps');
+      setOk('Atendimento finalizado e enviado à fila de faturamento APS.');
+      await load();
+      if (res.productionBatch?.id) {
+        setEnc((prev) =>
+          prev ? { ...prev, status: 'COMPLETED', productionBatchId: res.productionBatch!.id } : prev,
+        );
+      }
     } catch (err) {
       const body = err instanceof ApiError ? err.body : null;
       const msg =
@@ -260,6 +268,12 @@ export default function ApsAtendimentoPage() {
     );
   }
 
+  const filaHref = (() => {
+    const qs = new URLSearchParams({ encounterId: enc.id });
+    if (enc.productionBatchId) qs.set('batchId', enc.productionBatchId);
+    return `/faturamento/aps?${qs}`;
+  })();
+
   return (
     <AppShell helpId="aps.atendimento">
       <PageHeader
@@ -271,6 +285,9 @@ export default function ApsAtendimentoPage() {
             <Link className="btn ghost" href="/aps">
               Lista
             </Link>
+            <Link className="btn ghost" href={filaHref}>
+              Fila faturamento
+            </Link>
             <Link className="btn ghost" href="/faturamento/lote/fai">
               Lote FAI
             </Link>
@@ -278,6 +295,25 @@ export default function ApsAtendimentoPage() {
         }
       />
       <ErrorBox message={error} />
+      {ok && <p className="ok">{ok}</p>}
+
+      {enc.status === 'COMPLETED' && (
+        <section className="card" style={{ marginBottom: 16 }}>
+          <h2 style={{ marginTop: 0 }}>Pós-fechamento</h2>
+          <p style={{ marginTop: 0 }}>
+            <strong className="ok">Finalizado</strong> — lote{' '}
+            <code>individual_encounter</code> na fila APS.
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Link className="btn" href={filaHref}>
+              Abrir fila de faturamento
+            </Link>
+            <Link className="btn ghost" href="/faturamento/lote/fai">
+              Lote LEDI FAI
+            </Link>
+          </div>
+        </section>
+      )}
 
       <div className="split-clinical">
         <form className="card stack" onSubmit={onSave}>
@@ -526,9 +562,9 @@ export default function ApsAtendimentoPage() {
                 <span className="muted">LEDI warn {preview.fai.summary.qualityWarns}</span>
               </p>
               <p className="muted" style={{ fontSize: 13 }}>
-                Finalizar exige zero BLOCKER Siaps. Lote XML legado continua em{' '}
-                <Link href="/faturamento/lote/fai">/faturamento/lote/fai</Link>. Fila dedicada APS
-                (espelho /faturamento/odonto) fica para a próxima onda.
+                Finalizar exige zero BLOCKER Siaps. Depois: fila{' '}
+                <Link href="/faturamento/aps">/faturamento/aps</Link> · XML legado em{' '}
+                <Link href="/faturamento/lote/fai">/faturamento/lote/fai</Link>.
               </p>
               <h3 style={{ marginBottom: 4 }}>Siaps / LEDI</h3>
               <ul className="findings">

@@ -19,7 +19,10 @@ Não misturar com `/odonto` (FAO tipo 5).
 |---|---|---|
 | GET | `/api/v1/catalog/aps` | Condutas FAI (`LEDI_CONDUTA`), tipo 1/2/4/5/6, SIGTAP APS |
 | GET | `/api/v1/encounters` | Lista (`facilityId`, `origin=fai`) |
-| GET | `/api/v1/encounters/queue` | Fila ativa (ou filtro `status` / `facilityId`) |
+| GET | `/api/v1/encounters/queue` | Fila SOAP ativa (ou filtro `status` / `facilityId`) |
+| GET | `/api/v1/encounters/faturamento-queue` | Fila APS do mês (`competencia`, `facilityId`, `bucket`, `forceSync`) |
+| POST | `/api/v1/encounters/faturamento-queue/sync` | Revalida pendências em lote |
+| POST | `/api/v1/encounters/faturamento-queue/:id/sync` | Revalida um atendimento |
 | POST | `/api/v1/encounters` | Sem `faiOrigin`: abre `WAITING` (reusa fila do dia). Com `faiOrigin`: IN_PROGRESS + lotação/INE + `ProductionBatch` draft |
 | GET | `/api/v1/encounters/:id` | Detalhe + `clinical` + `care` (rascunho FAI) |
 | GET | `/api/v1/encounters/:id/preview-fai` | Payload `ledi-individual-v2` + `validateFaiJson` (Siaps-ready) |
@@ -45,7 +48,7 @@ Ao **finalizar** origem FAI:
 3. `validateFaiJson` — zero BLOCKER para `status=ready`.
 4. Atualiza o `ProductionBatch` existente (não cria segundo lote).
 
-XMLs legado (upload/correção) continuam em `/faturamento/lote/fai`. **Não há** fila UI `/faturamento/aps` nesta onda (espelho de `/faturamento/odonto`) — o gancho é o batch.
+XMLs legado (upload/correção) continuam em `/faturamento/lote/fai`. Fila UI: `/faturamento/aps` (espelho de `/faturamento/odonto`; deep-link `encounterId`/`batchId`).
 
 ## Parametrização
 

@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -59,13 +60,30 @@ import {
 } from './dental-billing-queue';
 import { FRANCA_LEDI_DEFAULTS } from './ledi-autofix.pipeline';
 import type { FaoFinding } from './ledi-fao.validator';
+import { ClinicalCoreService } from '../clinical-core/clinical-core.service';
+import {
+  faoMasterToNativeInput,
+  type NativeFichaInput,
+} from '../clinical-core/adapters/native-ficha.adapter';
 
 /** Cap da fila / sync de faturamento odonto (visível na UI). */
 export const DENTAL_FATURAMENTO_QUEUE_LIMIT = 500;
 
 @Injectable()
 export class CareExtraService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly clinicalCore?: ClinicalCoreService,
+  ) {}
+
+  private async tryPersistNative(input: NativeFichaInput) {
+    if (!this.clinicalCore) return null;
+    try {
+      return await this.clinicalCore.persistNativeEncounter(input);
+    } catch {
+      return null;
+    }
+  }
 
   private async resolveLotacao(opts: {
     professionalId?: string | null;
@@ -598,6 +616,43 @@ export class CareExtraService {
       include: { patient: true, facility: true, professional: true },
     });
     await this.syncDentalBillingQueue(id).catch(() => undefined);
+    if (updated.patient) {
+      const procedures = this.coerceProcedures(JSON.parse(updated.proceduresJson || '[]')) as Array<{
+        code: string;
+        done?: boolean;
+      }>;
+      await this.tryPersistNative({
+        fichaTipo: 'FAO',
+        encounterId: id,
+        status: 'in-progress',
+        periodStart: updated.startedAt?.toISOString(),
+        patient: {
+          id: updated.patient.id,
+          civilName: updated.patient.civilName,
+          cpf: updated.patient.cpf,
+          cns: updated.patient.cns,
+          birthDate: updated.patient.birthDate,
+          sex: updated.patient.sex,
+        },
+        practitionerCns: updated.professional?.cns,
+        cbo: nextCare.cbo,
+        cnes: updated.facility?.cnes,
+        localAtendimento: nextCare.localAtendimento,
+        turno: nextCare.turno,
+        tipoAtendimento: nextCare.tipoAtendimento,
+        gestante: nextCare.gestante,
+        stNaoPossuiCpf: nextCare.stNaoPossuiCpf,
+        justificativaNaoPossuiCpf: nextCare.justificativaNaoPossuiCpf,
+        procedures: procedures
+          .filter((p) => p.done !== false)
+          .map((p) => ({ code: p.code, quantity: 1 })),
+        conditions: nextCare.problemasCondicoes || [],
+        extensions: {
+          outcomes: nextCare.outcomes,
+          tiposVigilanciaSaudeBucal: nextCare.vigilanciaSaudeBucal,
+        },
+      });
+    }
     return this.serializeDental(updated);
   }
 
@@ -1231,10 +1286,33 @@ export class CareExtraService {
       faoConformant: faoReport.conformant,
       appointmentId: updated.appointmentId,
     });
+    const persisted = await this.tryPersistNative(
+      faoMasterToNativeInput(built.payload, {
+        encounterId: id,
+        patient: {
+          id: updated.patient.id,
+          civilName: updated.patient.civilName,
+          cpf: updated.patient.cpf,
+          cns: updated.patient.cns,
+          birthDate: updated.patient.birthDate,
+          sex: updated.patient.sex,
+        },
+        status: 'finished',
+      }),
+    );
     return {
       encounter: this.serializeDental(updated),
       productionBatch: { ...batch, payload: built.payload },
       fao: faoReport,
+      clinicalCore: persisted
+        ? {
+            productionRecordId: persisted.record.id,
+            created: persisted.created,
+            fichaTipo: 'FAO',
+            conditionCount: persisted.encounter.conditions.length,
+            procedureCount: persisted.encounter.procedures.length,
+          }
+        : null,
     };
   }
 

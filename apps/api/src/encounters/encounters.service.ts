@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,7 +23,12 @@ import {
   LEDI_TURNO,
 } from '../ledi/db-enums';
 import { validateFaiJson } from '../care-extra/ledi-fai.validator';
-import { competenciaFromDate } from '../care-extra/dental-billing-queue';
+import type { FaoFinding } from '../care-extra/ledi-fao.validator';
+import {
+  bucketFromFindings,
+  competenciaFromDate,
+  competenciaRange,
+} from '../care-extra/dental-billing-queue';
 import { sigtapSeedByTag, SIGTAP_SEED } from '../sigtap/seed';
 import {
   apsMunicipioIbgeFallback,
@@ -32,10 +38,33 @@ import {
   requireIneOnApsOpen,
   type ApsCareDraft,
 } from './aps-care.draft';
+import {
+  APS_FATURAMENTO_QUEUE_LIMIT,
+  apsMissingChecklist,
+  findingsFromMissing,
+} from './aps-billing-queue';
+import { ClinicalCoreService } from '../clinical-core/clinical-core.service';
+import {
+  faiMasterToNativeInput,
+  type NativeFichaInput,
+} from '../clinical-core/adapters/native-ficha.adapter';
 
 @Injectable()
 export class EncountersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly clinicalCore?: ClinicalCoreService,
+  ) {}
+
+  /** Persistência no motor não pode derrubar o lote LEDI / ProductionBatch. */
+  private async tryPersistNative(input: NativeFichaInput) {
+    if (!this.clinicalCore) return null;
+    try {
+      return await this.clinicalCore.persistNativeEncounter(input);
+    } catch {
+      return null;
+    }
+  }
 
   private parseClinical(json: string): ClinicalData {
     try {
@@ -467,6 +496,50 @@ export class EncountersService {
     if (isFaiOrigin(updated.clinicalJson) && updated.productionBatchId) {
       await this.syncApsBillingQueue(id).catch(() => undefined);
     }
+    if (isFaiOrigin(updated.clinicalJson) && updated.patient) {
+      const care = parseApsCare(updated.clinicalJson);
+      await this.tryPersistNative({
+        fichaTipo: 'FAI',
+        encounterId: id,
+        status: 'in-progress',
+        periodStart: updated.startedAt?.toISOString(),
+        patient: {
+          id: updated.patient.id,
+          civilName: updated.patient.civilName,
+          cpf: updated.patient.cpf,
+          cns: updated.patient.cns,
+          birthDate: updated.patient.birthDate,
+          sex: updated.patient.sex,
+        },
+        practitionerCns: updated.professional?.cns,
+        cbo: care.cbo,
+        cnes: updated.facility?.cnes,
+        localAtendimento: care.localAtendimento,
+        turno: care.turno,
+        tipoAtendimento: care.tipoAtendimento,
+        gestante: care.gestante,
+        stNaoPossuiCpf: care.stNaoPossuiCpf,
+        justificativaNaoPossuiCpf: care.justificativaNaoPossuiCpf,
+        procedures: (care.procedimentos || []).map((p) => ({
+          code: p.code,
+          quantity: p.quantidade,
+        })),
+        conditions: [
+          ...(care.problemasCondicoes || []),
+          ...(care.ciapCodes || []).map((ciap) => ({ ciap })),
+          ...(care.cidCodes || []).map((cid10) => ({ cid10 })),
+        ],
+        extensions: {
+          outcomes: care.outcomes,
+          soap: {
+            subjetivo: care.soapSubjective,
+            objetivo: care.soapObjective,
+            avaliacao: care.soapAssessment,
+            plano: care.soapPlan,
+          },
+        },
+      });
+    }
     return this.serialize(updated);
   }
 
@@ -483,47 +556,309 @@ export class EncountersService {
     };
   }
 
-  private async syncApsBillingQueue(id: string) {
+  /**
+   * Atualiza ProductionBatch ligado ao atendimento APS (FAI tipo 4)
+   * com snapshot de validação (fila /faturamento/aps).
+   */
+  async syncApsBillingQueue(encounterId: string) {
+    const row = await this.prisma.encounter.findUnique({
+      where: { id: encounterId },
+      include: { patient: true, facility: true, professional: true },
+    });
+    if (!row || !isFaiOrigin(row.clinicalJson)) return null;
+
+    const care = parseApsCare(row.clinicalJson);
+    let hasIne = false;
     try {
-      const built = await this.buildFaiPayload(id, {});
-      const fai = validateFaiJson(built.payload as unknown as Record<string, unknown>);
-      if (!built.row.productionBatchId) return;
-      const blockers = fai.summary.blockers;
-      await this.prisma.productionBatch.update({
-        where: { id: built.row.productionBatchId },
-        data: {
-          status: blockers > 0 ? 'error' : 'draft',
-          errorMessage:
-            blockers > 0
-              ? fai.findings
-                  .filter((f) => f.severity === 'BLOCKER')
-                  .map((f) => f.code)
-                  .slice(0, 10)
-                  .join(', ')
-              : 'Rascunho FAI — aguardando fechamento',
-          payloadJson: JSON.stringify({
-            ...built.payload,
-            encounterId: id,
-            competencia: competenciaFromDate(built.row.startedAt),
-            queue: true,
-            fichaTipo: 4,
-            faiValidation: fai,
-          }),
-          statusChangedAt: new Date(),
-        },
+      let teamIne: string | null = null;
+      if (row.teamId) {
+        const team = await this.prisma.team.findUnique({ where: { id: row.teamId } });
+        teamIne = team?.ine ?? null;
+      }
+      const lot = await this.resolveLotacao({
+        professionalId: row.professionalId,
+        facilityId: row.facilityId,
+        facilityCnes: row.facility.cnes,
+        professionalCns: row.professional?.cns,
+        teamId: row.teamId,
+        teamIne,
+        assignmentId: care.assignmentId || undefined,
+        cbo: care.cbo || undefined,
       });
-    } catch (e) {
-      const row = await this.prisma.encounter.findUnique({ where: { id } });
-      if (!row?.productionBatchId) return;
+      hasIne = !!lot.ine;
+    } catch {
+      hasIne = false;
+    }
+
+    const missing = apsMissingChecklist({
+      care,
+      patient: row.patient,
+      hasIne,
+      requireIne: requireIneOnApsOpen(),
+      proceduresCount: care.procedimentos?.length || 0,
+    });
+
+    let findings: FaoFinding[] = findingsFromMissing(missing);
+    let payload: Record<string, unknown> | null = null;
+    let faiSummary = { blockers: 0, moneyRisks: 0, qualityWarns: 0 };
+
+    const canTryPayload =
+      care.outcomes.length > 0 && care.problemasCondicoes.some((p) => p.ciap || p.cid10);
+
+    if (canTryPayload) {
+      try {
+        const built = await this.buildFaiPayload(encounterId, {});
+        payload = built.payload as unknown as Record<string, unknown>;
+        const fai = validateFaiJson(payload);
+        findings = [...findings, ...fai.findings];
+        faiSummary = fai.summary;
+      } catch (e) {
+        findings.push({
+          severity: 'BLOCKER',
+          code: 'PAYLOAD_BUILD_FAILED',
+          message: e instanceof Error ? e.message : String(e),
+          rule: 'QUEUE-build',
+        });
+      }
+    }
+
+    const seen = new Set<string>();
+    findings = findings.filter((f) => {
+      if (seen.has(f.code)) return false;
+      seen.add(f.code);
+      return true;
+    });
+    const blockers = findings.filter((f) => f.severity === 'BLOCKER').length;
+    const moneyRisks =
+      faiSummary.moneyRisks || findings.filter((f) => f.severity === 'MONEY_RISK').length;
+    const qualityWarns =
+      faiSummary.qualityWarns || findings.filter((f) => f.severity === 'QUALITY_WARN').length;
+    const open = row.status === 'IN_PROGRESS';
+    const bucket = bucketFromFindings(findings, open);
+    const batchStatus =
+      row.status === 'COMPLETED' && blockers === 0
+        ? 'ready'
+        : blockers > 0
+          ? 'error'
+          : 'draft';
+
+    const snapshot = {
+      encounterId: row.id,
+      facilityId: row.facilityId,
+      patientId: row.patientId,
+      competencia: competenciaFromDate(row.startedAt),
+      queue: true,
+      fichaTipo: 4,
+      bucket,
+      missing,
+      faiValidation: {
+        summary: { blockers, moneyRisks, qualityWarns },
+        findings,
+      },
+      ...(payload || {}),
+    };
+
+    const errorMessage =
+      blockers > 0
+        ? findings
+            .filter((f) => f.severity === 'BLOCKER')
+            .map((f) => f.code)
+            .slice(0, 10)
+            .join(', ')
+        : open
+          ? 'Em atendimento APS — aguardando fechamento'
+          : null;
+
+    if (row.productionBatchId) {
       await this.prisma.productionBatch.update({
         where: { id: row.productionBatchId },
         data: {
-          status: 'error',
-          errorMessage: e instanceof Error ? e.message : String(e),
+          status: batchStatus,
+          payloadJson: JSON.stringify(snapshot),
+          errorMessage,
           statusChangedAt: new Date(),
         },
       });
+      return { productionBatchId: row.productionBatchId, bucket, blockers };
     }
+
+    const batch = await this.prisma.productionBatch.create({
+      data: {
+        kind: 'individual_encounter',
+        status: batchStatus,
+        rfIdsCsv: [RF.ENCOUNTER_CLINICAL.id, RF.ESUS.id, RF.PROD.id].join(','),
+        payloadJson: JSON.stringify(snapshot),
+        errorMessage,
+        statusChangedAt: new Date(),
+      },
+    });
+    await this.prisma.encounter.update({
+      where: { id: row.id },
+      data: { productionBatchId: batch.id },
+    });
+    return { productionBatchId: batch.id, bucket, blockers };
+  }
+
+  async syncApsFaturamentoQueueBatch(opts: {
+    competencia?: string;
+    facilityId?: string;
+    encounterIds?: string[];
+  }) {
+    const competencia = opts.competencia || competenciaFromDate(new Date());
+    const { start, end } = competenciaRange(competencia);
+    const openStatuses = ['IN_PROGRESS', 'COMPLETED'];
+    const where = {
+      status: { in: openStatuses },
+      clinicalJson: { contains: '"faiOrigin":true' },
+      ...(opts.encounterIds?.length
+        ? { id: { in: opts.encounterIds } }
+        : {
+            startedAt: { gte: start, lt: end },
+            ...(opts.facilityId ? { facilityId: opts.facilityId } : {}),
+          }),
+    };
+    const matchedTotal = await this.prisma.encounter.count({ where });
+    const rows = await this.prisma.encounter.findMany({
+      where,
+      select: { id: true },
+      take: APS_FATURAMENTO_QUEUE_LIMIT,
+      orderBy: { startedAt: 'desc' },
+    });
+    let synced = 0;
+    let failed = 0;
+    const results: Array<{ encounterId: string; ok: boolean; bucket?: string }> = [];
+    for (const row of rows) {
+      try {
+        const out = await this.syncApsBillingQueue(row.id);
+        synced += 1;
+        results.push({
+          encounterId: row.id,
+          ok: true,
+          bucket: out?.bucket,
+        });
+      } catch {
+        failed += 1;
+        results.push({ encounterId: row.id, ok: false });
+      }
+    }
+    return {
+      competencia,
+      synced,
+      failed,
+      total: rows.length,
+      matchedTotal,
+      limit: APS_FATURAMENTO_QUEUE_LIMIT,
+      capped: matchedTotal > rows.length,
+      results,
+    };
+  }
+
+  async listApsFaturamentoQueue(opts: {
+    competencia?: string;
+    facilityId?: string;
+    bucket?: string;
+    forceSync?: boolean;
+  }) {
+    const competencia = opts.competencia || competenciaFromDate(new Date());
+    const { start, end } = competenciaRange(competencia);
+    const openStatuses = ['IN_PROGRESS', 'COMPLETED'];
+    const where = {
+      startedAt: { gte: start, lt: end },
+      ...(opts.facilityId ? { facilityId: opts.facilityId } : {}),
+      status: { in: openStatuses },
+      clinicalJson: { contains: '"faiOrigin":true' },
+    };
+    const matchedTotal = await this.prisma.encounter.count({ where });
+    const rows = await this.prisma.encounter.findMany({
+      where,
+      orderBy: { startedAt: 'desc' },
+      take: APS_FATURAMENTO_QUEUE_LIMIT,
+      include: { patient: true, facility: true, professional: true },
+    });
+    const capped = matchedTotal > rows.length;
+
+    const items = [];
+    for (const row of rows) {
+      if (!isFaiOrigin(row.clinicalJson)) continue;
+      if (opts.forceSync || row.status === 'IN_PROGRESS' || !row.productionBatchId) {
+        await this.syncApsBillingQueue(row.id).catch(() => undefined);
+      }
+      const fresh = await this.prisma.encounter.findUnique({
+        where: { id: row.id },
+        include: { patient: true, facility: true, professional: true },
+      });
+      if (!fresh) continue;
+      const batch = fresh.productionBatchId
+        ? await this.prisma.productionBatch.findUnique({ where: { id: fresh.productionBatchId } })
+        : null;
+      const payload = JSON.parse(batch?.payloadJson || '{}') as {
+        bucket?: string;
+        faiValidation?: {
+          summary?: { blockers?: number; moneyRisks?: number; qualityWarns?: number };
+          findings?: FaoFinding[];
+        };
+        missing?: Array<{ code: string; severity: string; message: string }>;
+      };
+      const findings = payload.faiValidation?.findings || [];
+      const summary = payload.faiValidation?.summary || {
+        blockers: findings.filter((f) => f.severity === 'BLOCKER').length,
+        moneyRisks: findings.filter((f) => f.severity === 'MONEY_RISK').length,
+        qualityWarns: findings.filter((f) => f.severity === 'QUALITY_WARN').length,
+      };
+      const bucket =
+        payload.bucket || bucketFromFindings(findings, fresh.status === 'IN_PROGRESS');
+      if (opts.bucket && opts.bucket !== 'all' && bucket !== opts.bucket) continue;
+
+      const topCodes = [...new Set(findings.map((f) => f.code))].slice(0, 8);
+      items.push({
+        encounterId: fresh.id,
+        productionBatchId: fresh.productionBatchId,
+        patient: {
+          id: fresh.patient.id,
+          name: fresh.patient.socialName || fresh.patient.civilName,
+          cpf: fresh.patient.cpf,
+          cns: fresh.patient.cns,
+        },
+        facility: {
+          id: fresh.facility.id,
+          name: fresh.facility.name,
+          cnes: fresh.facility.cnes,
+        },
+        professionalName: fresh.professional?.civilName || null,
+        startedAt: fresh.startedAt,
+        finishedAt: fresh.finishedAt,
+        encounterStatus: fresh.status,
+        batchStatus: batch?.status || 'draft',
+        bucket,
+        summary,
+        topCodes,
+        findings,
+        missing: payload.missing || [],
+        href: `/aps/${fresh.id}`,
+      });
+    }
+
+    const totals = {
+      total: items.length,
+      blocker: items.filter((i) => i.bucket === 'blocker').length,
+      money: items.filter((i) => i.bucket === 'money').length,
+      quality: items.filter((i) => i.bucket === 'quality').length,
+      incomplete: items.filter((i) => i.bucket === 'incomplete').length,
+      ok: items.filter((i) => i.bucket === 'ok').length,
+      ready: items.filter((i) => i.batchStatus === 'ready').length,
+      sent: items.filter((i) => i.batchStatus === 'sent').length,
+      open: items.filter((i) => i.encounterStatus === 'IN_PROGRESS').length,
+    };
+
+    return {
+      competencia,
+      facilityId: opts.facilityId || null,
+      totals,
+      items,
+      limit: APS_FATURAMENTO_QUEUE_LIMIT,
+      matchedTotal,
+      capped,
+    };
   }
 
   private async buildFaiPayload(id: string, dto: Partial<FinishEncounterDto> = {}) {
@@ -782,6 +1117,22 @@ export class EncountersService {
       siapsReady: fai.siapsReady,
     });
 
+    const persisted = await this.tryPersistNative(
+      faiMasterToNativeInput(built.payload, {
+        encounterId: id,
+        patient: {
+          id: updated.patient.id,
+          civilName: updated.patient.civilName,
+          cpf: updated.patient.cpf,
+          cns: updated.patient.cns,
+          birthDate: updated.patient.birthDate,
+          sex: updated.patient.sex,
+        },
+        status: 'finished',
+        gestante: built.care.gestante,
+      }),
+    );
+
     return {
       encounter: this.serialize(updated),
       productionBatch: {
@@ -791,6 +1142,15 @@ export class EncountersService {
         payload: built.payload,
       },
       fai,
+      clinicalCore: persisted
+        ? {
+            productionRecordId: persisted.record.id,
+            created: persisted.created,
+            fichaTipo: 'FAI',
+            conditionCount: persisted.encounter.conditions.length,
+            procedureCount: persisted.encounter.procedures.length,
+          }
+        : null,
     };
   }
 }

@@ -83,6 +83,13 @@ export class SaveClinicalDto {
   procedimentos?: ApsProcedimentoDto[];
 }
 
+/** Revalida pendências LEDI da fila de faturamento APS (sync em lote). */
+export class SyncApsFaturamentoQueueDto {
+  @IsOptional() @IsString() competencia?: string;
+  @IsOptional() @IsString() facilityId?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) encounterIds?: string[];
+}
+
 export class FinishEncounterDto {
   @IsArray()
   @ArrayMinSize(1)
