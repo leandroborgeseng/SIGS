@@ -75,9 +75,10 @@ export function FileDropZone({
         {acceptHint ? ` — ${acceptHint}` : ''}, ou use o botão abaixo.
       </p>
       <p className="muted" style={{ fontSize: 13 }}>
-        Se a leitura falhar: use “Escolher de novo”, confira se o arquivo não está vazio e
-        que o ZIP não ultrapassa o limite (80&nbsp;MB). Em macOS, arquivos só na nuvem
-        (Downloads/iCloud) às vezes também falham — nesse caso, copie para pasta local.
+        Se a leitura falhar: use “Escolher de novo”, confira se o arquivo não está vazio.
+        O ZIP é descompactado no navegador (pastas e-SUS / __MACOSX ok); as fichas sobem
+        em lotes pequenos. Em macOS, arquivos só na nuvem (Downloads/iCloud) às vezes
+        falham — copie para pasta local (Desktop).
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         <button

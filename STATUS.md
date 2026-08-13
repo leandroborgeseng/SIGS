@@ -27,11 +27,11 @@
 
 ### Entregue nesta onda
 - **Ficha APS origem FAI tipo 4:** abrir/listar com paciente + profissional + lotação/INE; `care` mínimo (CIAP/CID, SIGTAP, condutas FAI); preview Siaps-ready; finish atualiza `ProductionBatch` `individual_encounter`; UI `/aps` no grupo clínico (não mistura `/odonto`)
-- **Hotfix ZIP LEDI:** fatias **512 KiB** via **POST** `…/upload-zip/chunk` (`application/octet-stream`, same-origin `/api`, retry 3× em “Load failed”) — 2.0 MB/PUT caía no Safari sem HTTP; junta em disco; tmp órfão com TTL 2h
+- **Hotfix ZIP LEDI (browser):** a UI **não** manda o ZIP pelo gateway (`/upload-zip/chunk` quebrava `sistemas.zip` ~14 MB no Railway). Descompacta no cliente (`fflate`), ignora `__MACOSX`, envia XMLs em fatias ≤1 MB / ~80 fichas via `POST /upload` + `/:batchId/upload` (mesmo caminho do Arquivo.zip). Progresso `fichas 200/8149`. Tipo LEDI conferido — FAO na tela FAI é recusado. Amostra achatada: `node tools/make-sistemas-fai-amostra.cjs` → Desktop `sistemas-fai-amostra.zip` (~200 FAI). Job async ≥1500 permanece no ingest ZIP (CLI).
 
 ### Pendente
 1. Smoke visual browser: `/aps` → ficha → CIAP/CID + SIGTAP + conduta → finalizar → conferir batch; `/odonto/agenda` → abrir → ficha → odontograma Q/S + histórico + catálogo SIGTAP concluir → finalizar → fila → ZIP FAI/FAO
-2. Railway: confirmar `JWT_SECRET` ok; `SEED_ADMIN_PASSWORD` ≥12 chars; smoke ZIP FAI/FAO em `/faturamento/lote/*` (ZIP em **POST chunks 512 KiB** `/upload-zip/chunk`, não multipart único; job async se ≥1500 XMLs)
+2. Railway: confirmar `JWT_SECRET` ok; `SEED_ADMIN_PASSWORD` ≥12 chars; smoke ZIP FAI em `/faturamento/lote/fai` com `sistemas.zip` (unzip no browser → fatias XML) ou `sistemas-fai-amostra.zip` no Desktop; FAO com `Arquivo.zip` em `/faturamento/lote/fao`
 3. Fila UI `/faturamento/aps` (espelho `/faturamento/odonto`) — gancho de batch já existe
 4. LEDI P1 — campos individuais na ficha ligados ao motor `clinical-core`
 5. Redis/Bull (opcional em prod — hoje opcional no boot)
@@ -44,4 +44,4 @@
 - Sem dados reais de pacientes
 - **Hotfix prod:** entrypoint trata `prisma db push` + `--accept-data-loss` após dedupe de `appointment_id` (unique agenda odonto)
 
-_Atualizado em 2026-08-13 (hotfix ZIP LEDI em chunks + APS FAI origem tipo 4)_
+_Atualizado em 2026-08-13 (upload LEDI: unzip no browser + fatias XML; APS FAI origem tipo 4)_

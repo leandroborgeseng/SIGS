@@ -191,7 +191,7 @@ export class CareExtraController {
     }
   }
 
-  /** Upload de um .zip multipart (caminho legado — até 80mb). Preferir /upload-zip/chunk. */
+  /** Upload de um .zip multipart (caminho legado / CLI — até 80mb). A UI não usa: unzip no browser. */
   @Post('dental/ledi/batches/upload-zip')
   @UseInterceptors(ZIP_UPLOAD)
   async createFaoBatchFromZip(
@@ -218,8 +218,8 @@ export class CareExtraController {
   }
 
   /**
-   * Fatia raw do ZIP (512 KiB na UI). POST preferido (CORS/preflight);
-   * PUT permanece por compat. A última fatia monta o ZIP em disco e ingere.
+   * Fatia raw do ZIP (legado CLI / ferramentas). A UI descompacta no browser
+   * e envia XMLs em POST /upload — o ZIP grande não passa pelo gateway.
    */
   @Post('dental/ledi/batches/upload-zip/chunk')
   @Put('dental/ledi/batches/upload-zip/chunk')
@@ -263,14 +263,23 @@ export class CareExtraController {
   appendFaoBatchUpload(
     @Param('batchId') batchId: string,
     @UploadedFiles() files: Express.Multer.File[],
+    @Query('summarize') summarize?: string,
     @Body('expectedTipo') _expectedTipo?: string,
   ) {
-    return this.faoBatches.appendFiles(batchId, mapUploadedXmls(files));
+    return this.faoBatches.appendFiles(batchId, mapUploadedXmls(files), {
+      refreshSummary: summarize !== '0' && summarize !== 'false',
+    });
   }
 
   @Post('dental/ledi/batches/:batchId/append')
-  appendFaoBatchJson(@Param('batchId') batchId: string, @Body() dto: AppendLediFaoBatchDto) {
-    return this.faoBatches.appendFiles(batchId, dto.files || []);
+  appendFaoBatchJson(
+    @Param('batchId') batchId: string,
+    @Body() dto: AppendLediFaoBatchDto,
+    @Query('summarize') summarize?: string,
+  ) {
+    return this.faoBatches.appendFiles(batchId, dto.files || [], {
+      refreshSummary: summarize !== '0' && summarize !== 'false',
+    });
   }
 
   @Delete('dental/ledi/batches')

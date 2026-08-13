@@ -631,8 +631,20 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>1. Enviar XMLs {meta.label}</h3>
         <p className="muted">
-          Para pastas grandes: no Finder, clique direito → <strong>Comprimir</strong> e envie o .zip
-          (preferível a partir do Desktop).
+          ZIP (pasta e-SUS ou achatado) é aberto no navegador; as fichas sobem em lotes de ~80
+          XMLs. Tipo LEDI conferido antes do envio
+          {expectedTipo === 'FAI' ? (
+            <>
+              {' '}
+              — FAO vai em <Link href="/faturamento/lote/fao">Lote FAO</Link>
+            </>
+          ) : (
+            <>
+              {' '}
+              — FAI vai em <Link href="/faturamento/lote/fai">Lote FAI</Link>
+            </>
+          )}
+          .
         </p>
         <div className="field">
           <label>Nome do lote (opcional)</label>

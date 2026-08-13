@@ -417,17 +417,32 @@ export class LediFaoBatchService {
     }
   }
 
-  /** Acrescenta XMLs a um lote existente (upload em pedaços via JSON). */
-  async appendFiles(batchId: string, files: Array<{ name: string; xml: string }>) {
+  /** Acrescenta XMLs a um lote existente (upload em pedaços via JSON/multipart). */
+  async appendFiles(
+    batchId: string,
+    files: Array<{ name: string; xml: string }>,
+    opts?: { refreshSummary?: boolean },
+  ) {
     await this.ensureBatch(batchId);
     if (!files?.length) throw new BadRequestException('Envie ao menos um arquivo XML.');
     if (files.length > 500) {
       throw new BadRequestException('Limite de 500 arquivos por pedaço de upload.');
     }
+    const maxFiles = lediBatchMaxFiles();
+    const existing = await this.prisma.lediFaoBatchItem.count({ where: { batchId } });
+    if (existing + files.length > maxFiles) {
+      throw new BadRequestException(
+        `Limite de ${maxFiles} arquivos por lote (já ${existing}, +${files.length}). Divida o ZIP.`,
+      );
+    }
     const expectedTipo = await this.expectedTipoOf(batchId);
     const prepared = await this.prepareItems(files, expectedTipo, batchId);
     await this.createManyItems(prepared.map((p) => ({ ...p, batchId })));
-    await this.refreshBatchSummary(batchId);
+    if (opts?.refreshSummary === false) {
+      await this.bumpBatchTotal(batchId, prepared.length);
+    } else {
+      await this.refreshBatchSummary(batchId);
+    }
     return this.get(batchId);
   }
 
@@ -463,7 +478,8 @@ export class LediFaoBatchService {
       expectedTipo?: string;
     };
     let summary = JSON.parse(batch.summaryJson || '{}') as BatchSummaryView;
-    if (!summary.treatment) {
+    const itemCount = await this.prisma.lediFaoBatchItem.count({ where: { batchId: id } });
+    if (!summary.treatment || (summary.total != null && summary.total !== itemCount)) {
       await this.refreshBatchSummary(id);
       const again = await this.prisma.lediFaoBatch.findUnique({ where: { id } });
       summary = JSON.parse(again?.summaryJson || '{}') as BatchSummaryView;
@@ -1248,8 +1264,6 @@ export class LediFaoBatchService {
         previneJson: true,
         fileName: true,
         fichaTipo: true,
-        currentXml: true,
-        originalXml: true,
       },
     });
     const summary = {
@@ -1265,6 +1279,20 @@ export class LediFaoBatchService {
     await this.prisma.lediFaoBatch.update({
       where: { id: batchId },
       data: { summaryJson: JSON.stringify(summary), status },
+    });
+  }
+
+  /** Fatias intermediárias: só incrementa total, sem reler o lote inteiro. */
+  private async bumpBatchTotal(batchId: string, delta: number) {
+    const batch = await this.prisma.lediFaoBatch.findUnique({
+      where: { id: batchId },
+      select: { summaryJson: true },
+    });
+    const prev = JSON.parse(batch?.summaryJson || '{}') as { total?: number };
+    const total = (typeof prev.total === 'number' ? prev.total : 0) + delta;
+    await this.prisma.lediFaoBatch.update({
+      where: { id: batchId },
+      data: { summaryJson: JSON.stringify({ ...prev, total }) },
     });
   }
 }

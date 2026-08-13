@@ -2,6 +2,7 @@
 
 import { ApiError, isNetworkError, NetworkError } from '@/lib/api';
 import { isIoReadError } from '@/lib/read-binary-file';
+import { isLediTipoMismatchError } from '@/lib/ledi-xml-batch';
 
 function formatMb(bytes?: number): string | null {
   if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return null;
@@ -9,6 +10,9 @@ function formatMb(bytes?: number): string | null {
 }
 
 export function formatUploadError(err: unknown): string {
+  if (isLediTipoMismatchError(err)) {
+    return err instanceof Error ? err.message : 'Tipo LEDI não corresponde a esta tela.';
+  }
   if (err instanceof NetworkError || isNetworkError(err)) {
     if (err instanceof NetworkError) return err.message;
     const size = formatMb((err as { bytesHint?: number }).bytesHint);
@@ -29,7 +33,7 @@ export function formatUploadError(err: unknown): string {
     if (/unexpected end of form|boundary not found/i.test(err.message)) {
       return (
         `Falha no envio (HTTP ${err.status}): multipart incompleto (${err.message}). ` +
-        `O ZIP grande deve ir em partes (octet-stream), não num FormData único. ` +
+        `O ZIP é aberto no navegador; só os XMLs sobem em lotes pequenos. ` +
         `Recarregue a página após o deploy e envie de novo; se persistir, verifique a rede.`
       );
     }

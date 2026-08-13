@@ -1,12 +1,21 @@
 /**
  * Upload de lote LEDI (FAI / FAO / PROC).
- * ZIP: fatias octet-stream 512 KiB via POST — 2.0 MB redondo caía no Safari/Railway
- * sem HTTP (“Load failed”). XML: FormData multipart (arquivos pequenos).
+ *
+ * ZIP: descompacta no browser (fflate) e envia XMLs em fatias ≤1 MB / ~80
+ * fichas via POST /upload e POST /:batchId/upload — o caminho que já funciona
+ * para Arquivo.zip / XMLs soltos. Não manda o ZIP pelo gateway (/chunk).
  */
 
-import { apiUpload, api, apiBinary, ApiError, getToken, isNetworkError, NetworkError } from '@/lib/api';
-import { IoReadError, isIoReadError, formatBytes } from '@/lib/read-binary-file';
-import { isAsyncJobResponse, waitForJob } from '@/lib/jobs';
+import { apiUpload, getToken, isNetworkError, NetworkError, ApiError } from '@/lib/api';
+import { IoReadError, isIoReadError, formatBytes, readBinaryFile } from '@/lib/read-binary-file';
+import {
+  assertLediTipoMatch,
+  isMemoryError,
+  sliceEntryRanges,
+  unzipFallbackMessage,
+  type LediLoteTipo,
+} from '@/lib/ledi-xml-batch';
+import { entryToXml, unzipLediXmlEntries, type LediZipXmlEntry } from '@/lib/ledi-zip-client';
 
 export type LediUploadResult<T> = {
   batch: T;
@@ -16,10 +25,9 @@ export type LediUploadResult<T> = {
 
 /** Alinhado ao FileInterceptor ZIP na API (80 MB). */
 export const MAX_ZIP_BYTES = 80 * 1024 * 1024;
-/** Fatia octet-stream — 512 KiB (nunca 2.0 MB redondo: Safari/Railway derruba). */
-export const ZIP_CHUNK_BYTES = 512 * 1024;
 /** Limite prático por XML no multipart da API. */
 export const MAX_XML_BYTES = 5 * 1024 * 1024;
+const TIPO_SAMPLE = 8;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -84,7 +92,6 @@ async function postFormWithRetry<T>(
       return await apiUpload<T>(path, buildForm(), { bytesHint: opts.bytesHint });
     } catch (e) {
       last = e;
-      // Retry só em falha de rede sem HTTP (Load failed / Failed to fetch).
       if (!isNetworkError(e) && !(e instanceof NetworkError)) throw e;
       if (e instanceof ApiError) throw e;
     }
@@ -92,88 +99,123 @@ async function postFormWithRetry<T>(
   throw last;
 }
 
-function newUploadId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+function xmlToFile(name: string, xml: string): File {
+  return new File([xml], name, { type: 'application/xml' });
 }
 
-async function postZipChunkWithRetry<T>(
-  path: string,
-  blob: Blob,
-  opts: { bytesHint: number; onProgress?: (msg: string) => void; label: string },
-): Promise<T> {
-  const attempts = 3;
-  let last: unknown;
-  for (let i = 0; i < attempts; i++) {
-    if (i > 0) {
-      opts.onProgress?.(`Reenviando ${opts.label} (tentativa ${i + 1}/${attempts})…`);
-      await sleep(400 * i);
-    }
-    try {
-      return await apiBinary<T>(path, blob, { bytesHint: opts.bytesHint, method: 'POST' });
-    } catch (e) {
-      last = e;
-      // Retry 2–3× em TypeError “Load failed” / Failed to fetch (sem HTTP).
-      if (!isNetworkError(e) && !(e instanceof NetworkError)) throw e;
-      if (e instanceof ApiError) throw e;
-    }
-  }
-  throw last;
+function buildXmlForm(files: File[], extra?: { name?: string; expectedTipo: LediLoteTipo }): FormData {
+  const form = new FormData();
+  for (const f of files) form.append('files', f, f.name);
+  if (extra?.name) form.append('name', extra.name);
+  if (extra?.expectedTipo) form.append('expectedTipo', extra.expectedTipo);
+  return form;
 }
 
-async function uploadZipInChunks<T extends { id: string; summary?: { total?: number } }>(opts: {
-  zip: File;
-  name?: string;
-  expectedTipo: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
-  onProgress?: (msg: string) => void;
-}): Promise<T | { async: true; jobId: string; xmlCount?: number }> {
-  const { zip } = opts;
-  const uploadId = newUploadId();
-  const total = Math.max(1, Math.ceil(zip.size / ZIP_CHUNK_BYTES));
+async function unzipZipFile(
+  zip: File,
+  onProgress?: (msg: string) => void,
+): Promise<LediZipXmlEntry[]> {
+  assertZipSize(zip);
   const sizeLabel = formatBytes(zip.size) || `${zip.size} B`;
-  opts.onProgress?.(
-    `Enviando ZIP ${zip.name} (${sizeLabel}) em ${total} parte${total === 1 ? '' : 's'}…`,
-  );
-
-  let last: T | { async: true; jobId: string; xmlCount?: number } | { complete?: boolean } | undefined;
-  for (let i = 0; i < total; i++) {
-    const start = i * ZIP_CHUNK_BYTES;
-    const end = Math.min(start + ZIP_CHUNK_BYTES, zip.size);
-    const blob = zip.slice(start, end);
-    opts.onProgress?.(`Enviando parte ${i + 1}/${total} (${sizeLabel})…`);
-
-    const qs = new URLSearchParams({
-      uploadId,
-      index: String(i),
-      total: String(total),
-      fileName: zip.name,
-      expectedTipo: opts.expectedTipo,
-      name: opts.name || zip.name.replace(/\.zip$/i, ''),
-      totalBytes: String(zip.size),
+  onProgress?.(`Lendo ZIP ${zip.name} (${sizeLabel}) no navegador…`);
+  let buf: ArrayBuffer;
+  try {
+    buf = await readBinaryFile(zip, {
+      onAttempt: (label) => onProgress?.(label),
     });
-    const chunk = await postZipChunkWithRetry<
-      T | { async: true; jobId: string; xmlCount?: number } | { complete?: boolean; received?: number }
-    >(`/v1/dental/ledi/batches/upload-zip/chunk?${qs.toString()}`, blob, {
-      bytesHint: blob.size,
-      onProgress: opts.onProgress,
-      label: `parte ${i + 1}/${total}`,
+  } catch (e) {
+    if (isMemoryError(e)) throw new Error(unzipFallbackMessage(zip.name));
+    throw e;
+  }
+  onProgress?.(`Descompactando ${zip.name} (XMLs ficam aqui; o ZIP não sobe)…`);
+  try {
+    const u8 = new Uint8Array(buf);
+    return await unzipLediXmlEntries(u8, zip.name);
+  } catch (e) {
+    if (isMemoryError(e)) throw new Error(unzipFallbackMessage(zip.name));
+    throw e;
+  }
+}
+
+async function xmlFilesToEntries(
+  xmls: File[],
+  onProgress?: (msg: string) => void,
+): Promise<{ entries: LediZipXmlEntry[]; failedNames: string[] }> {
+  const tooBig = xmls.filter((f) => f.size > MAX_XML_BYTES);
+  if (tooBig.length) {
+    const f = tooBig[0]!;
+    throw new Error(
+      `XML “${f.name}” tem ${formatBytes(f.size)}; limite por arquivo é ${formatBytes(MAX_XML_BYTES)}.`,
+    );
+  }
+  const empty = xmls.filter((f) => f.size === 0);
+  if (empty.length === xmls.length) {
+    throw new IoReadError({
+      fileName: empty[0]?.name || 'XMLs',
+      fileSize: 0,
+      cause: new Error('Todos os XMLs têm 0 bytes'),
     });
-    last = chunk;
-    if (i < total - 1 && chunk && typeof chunk === 'object' && 'complete' in chunk && chunk.complete === true) {
-      break;
+  }
+  const usable = xmls.filter((f) => f.size > 0);
+  const failedNames = empty.map((f) => f.name);
+  const entries: LediZipXmlEntry[] = [];
+  for (let i = 0; i < usable.length; i++) {
+    const f = usable[i]!;
+    onProgress?.(`Lendo XML ${i + 1}/${usable.length}: ${f.name}…`);
+    try {
+      const buf = await readBinaryFile(f);
+      const bytes = new Uint8Array(buf);
+      if (!bytes.length) {
+        failedNames.push(f.name);
+        continue;
+      }
+      entries.push({ name: f.name.slice(0, 255), bytes });
+    } catch {
+      failedNames.push(f.name);
     }
   }
-
-  if (!last || (typeof last === 'object' && 'complete' in last && last.complete === false)) {
-    throw new Error('Upload em partes não concluiu — tente de novo.');
+  if (!entries.length) {
+    throw new Error('Nenhum XML válido para enviar.');
   }
-  return last as T | { async: true; jobId: string; xmlCount?: number };
+  return { entries, failedNames };
+}
+
+function sampleXmls(entries: LediZipXmlEntry[], n = TIPO_SAMPLE): string[] {
+  const out: string[] = [];
+  const last = Math.min(n, entries.length);
+  for (let i = 0; i < last; i++) {
+    const parsed = entryToXml(entries[i]!);
+    if (parsed?.xml) out.push(parsed.xml);
+  }
+  if (entries.length > n) {
+    const parsed = entryToXml(entries[entries.length - 1]!);
+    if (parsed?.xml) out.push(parsed.xml);
+  }
+  return out;
+}
+
+async function postXmlSlice<T>(opts: {
+  files: File[];
+  batchId?: string;
+  name?: string;
+  expectedTipo: LediLoteTipo;
+  summarize: boolean;
+  bytesHint: number;
+  onProgress?: (msg: string) => void;
+  label: string;
+}): Promise<T> {
+  const path = opts.batchId
+    ? `/v1/dental/ledi/batches/${opts.batchId}/upload${opts.summarize ? '' : '?summarize=0'}`
+    : '/v1/dental/ledi/batches/upload';
+  return postFormWithRetry<T>(
+    path,
+    () =>
+      buildXmlForm(
+        opts.files,
+        opts.batchId ? undefined : { name: opts.name, expectedTipo: opts.expectedTipo },
+      ),
+    { bytesHint: opts.bytesHint, onProgress: opts.onProgress, label: opts.label },
+  );
 }
 
 export async function uploadLediBatchMultipart<
@@ -181,7 +223,7 @@ export async function uploadLediBatchMultipart<
 >(opts: {
   files: File[];
   name?: string;
-  expectedTipo: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+  expectedTipo: LediLoteTipo;
   onProgress?: (msg: string) => void;
 }): Promise<LediUploadResult<T>> {
   if (!opts.files.length) throw new Error('Selecione arquivos .xml ou um .zip');
@@ -189,96 +231,76 @@ export async function uploadLediBatchMultipart<
 
   const zips = opts.files.filter((f) => /\.zip$/i.test(f.name));
   const xmls = opts.files.filter((f) => /\.xml$/i.test(f.name));
+  const zip = zips[0];
 
   try {
-    if (zips.length) {
-      if (zips.length > 1) throw new Error('Envie um ZIP por vez.');
-      const zip = zips[0]!;
-      assertZipSize(zip);
+    if (zips.length > 1) throw new Error('Envie um ZIP por vez.');
 
-      const sizeLabel = formatBytes(zip.size) || `${zip.size} B`;
-      opts.onProgress?.(`Enviando ZIP ${zip.name} (${sizeLabel}) em partes (sem multipart grande)…`);
+    let entries: LediZipXmlEntry[];
+    let failedNames: string[] = [];
 
-      const uploaded = await uploadZipInChunks<T>({
-        zip,
+    if (zip) {
+      entries = await unzipZipFile(zip, opts.onProgress);
+    } else {
+      if (!xmls.length) throw new Error('Selecione arquivos .xml ou um .zip');
+      const read = await xmlFilesToEntries(xmls, opts.onProgress);
+      entries = read.entries;
+      failedNames = read.failedNames;
+    }
+
+    const total = entries.length;
+    opts.onProgress?.(`Conferindo tipo LEDI (${Math.min(TIPO_SAMPLE, total)} fichas)…`);
+    assertLediTipoMatch({
+      expectedTipo: opts.expectedTipo,
+      sampleXmls: sampleXmls(entries),
+    });
+
+    const ranges = sliceEntryRanges(entries.map((e) => e.bytes.byteLength));
+    let batch: T | undefined;
+    let uploaded = 0;
+
+    for (let r = 0; r < ranges.length; r++) {
+      const { start, end } = ranges[r]!;
+      const slice = entries.slice(start, end);
+      const files: File[] = [];
+      let bytesHint = 0;
+      for (const entry of slice) {
+        const parsed = entryToXml(entry);
+        if (!parsed) {
+          failedNames.push(entry.name);
+          continue;
+        }
+        files.push(xmlToFile(parsed.name, parsed.xml));
+        bytesHint += parsed.xml.length;
+      }
+      if (!files.length) continue;
+
+      const after = uploaded + files.length;
+      const last = r === ranges.length - 1;
+      if (last && total >= 1500) {
+        opts.onProgress?.(`fichas ${after}/${total} — consolidando análise do lote…`);
+      } else {
+        opts.onProgress?.(`fichas ${after}/${total}`);
+      }
+      batch = await postXmlSlice<T>({
+        files,
+        batchId: batch?.id,
         name: opts.name,
         expectedTipo: opts.expectedTipo,
+        summarize: last,
+        bytesHint,
         onProgress: opts.onProgress,
+        label: `fichas ${after}/${total}`,
       });
-
-      let batch: T;
-      if (isAsyncJobResponse(uploaded)) {
-        const n = uploaded.xmlCount;
-        opts.onProgress?.(
-          n
-            ? `ZIP aceito (${n} XMLs). Analisando no servidor — lotes grandes como sistemas.zip não cabem no request HTTP…`
-            : 'ZIP aceito. Analisando no servidor…',
-        );
-        const job = await waitForJob(uploaded.jobId, {
-          timeoutMs: 15 * 60_000,
-          onProgress: (j) => {
-            const pct = j.progressPct != null ? ` ${j.progressPct}%` : '';
-            opts.onProgress?.(j.progressMessage ? `${j.progressMessage}${pct}` : `Processando ZIP…${pct}`);
-          },
-        });
-        if (job.status !== 'completed') {
-          throw new Error(job.errorMessage || `Falha ao importar ZIP (${job.status})`);
-        }
-        const batchId = job.result?.batchId;
-        if (typeof batchId !== 'string' || !batchId) {
-          throw new Error('Importação concluiu sem id de lote — recarregue Faturamento → Lote.');
-        }
-        batch = await api<T>(`/v1/dental/ledi/batches/${batchId}`);
-      } else {
-        batch = uploaded;
+      uploaded = after;
+      for (const entry of slice) {
+        (entry as { bytes: Uint8Array | null }).bytes = null as unknown as Uint8Array;
       }
-
-      return { batch, uploaded: batch.summary?.total ?? 0, failedNames: [] };
     }
 
-    if (!xmls.length) throw new Error('Selecione arquivos .xml ou um .zip');
-
-    const tooBig = xmls.filter((f) => f.size > MAX_XML_BYTES);
-    if (tooBig.length) {
-      const f = tooBig[0]!;
-      throw new Error(
-        `XML “${f.name}” tem ${formatBytes(f.size)}; limite por arquivo é ${formatBytes(MAX_XML_BYTES)}.`,
-      );
-    }
-    const empty = xmls.filter((f) => f.size === 0);
-    if (empty.length === xmls.length) {
-      throw new IoReadError({
-        fileName: empty[0]?.name || 'XMLs',
-        fileSize: 0,
-        cause: new Error('Todos os XMLs têm 0 bytes'),
-      });
-    }
-
-    const usable = xmls.filter((f) => f.size > 0);
-    const failedNames = empty.map((f) => f.name);
-    const totalBytes = usable.reduce((s, f) => s + f.size, 0);
-
-    opts.onProgress?.(`Enviando ${usable.length} XML(s) via multipart (${formatBytes(totalBytes)})…`);
-
-    const batch = await postFormWithRetry<T>(
-      '/v1/dental/ledi/batches/upload',
-      () => {
-        const form = new FormData();
-        for (const f of usable) form.append('files', f, f.name);
-        if (opts.name) form.append('name', opts.name);
-        form.append('expectedTipo', opts.expectedTipo);
-        return form;
-      },
-      {
-        bytesHint: totalBytes,
-        onProgress: opts.onProgress,
-        label: `${usable.length} XMLs`,
-      },
-    );
-
-    return { batch, uploaded: usable.length, failedNames };
+    if (!batch) throw new Error('Nenhum XML válido para enviar.');
+    return { batch, uploaded, failedNames };
   } catch (e) {
-    const zip = zips[0];
     throw wrapErr(e, zip?.name, zip?.size);
   }
 }

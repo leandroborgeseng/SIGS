@@ -3,9 +3,9 @@ const apiProxy = (process.env.API_INTERNAL_URL || 'http://127.0.0.1:3001').repla
 
 const nextConfig = {
   reactStrictMode: true,
-  // Rewrite externo SEMPRE clona o body (Next cloneBodyStream; default 10mb e
-  // trunca no limite — "Multipart: Unexpected end of form"). ZIP LEDI grande
-  // vai em POST /upload-zip/chunk (octet-stream 512 KiB). Route Handler stream
+  // Rewrite externo SEMPRE clona o body (Next cloneBodyStream; default 10mb).
+  // A UI LEDI descompacta o ZIP no browser e envia XMLs em POST /upload
+  // (fatias ≤1 MB). /upload-zip/chunk permanece para CLI. Route Handler stream
   // (app/api/v1/dental/ledi/...) tem precedência de FS; em PROCESS_ROLE=all o
   // docker/public-proxy.mjs pega /api antes do Next.
   experimental: {
