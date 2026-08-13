@@ -64,6 +64,15 @@ export const HELP_ARTICLES: HelpArticle[] = [
     body: `A lista e a criação de slots ficam no escopo da unidade selecionada. Status: Agendado, Presente na unidade, Não compareceu, Não aguardou, Cancelado, Realizado, Excluído. A exclusão só é permitida quando o status atual é Agendado.`,
   },
   {
+    id: 'aps.atendimento',
+    title: 'Atendimento APS — ficha FAI',
+    module: 'Atendimento',
+    version: '0.1.0',
+    updatedAt: '2026-08-13',
+    summary: 'Ficha individual origem (LEDI FAI tipo 4): paciente, lotação, CIAP/CID, SIGTAP, condutas FAI e preview Siaps-ready.',
+    body: `Em /aps escolha paciente, profissional e lotação (INE obrigatório por padrão, como no odonto). A ficha /aps/[id] é paralela ao /odonto — não mistura odontograma. Preencha tipo (default 5 consulta no dia), local, turno, CIAP/CID (busca APS), procedimentos SIGTAP e ao menos uma conduta do catálogo FAI (alta, retorno, encaminhamentos). O painel valida ~1s após editar. Finalizar e faturar exige zero BLOCKER e grava ProductionBatch individual_encounter. XMLs legado: /faturamento/lote/fai. A fila SOAP permanece em /atendimento (grupo Operação).`,
+  },
+  {
     id: 'atendimento.fila',
     title: 'Fila de atendimento',
     module: 'Atendimento',

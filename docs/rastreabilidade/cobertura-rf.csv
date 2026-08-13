@@ -108,7 +108,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 2,Módulo de Cadastros,59,RF-2.59,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Emissão de plantões de saúde.
 2,Módulo de Cadastros,60,RF-2.60,Obrigatório,ambos,parcial,P0-P6,apps/api/.../assignments + ledi header,n/a,Listagem de profissionais por unidade de saúde.
 2,Módulo de Cadastros,61,RF-2.61,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Listagem das equipes de saúde com filtros de unidade, equipe e tipo."
-3,Módulo Ambulatorial,1,RF-3.1,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters,n/a,"Registro de entrada de pacientes com pesquisa em única tela (nome, data de nascimento, nome da mãe, CPF, CNS, cartão cidadão)."
+3,Módulo Ambulatorial,1,RF-3.1,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters + UI /aps,automatizado,"Registro de entrada de pacientes com pesquisa em única tela (nome, data de nascimento, nome da mãe, CPF, CNS, cartão cidadão)."
 3,Módulo Ambulatorial,2,RF-3.2,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Definição de serviço a ser executado no ato da entrada do paciente.
 3,Módulo Ambulatorial,3,RF-3.3,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Identificação do responsável pelo paciente, vinculado ao cadastro de pacientes."
 3,Módulo Ambulatorial,4,RF-3.4,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Localização do paciente registrado na entrada por tipo de atendimento, etapas, nível de urgência, período, situação, dados do paciente."
@@ -131,7 +131,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 3,Módulo Ambulatorial,21,RF-3.21,Desejável,ambos,não iniciado,P0-P6,,previsto,Visualizar lembretes na pré-consulta.
 3,Módulo Ambulatorial,22,RF-3.22,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Salvar pré-consulta encaminhando o paciente à próxima etapa.
 3,Módulo Ambulatorial,23,RF-3.23,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Chamada do paciente pelo painel.
-3,Módulo Ambulatorial,24,RF-3.24,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters#clinical,automatizado,"Lista de pacientes aguardando consulta médica (cor de classificação, etapa, dados do paciente, tempo de atendimento)."
+3,Módulo Ambulatorial,24,RF-3.24,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters#clinical + /aps preview-fai,automatizado,"Lista de pacientes aguardando consulta médica (cor de classificação, etapa, dados do paciente, tempo de atendimento)."
 3,Módulo Ambulatorial,25,RF-3.25,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Visualizar etapas já ocorridas com o paciente no ato do atendimento.
 3,Módulo Ambulatorial,26,RF-3.26,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Preenchimento da ficha padrão da unidade como primeiro processo do atendimento, com campos editáveis."
 3,Módulo Ambulatorial,27,RF-3.27,Desejável,ambos,não iniciado,P0-P6,,previsto,Visualizar vacinas registradas do paciente.

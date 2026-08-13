@@ -2,9 +2,24 @@ import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/c
 import { EncountersService } from './encounters.service';
 import { FinishEncounterDto, OpenEncounterDto, SaveClinicalDto, UpdateEncounterStatusDto } from './dto';
 
+@Controller('v1/catalog')
+export class ApsCatalogController {
+  constructor(private readonly service: EncountersService) {}
+
+  @Get('aps')
+  catalogAps() {
+    return this.service.catalogAps();
+  }
+}
+
 @Controller('v1/encounters')
 export class EncountersController {
   constructor(private readonly service: EncountersService) {}
+
+  @Get()
+  list(@Query('facilityId') facilityId?: string, @Query('origin') origin?: string) {
+    return this.service.list(facilityId, origin);
+  }
 
   @Get('queue')
   queue(@Query('facilityId') facilityId?: string, @Query('status') status?: string) {
@@ -14,6 +29,11 @@ export class EncountersController {
   @Post()
   open(@Body() dto: OpenEncounterDto) {
     return this.service.open(dto);
+  }
+
+  @Get(':id/preview-fai')
+  previewFai(@Param('id') id: string) {
+    return this.service.previewFai(id);
   }
 
   @Get(':id')

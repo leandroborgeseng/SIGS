@@ -50,4 +50,39 @@ describe('buildIndividualEncounterLediPayload v2', () => {
     expect(child.sexo).toBe(1);
     expect(child.cpfCidadao).toBe('12345678901');
   });
+
+  it('FAI origem: tipo 5, stNaoPossuiCpf, procedimentos SIGTAP e condutas individuais', () => {
+    const payload = buildIndividualEncounterLediPayload({
+      uuidFicha: 'ficha-fai',
+      lotacao,
+      startedAt: new Date('2026-08-13T12:00:00Z'),
+      finishedAt: new Date('2026-08-13T12:20:00Z'),
+      patient: {
+        cpf: '39053344705',
+        cns: '703601040321538',
+        birthDate: new Date('1985-01-15'),
+        sex: 'FEMALE',
+      },
+      tipoAtendimento: 5,
+      localAtendimento: 1,
+      turno: 2,
+      clinical: {
+        faiOrigin: true,
+        outcomes: ['ALTA'],
+        problemasCondicoes: [{ ciap: 'K86', cid10: 'I10' }],
+        procedimentos: [{ code: '0301010064', label: 'Consulta médica em atenção básica', quantidade: 1 }],
+        stNaoPossuiCpf: false,
+      },
+    });
+    const child = payload.atendimentosIndividuais[0];
+    expect(child.tipoAtendimento).toBe(5);
+    expect(child.turno).toBe(2);
+    expect(child.localDeAtendimento).toBe(1);
+    expect(child.stNaoPossuiCpf).toBe(false);
+    expect(child.condutas).toEqual([9]);
+    expect(child.problemaCondicaoAvaliada).toEqual({ ciaps: ['K86'], cid10: ['I10'] });
+    expect(child.procedimentosRealizados).toEqual([
+      { coMsProcedimento: '0301010064', quantidade: 1 },
+    ]);
+  });
 });

@@ -1,7 +1,8 @@
 # Manual do usuário — Atendimento APS
 
-**Status:** UI MVP operacional (`/atendimento`, `/atendimento/[id]`).
+**Status:** UI MVP operacional — fila SOAP em `/atendimento`; **ficha FAI origem** em `/aps` (grupo Atendimento clínico).
 
-Fluxo: entrada na fila → atendimento (SOAP/CIAP/CID) → **prescrição** (opcional) → finalizar com desfecho → produção SUS enfileirada.
+- Fila / SOAP / prescrição: `/atendimento`, `/atendimento/[id]`.
+- Ficha individual LEDI FAI (tipo 4): `/aps`, `/aps/[id]` — ver [atendimento-aps-fai-onda1.md](./atendimento-aps-fai-onda1.md).
 
 Prescrição detalhada: [prescricao.md](./prescricao.md).

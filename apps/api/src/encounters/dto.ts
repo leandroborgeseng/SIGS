@@ -4,13 +4,27 @@ import {
   IsBoolean,
   IsDateString,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
   Max,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ENCOUNTER_STATUS } from '../common/rf';
+
+export class ApsProblemaDto {
+  @IsOptional() @IsString() ciap?: string;
+  @IsOptional() @IsString() cid10?: string;
+}
+
+export class ApsProcedimentoDto {
+  @IsString() code!: string;
+  @IsOptional() @IsString() label?: string;
+  @IsOptional() @IsInt() @Min(1) quantidade?: number;
+}
 
 export class OpenEncounterDto {
   @IsString() patientId!: string;
@@ -22,6 +36,11 @@ export class OpenEncounterDto {
   @IsOptional() @IsString() shift?: string;
   @IsOptional() @IsString() encounterType?: string;
   @IsOptional() @IsBoolean() lateRegistration?: boolean;
+  /** Lotação (CNS+CBO+CNES+INE) — padrão odonto */
+  @IsOptional() @IsString() assignmentId?: string;
+  @IsOptional() @IsString() cbo?: string;
+  /** Abre ficha APS origem FAI tipo 4 (paralelo ao /odonto). */
+  @IsOptional() @IsBoolean() faiOrigin?: boolean;
 }
 
 export class UpdateEncounterStatusDto {
@@ -44,6 +63,24 @@ export class SaveClinicalDto {
   @IsOptional() @IsString() careLocation?: string;
   @IsOptional() @IsString() shift?: string;
   @IsOptional() @IsString() encounterType?: string;
+  @IsOptional() @IsString() assignmentId?: string;
+  @IsOptional() @IsString() cbo?: string;
+  @IsOptional() @IsInt() tipoAtendimento?: number;
+  @IsOptional() @IsInt() localAtendimento?: number;
+  @IsOptional() @IsInt() turno?: number;
+  @IsOptional() @IsBoolean() stNaoPossuiCpf?: boolean;
+  @IsOptional() @IsInt() justificativaNaoPossuiCpf?: number;
+  @IsOptional() @IsBoolean() gestante?: boolean;
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ApsProblemaDto)
+  problemasCondicoes?: ApsProblemaDto[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ApsProcedimentoDto)
+  procedimentos?: ApsProcedimentoDto[];
 }
 
 export class FinishEncounterDto {
@@ -57,4 +94,6 @@ export class FinishEncounterDto {
   @IsOptional() @IsString() assignmentId?: string;
   /** CBO 2002 se não houver lotação ativa */
   @IsOptional() @IsString() cbo?: string;
+  /** Default true na origem FAI — bloqueia finish com BLOCKER */
+  @IsOptional() @IsBoolean() enforceFaiConformity?: boolean;
 }

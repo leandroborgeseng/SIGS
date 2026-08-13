@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { EncountersController } from './encounters.controller';
+import { ApsCatalogController, EncountersController } from './encounters.controller';
 import { EncountersService } from './encounters.service';
 
 @Module({
-  controllers: [EncountersController],
+  controllers: [ApsCatalogController, EncountersController],
   providers: [EncountersService],
   exports: [EncountersService],
 })

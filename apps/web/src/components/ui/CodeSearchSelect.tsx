@@ -5,6 +5,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 export type CodeOption = { code: string; display: string };
 
 type CatalogKind = 'ciap' | 'cid10';
+type CatalogDomain = 'odonto' | 'aps';
 
 const cache: Partial<Record<CatalogKind, CodeOption[]>> = {};
 const loading: Partial<Record<CatalogKind, Promise<CodeOption[]>>> = {};
@@ -49,7 +50,15 @@ function scoreMatch(opt: CodeOption, q: string): number {
   return -1;
 }
 
-function defaultList(options: CodeOption[], kind: CatalogKind): CodeOption[] {
+function defaultList(options: CodeOption[], kind: CatalogKind, domain: CatalogDomain = 'odonto'): CodeOption[] {
+  if (domain === 'aps') {
+    if (kind === 'cid10') {
+      const preferred = ['I10', 'E11', 'J06', 'J06.9', 'Z00.0', 'Z000', 'N39.0', 'N390', 'J45', 'E78'];
+      return pickPreferred(options, preferred);
+    }
+    const preferred = ['K86', 'T90', 'R74', 'A98', 'U71', 'R05', 'K86'];
+    return pickPreferred(options, preferred);
+  }
   if (kind === 'cid10') {
     // Prefer K00–K14 (doenças da boca/dentes)
     const odonto = options.filter((o) => {
@@ -74,6 +83,20 @@ function defaultList(options: CodeOption[], kind: CatalogKind): CodeOption[] {
   return options.slice(0, 80);
 }
 
+function pickPreferred(options: CodeOption[], preferred: string[]): CodeOption[] {
+  const head = preferred
+    .map((code) =>
+      options.find(
+        (o) =>
+          o.code.toUpperCase() === code.toUpperCase() ||
+          o.code.replace('.', '').toUpperCase() === code.replace('.', '').toUpperCase(),
+      ),
+    )
+    .filter(Boolean) as CodeOption[];
+  const rest = options.filter((o) => !head.includes(o));
+  return [...head, ...rest].slice(0, 80);
+}
+
 type Props = {
   kind: CatalogKind;
   label: string;
@@ -82,6 +105,8 @@ type Props = {
   placeholder?: string;
   allowEmpty?: boolean;
   disabled?: boolean;
+  /** Sugestões iniciais: odonto (boca) ou APS (HAS/DM/IRA). Default odonto. */
+  domain?: CatalogDomain;
 };
 
 export function CodeSearchSelect({
@@ -92,6 +117,7 @@ export function CodeSearchSelect({
   placeholder,
   allowEmpty = true,
   disabled = false,
+  domain = 'odonto',
 }: Props) {
   const id = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -137,14 +163,14 @@ export function CodeSearchSelect({
 
   const filtered = useMemo(() => {
     const q = query.trim();
-    if (!q) return defaultList(options, kind);
+    if (!q) return defaultList(options, kind, domain);
     return options
       .map((o) => ({ o, s: scoreMatch(o, q) }))
       .filter((x) => x.s >= 0)
       .sort((a, b) => b.s - a.s || a.o.code.localeCompare(b.o.code))
       .slice(0, 80)
       .map((x) => x.o);
-  }, [options, query, kind]);
+  }, [options, query, kind, domain]);
 
   const inputValue = open ? query : selected ? `${selected.code} — ${selected.display}` : value;
 
@@ -212,10 +238,18 @@ export function CodeSearchSelect({
             </button>
           ) : null}
           {!query.trim() && kind === 'cid10' ? (
-            <div className="code-search-hint">Sugestões odonto (K00–K14). Digite para buscar em todos os {options.length} CIDs.</div>
+            <div className="code-search-hint">
+              {domain === 'aps'
+                ? `Sugestões APS (HAS, DM, IRA…). Digite para buscar em todos os ${options.length} CIDs.`
+                : `Sugestões odonto (K00–K14). Digite para buscar em todos os ${options.length} CIDs.`}
+            </div>
           ) : null}
           {!query.trim() && kind === 'ciap' ? (
-            <div className="code-search-hint">Sugestões digestivo/boca. Digite para buscar em todos os {options.length} CIAPs.</div>
+            <div className="code-search-hint">
+              {domain === 'aps'
+                ? `Sugestões APS (K86, T90, R74…). Digite para buscar em todos os ${options.length} CIAPs.`
+                : `Sugestões digestivo/boca. Digite para buscar em todos os ${options.length} CIAPs.`}
+            </div>
           ) : null}
           {filtered.map((o) => (
             <button

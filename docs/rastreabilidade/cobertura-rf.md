@@ -32,8 +32,8 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-2.29 | Obr | parcial | n/a | `apps/api/src/territory` + UI `/territorio` |
 | RF-2.47 | Obr | parcial | n/a | `facilities` + IBGE + UI `/unidades` |
 | RF-2.56 | Obr | parcial | n/a | `apps/api/src/patients#search` + UI |
-| RF-3.1 | Obr | parcial | n/a | `apps/api/src/encounters` |
-| RF-3.24 | Obr | parcial | automatizado | `apps/api/src/encounters#clinical` |
+| RF-3.1 | Obr | parcial | automatizado | `POST /v1/encounters` fila SOAP + origem FAI `/aps` (paciente+lotação) |
+| RF-3.24 | Obr | parcial | automatizado | ficha APS `/aps/[id]` · `care` FAI · `GET …/preview-fai` · finish → `ProductionBatch` |
 | RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` |
 | RF-10.20 | Obr | parcial | automatizado | preflight + `POST /production/send` + UI `/producao` |
 | RF-14.1 | Obr | parcial | automatizado | `apps/api/src/vaccinations` |
