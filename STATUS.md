@@ -18,7 +18,7 @@
 - **API:** `GET/POST /v1/appointments` · `POST …/:id/open-dental` · `GET /v1/catalog/dental` (`predefinedProcedures`) · `GET …/odontogram-history` · `POST …/void`
 - **params:** `REQUIRE_INE_DENTAL_OPEN` · `DENTAL_DEFAULT_TIPO_ATENDIMENTO=5` · `MUNICIPIO_IBGE`
 - **limite documentado:** agenda sem tipos de item/grade multi-profissional (RF-12.1 TR); VOID sem recall Ministério; histórico só mesma unidade (sem RNDS/copiar snapshot); Thrift FAO sem tooth/region
-- **deploy:** hardening Railway — fail-fast env, health `/api/health`+`/api/ready`, Redis/Bull opcional
+- **deploy:** Railway PROCESS_ROLE=all — porta 3000 = public-proxy stream `/api` → Nest :3001 (ZIP LEDI sem clone Next)
 - **próximo:** ver **Retomar daqui**
 
 ## Retomar daqui (2026-08-13)
@@ -28,7 +28,7 @@
 
 ### Pendente
 1. Smoke visual browser: `/odonto/agenda` → abrir → ficha → odontograma Q/S + histórico + catálogo SIGTAP concluir → finalizar → fila → ZIP FAI/FAO
-2. Railway: confirmar `JWT_SECRET` ok; `SEED_ADMIN_PASSWORD` ≥12 chars; smoke ZIP FAI/FAO em `/faturamento/lote/*` (multipart `/upload-zip`; Next rewrite 80mb)
+2. Railway: **redeploy WEB** (imagem nova). Smoke ZIP FAI/FAO em `/faturamento/lote/*` — multipart `/upload-zip` agora vai `:3000` public-proxy **stream** → Nest `:3001` (não passa pelo clone do rewrite Next). Logs: `SIGS public-proxy stream multipart POST /api/v1/dental/ledi/batches/upload-zip`
 3. Ficha APS origem FAI tipo 4 (paralelo ao odonto; lote `/faturamento/lote/fai` já valida XML legado)
 4. LEDI P1 — campos individuais na ficha ligados ao motor `clinical-core`
 5. Redis/Bull (opcional em prod — hoje opcional no boot)

@@ -1,5 +1,6 @@
-// Preferir URL pública (build-time). Fallback `/api` usa rewrite do Next
-// (API_INTERNAL_URL) — correto no Railway PROCESS_ROLE=all / same-origin.
+// Preferir URL pública (build-time). Fallback `/api` = mesmo origin.
+// PROCESS_ROLE=all: browser → :3000 /api → docker/public-proxy (pipe) → Nest :3001.
+// next dev / PROCESS_ROLE=web: Route Handler stream p/ LEDI upload; rewrite p/ o resto.
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 export class ApiError extends Error {
@@ -75,7 +76,7 @@ function networkMessage(cause: unknown, bytesHint?: number): string {
   return (
     `Falha de rede no envio (sem resposta HTTP — típico Safari “Load failed” / Chrome “Failed to fetch”).` +
     sizeBit +
-    ` Provável: corpo grande demais para o proxy/Railway, timeout ou conexão interrompida.` +
+    ` A conexão caiu antes de uma resposta HTTP (timeout do gateway, rede ou processo derrubado).` +
     (raw ? ` Detalhe: ${raw}.` : '')
   );
 }
@@ -155,6 +156,9 @@ export async function api<T = unknown>(
  * POST multipart. Nunca setar Content-Type — o runtime coloca boundary.
  * `Content-Type: multipart/form-data` sem boundary → HTTP 400
  * "Multipart: Unexpected end of form".
+ *
+ * URL: `NEXT_PUBLIC_API_URL` se absoluta (host da API ou same-origin `/api`);
+ * senão `/api` no mesmo host. Em role=all o host público é o proxy, não o Next.
  */
 export async function apiUpload<T = unknown>(
   path: string,

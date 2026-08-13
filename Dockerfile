@@ -44,12 +44,13 @@ COPY --from=build /app/apps/web/.next ./apps/web/.next
 COPY --from=build /app/apps/web/public ./apps/web/public
 COPY --from=build /app/apps/web/next.config.js ./apps/web/
 COPY docker/entrypoint.sh /entrypoint.sh
+COPY docker/public-proxy.mjs /public-proxy.mjs
 RUN chmod +x /entrypoint.sh
 
 # Railway: não use VOLUME no Dockerfile — monte Volume do painel em /data.
-# Health: em PROCESS_ROLE=all a API fica em API_PORT (default 3001); o proxy Next em PORT=3000 também expõe /api/health.
+# PROCESS_ROLE=all: PORT=3000 public-proxy (stream /api → :3001; UI → Next :3002).
 COPY docker/healthcheck.mjs /healthcheck.mjs
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
   CMD ["node", "/healthcheck.mjs"]
-EXPOSE 3000 3001
+EXPOSE 3000 3001 3002
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]

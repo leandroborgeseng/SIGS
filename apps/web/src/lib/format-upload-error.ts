@@ -15,7 +15,7 @@ export function formatUploadError(err: unknown): string {
     return (
       `Falha de rede no envio (sem resposta HTTP — “Load failed” / “Failed to fetch”).` +
       (size ? ` Payload ≈ ${size}.` : '') +
-      ` Provável: ZIP grande demais para o proxy, timeout ou conexão caiu. Tente de novo; se persistir, use um ZIP menor ou verifique a rede.`
+      ` A conexão caiu antes de uma resposta HTTP (timeout do gateway, rede ou processo derrubado). Tente de novo; se persistir, verifique a rede ou envie um ZIP menor.`
     );
   }
 
@@ -29,7 +29,8 @@ export function formatUploadError(err: unknown): string {
     if (/unexpected end of form|boundary not found/i.test(err.message)) {
       return (
         `Falha no envio (HTTP ${err.status}): multipart incompleto (${err.message}). ` +
-        `ZIP grande demais para o proxy, conexão cortada, ou Content-Type sem boundary. Tente de novo; se persistir, use um ZIP menor.`
+        `O ZIP chegou truncado na API (conexão cortada, timeout do gateway Railway, ou Content-Type sem boundary). ` +
+        `Não é o clone 10 MB do rewrite Next — o upload LEDI vai em stream. Tente de novo; se persistir, verifique a rede ou envie um ZIP menor.`
       );
     }
     return `Falha no envio (HTTP ${err.status}): ${err.message}`;

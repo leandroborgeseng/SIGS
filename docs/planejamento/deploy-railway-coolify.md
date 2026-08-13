@@ -16,7 +16,7 @@
 
 ## Railway — caminho rápido (1 serviço) ✅ recomendado p/ primeiro deploy
 
-Arquitetura: **um container** `PROCESS_ROLE=all` (Web pública :3000 + API interna :3001 + proxy Next `/api` → API). Jobs LEDI **inline** até você ligar Redis.
+Arquitetura: **um container** `PROCESS_ROLE=all` — porta pública **:3000** = `docker/public-proxy.mjs` (pipe stream `/api` → Nest **:3001**; UI → Next **:3002**). O rewrite do Next **não** vê o ZIP LEDI (clonava/truncava o multipart). Jobs LEDI **inline** até você ligar Redis.
 
 ### 1. Código no GitHub
 
@@ -98,7 +98,7 @@ Se faltar `DATABASE_URL` ou `JWT_SECRET` (production), o processo **aborta com E
 
 `SEED_ADMIN_PASSWORD` fraca/ausente em production: **WARN** no log (não aborta). Se ainda não existir usuário admin, ele **não** é criado até você definir senha ≥12 e redeployar. A UI de login **nunca** embute senha seed em `NODE_ENV=production`.
 
-**Healthcheck Railway (Settings → Healthcheck):** path `/api/health`, porta **3000** (web + proxy). O Dockerfile também tem `HEALTHCHECK` interno (API `:3001` ou proxy).
+**Healthcheck Railway (Settings → Healthcheck):** path `/api/health`, porta **3000** (public-proxy → Nest). O Dockerfile também tem `HEALTHCHECK` interno (API `:3001` ou proxy).
 
 **Redis:** opcional. Sem `REDIS_URL` a API sobe; jobs LEDI/SIGTAP rodam inline. `PROCESS_ROLE=worker` exige Redis.
 

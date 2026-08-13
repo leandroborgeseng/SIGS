@@ -68,7 +68,7 @@ require_runtime_env() {
   if [[ "$ROLE" == "all" || "$ROLE" == "web" ]]; then
     if [[ -z "${API_INTERNAL_URL:-}" ]]; then
       export API_INTERNAL_URL="http://127.0.0.1:${API_PORT:-3001}"
-      echo "INFO: API_INTERNAL_URL default → ${API_INTERNAL_URL} (proxy Next /api)"
+      echo "INFO: API_INTERNAL_URL default → ${API_INTERNAL_URL} (public-proxy /api → Nest)"
     fi
   fi
 
@@ -165,15 +165,18 @@ start_worker() {
 start_web() {
   local port="${PORT:-3000}"
   cd /app/apps/web
-  echo "Starting Web :${port} · proxy API_INTERNAL_URL=${API_INTERNAL_URL:-unset}"
+  echo "Starting Web :${port} · API_INTERNAL_URL=${API_INTERNAL_URL:-unset} (LEDI upload via Route Handler stream)"
   exec npx next start --hostname 0.0.0.0 --port "$port"
 }
 
 start_all() {
-  # Compat Railway single-container (API + Web no mesmo processo supervisor).
+  # Compat Railway single-container.
+  # Porta pública :3000 = proxy stream (não o Next). ZIP LEDI /api → Nest sem clone.
   PUBLIC_PORT="${PORT:-3000}"
   API_PORT="${API_PORT:-3001}"
+  WEB_INTERNAL_PORT="${WEB_INTERNAL_PORT:-3002}"
   export API_INTERNAL_URL="${API_INTERNAL_URL:-http://127.0.0.1:${API_PORT}}"
+  export WEB_INTERNAL_PORT
 
   cd /app/apps/api
   if ! migrate_db; then
@@ -198,7 +201,7 @@ start_all() {
   fi
 
   cd /app/apps/web
-  npx next start --hostname 0.0.0.0 --port "$PUBLIC_PORT" &
+  npx next start --hostname 0.0.0.0 --port "$WEB_INTERNAL_PORT" &
   WEB_PID=$!
   sleep 2
   if ! kill -0 "$WEB_PID" 2>/dev/null; then
@@ -207,19 +210,31 @@ start_all() {
     exit 1
   fi
 
-  echo "SIGS online · web :${PUBLIC_PORT} · api :${API_PORT}"
+  PORT="$PUBLIC_PORT" API_PORT="$API_PORT" WEB_INTERNAL_PORT="$WEB_INTERNAL_PORT" \
+    node /public-proxy.mjs &
+  PROXY_PID=$!
+  sleep 1
+  if ! kill -0 "$PROXY_PID" 2>/dev/null; then
+    echo "ERROR: public-proxy não iniciou (porta ${PUBLIC_PORT} ocupada?)"
+    kill -TERM "$API_PID" "$WEB_PID" ${WORKER_PID:+$WORKER_PID} 2>/dev/null || true
+    exit 1
+  fi
+
+  echo "SIGS online · proxy :${PUBLIC_PORT} · next :${WEB_INTERNAL_PORT} · api :${API_PORT}"
+  echo "  /api (stream) → Nest :${API_PORT}  (ZIP LEDI não passa pelo Next)"
+  echo "  UI            → Next :${WEB_INTERNAL_PORT}"
   echo "  health (público): http://0.0.0.0:${PUBLIC_PORT}/api/health"
   echo "  ready  (público): http://0.0.0.0:${PUBLIC_PORT}/api/ready"
   echo "  health (API):     http://127.0.0.1:${API_PORT}/api/health"
 
   term() {
     echo "SIGS shutdown"
-    kill -TERM "$API_PID" "$WEB_PID" ${WORKER_PID:+$WORKER_PID} 2>/dev/null || true
-    wait "$API_PID" "$WEB_PID" ${WORKER_PID:+$WORKER_PID} 2>/dev/null || true
+    kill -TERM "$API_PID" "$WEB_PID" "$PROXY_PID" ${WORKER_PID:+$WORKER_PID} 2>/dev/null || true
+    wait "$API_PID" "$WEB_PID" "$PROXY_PID" ${WORKER_PID:+$WORKER_PID} 2>/dev/null || true
   }
   trap term INT TERM
 
-  while kill -0 "$API_PID" 2>/dev/null && kill -0 "$WEB_PID" 2>/dev/null; do
+  while kill -0 "$API_PID" 2>/dev/null && kill -0 "$WEB_PID" 2>/dev/null && kill -0 "$PROXY_PID" 2>/dev/null; do
     sleep 2
   done
   echo "ERROR: processo encerrou"

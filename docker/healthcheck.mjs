@@ -1,5 +1,5 @@
 /**
- * Docker/Railway HEALTHCHECK — tenta API direta, depois proxy Next.
+ * Docker/Railway HEALTHCHECK — tenta API direta, depois proxy público (:3000 /api).
  * Exit 0 = ok; 1 = falha.
  */
 const apiPort = process.env.API_PORT || (process.env.PROCESS_ROLE === 'all' ? '3001' : null);

@@ -39,7 +39,7 @@ function wrapErr(err: unknown, fileName?: string, fileSize?: number): Error {
       : new NetworkError(
           `Falha de rede no envio (sem resposta HTTP).` +
             (fileSize != null ? ` Payload ≈ ${formatBytes(fileSize)}.` : '') +
-            ` Provável: corpo grande, timeout ou conexão caiu.`,
+            ` A conexão caiu antes de uma resposta HTTP (timeout, rede ou processo derrubado).`,
           { cause: err, bytesHint: fileSize },
         );
   }
