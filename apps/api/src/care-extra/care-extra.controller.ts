@@ -41,11 +41,11 @@ import {
 } from './dto';
 
 const XML_UPLOAD = FilesInterceptor('files', 200, {
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024, fieldSize: 1024 * 1024, fields: 16 },
 });
 
 const ZIP_UPLOAD = FileInterceptor('file', {
-  limits: { fileSize: 80 * 1024 * 1024 },
+  limits: { fileSize: 80 * 1024 * 1024, fieldSize: 1024 * 1024, fields: 16, files: 1 },
 });
 
 function mapUploadedXmls(files?: Express.Multer.File[]) {

@@ -1,9 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { json, urlencoded, type Request, type Response, type NextFunction } from 'express';
+import { type Request, type Response, type NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import { AppModule } from './app.module';
 import { assertBootEnv } from './infra/boot-env';
+import { applyHttpBodyParsers } from './infra/http-body';
 import { requestContext } from './infra/request-context';
 import { RequestContextUserInterceptor } from './infra/request-context.interceptor';
 
@@ -12,9 +13,8 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   // JSON/urlencoded: fallback ZIP base64 e patches. Multipart ZIP usa multer (até 80mb).
-  const bodyLimit = process.env.HTTP_BODY_LIMIT || '50mb';
-  app.use(json({ limit: bodyLimit }));
-  app.use(urlencoded({ extended: true, limit: bodyLimit }));
+  // skipMultipart: o parser JSON do Express não pode consumir o stream do upload.
+  applyHttpBodyParsers(app);
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     const incoming =

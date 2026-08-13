@@ -4,7 +4,7 @@
  * e costuma gerar Safari “Load failed” em ZIPs médios/grandes atrás do proxy).
  */
 
-import { api, ApiError, getToken, isNetworkError, NetworkError } from '@/lib/api';
+import { apiUpload, ApiError, getToken, isNetworkError, NetworkError } from '@/lib/api';
 import { IoReadError, isIoReadError, formatBytes } from '@/lib/read-binary-file';
 
 export type LediUploadResult<T> = {
@@ -78,11 +78,7 @@ async function postFormWithRetry<T>(
       await sleep(600);
     }
     try {
-      return await api<T>(path, {
-        method: 'POST',
-        body: buildForm(),
-        bytesHint: opts.bytesHint,
-      });
+      return await apiUpload<T>(path, buildForm(), { bytesHint: opts.bytesHint });
     } catch (e) {
       last = e;
       // Retry só em falha de rede sem HTTP (Load failed / Failed to fetch).

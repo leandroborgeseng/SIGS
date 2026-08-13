@@ -26,6 +26,12 @@ export function formatUploadError(err: unknown): string {
     if (err.status === 502 || err.status === 504) {
       return `Proxy/gateway falhou (HTTP ${err.status}). O upload pode ter estourado timeout — tente ZIP menor ou envie de novo.`;
     }
+    if (/unexpected end of form|boundary not found/i.test(err.message)) {
+      return (
+        `Falha no envio (HTTP ${err.status}): multipart incompleto (${err.message}). ` +
+        `ZIP grande demais para o proxy, conexão cortada, ou Content-Type sem boundary. Tente de novo; se persistir, use um ZIP menor.`
+      );
+    }
     return `Falha no envio (HTTP ${err.status}): ${err.message}`;
   }
 

@@ -3,6 +3,12 @@ const apiProxy = (process.env.API_INTERNAL_URL || 'http://127.0.0.1:3001').repla
 
 const nextConfig = {
   reactStrictMode: true,
+  // Rewrite `/api` clona o body (default 10mb). Sem isso, ZIP LEDI >10mb chega
+  // truncado no Nest → multer/busboy "Multipart: Unexpected end of form".
+  experimental: {
+    middlewareClientMaxBodySize: '80mb',
+    proxyTimeout: 300_000,
+  },
   async rewrites() {
     return [
       {

@@ -28,7 +28,7 @@
 
 ### Pendente
 1. Smoke visual browser: `/odonto/agenda` → abrir → ficha → odontograma Q/S + histórico + catálogo SIGTAP concluir → finalizar → fila → ZIP FAI/FAO
-2. Railway: confirmar `JWT_SECRET` ok; `SEED_ADMIN_PASSWORD` ≥12 chars; smoke ZIP FAI após deploy com `35e76c0`+
+2. Railway: confirmar `JWT_SECRET` ok; `SEED_ADMIN_PASSWORD` ≥12 chars; smoke ZIP FAI/FAO em `/faturamento/lote/*` (multipart `/upload-zip`; Next rewrite 80mb)
 3. Ficha APS origem FAI tipo 4 (paralelo ao odonto; lote `/faturamento/lote/fai` já valida XML legado)
 4. LEDI P1 — campos individuais na ficha ligados ao motor `clinical-core`
 5. Redis/Bull (opcional em prod — hoje opcional no boot)

@@ -80,38 +80,14 @@ function networkMessage(cause: unknown, bytesHint?: number): string {
   );
 }
 
-export async function api<T = unknown>(
-  path: string,
-  options: RequestInit & { json?: unknown; bytesHint?: number } = {},
-): Promise<T> {
-  const headers = new Headers(options.headers || {});
-  const { json, bytesHint, ...rest } = options;
-
-  if (json !== undefined) {
-    headers.set('Content-Type', 'application/json');
-  }
-  // FormData: não forçar Content-Type (boundary do browser).
-  if (rest.body instanceof FormData) {
-    headers.delete('Content-Type');
-  }
-
+function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
   const token = getToken();
-  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
 
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      ...rest,
-      headers,
-      body: json !== undefined ? JSON.stringify(json) : rest.body,
-    });
-  } catch (e) {
-    if (isNetworkError(e) || (e instanceof TypeError)) {
-      throw new NetworkError(networkMessage(e, bytesHint), { cause: e, bytesHint });
-    }
-    throw e;
-  }
-
+async function parseResponse<T>(res: Response): Promise<T> {
   const text = await res.text();
   let data: unknown = null;
   if (text) {
@@ -133,4 +109,66 @@ export async function api<T = unknown>(
   }
 
   return data as T;
+}
+
+async function doFetch(input: string, init: RequestInit, bytesHint?: number): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (e) {
+    if (isNetworkError(e) || e instanceof TypeError) {
+      throw new NetworkError(networkMessage(e, bytesHint), { cause: e, bytesHint });
+    }
+    throw e;
+  }
+}
+
+export async function api<T = unknown>(
+  path: string,
+  options: RequestInit & { json?: unknown; bytesHint?: number } = {},
+): Promise<T> {
+  const { json, bytesHint, ...rest } = options;
+
+  if (rest.body instanceof FormData) {
+    return apiUpload<T>(path, rest.body, { bytesHint, method: rest.method });
+  }
+
+  const headers = new Headers(rest.headers || {});
+  if (json !== undefined) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const token = getToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  const res = await doFetch(
+    `${API_BASE}${path}`,
+    {
+      ...rest,
+      headers,
+      body: json !== undefined ? JSON.stringify(json) : rest.body,
+    },
+    bytesHint,
+  );
+  return parseResponse<T>(res);
+}
+
+/**
+ * POST multipart. Nunca setar Content-Type — o runtime coloca boundary.
+ * `Content-Type: multipart/form-data` sem boundary → HTTP 400
+ * "Multipart: Unexpected end of form".
+ */
+export async function apiUpload<T = unknown>(
+  path: string,
+  form: FormData,
+  options: { bytesHint?: number; method?: string } = {},
+): Promise<T> {
+  const res = await doFetch(
+    `${API_BASE}${path}`,
+    {
+      method: options.method || 'POST',
+      headers: authHeaders(),
+      body: form,
+    },
+    options.bytesHint,
+  );
+  return parseResponse<T>(res);
 }
