@@ -1,7 +1,19 @@
-import { skipMultipart, isMultipartRequest, isLediZipChunkRequest, isRawOctetStream } from './http-body';
+import {
+  skipMultipart,
+  isMultipartRequest,
+  isLediZipChunkRequest,
+  isRawOctetStream,
+  HTTP_OCTET_CHUNK_LIMIT,
+} from './http-body';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
 describe('http-body multipart skip', () => {
+  it('limite raw octet-stream da rota de chunk é ≥ 1mb', () => {
+    const n = Number.parseInt(String(HTTP_OCTET_CHUNK_LIMIT), 10);
+    expect(n).toBeGreaterThanOrEqual(1);
+    expect(String(HTTP_OCTET_CHUNK_LIMIT).toLowerCase()).toMatch(/mb$/);
+  });
+
   it('detecta Content-Type multipart', () => {
     expect(
       isMultipartRequest({

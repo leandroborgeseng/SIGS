@@ -28,6 +28,22 @@ export function isApiPath(urlPath = '/') {
   return p === '/api' || p.startsWith('/api/');
 }
 
+/** POST/PUT da UI — fatias octet-stream 512 KiB. */
+export function isZipChunkPath(urlPath = '/') {
+  const p = String(urlPath).split('?')[0] || '/';
+  return p.includes('/dental/ledi/batches/upload-zip/chunk');
+}
+
+/** Body em pipe: não aplicar idle timeout no socket (Safari “Load failed”). */
+export function isStreamedBody(urlPath = '/', contentType = '') {
+  const ct = String(contentType).toLowerCase();
+  return (
+    isZipChunkPath(urlPath) ||
+    ct.includes('multipart/form-data') ||
+    ct.includes('application/octet-stream')
+  );
+}
+
 export function createPublicProxy(opts = {}) {
   const apiHost = opts.apiHost || '127.0.0.1';
   const webHost = opts.webHost || '127.0.0.1';
@@ -50,11 +66,15 @@ export function createPublicProxy(opts = {}) {
     }
 
     const ct = String(req.headers['content-type'] || '');
-    if (ct.includes('multipart/form-data') || ct.includes('application/octet-stream')) {
+    const streamBody = isStreamedBody(req.url, ct);
+    if (streamBody) {
       const cl = req.headers['content-length'] || 'chunked';
       console.log(
-        `SIGS public-proxy stream ${ct.split(';')[0]} ${req.method} ${req.url} → ${dest.label}:${dest.port} content-length=${cl}`,
+        `SIGS public-proxy stream ${ct.split(';')[0] || 'body'} ${req.method} ${req.url} → ${dest.label}:${dest.port} content-length=${cl}`,
       );
+      // Idle no meio do body (Safari pausa / backpressure) não pode derrubar o socket.
+      req.setTimeout(0);
+      if (req.socket) req.socket.setTimeout(0);
     }
 
     const proxyReq = http.request(
@@ -65,7 +85,8 @@ export function createPublicProxy(opts = {}) {
         path: req.url,
         method: req.method,
         headers,
-        timeout: requestTimeoutMs,
+        // timeout do http.request é idle/inactivity — corta POST /upload-zip/chunk.
+        timeout: streamBody ? 0 : requestTimeoutMs,
       },
       (proxyRes) => {
         const resHeaders = { ...proxyRes.headers };
@@ -74,6 +95,10 @@ export function createPublicProxy(opts = {}) {
         proxyRes.pipe(res);
       },
     );
+
+    if (streamBody) {
+      proxyReq.setTimeout(0);
+    }
 
     proxyReq.on('timeout', () => {
       proxyReq.destroy(new Error('timeout'));

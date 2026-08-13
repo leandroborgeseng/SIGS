@@ -13,7 +13,7 @@ import { JobsService } from '../infra/jobs/jobs.service';
 import { StorageService } from '../infra/storage/storage.service';
 import { applyHttpBodyParsers } from '../infra/http-body';
 
-describe('PUT /v1/dental/ledi/batches/upload-zip/chunk', () => {
+describe('POST /v1/dental/ledi/batches/upload-zip/chunk', () => {
   let app: INestApplication;
   let tmp: string;
   const create = jest.fn();
@@ -85,7 +85,7 @@ describe('PUT /v1/dental/ledi/batches/upload-zip/chunk', () => {
       `/v1/dental/ledi/batches/upload-zip/chunk?uploadId=${uploadId}&index=${index}&total=2&fileName=sistemas.zip&expectedTipo=FAI&name=sistemas&totalBytes=${buf.length}`;
 
     const r1 = await request(app.getHttpServer())
-      .put(q(0))
+      .post(q(0))
       .set('Content-Type', 'application/octet-stream')
       .send(a);
     expect(r1.status).toBe(200);
@@ -93,7 +93,7 @@ describe('PUT /v1/dental/ledi/batches/upload-zip/chunk', () => {
     expect(create).not.toHaveBeenCalled();
 
     const r2 = await request(app.getHttpServer())
-      .put(q(1))
+      .post(q(1))
       .set('Content-Type', 'application/octet-stream')
       .send(b);
     expect(r2.status).toBeLessThan(400);
@@ -105,7 +105,7 @@ describe('PUT /v1/dental/ledi/batches/upload-zip/chunk', () => {
 
   it('HTTP 400 se o chunk está vazio', async () => {
     const res = await request(app.getHttpServer())
-      .put(
+      .post(
         '/v1/dental/ledi/batches/upload-zip/chunk?uploadId=11111111-2222-4333-8444-555555555555&index=0&total=1&totalBytes=4',
       )
       .set('Content-Type', 'application/octet-stream')

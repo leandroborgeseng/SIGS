@@ -1,7 +1,7 @@
 /**
  * Upload de lote LEDI (FAI / FAO / PROC).
- * ZIP: fatias octet-stream (2 MB) — o gateway Railway corta um multipart de ~14 MB.
- * XML: FormData multipart (arquivos pequenos).
+ * ZIP: fatias octet-stream 512 KiB via POST — 2.0 MB redondo caía no Safari/Railway
+ * sem HTTP (“Load failed”). XML: FormData multipart (arquivos pequenos).
  */
 
 import { apiUpload, api, apiBinary, ApiError, getToken, isNetworkError, NetworkError } from '@/lib/api';
@@ -16,8 +16,8 @@ export type LediUploadResult<T> = {
 
 /** Alinhado ao FileInterceptor ZIP na API (80 MB). */
 export const MAX_ZIP_BYTES = 80 * 1024 * 1024;
-/** Fatia octet-stream — cabe no gateway Railway; multipart de 14 MB não. */
-export const ZIP_CHUNK_BYTES = 2 * 1024 * 1024;
+/** Fatia octet-stream — 512 KiB (nunca 2.0 MB redondo: Safari/Railway derruba). */
+export const ZIP_CHUNK_BYTES = 512 * 1024;
 /** Limite prático por XML no multipart da API. */
 export const MAX_XML_BYTES = 5 * 1024 * 1024;
 
@@ -103,7 +103,7 @@ function newUploadId(): string {
   });
 }
 
-async function putZipChunkWithRetry<T>(
+async function postZipChunkWithRetry<T>(
   path: string,
   blob: Blob,
   opts: { bytesHint: number; onProgress?: (msg: string) => void; label: string },
@@ -116,9 +116,10 @@ async function putZipChunkWithRetry<T>(
       await sleep(400 * i);
     }
     try {
-      return await apiBinary<T>(path, blob, { bytesHint: opts.bytesHint, method: 'PUT' });
+      return await apiBinary<T>(path, blob, { bytesHint: opts.bytesHint, method: 'POST' });
     } catch (e) {
       last = e;
+      // Retry 2–3× em TypeError “Load failed” / Failed to fetch (sem HTTP).
       if (!isNetworkError(e) && !(e instanceof NetworkError)) throw e;
       if (e instanceof ApiError) throw e;
     }
@@ -156,7 +157,7 @@ async function uploadZipInChunks<T extends { id: string; summary?: { total?: num
       name: opts.name || zip.name.replace(/\.zip$/i, ''),
       totalBytes: String(zip.size),
     });
-    const chunk = await putZipChunkWithRetry<
+    const chunk = await postZipChunkWithRetry<
       T | { async: true; jobId: string; xmlCount?: number } | { complete?: boolean; received?: number }
     >(`/v1/dental/ledi/batches/upload-zip/chunk?${qs.toString()}`, blob, {
       bytesHint: blob.size,

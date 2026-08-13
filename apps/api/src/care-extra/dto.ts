@@ -162,7 +162,7 @@ export class CreateLediFaoBatchFromZipDto {
   @IsString() zipBase64!: string;
 }
 
-/** Query do PUT/POST /upload-zip/chunk (corpo = octet-stream). */
+/** Query do POST (preferido) / PUT /upload-zip/chunk (corpo = octet-stream). */
 export class LediZipChunkQueryDto {
   @IsString()
   @Matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, {

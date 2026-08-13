@@ -5,7 +5,7 @@ const nextConfig = {
   reactStrictMode: true,
   // Rewrite externo SEMPRE clona o body (Next cloneBodyStream; default 10mb e
   // trunca no limite — "Multipart: Unexpected end of form"). ZIP LEDI grande
-  // vai em PUT /upload-zip/chunk (octet-stream ~2 MB). Route Handler stream
+  // vai em POST /upload-zip/chunk (octet-stream 512 KiB). Route Handler stream
   // (app/api/v1/dental/ledi/...) tem precedência de FS; em PROCESS_ROLE=all o
   // docker/public-proxy.mjs pega /api antes do Next.
   experimental: {

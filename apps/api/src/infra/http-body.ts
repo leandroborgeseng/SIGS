@@ -10,8 +10,8 @@ import {
 } from 'express';
 
 export const HTTP_JSON_BODY_LIMIT = process.env.HTTP_BODY_LIMIT || '50mb';
-/** Limite por fatia octet-stream (ZIP LEDI em chunks). */
-export const HTTP_OCTET_CHUNK_LIMIT = process.env.HTTP_OCTET_CHUNK_LIMIT || '3mb';
+/** Raw parser só na rota de chunk ZIP — default Express/Nest é 100kb/1mb. */
+export const HTTP_OCTET_CHUNK_LIMIT = process.env.HTTP_OCTET_CHUNK_LIMIT || '2mb';
 
 export function isMultipartRequest(req: { headers?: { 'content-type'?: string } }): boolean {
   const ct = String(req.headers?.['content-type'] || '').toLowerCase();

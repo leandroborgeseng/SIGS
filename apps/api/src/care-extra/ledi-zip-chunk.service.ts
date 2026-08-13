@@ -1,6 +1,6 @@
 /**
  * Junta fatias octet-stream do ZIP LEDI em disco (não em RAM).
- * O gateway Railway / proxy público corta multipart grande; cada chunk cabe em 1–2 MB.
+ * O gateway Railway / proxy público corta multipart grande; a UI envia 512 KiB.
  */
 import { BadRequestException, Inject, Injectable, Logger, Optional, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile, appendFile } from 'fs/promises';

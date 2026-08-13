@@ -218,11 +218,12 @@ export class CareExtraController {
   }
 
   /**
-   * Fatia raw do ZIP (1–2 MB). O gateway Railway corta multipart grande;
-   * octet-stream pequeno atravessa o proxy. A última fatia monta o ZIP em disco e ingere.
+   * Fatia raw do ZIP (512 KiB na UI). POST preferido (CORS/preflight);
+   * PUT permanece por compat. A última fatia monta o ZIP em disco e ingere.
    */
-  @Put('dental/ledi/batches/upload-zip/chunk')
   @Post('dental/ledi/batches/upload-zip/chunk')
+  @Put('dental/ledi/batches/upload-zip/chunk')
+  @HttpCode(200)
   async uploadZipChunk(
     @Req() req: Request,
     @Query() q: LediZipChunkQueryDto,

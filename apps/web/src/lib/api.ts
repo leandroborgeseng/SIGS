@@ -1,7 +1,16 @@
-// Preferir URL pública (build-time). Fallback `/api` = mesmo origin.
-// PROCESS_ROLE=all: browser → :3000 /api → docker/public-proxy (pipe) → Nest :3001.
-// next dev / PROCESS_ROLE=web: Route Handler stream p/ LEDI upload; rewrite p/ o resto.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+// Browser: sempre mesmo origin `/api` — evita preflight CORS (PUT/octet-stream
+// em host da API divergente → Safari “Load failed” / Failed to fetch).
+// PROCESS_ROLE=all: :3000 /api → docker/public-proxy (pipe) → Nest :3001.
+// next dev / PROCESS_ROLE=web: Route Handler stream p/ LEDI; rewrite p/ o resto.
+// SSR: NEXT_PUBLIC_API_URL se absoluta; senão `/api`.
+function apiBase(): string {
+  if (typeof window !== 'undefined') return '/api';
+  return process.env.NEXT_PUBLIC_API_URL || '/api';
+}
+
+/** Timeout por pedido. Fatia ZIP: 3 min — Safari abortava ~2 MB sem HTTP. */
+export const API_FETCH_TIMEOUT_MS = 180_000;
+export const API_BINARY_TIMEOUT_MS = 180_000;
 
 export class ApiError extends Error {
   status: number;
@@ -33,6 +42,9 @@ export function isNetworkError(err: unknown): boolean {
   if (err instanceof NetworkError) return true;
   if (!(err instanceof Error)) return false;
   const msg = err.message || '';
+  if (err.name === 'AbortError' || /aborted|the operation was aborted/i.test(msg)) {
+    return true;
+  }
   return (
     err.name === 'TypeError' &&
     (/load failed/i.test(msg) ||
@@ -112,14 +124,27 @@ async function parseResponse<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-async function doFetch(input: string, init: RequestInit, bytesHint?: number): Promise<Response> {
+async function doFetch(
+  input: string,
+  init: RequestInit,
+  bytesHint?: number,
+  timeoutMs = API_FETCH_TIMEOUT_MS,
+): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    return await fetch(input, init);
+    return await fetch(input, {
+      ...init,
+      credentials: 'include',
+      signal: init.signal ?? ctrl.signal,
+    });
   } catch (e) {
     if (isNetworkError(e) || e instanceof TypeError) {
       throw new NetworkError(networkMessage(e, bytesHint), { cause: e, bytesHint });
     }
     throw e;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -141,7 +166,7 @@ export async function api<T = unknown>(
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const res = await doFetch(
-    `${API_BASE}${path}`,
+    `${apiBase()}${path}`,
     {
       ...rest,
       headers,
@@ -157,8 +182,7 @@ export async function api<T = unknown>(
  * `Content-Type: multipart/form-data` sem boundary → HTTP 400
  * "Multipart: Unexpected end of form".
  *
- * URL: `NEXT_PUBLIC_API_URL` se absoluta (host da API ou same-origin `/api`);
- * senão `/api` no mesmo host. Em role=all o host público é o proxy, não o Next.
+ * URL: sempre `/api` no browser (mesmo origin). Em role=all o host público é o proxy.
  */
 export async function apiUpload<T = unknown>(
   path: string,
@@ -166,7 +190,7 @@ export async function apiUpload<T = unknown>(
   options: { bytesHint?: number; method?: string } = {},
 ): Promise<T> {
   const res = await doFetch(
-    `${API_BASE}${path}`,
+    `${apiBase()}${path}`,
     {
       method: options.method || 'POST',
       headers: authHeaders(),
@@ -178,8 +202,9 @@ export async function apiUpload<T = unknown>(
 }
 
 /**
- * PUT/POST binário pequeno (chunk ZIP LEDI). Content-Type octet-stream —
+ * POST binário (chunk ZIP LEDI). Content-Type octet-stream —
  * não usar FormData: o gateway corta multipart grande.
+ * POST (não PUT) — preflight CORS mais previsível no Safari/proxy.
  */
 export async function apiBinary<T = unknown>(
   path: string,
@@ -191,13 +216,14 @@ export async function apiBinary<T = unknown>(
   if (token) headers.set('Authorization', `Bearer ${token}`);
   headers.set('Content-Type', 'application/octet-stream');
   const res = await doFetch(
-    `${API_BASE}${path}`,
+    `${apiBase()}${path}`,
     {
-      method: options.method || 'PUT',
+      method: options.method || 'POST',
       headers,
       body: body as BodyInit,
     },
     options.bytesHint,
+    API_BINARY_TIMEOUT_MS,
   );
   return parseResponse<T>(res);
 }

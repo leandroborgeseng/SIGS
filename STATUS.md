@@ -27,11 +27,11 @@
 
 ### Entregue nesta onda
 - **Ficha APS origem FAI tipo 4:** abrir/listar com paciente + profissional + lotação/INE; `care` mínimo (CIAP/CID, SIGTAP, condutas FAI); preview Siaps-ready; finish atualiza `ProductionBatch` `individual_encounter`; UI `/aps` no grupo clínico (não mistura `/odonto`)
-- **Hotfix ZIP LEDI:** upload em fatias 2 MB (`PUT …/upload-zip/chunk`, `application/octet-stream`) — o gateway Railway truncava multipart ~14 MB (`sistemas.zip`); junta em disco; tmp órfão com TTL 2h
+- **Hotfix ZIP LEDI:** fatias **512 KiB** via **POST** `…/upload-zip/chunk` (`application/octet-stream`, same-origin `/api`, retry 3× em “Load failed”) — 2.0 MB/PUT caía no Safari sem HTTP; junta em disco; tmp órfão com TTL 2h
 
 ### Pendente
 1. Smoke visual browser: `/aps` → ficha → CIAP/CID + SIGTAP + conduta → finalizar → conferir batch; `/odonto/agenda` → abrir → ficha → odontograma Q/S + histórico + catálogo SIGTAP concluir → finalizar → fila → ZIP FAI/FAO
-2. Railway: confirmar `JWT_SECRET` ok; `SEED_ADMIN_PASSWORD` ≥12 chars; smoke ZIP FAI/FAO em `/faturamento/lote/*` (ZIP em **chunks** octet-stream `/upload-zip/chunk`, não multipart único; job async se ≥1500 XMLs)
+2. Railway: confirmar `JWT_SECRET` ok; `SEED_ADMIN_PASSWORD` ≥12 chars; smoke ZIP FAI/FAO em `/faturamento/lote/*` (ZIP em **POST chunks 512 KiB** `/upload-zip/chunk`, não multipart único; job async se ≥1500 XMLs)
 3. Fila UI `/faturamento/aps` (espelho `/faturamento/odonto`) — gancho de batch já existe
 4. LEDI P1 — campos individuais na ficha ligados ao motor `clinical-core`
 5. Redis/Bull (opcional em prod — hoje opcional no boot)
