@@ -31,6 +31,11 @@ import {
   type DentalCareDraft,
 } from './dental-care.draft';
 import {
+  normalizeOdontogram,
+  odontogramCatalog,
+  type OdontogramMap,
+} from './dental-odontogram';
+import {
   bucketFromFindings,
   competenciaFromDate,
   competenciaRange,
@@ -137,9 +142,26 @@ export class CareExtraService {
         { id: 2, label: 'Aguardando emissão' },
         { id: 99, label: 'Outro' },
       ],
+      odontogram: odontogramCatalog(),
       channelNote:
         'Conformidade de envio odonto APS/CEO→Siaps/RNDS: LEDI FAO (XML|Thrift), não Bundle FHIR RIA neste fluxo.',
     };
+  }
+
+  private parseOdontogram(raw: string | null | undefined): OdontogramMap {
+    try {
+      return normalizeOdontogram(JSON.parse(raw || '{}'));
+    } catch {
+      return {};
+    }
+  }
+
+  private coerceOdontogram(raw: unknown): OdontogramMap {
+    try {
+      return normalizeOdontogram(raw ?? {});
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
   }
 
   validateDentalFao(dto: ValidateDentalFaoDto) {
@@ -204,7 +226,7 @@ export class CareExtraService {
     return {
       ...row,
       procedures: JSON.parse(row.proceduresJson || '[]'),
-      odontogram: JSON.parse(row.odontogramJson || '{}'),
+      odontogram: this.parseOdontogram(row.odontogramJson),
       outcomes: JSON.parse(row.outcomesJson || '[]'),
       care,
     };
@@ -256,7 +278,7 @@ export class CareExtraService {
         encounterType: dto.encounterType || 'CONSULTA',
         anamnese: dto.anamnese,
         proceduresJson: JSON.stringify(dto.procedures || []),
-        odontogramJson: JSON.stringify(dto.odontogram || {}),
+        odontogramJson: JSON.stringify(this.coerceOdontogram(dto.odontogram || {})),
         careJson: JSON.stringify(care),
         status: 'IN_PROGRESS',
       },
@@ -339,7 +361,9 @@ export class CareExtraService {
         proceduresJson:
           dto.procedures !== undefined ? JSON.stringify(dto.procedures) : undefined,
         odontogramJson:
-          dto.odontogram !== undefined ? JSON.stringify(dto.odontogram) : undefined,
+          dto.odontogram !== undefined
+            ? JSON.stringify(this.coerceOdontogram(dto.odontogram))
+            : undefined,
         careJson: JSON.stringify(nextCare),
         outcomesJson: dto.outcomes ? JSON.stringify(dto.outcomes) : undefined,
       },
@@ -777,7 +801,7 @@ export class CareExtraService {
         localAtendimento,
         turno,
         procedures: JSON.parse(row.proceduresJson || '[]'),
-        odontogram: JSON.parse(row.odontogramJson || '{}'),
+        odontogram: this.parseOdontogram(row.odontogramJson),
       });
     } catch (e) {
       throw new BadRequestException((e as Error).message);

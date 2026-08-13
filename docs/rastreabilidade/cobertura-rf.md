@@ -48,7 +48,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-12.1 | Obr | parcial | n/a | agenda TR **não** implementada (só abertura de encounter) |
 | RF-12.4 | Obr | parcial | previsto | início tratamento (status/campo; sem fluxo rico) |
 | RF-12.16 | Obr | parcial | automatizado | problemas CIAP/CID (`CodeSearchSelect`); patologias ricas depois |
-| RF-12.12 | Obr | parcial | previsto | dente/proc stub — odontograma completo depois |
+| RF-12.12 | Obr | parcial | automatizado | odontograma MVP FDI + condições em `/odonto/[id]` · `odontogramJson` · catálogo · LEDI `odontograma`; sem quadrante/sextante/histórico |
 | RF-12.20 | Obr | parcial | previsto | lista `/odonto` cronológica básica |
 | RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` + UI `/ad` |
 | RF-3.53 | Obr | parcial | automatizado | `ledi-collective-v2` + UI `/coletivo` |

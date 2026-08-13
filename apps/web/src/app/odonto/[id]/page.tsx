@@ -4,6 +4,11 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
+import {
+  OdontogramGrid,
+  type OdontogramArches,
+  type OdontogramCondition,
+} from '@/components/odonto/OdontogramGrid';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError } from '@/lib/api';
@@ -23,6 +28,11 @@ type Catalog = {
   condutas: Array<{ id: string; label: string; lediId: number }>;
   fornecimentos: Array<{ id: string; label: string }>;
   justificativaNaoPossuiCpf: Array<{ id: number; label: string }>;
+  odontogram?: {
+    conditions: OdontogramCondition[];
+    arches: OdontogramArches;
+    note?: string;
+  };
 };
 
 type Care = {
@@ -59,6 +69,7 @@ type Encounter = {
   facility: { id: string; name: string; cnes: string; ibgeCode?: string | null };
   professional?: { id: string; civilName: string } | null;
   procedures: Array<{ tooth?: string; code: string; label: string; done?: boolean }>;
+  odontogram?: Record<string, string>;
   care: Care;
   voidMeta?: {
     postCompleted?: boolean;
@@ -134,6 +145,8 @@ export default function OdontoAtendimentoPage() {
   const [procCode, setProcCode] = useState('0301010030');
   const [procLabel, setProcLabel] = useState('Consulta odontológica');
   const [tooth, setTooth] = useState('11');
+  const [odontogram, setOdontogram] = useState<Record<string, string>>({});
+  const [showDeciduous, setShowDeciduous] = useState(false);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
@@ -166,6 +179,9 @@ export default function OdontoAtendimentoPage() {
       setProcCode(proc0.code || '0301010030');
       setProcLabel(proc0.label || 'Consulta odontológica');
     }
+    setOdontogram(row.odontogram || {});
+    const marked = Object.keys(row.odontogram || {});
+    if (marked.some((t) => Number(t) >= 51)) setShowDeciduous(true);
     if (row.status === 'COMPLETED') {
       setFinishSummary((prev) =>
         prev || {
@@ -206,8 +222,9 @@ export default function OdontoAtendimentoPage() {
       ...care,
       problemasCondicoes: problemas,
       procedures: [{ tooth, code: procCode, label: procLabel, done: true }],
+      odontogram,
     };
-  }, [care, anamnese, ciap, cid10, tooth, procCode, procLabel]);
+  }, [care, anamnese, ciap, cid10, tooth, procCode, procLabel, odontogram]);
 
   const draftFingerprint = useMemo(
     () => JSON.stringify(buildPatchBody()),
@@ -232,6 +249,7 @@ export default function OdontoAtendimentoPage() {
       skipLiveRef.current = true;
       setEnc(row);
       setCare(row.care);
+      setOdontogram(row.odontogram || {});
       if (!opts?.quiet) {
         setOk('Rascunho salvo.');
         await refreshPreview();
@@ -674,9 +692,42 @@ export default function OdontoAtendimentoPage() {
               rows={3}
             />
           </label>
+
+          <h2>Odontograma (RF-12.12 parcial)</h2>
+          {catalog.odontogram ? (
+            <>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  disabled={readonly}
+                  checked={showDeciduous}
+                  onChange={(e) => setShowDeciduous(e.target.checked)}
+                />
+                Mostrar dentição decídua
+              </label>
+              <OdontogramGrid
+                value={odontogram}
+                conditions={catalog.odontogram.conditions}
+                arches={catalog.odontogram.arches}
+                selectedTooth={tooth}
+                onSelectTooth={setTooth}
+                onChange={setOdontogram}
+                disabled={readonly}
+                showDeciduous={showDeciduous}
+              />
+              {catalog.odontogram.note && (
+                <p className="muted" style={{ fontSize: 12 }}>
+                  {catalog.odontogram.note}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="muted">Catálogo de odontograma indisponível — reinicie a API.</p>
+          )}
+
           <div className="row-3">
             <label>
-              Dente
+              Dente (proc.)
               <input disabled={readonly} value={tooth} onChange={(e) => setTooth(e.target.value)} />
             </label>
             <label>
