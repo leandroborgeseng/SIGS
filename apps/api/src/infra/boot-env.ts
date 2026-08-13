@@ -90,6 +90,17 @@ export function assertBootEnv(role: BootRole = 'api'): void {
     );
   }
 
+  // Admin seed: em prod avisa se senha fraca/ausente (não aborta — admin pode já existir).
+  if (prod) {
+    const seedPw = process.env.SEED_ADMIN_PASSWORD?.trim() || '';
+    if (!seedPw || seedPw.length < 12) {
+      warnings.push(
+        'SEED_ADMIN_PASSWORD ausente ou <12 chars — em production o boot NÃO cria admin fraco. ' +
+          'Se ainda não houver usuário TI, defina senha forte (≥12) e redeploy.',
+      );
+    }
+  }
+
   const line = `SIGS ${role} boot · NODE_ENV=${process.env.NODE_ENV || 'undefined'} · DB=${redactDatabaseUrl(db)} · queue=${process.env.REDIS_URL?.trim() ? 'redis' : 'inline'}`;
   // eslint-disable-next-line no-console
   console.log(line);

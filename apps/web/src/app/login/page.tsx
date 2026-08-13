@@ -6,11 +6,19 @@ import { useAuth } from '@/lib/auth';
 import { ApiError } from '@/lib/api';
 import { ErrorBox } from '@/components/ui/PageHeader';
 
+/** Em produção (ou com flag) não embute credenciais seed no HTML. */
+const hideSeedCredentials =
+  process.env.NODE_ENV === 'production' ||
+  process.env.NEXT_PUBLIC_HIDE_SEED_CREDENTIALS === '1';
+
+const DEV_SEED_EMAIL = 'admin@sigs.local';
+const DEV_SEED_PASSWORD = 'admin123';
+
 export default function LoginPage() {
   const { login, user, facilityId } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState('admin@sigs.local');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState(hideSeedCredentials ? '' : DEV_SEED_EMAIL);
+  const [password, setPassword] = useState(hideSeedCredentials ? '' : DEV_SEED_PASSWORD);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -71,9 +79,12 @@ export default function LoginPage() {
           <button className="btn btn-primary" type="submit" disabled={busy} style={{ width: '100%', minHeight: 44 }}>
             {busy ? 'Entrando…' : 'Entrar'}
           </button>
-          <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--ink-3)', marginTop: 16 }}>
-            Perfil de demonstração: <b style={{ color: 'var(--ink-2)' }}>TI municipal</b>
-          </p>
+          {!hideSeedCredentials ? (
+            <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--ink-3)', marginTop: 16 }}>
+              Dev seed: <b style={{ color: 'var(--ink-2)' }}>{DEV_SEED_EMAIL}</b> /{' '}
+              <b style={{ color: 'var(--ink-2)' }}>{DEV_SEED_PASSWORD}</b>
+            </p>
+          ) : null}
         </form>
       </section>
       <section className="login-brand">

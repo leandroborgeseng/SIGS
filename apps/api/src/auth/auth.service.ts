@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -9,9 +10,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
 import { CreateUserDto, LoginDto, UpdateUserDto } from './dto';
 import { ROLE_SEEDS } from './roles.seed';
+import { resolveSeedAdminCredentials } from './seed-admin';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -40,10 +44,14 @@ export class AuthService {
     await this.ensureRolesSeeded();
     const ti = await this.prisma.role.findUnique({ where: { code: 'TI' } });
     if (!ti) return;
-    const email = process.env.SEED_ADMIN_EMAIL || 'admin@sigs.local';
-    const password = process.env.SEED_ADMIN_PASSWORD || 'admin123';
+    const { email, password, refuseReason } = resolveSeedAdminCredentials();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) return existing;
+    if (!password) {
+      // Produção sem senha forte: não cria admin fraco (deploys com admin já existente seguem ok).
+      this.logger.warn(refuseReason || 'SEED_ADMIN_PASSWORD inválido — admin não criado.');
+      return;
+    }
     const passwordHash = await bcrypt.hash(password, 10);
     return this.prisma.user.create({
       data: {

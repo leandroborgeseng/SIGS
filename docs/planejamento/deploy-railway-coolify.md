@@ -60,7 +60,7 @@ Copie de `railway.variables.txt`, ajustando o domínio gerado:
 | `NEXT_PUBLIC_API_URL` | `https://SEU-DOMINIO.up.railway.app/api` |
 | `API_INTERNAL_URL` | `http://127.0.0.1:3001` |
 | `SEED_ADMIN_EMAIL` | seu e-mail |
-| `SEED_ADMIN_PASSWORD` | senha forte |
+| `SEED_ADMIN_PASSWORD` | senha forte (**≥12** chars; sem isso o boot não cria admin fraco) |
 | `STORAGE_DRIVER` | `local` |
 | `STORAGE_LOCAL_PATH` | `/data/storage` |
 
@@ -79,10 +79,11 @@ Redeploy após definir o domínio definitivo.
 
 ### 7. Smoke test
 
-1. Abra o domínio → login (`SEED_ADMIN_*`).
-2. `https://SEU-DOMINIO.up.railway.app/api/health` → `status: ok`, `queue: inline` (sem Redis) ou `redis-bullmq`.
-3. `https://SEU-DOMINIO.up.railway.app/api/ready` → `checks.postgres.ok = true`.
-4. Odonto → Lote LEDI → upload pequeno → auto-fix → export ZIP.
+1. Abra o domínio → `/login`: campos **vazios** (não deve aparecer `admin@sigs.local` / `admin123` no HTML). Entre com `SEED_ADMIN_*` das Variables.
+2. View-source ou DevTools → Network → documento `/login`: buscar `admin123` → **0 ocorrências**.
+3. `https://SEU-DOMINIO.up.railway.app/api/health` → `status: ok`, `queue: inline` (sem Redis) ou `redis-bullmq`.
+4. `https://SEU-DOMINIO.up.railway.app/api/ready` → `checks.postgres.ok = true`.
+5. Odonto → Lote LEDI → upload pequeno → auto-fix → export ZIP.
 
 ### Boot / health (logs)
 
@@ -94,6 +95,8 @@ No Deploy Logs do Railway, o entrypoint e a API devem mostrar linhas claras:
 - `SIGS API online · … health=/api/health · ready=/api/ready`
 
 Se faltar `DATABASE_URL` ou `JWT_SECRET` (production), o processo **aborta com ERROR** legível — não sobe “mudo”.
+
+`SEED_ADMIN_PASSWORD` fraca/ausente em production: **WARN** no log (não aborta). Se ainda não existir usuário admin, ele **não** é criado até você definir senha ≥12 e redeployar. A UI de login **nunca** embute senha seed em `NODE_ENV=production`.
 
 **Healthcheck Railway (Settings → Healthcheck):** path `/api/health`, porta **3000** (web + proxy). O Dockerfile também tem `HEALTHCHECK` interno (API `:3001` ou proxy).
 

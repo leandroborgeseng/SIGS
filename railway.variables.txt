@@ -27,7 +27,8 @@ NEXT_PUBLIC_API_URL=https://sigs-production.up.railway.app/api
 API_INTERNAL_URL=http://127.0.0.1:3001
 
 SEED_ADMIN_EMAIL=admin@sigs.local
-SEED_ADMIN_PASSWORD=troque-a-senha-admin
+# Obrigatório ≥12 chars em production para criar o 1º admin; senão WARN + não cria admin fraco.
+SEED_ADMIN_PASSWORD=troque-senha-admin-forte
 
 NODE_ENV=production
 HTTP_BODY_LIMIT=20mb

@@ -11,7 +11,14 @@
 { "email": "admin@sigs.local", "password": "admin123" }
 ```
 
-Retorna `accessToken` (Bearer). Seed criado no boot da API.
+Retorna `accessToken` (Bearer). Seed no boot da API:
+
+| Ambiente | Comportamento |
+|---|---|
+| development | Cria admin com `SEED_ADMIN_*` ou default `admin@sigs.local` / `admin123`. UI pré-preenche e mostra hint. |
+| production | Só cria admin se `SEED_ADMIN_PASSWORD` ≥12. Senão WARN e não cria. UI **não** pré-preenche nem exibe senha seed. |
+
+Flag opcional na Web: `NEXT_PUBLIC_HIDE_SEED_CREDENTIALS=1` oculta hint/pré-preenchimento mesmo fora de production.
 
 ## Perfis (roles)
 
