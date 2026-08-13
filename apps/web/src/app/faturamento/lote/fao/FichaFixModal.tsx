@@ -12,6 +12,7 @@ import {
 } from './error-catalog';
 import { JUSTIFICATIVA_NAO_POSSUI_CPF } from './justificativa-cpf';
 import { CONDUTAS_ODONTO } from './condutas-odonto';
+import { CONDUTAS_FAI } from '@/lib/ledi/condutas-fai';
 import {
   ModalQualityMiniDash,
   type LotQualitySnapshot,
@@ -153,9 +154,22 @@ export function FichaFixModal({
         />
       ) : null}
 
-      {selected.odontoLoteSupported === false ? (
+      {variant === 'fao' && selected.odontoLoteSupported === false ? (
         <div className="alert danger" style={{ marginBottom: 12 }}>
-          Esta ficha <strong>não é FAO</strong>. Use o fluxo do tipo indicado
+          Esta ficha <strong>não é FAO</strong> (tipo 5 / odonto). Use o fluxo do tipo indicado
+          {selected.correctionPath ? `: ${selected.correctionPath}` : ''}.
+        </div>
+      ) : null}
+      {variant === 'fai' && selected.fichaTipo && selected.fichaTipo !== 'FAI' ? (
+        <div className="alert danger" style={{ marginBottom: 12 }}>
+          Esta ficha <strong>não é FAI</strong> (tipo 4 / atendimento individual). Use o fluxo do tipo
+          indicado
+          {selected.correctionPath ? `: ${selected.correctionPath}` : ''}.
+        </div>
+      ) : null}
+      {variant === 'proc' && selected.fichaTipo && selected.fichaTipo !== 'PROCEDIMENTOS' ? (
+        <div className="alert danger" style={{ marginBottom: 12 }}>
+          Esta ficha <strong>não é de Procedimentos</strong> (tipo 7). Use o fluxo do tipo indicado
           {selected.correctionPath ? `: ${selected.correctionPath}` : ''}.
         </div>
       ) : null}
@@ -361,12 +375,16 @@ export function FichaFixModal({
                 placeholder="2026-08-12T14:30:00"
               />
             </div>
-            {variant === 'fao' ? (
+            {variant === 'fao' || variant === 'fai' ? (
               <div
                 className={`field ${form.focusField === 'condutas' ? 'focus-hint' : ''}`}
                 style={{ gridColumn: '1 / -1' }}
               >
-                <label>Condutas (tiposEncamOdonto)</label>
+                <label>
+                  {variant === 'fai'
+                    ? 'Condutas (TipoEncaminhamentoIndividual)'
+                    : 'Condutas (tiposEncamOdonto)'}
+                </label>
                 <select
                   multiple
                   value={form.condutas ? form.condutas.split(',').filter(Boolean) : []}
@@ -376,14 +394,16 @@ export function FichaFixModal({
                   }}
                   style={{ minHeight: 88 }}
                 >
-                  {CONDUTAS_ODONTO.map((c) => (
+                  {(variant === 'fai' ? CONDUTAS_FAI : CONDUTAS_ODONTO).map((c) => (
                     <option key={c.code} value={String(c.code)}>
                       {c.code} · {c.key} — {c.label}
                     </option>
                   ))}
                 </select>
                 <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
-                  Segure Ctrl/Cmd para marcar várias. Substitui a lista de condutas da ficha.
+                  {variant === 'fai'
+                    ? 'Catálogo FAI tipo 4 — não use condutas odonto. Segure Ctrl/Cmd para marcar várias.'
+                    : 'Segure Ctrl/Cmd para marcar várias. Substitui a lista de condutas da ficha.'}
                 </p>
               </div>
             ) : null}

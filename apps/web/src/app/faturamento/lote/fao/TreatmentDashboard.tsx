@@ -10,6 +10,8 @@ type Props = {
   readyForFinalSend?: number;
   onFilterBucket?: (bucket: TreatBucket) => void;
   activeBucket?: TreatBucket;
+  /** FAI/PROC: qualidade LEDI, sem Previne ESB. */
+  kind?: 'fao' | 'fai' | 'proc';
 };
 
 function ProgressBar({
@@ -34,6 +36,7 @@ export function TreatmentDashboard({
   readyForFinalSend = 0,
   onFilterBucket,
   activeBucket = '',
+  kind = 'fao',
 }: Props) {
   if (!treatment?.current) return null;
   const { baseline: b, current: c } = treatment;
@@ -162,7 +165,9 @@ export function TreatmentDashboard({
             tone="money"
           />
           <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            Enviam, mas a informação ainda precisa melhorar (Previne / dados)
+            {kind === 'fao'
+              ? 'Enviam, mas a informação ainda precisa melhorar (Previne / dados)'
+              : 'Enviam, mas a informação ainda precisa melhorar (dados / equipe)'}
           </div>
         </button>
 

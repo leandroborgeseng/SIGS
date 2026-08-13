@@ -546,6 +546,13 @@ export const INDIVIDUAL_REPAIRS: Record<string, AlertRepair> = {
     channel: 'LEDI',
     focusField: 'condutas',
   }),
+  CONDUTA_MISSING: INDIVIDUAL({
+    title: 'Conduta FAI ausente',
+    where: 'Editar ficha',
+    how: 'Selecione ao menos uma conduta do catálogo TipoEncaminhamentoIndividual (não odonto).',
+    channel: 'LEDI',
+    focusField: 'condutas',
+  }),
   TIPO_ATENDIMENTO: INDIVIDUAL({
     title: 'tipoAtendimento inválido',
     where: 'Editar ficha',

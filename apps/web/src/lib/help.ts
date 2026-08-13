@@ -193,10 +193,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'faturamento.lote-fai',
     title: 'Lote LEDI FAI — atendimento individual',
     module: 'Faturamento',
-    version: '0.1.0',
-    updatedAt: '2026-08-12',
+    version: '0.2.0',
+    updatedAt: '2026-08-13',
     summary: 'Upload/validação de XMLs FAI (tipo 4), correção e export ZIP.',
-    body: `Em /faturamento/lote/fai: (1) envie XMLs ou ZIP da Ficha de Atendimento Individual (ZIP grande como sistemas.zip sobe em partes de ~2 MB — a tela mostra “parte 3/8…”); (2) leia o funil Siaps e os alertas; (3) clique no alerta → guia → auto/semi ou edite a ficha; (4) com prontas Siaps, Exportar → ZIP só conformes (recomendado) ou ZIP atuais; dry-run simula auto-correção; relatório .md arquiva o fechamento. Alias: /aps/lote. Hub: /faturamento.`,
+    body: `Em /faturamento/lote/fai: (1) envie XMLs ou ZIP da Ficha de Atendimento Individual tipo 4 — não é odonto (ZIP grande como sistemas.zip sobe em partes; a tela mostra progresso); (2) leia o funil Siaps, os buckets vermelho/laranja/verde e o mini-dash nos modais; (3) clique no alerta → guia → auto/semi ou edite a ficha (condutas FAI, não odonto); (4) com prontas Siaps, Exportar → ZIP só conformes (recomendado) ou ZIP atuais; dry-run simula auto-correção; relatório .md arquiva o fechamento. Fila de produção nativa: /faturamento/aps (?encounterId= / ?batchId=). Alias: /aps/lote. Hub: /faturamento.`,
   },
   {
     id: 'faturamento.lote-proc',

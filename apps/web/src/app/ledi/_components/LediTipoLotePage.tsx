@@ -10,10 +10,12 @@ import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
 import { formatUploadError, isIoReadError, isNetworkError } from '@/lib/format-upload-error';
 import { FileDropZone } from '@/components/ui/FileDropZone';
 import {
+  compareBySeverityThenCount,
   explainError,
   resolveSeverity,
   severityLabel,
   severityRank,
+  severityTone,
 } from '@/app/faturamento/lote/fao/error-catalog';
 import { TreatmentDashboard, type TreatBucket } from '@/app/faturamento/lote/fao/TreatmentDashboard';
 import type { TreatmentProgress } from '@/app/faturamento/lote/fao/treatment-types';
@@ -95,11 +97,17 @@ const META: Record<
     siblingLabel: string;
     variant: 'fai' | 'proc';
     acceptHint: string;
+    fichaLabel: string;
+    queueHref: string;
+    queueLabel: string;
+    clinicalHref: string;
+    clinicalLabel: string;
+    defaultCbo: string;
   }
 > = {
   FAI: {
     title: 'Lote LEDI FAI',
-    help: 'Atendimento Individual (tipo 4). Clique no alerta → guia → corrija em lote ou na ficha; exporte ZIP quando houver prontas Siaps.',
+    help: 'Ficha de Atendimento Individual (tipo 4) — não é odonto. Funil Siaps, buckets de tratamento, correção e ZIP iguais ao FAO.',
     label: 'FAI',
     helpId: 'faturamento.lote-fai',
     fileSlug: 'fai',
@@ -107,6 +115,12 @@ const META: Record<
     siblingLabel: 'Lote Procedimentos',
     variant: 'fai',
     acceptHint: 'FAI tipo 4',
+    fichaLabel: 'ficha individual',
+    queueHref: '/faturamento/aps',
+    queueLabel: 'Fila APS',
+    clinicalHref: '/aps',
+    clinicalLabel: 'Atendimentos APS',
+    defaultCbo: '',
   },
   PROCEDIMENTOS: {
     title: 'Lote LEDI Procedimentos',
@@ -118,8 +132,37 @@ const META: Record<
     siblingLabel: 'Lote FAI',
     variant: 'proc',
     acceptHint: 'PROC tipo 7',
+    fichaLabel: 'ficha de procedimentos',
+    queueHref: '/faturamento',
+    queueLabel: 'Hub faturamento',
+    clinicalHref: '/faturamento',
+    clinicalLabel: 'Hub',
+    defaultCbo: '',
   },
 };
+
+function pickNextPriorityCode(
+  summary: BatchSummary,
+  justFixed?: string,
+): { code: string; same: boolean } | null {
+  const entries = (summary.topCodes || [])
+    .filter((c) => c.files > 0)
+    .map((c) => ({
+      code: c.code,
+      files: c.files,
+      severity: String(resolveSeverity(c.code, 'BLOCKER')),
+    }));
+  if (justFixed) {
+    const still = entries.find((e) => e.code === justFixed);
+    if (still) return { code: justFixed, same: true };
+  }
+  const sorted = [...entries].sort(compareBySeverityThenCount);
+  const next =
+    sorted.find((e) => e.severity === 'BLOCKER') ||
+    sorted.find((e) => e.severity === 'MONEY_RISK') ||
+    sorted[0];
+  return next ? { code: next.code, same: false } : null;
+}
 
 async function downloadZip(
   batchId: string,
@@ -178,13 +221,15 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
   const [uploadProgress, setUploadProgress] = useState('');
   const [treatBucket, setTreatBucket] = useState<TreatBucket>('');
   const [codeFilter, setCodeFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [q, setQ] = useState('');
   const [errorModalOpen, setErrorModalOpen] = useState(false);
   const [fichaModalOpen, setFichaModalOpen] = useState(false);
   const anyBusy = busy || exportAction !== null;
   const exportBusy = exportAction !== null;
 
   const [editIne, setEditIne] = useState('');
-  const [editCbo, setEditCbo] = useState('223208');
+  const [editCbo, setEditCbo] = useState(meta.defaultCbo);
   const [turno, setTurno] = useState('2');
   const [gestante, setGestante] = useState('false');
   const [localAtend, setLocalAtend] = useState('1');
@@ -204,6 +249,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
   const [procExtra, setProcExtra] = useState('');
   const [ciap, setCiap] = useState('');
   const [cid10, setCid10] = useState('');
+  const [condutas, setCondutas] = useState('');
   const [focusField, setFocusField] = useState('');
 
   const activeRepair = useMemo(
@@ -240,13 +286,15 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       qs.set('limit', '300');
       if (treatBucket) qs.set('bucket', treatBucket);
       if (code) qs.set('code', code);
+      if (statusFilter) qs.set('status', statusFilter);
+      if (q.trim()) qs.set('q', q.trim());
       const page = await api<{ total: number; items: ItemRow[] }>(
         `/v1/dental/ledi/batches/${id}/items?${qs}`,
       );
       setItems(page.items);
       setItemsTotal(page.total);
     },
-    [treatBucket],
+    [treatBucket, statusFilter, q],
   );
 
   const loadBatch = useCallback(
@@ -261,6 +309,14 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
   useEffect(() => {
     void loadBatches().catch((e) => setError(e instanceof Error ? e.message : 'Falha'));
   }, [loadBatches]);
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('batchId');
+    if (!id) return;
+    void api<Batch>(`/v1/dental/ledi/batches/${id}`)
+      .then((b) => setBatch(b))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Falha'));
+  }, []);
 
   useEffect(() => {
     if (!batch?.id) return;
@@ -310,11 +366,14 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
   async function advanceAfterFix(batchId: string, justFixed: string | undefined, baseMsg: string) {
     const b = await api<Batch>(`/v1/dental/ledi/batches/${batchId}`);
     setBatch(b);
-    const next = (b.summary.topCodes || []).find((c) => c.code !== justFixed && c.files > 0);
+    const next = pickNextPriorityCode(b.summary, justFixed);
     if (next) {
       setCodeFilter(next.code);
       setErrorModalOpen(true);
-      setOk(`${baseMsg} Próximo: ${lookupRepair(next.code)?.title || next.code} (${next.files}).`);
+      const files = (b.summary.topCodes || []).find((c) => c.code === next.code)?.files;
+      setOk(
+        `${baseMsg} ${next.same ? 'Ainda neste alerta' : 'Próximo'}: ${lookupRepair(next.code)?.title || next.code}${files != null ? ` (${files})` : ''}.`,
+      );
     } else {
       setCodeFilter('');
       setErrorModalOpen(false);
@@ -421,7 +480,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
 
   function resetFichaForm() {
     setEditIne('');
-    setEditCbo('223208');
+    setEditCbo(meta.defaultCbo);
     setTurno('2');
     setGestante('false');
     setLocalAtend('1');
@@ -441,6 +500,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     setProcExtra('');
     setCiap('');
     setCid10('');
+    setCondutas('');
     setFocusField('');
   }
 
@@ -486,6 +546,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     if (patch.horaIni !== undefined) setHoraIni(patch.horaIni);
     if (patch.horaFim !== undefined) setHoraFim(patch.horaFim);
     if (patch.procExtra !== undefined) setProcExtra(patch.procExtra);
+    if (patch.condutas !== undefined) setCondutas(patch.condutas);
     if (patch.focusField !== undefined) setFocusField(patch.focusField);
   }
 
@@ -616,6 +677,16 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             <Link className="btn btn-secondary" href="/faturamento">
               Hub faturamento
             </Link>
+            {expectedTipo === 'FAI' ? (
+              <>
+                <Link className="btn btn-secondary" href={meta.clinicalHref}>
+                  {meta.clinicalLabel}
+                </Link>
+                <Link className="btn btn-secondary" href={meta.queueHref}>
+                  {meta.queueLabel}
+                </Link>
+              </>
+            ) : null}
             <Link className="btn btn-secondary" href="/faturamento/lote/fao">
               Lote FAO
             </Link>
@@ -636,7 +707,10 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
           {expectedTipo === 'FAI' ? (
             <>
               {' '}
-              — FAO vai em <Link href="/faturamento/lote/fao">Lote FAO</Link>
+              — FAO vai em <Link href="/faturamento/lote/fao">Lote FAO</Link>. Produção nativa APS
+              (não XML) fica na <Link href="/faturamento/aps">fila APS</Link>
+              {' '}
+              (<code>?encounterId=</code> / <code>?batchId=</code> após finalizar em /aps/[id]).
             </>
           ) : (
             <>
@@ -701,54 +775,121 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       {batch ? (
         <>
           <div className="card" style={{ marginBottom: 16 }}>
-            <h3 style={{ marginTop: 0 }}>2. Resumo — {batch.name}</h3>
+            <h3 style={{ marginTop: 0 }}>2. Diagnóstico — {batch.name}</h3>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Ordem de trabalho: primeiro liberar o envio, depois melhorar a qualidade da informação, por
+              último indicadores. {expectedTipo === 'FAI' ? 'FAI tipo 4 — atendimento individual, não odonto.' : null}
+            </p>
+
+            <div className="lote-priority">
+              <div className="lote-priority-card blocker">
+                <div className="step">1º · Vermelho</div>
+                <strong>Bloqueia envio</strong>
+                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                  Sem corrigir, a ficha não passa no Siaps/Ministério. Produção não entra.
+                </div>
+              </div>
+              <div className="lote-priority-card money">
+                <div className="step">2º · Laranja</div>
+                <strong>Qualidade incompleta</strong>
+                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                  Envia, mas a informação ainda precisa melhorar (dados / equipe).
+                </div>
+              </div>
+              <div className="lote-priority-card quality">
+                <div className="step">3º · Verde</div>
+                <strong>Indicadores / info</strong>
+                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                  Qualidade dos indicadores e dados para o governo — tratar depois dos dois acima.
+                </div>
+              </div>
+            </div>
+
+            <TreatmentDashboard
+              treatment={batch.summary.treatment}
+              readyForFinalSend={batch.summary.readyForFinalSend}
+              activeBucket={treatBucket}
+              kind={meta.variant}
+              onFilterBucket={(bucket) => {
+                setTreatBucket(bucket);
+                setCodeFilter('');
+              }}
+            />
 
             <LoteQualityPanel
               total={batch.summary.total}
               siapsReady={batch.summary.siapsReady}
               previneReady={batch.summary.previneReady}
               readyForFinalSend={batch.summary.readyForFinalSend}
-              fichaLabel={expectedTipo === 'FAI' ? 'ficha individual' : 'ficha de procedimentos'}
-            />
-
-            <TreatmentDashboard
-              treatment={batch.summary.treatment}
-              readyForFinalSend={batch.summary.readyForFinalSend}
-              activeBucket={treatBucket}
-              onFilterBucket={setTreatBucket}
+              fichaLabel={meta.fichaLabel}
+              kind={meta.variant}
+              withWarn={batch.summary.withWarn}
             />
 
             <h4 style={{ marginBottom: 8 }}>Alertas (clique para o guia)</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div className="lote-bars">
               {(batch.summary.topCodes || [])
                 .map((c) => ({
                   ...c,
                   severity: resolveSeverity(c.code, 'BLOCKER'),
                 }))
-                .sort((a, b) => severityRank(a.severity) - severityRank(b.severity) || b.files - a.files)
-                .slice(0, 12)
-                .map((c) => (
-                  <button
-                    key={c.code}
-                    type="button"
-                    className={`lote-bar-row ${codeFilter === c.code ? 'active' : ''}`}
-                    onClick={() => openGuide(c.code)}
-                    style={{ textAlign: 'left' }}
-                  >
-                    <span className={`lote-sev ${c.severity}`}>{severityLabel(c.severity)}</span>{' '}
-                    {explainError(c.code)?.title || c.code} · {c.files} ficha(s)
-                  </button>
-                ))}
+                .sort(compareBySeverityThenCount)
+                .slice(0, 16)
+                .map((c) => {
+                  const guide = lookupRepair(c.code);
+                  const maxFiles = Math.max(1, ...(batch.summary.topCodes || []).map((x) => x.files));
+                  return (
+                    <button
+                      key={c.code}
+                      type="button"
+                      className={`lote-bar-row ${codeFilter === c.code ? 'active' : ''}`}
+                      onClick={() => openGuide(c.code)}
+                      title={guide?.how || c.code}
+                    >
+                      <span>
+                        <span className={`lote-sev ${c.severity}`}>{severityLabel(c.severity)}</span>
+                        <strong style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
+                          {guide?.title || explainError(c.code)?.title || c.code}
+                        </strong>
+                        {guide?.why ? (
+                          <div className="muted">
+                            {guide.why.slice(0, 110)}
+                            {guide.why.length > 110 ? '…' : ''}
+                          </div>
+                        ) : null}
+                      </span>
+                      <span className="lote-bar-track">
+                        <span
+                          className={`lote-bar-fill ${severityTone(c.severity)}`}
+                          style={{ width: `${Math.max(6, (c.files / maxFiles) * 100)}%` }}
+                        />
+                      </span>
+                      <span style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {c.files}
+                      </span>
+                    </button>
+                  );
+                })}
+              {!batch.summary.topCodes?.length ? <p className="muted">Nenhum alerta LEDI.</p> : null}
             </div>
 
             {codeFilter ? (
-              <p style={{ marginTop: 12 }}>
-                Filtro: <strong>{activeRepair?.title || codeFilter}</strong>{' '}
-                <button type="button" className="btn btn-ghost" onClick={() => setCodeFilter('')}>
-                  Limpar
+              <div className="lote-toolbar" style={{ marginTop: 14 }}>
+                <span>
+                  Filtro ativo: <strong>{activeRepair?.title || codeFilter}</strong>
+                </span>
+                <button type="button" className="btn btn-primary" onClick={() => setErrorModalOpen(true)}>
+                  Abrir guia do erro
                 </button>
+                <button type="button" className="btn btn-ghost" onClick={() => setCodeFilter('')}>
+                  Limpar filtro
+                </button>
+              </div>
+            ) : (
+              <p className="muted" style={{ marginTop: 14, fontSize: 13 }}>
+                Clique numa barra para abrir o <strong>guia em modal</strong> (lote ou ficha a ficha).
               </p>
-            ) : null}
+            )}
 
             <div
               className="lote-export-panel"
@@ -891,12 +1032,39 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             <h3 style={{ marginTop: 0 }}>
               3. Fichas {codeFilter ? `(${itemsTotal} com este alerta)` : `(${itemsTotal})`}
             </h3>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Clique numa ficha para o modal de correção. Filtros iguais ao FAO: status, nome e buckets
+              acima.
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="">Todos status</option>
+                <option value="blocker">Com bloqueio de envio</option>
+                <option value="warn">Com aviso / risco</option>
+                <option value="conformant">Conformes</option>
+              </select>
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Filtrar nome do arquivo"
+                style={{ minWidth: 180 }}
+              />
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => batch && void loadItems(batch.id, codeFilter || undefined)}
+              >
+                Atualizar lista
+              </button>
+            </div>
             <div style={{ maxHeight: 480, overflow: 'auto' }}>
               <table style={{ width: '100%', fontSize: 13 }}>
                 <thead>
                   <tr>
                     <th align="left">Arquivo</th>
+                    <th>Tipo</th>
                     <th>Siaps</th>
+                    <th>Qualidade</th>
                     <th align="left">Problemas</th>
                   </tr>
                 </thead>
@@ -911,11 +1079,21 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                       onClick={() => void openItem(it.id)}
                     >
                       <td>{it.fileName}</td>
+                      <td align="center">
+                        <code title={it.fichaTipo || ''}>{it.fichaTipo || '?'}</code>
+                      </td>
                       <td align="center">{it.siapsReady ? 'ok' : 'falha'}</td>
+                      <td align="center">
+                        {it.siapsReady
+                          ? (it.qualityWarns || 0) > 0 || (it.moneyRisks || 0) > 0
+                            ? 'alerta'
+                            : 'ok'
+                          : '—'}
+                      </td>
                       <td style={{ fontSize: 12 }}>
                         {it.topCodes
                           .slice(0, 4)
-                          .map((c) => explainError(c)?.title || c)
+                          .map((c) => lookupRepair(c)?.title || explainError(c)?.title || c)
                           .join(' · ') || '—'}
                       </td>
                     </tr>
@@ -999,7 +1177,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
           dataAtend,
           horaIni,
           horaFim,
-          condutas: '',
+          condutas,
           procExtra,
           focusField,
         }}
