@@ -15,8 +15,15 @@ ARG NEXT_PUBLIC_API_URL=https://sigs-production.up.railway.app/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
+# nest deve emitir apps/api/dist/main.js (não dist/api/src/main.js). Falha a imagem se faltar.
 RUN npm run db:generate --workspace=@sigs/api \
   && npm run build --workspace=@sigs/api \
+  && if [ ! -f apps/api/dist/main.js ] || [ ! -f apps/api/dist/worker.main.js ]; then \
+       echo "FATAL: nest não emitiu apps/api/dist/main.js"; \
+       find apps/api/dist -name 'main.js' -o -name 'worker.main.js' 2>/dev/null || true; \
+       ls -la apps/api/dist 2>/dev/null || true; \
+       exit 1; \
+     fi \
   && npm run build --workspace=@sigs/web
 
 FROM node:22-bookworm-slim AS runner
@@ -39,6 +46,11 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/prisma ./apps/api/prisma
+RUN if [ ! -f apps/api/dist/main.js ]; then \
+      echo "FATAL: apps/api/dist/main.js ausente no estágio runner"; \
+      find apps/api/dist -name 'main.js' 2>/dev/null || true; \
+      exit 1; \
+    fi
 COPY --from=build /app/apps/web/package.json ./apps/web/
 COPY --from=build /app/apps/web/.next ./apps/web/.next
 COPY --from=build /app/apps/web/public ./apps/web/public

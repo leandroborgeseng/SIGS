@@ -4,6 +4,7 @@ node_modules
 .cursor
 .tmp
 tmp
+# dist/.next vêm do estágio build (nest/next), não do host
 **/.next
 **/dist
 **/*.db

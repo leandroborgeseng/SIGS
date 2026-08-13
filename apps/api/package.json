@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
-    "build": "prisma generate && nest build",
+    "build": "prisma generate && nest build && node -e \"require('fs').accessSync('dist/main.js'); require('fs').accessSync('dist/worker.main.js');\"",
     "start": "node dist/main.js",
     "start:worker": "node dist/worker.main.js",
     "test": "jest --config jest.config.js",

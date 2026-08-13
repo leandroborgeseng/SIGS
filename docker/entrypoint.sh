@@ -80,6 +80,20 @@ require_runtime_env() {
 
 require_runtime_env
 
+require_nest_bundle() {
+  cd /app/apps/api
+  if [[ ! -f dist/main.js ]]; then
+    echo "ERROR: bootstrap Nest ausente: /app/apps/api/dist/main.js"
+    echo "  Esperado: dist/main.js (não dist/api/src/main.js nem dist/src/main.js)."
+    if [[ -d dist ]]; then
+      find dist -name 'main.js' -o -name 'worker.main.js' 2>/dev/null || true
+    else
+      echo "  diretório dist inexistente"
+    fi
+    exit 1
+  fi
+}
+
 prep_appointment_id_unique() {
   # Deduplica appointment_id antes do unique (MVP agenda odonto).
   # No-op se tabela/coluna ainda não existir — db push cria o schema.
@@ -146,6 +160,7 @@ migrate_db() {
 
 start_api() {
   cd /app/apps/api
+  require_nest_bundle
   if ! migrate_db; then
     exit 1
   fi
@@ -156,6 +171,7 @@ start_api() {
 
 start_worker() {
   cd /app/apps/api
+  require_nest_bundle
   # Worker assume schema já migrado pela API; tenta push idempotente (soft).
   migrate_db || echo "WARN: migrate no worker falhou — API deve ter migrado"
   echo "Starting worker (REDIS_URL set)"
@@ -179,6 +195,7 @@ start_all() {
   export WEB_INTERNAL_PORT
 
   cd /app/apps/api
+  require_nest_bundle
   if ! migrate_db; then
     exit 1
   fi

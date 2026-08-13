@@ -22,6 +22,8 @@ Arquitetura: **um container** `PROCESS_ROLE=all` — porta pública **:3000** = 
 
 O Railway faz deploy do branch. Garanta que `main` tem o schema Postgres e o `Dockerfile` atual.
 
+O build da imagem **falha** se `apps/api/dist/main.js` não existir após `nest build` (não sobe container sem bootstrap Nest). Entrypoint: `cd /app/apps/api && node dist/main.js`. Log de boot: `SIGS API online`.
+
 ### 2. Projeto no Railway
 
 1. [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub** → repo `SIGS`.

@@ -20,7 +20,7 @@
 - **API:** `GET /v1/catalog/aps` · `GET/POST /v1/encounters` · `GET …/preview-fai` · `POST …/finish` · odonto: `GET/POST /v1/appointments` · `POST …/:id/open-dental` · `GET /v1/catalog/dental` · `GET …/odontogram-history` · `POST …/void`
 - **params:** `REQUIRE_INE_APS_OPEN` · `APS_DEFAULT_TIPO_ATENDIMENTO=5` · `REQUIRE_INE_DENTAL_OPEN` · `DENTAL_DEFAULT_TIPO_ATENDIMENTO=5` · `MUNICIPIO_IBGE`
 - **limite documentado:** fila UI `/faturamento/aps` (espelho odonto) ainda não; agenda APS TR; LEDI P1 motor; agenda sem tipos de item/grade multi-profissional (RF-12.1 TR); VOID sem recall Ministério; histórico só mesma unidade (sem RNDS/copiar snapshot); Thrift FAO sem tooth/region
-- **deploy:** hardening Railway — fail-fast env, health `/api/health`+`/api/ready`, Redis/Bull opcional
+- **deploy:** hardening Railway — fail-fast env, health `/api/health`+`/api/ready`, Redis/Bull opcional; **hotfix 2026-08-13:** `nest build` emite `apps/api/dist/main.js` (não `dist/api/src/main.js`); imagem Docker falha se o bootstrap faltar
 - **próximo:** ver **Retomar daqui**
 
 ## Retomar daqui (2026-08-13)
@@ -28,6 +28,7 @@
 ### Entregue nesta onda
 - **Ficha APS origem FAI tipo 4:** abrir/listar com paciente + profissional + lotação/INE; `care` mínimo (CIAP/CID, SIGTAP, condutas FAI); preview Siaps-ready; finish atualiza `ProductionBatch` `individual_encounter`; UI `/aps` no grupo clínico (não mistura `/odonto`)
 - **Hotfix ZIP LEDI (browser):** a UI **não** manda o ZIP pelo gateway (`/upload-zip/chunk` quebrava `sistemas.zip` ~14 MB no Railway). Descompacta no cliente (`fflate`), ignora `__MACOSX`, envia XMLs em fatias ≤1 MB / ~80 fichas via `POST /upload` + `/:batchId/upload` (mesmo caminho do Arquivo.zip). Progresso `fichas 200/8149`. Tipo LEDI conferido — FAO na tela FAI é recusado. Amostra achatada: `node tools/make-sistemas-fai-amostra.cjs` → Desktop `sistemas-fai-amostra.zip` (~200 FAI). Job async ≥1500 permanece no ingest ZIP (CLI).
+- **Hotfix Railway `dist/main.js`:** spec da API importava `apps/web` → `nest build` limpo emitia `dist/api/src/main.js`. `tsconfig.build.json` exclui specs e trava `rootDir=src`. Docker falha se `apps/api/dist/main.js` faltar.
 
 ### Pendente
 1. Smoke visual browser: `/aps` → ficha → CIAP/CID + SIGTAP + conduta → finalizar → conferir batch; `/odonto/agenda` → abrir → ficha → odontograma Q/S + histórico + catálogo SIGTAP concluir → finalizar → fila → ZIP FAI/FAO
@@ -44,4 +45,4 @@
 - Sem dados reais de pacientes
 - **Hotfix prod:** entrypoint trata `prisma db push` + `--accept-data-loss` após dedupe de `appointment_id` (unique agenda odonto)
 
-_Atualizado em 2026-08-13 (upload LEDI: unzip no browser + fatias XML; APS FAI origem tipo 4)_
+_Atualizado em 2026-08-13 (hotfix Railway dist/main.js; upload LEDI unzip no browser; APS FAI origem tipo 4)_
