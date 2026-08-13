@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
-import { ErrorBox, PageHeader } from '@/components/ui/PageHeader';
+import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError } from '@/lib/api';
 import { displayPatientName, formatDateTime } from '@/lib/labels';
 
@@ -323,8 +323,12 @@ export default function OdontoAtendimentoPage() {
 
   if (!enc || !care || !catalog) {
     return (
-      <AppShell>
-        <PageHeader title="Atendimento odonto" description="Carregando…" />
+      <AppShell helpId="odonto.atendimento">
+        <PageHeader
+          title="Atendimento odonto"
+          description="Carregando…"
+          actions={<HelpLink id="odonto.atendimento" />}
+        />
         <ErrorBox message={error} />
       </AppShell>
     );
@@ -341,12 +345,13 @@ export default function OdontoAtendimentoPage() {
   })();
 
   return (
-    <AppShell>
+    <AppShell helpId="odonto.atendimento">
       <PageHeader
         title={displayPatientName(enc.patient)}
         description={`${enc.facility.name} · CNES ${enc.facility.cnes} · ${enc.status}`}
         actions={
           <>
+            <HelpLink id="odonto.atendimento" />
             <Link className="btn ghost" href="/odonto">
               Voltar
             </Link>

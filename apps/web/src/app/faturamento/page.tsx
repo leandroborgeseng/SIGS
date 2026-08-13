@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
-import { PageHeader } from '@/components/ui/PageHeader';
+import { HelpLink, PageHeader } from '@/components/ui/PageHeader';
 
 const LINKS = [
   {
@@ -38,6 +38,7 @@ export default function FaturamentoHubPage() {
       <PageHeader
         title="Faturamento & Validação"
         description="Filas, lotes LEDI e produção — separado do atendimento clínico."
+        actions={<HelpLink id="faturamento.hub" />}
       />
       <div className="stack" style={{ gap: 10, maxWidth: 640 }}>
         {LINKS.map((item) => (

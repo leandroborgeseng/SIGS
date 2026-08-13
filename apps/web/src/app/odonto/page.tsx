@@ -118,7 +118,7 @@ export default function OdontoPage() {
   }
 
   return (
-    <AppShell>
+    <AppShell helpId="odonto.atendimento">
       <PageHeader
         title="Odontologia"
         description="Atendimento clínico Siaps-ready (LEDI FAO) · Onda 1"

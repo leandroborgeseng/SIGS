@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
-import { ErrorBox, OkBox, PageHeader } from '@/components/ui/PageHeader';
+import { ErrorBox, HelpLink, OkBox, PageHeader } from '@/components/ui/PageHeader';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDateTime } from '@/lib/labels';
@@ -279,17 +279,18 @@ function FaturamentoOdontoInner() {
   const loadBusy = busyMode === 'load';
 
   return (
-    <AppShell>
+    <AppShell helpId="odonto.atendimento">
       <PageHeader
         title="Fila de faturamento odonto"
         description="Validação + produção do mês — mesmas cores do lote LEDI FAO"
         actions={
           <>
+            <HelpLink id="odonto.atendimento" />
             <Link className="btn ghost" href="/odonto">
               Atendimentos
             </Link>
             <Link className="btn ghost" href="/faturamento/lote/fao">
-              Lote XML
+              Lote XML / exportar ZIP
             </Link>
             <button
               className="btn ghost"
@@ -499,6 +500,34 @@ function FaturamentoOdontoInner() {
             )}
           </p>
         )}
+        {t && (t.ok > 0 || t.ready > 0) ? (
+          <div
+            style={{
+              marginTop: 14,
+              padding: '12px 14px',
+              borderRadius: 8,
+              border: '1px solid var(--ok-bd, var(--line))',
+              background: 'var(--ok-bg, var(--surface-2))',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 10,
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div style={{ fontSize: 13, lineHeight: 1.45 }}>
+              <strong>
+                {t.ok > 0 ? `${t.ok} pronta(s) Siaps` : `${t.ready} ready`}
+              </strong>
+              {' · '}
+              para XML importado / ZIP de envio, use o lote LEDI FAO (upload → corrigir → baixar
+              conformes).
+            </div>
+            <Link className="btn" href="/faturamento/lote/fao">
+              Abrir lote e exportar ZIP
+            </Link>
+          </div>
+        ) : null}
       </section>
 
       <section className="card">
@@ -674,8 +703,12 @@ export default function FaturamentoOdontoPage() {
   return (
     <Suspense
       fallback={
-        <AppShell>
-          <PageHeader title="Fila de faturamento odonto" description="Carregando…" />
+        <AppShell helpId="odonto.atendimento">
+          <PageHeader
+            title="Fila de faturamento odonto"
+            description="Carregando…"
+            actions={<HelpLink id="odonto.atendimento" />}
+          />
         </AppShell>
       }
     >

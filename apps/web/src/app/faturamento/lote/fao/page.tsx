@@ -138,17 +138,29 @@ type ItemDetail = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+type ExportAction = 'zip-current' | 'zip-conformant' | 'dry-run' | 'closure';
+
 async function downloadZip(batchId: string, mode: 'current' | 'conformant') {
   const token = getToken();
   const res = await fetch(`${API_BASE}/v1/dental/ledi/batches/${batchId}/export.zip?mode=${mode}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  if (!res.ok) throw new Error(`Exportação falhou (${res.status})`);
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const body = (await res.json()) as { message?: string };
+      detail = body.message ? `: ${body.message}` : '';
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`Exportação falhou (${res.status})${detail}`);
+  }
   const blob = await res.blob();
+  if (!blob.size) throw new Error('ZIP vazio — nada para exportar neste modo.');
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `ledi-fao-lote-${batchId.slice(0, 8)}.zip`;
+  a.download = `ledi-fao-lote-${batchId.slice(0, 8)}${mode === 'conformant' ? '-conformes' : ''}.zip`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -223,6 +235,7 @@ export default function OdontoLotePage() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [exportAction, setExportAction] = useState<ExportAction | null>(null);
   const [uploadProgress, setUploadProgress] = useState('');
   const [batchName, setBatchName] = useState('');
   const [confirmSt, setConfirmSt] = useState(true);
@@ -889,6 +902,31 @@ export default function OdontoLotePage() {
     setSelectedIds(new Set(items.map((it) => it.id)));
   }, [codeFilter, items]);
 
+  const exportBusy = exportAction != null;
+  const anyBusy = busy || exportBusy;
+  const siapsReady = batch?.summary.siapsReady ?? 0;
+  const readyFinal = batch?.summary.readyForFinalSend ?? 0;
+  const withBlockers = batch?.summary.withBlockers ?? 0;
+
+  async function runExport(
+    action: ExportAction,
+    fn: () => Promise<string | void>,
+    successMsg?: string,
+  ) {
+    setExportAction(action);
+    setError(null);
+    setOk(null);
+    try {
+      const msg = await fn();
+      const final = msg || successMsg;
+      if (final) setOk(final);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha na exportação');
+    } finally {
+      setExportAction(null);
+    }
+  }
+
   return (
     <AppShell helpId="odonto.lote-ledi">
       <PageHeader
@@ -1247,39 +1285,95 @@ export default function OdontoLotePage() {
               </p>
             )}
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={busy}
-                onClick={() => void downloadZip(batch.id, 'current').catch((e) => setError(String(e.message || e)))}
-              >
-                Baixar ZIP (atuais)
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={busy}
-                onClick={() =>
-                  void downloadZip(batch.id, 'conformant').catch((e) => setError(String(e.message || e)))
-                }
-              >
-                Baixar só conformes LEDI
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={busy}
-                onClick={() => {
-                  void (async () => {
-                    setBusy(true);
-                    setError(null);
-                    try {
+            <div
+              className="lote-export-panel"
+              style={{
+                marginTop: 16,
+                padding: '14px 16px',
+                borderRadius: 8,
+                border: '1px solid var(--line)',
+                background: readyFinal > 0 ? 'var(--ok-bg)' : 'var(--surface-2)',
+              }}
+            >
+              <h4 style={{ margin: '0 0 6px' }}>Exportar / baixar ZIP</h4>
+              <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
+                {readyFinal > 0 ? (
+                  <>
+                    <strong>{readyFinal}</strong> ficha(s) com envio final OK — use o ZIP só conformes para
+                    fechar o lote.
+                  </>
+                ) : siapsReady > 0 ? (
+                  <>
+                    <strong>{siapsReady}</strong> pronta(s) Siaps
+                    {withBlockers > 0 ? (
+                      <>
+                        {' '}
+                        · ainda <strong>{withBlockers}</strong> com bloqueio
+                      </>
+                    ) : null}
+                    . O ZIP conformes exclui as com BLOCKER; o ZIP atuais inclui tudo (corrigido + pendente).
+                  </>
+                ) : withBlockers > 0 ? (
+                  <>
+                    Ainda há <strong>{withBlockers}</strong> ficha(s) bloqueando envio. Corrija os vermelhos
+                    antes de exportar para o governo — ou baixe o ZIP atuais só para conferência.
+                  </>
+                ) : (
+                  <>Quando houver fichas prontas, baixe o ZIP só conformes (recomendado) ou o ZIP com todas as
+                    fichas atuais.</>
+                )}
+              </p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={anyBusy || siapsReady < 1}
+                  title={
+                    siapsReady < 1
+                      ? 'Nenhuma ficha pronta Siaps ainda'
+                      : 'ZIP só com fichas sem BLOCKER (recomendado para envio)'
+                  }
+                  onClick={() =>
+                    void runExport(
+                      'zip-conformant',
+                      () => downloadZip(batch.id, 'conformant'),
+                      `ZIP só conformes baixado (${siapsReady} pronta(s) Siaps · ${readyFinal} envio final OK).`,
+                    )
+                  }
+                >
+                  {exportAction === 'zip-conformant' ? 'Gerando ZIP…' : 'Baixar ZIP só conformes'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={anyBusy || total < 1}
+                  title="Todas as fichas do lote no estado atual (incluindo com alerta)"
+                  onClick={() =>
+                    void runExport(
+                      'zip-current',
+                      () => downloadZip(batch.id, 'current'),
+                      `ZIP (todas as atuais) baixado · ${total} ficha(s).`,
+                    )
+                  }
+                >
+                  {exportAction === 'zip-current' ? 'Gerando ZIP…' : 'Baixar ZIP (todas as atuais)'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={anyBusy}
+                  onClick={() => {
+                    void runExport('dry-run', async () => {
                       const dry = await api<{
                         wouldTouch: number;
                         before: { withBlockers: number; siapsReady: number };
                         after: { withBlockers: number; siapsReady: number };
-                        codeDelta: Array<{ code: string; before: number; after: number; delta: number }>;
+                        codeDelta: Array<{
+                          code: string;
+                          before: number;
+                          after: number;
+                          delta: number;
+                        }>;
                       }>(`/v1/dental/ledi/batches/${batch.id}/dry-run`, {
                         method: 'POST',
                         json: { stNaoPossuiCpf: true },
@@ -1288,40 +1382,41 @@ export default function OdontoLotePage() {
                         .slice(0, 5)
                         .map((d) => `${d.code}: ${d.before}→${d.after}`)
                         .join(' · ');
-                      setOk(
-                        `Dry-run: tocariam ${dry.wouldTouch} fichas · blockers ${dry.before.withBlockers}→${dry.after.withBlockers} · Siaps ${dry.before.siapsReady}→${dry.after.siapsReady}${top ? ` · ${top}` : ''}`,
-                      );
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : 'Falha no dry-run');
-                    } finally {
-                      setBusy(false);
-                    }
-                  })();
-                }}
-              >
-                Dry-run (simular auto)
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={busy}
-                onClick={() =>
-                  void downloadClosureReport(batch.id).catch((e) =>
-                    setError(e instanceof Error ? e.message : String(e)),
-                  )
-                }
-              >
-                Relatório fechamento (.md)
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                disabled={busy}
-                style={{ color: 'var(--danger)' }}
-                onClick={() => void deleteBatch(batch.id, batch.name)}
-              >
-                Excluir esta análise
-              </button>
+                      return `Dry-run: tocariam ${dry.wouldTouch} fichas · blockers ${dry.before.withBlockers}→${dry.after.withBlockers} · Siaps ${dry.before.siapsReady}→${dry.after.siapsReady}${top ? ` · ${top}` : ''}`;
+                    });
+                  }}
+                >
+                  {exportAction === 'dry-run' ? 'Simulando…' : 'Dry-run (simular auto)'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={anyBusy}
+                  onClick={() =>
+                    void runExport(
+                      'closure',
+                      () => downloadClosureReport(batch.id),
+                      'Relatório de fechamento (.md) baixado.',
+                    )
+                  }
+                >
+                  {exportAction === 'closure' ? 'Gerando relatório…' : 'Relatório fechamento (.md)'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={anyBusy}
+                  style={{ color: 'var(--danger)' }}
+                  onClick={() => void deleteBatch(batch.id, batch.name)}
+                >
+                  Excluir esta análise
+                </button>
+              </div>
+              {exportBusy ? (
+                <p className="muted" style={{ margin: '10px 0 0', fontSize: 13 }}>
+                  Aguarde — exportação em andamento…
+                </p>
+              ) : null}
             </div>
           </div>
 
