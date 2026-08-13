@@ -99,7 +99,7 @@ export class CareExtraController {
     });
   }
 
-  /** ZIP via JSON base64 — estável atrás do proxy Next (sem multipart). */
+  /** ZIP via JSON base64 — fallback legado (corpo ~1.33× maior; preferir /upload-zip). */
   @Post('dental/ledi/batches/from-zip')
   async createFaoBatchFromZipJson(@Body() dto: CreateLediFaoBatchFromZipDto) {
     const raw = (dto.zipBase64 || '').replace(/^data:.*?;base64,/, '').trim();
@@ -123,7 +123,7 @@ export class CareExtraController {
     }
   }
 
-  /** Upload de um .zip multipart (alternativa). */
+  /** Upload de um .zip multipart (caminho preferido da UI — até 80mb). */
   @Post('dental/ledi/batches/upload-zip')
   @UseInterceptors(ZIP_UPLOAD)
   async createFaoBatchFromZip(

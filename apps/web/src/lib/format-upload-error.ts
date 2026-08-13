@@ -1,18 +1,50 @@
-/** Normaliza erros de upload para nunca mostrar o inglês cru do Safari/Chrome. */
+/** Normaliza erros de upload — mensagem honesta, sem culpar iCloud por padrão. */
 
+import { ApiError, isNetworkError, NetworkError } from '@/lib/api';
 import { isIoReadError } from '@/lib/read-binary-file';
 
-export function formatUploadError(err: unknown): string {
-  if (isIoReadError(err)) {
-    if (err instanceof Error && /Escolher de novo|Desktop/i.test(err.message)) {
-      return err.message;
-    }
-    return (
-      'O navegador bloqueou a leitura do arquivo (Downloads/iCloud). ' +
-      'Clique em “Escolher de novo”, ou copie o .zip para o Desktop (fora do iCloud) e selecione de lá.'
-    );
-  }
-  return err instanceof Error ? err.message : String(err || 'Falha no upload');
+function formatMb(bytes?: number): string | null {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return null;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export { isIoReadError };
+export function formatUploadError(err: unknown): string {
+  if (err instanceof NetworkError || isNetworkError(err)) {
+    if (err instanceof NetworkError) return err.message;
+    const size = formatMb((err as { bytesHint?: number }).bytesHint);
+    return (
+      `Falha de rede no envio (sem resposta HTTP — “Load failed” / “Failed to fetch”).` +
+      (size ? ` Payload ≈ ${size}.` : '') +
+      ` Provável: ZIP grande demais para o proxy, timeout ou conexão caiu. Tente de novo; se persistir, use um ZIP menor ou verifique a rede.`
+    );
+  }
+
+  if (err instanceof ApiError) {
+    if (err.status === 413) {
+      return `Servidor recusou o arquivo (HTTP 413 — corpo grande demais): ${err.message}`;
+    }
+    if (err.status === 502 || err.status === 504) {
+      return `Proxy/gateway falhou (HTTP ${err.status}). O upload pode ter estourado timeout — tente ZIP menor ou envie de novo.`;
+    }
+    return `Falha no envio (HTTP ${err.status}): ${err.message}`;
+  }
+
+  if (isIoReadError(err)) {
+    return err instanceof Error ? err.message : 'Falha ao ler o arquivo no navegador.';
+  }
+
+  if (err instanceof Error) {
+    const msg = err.message || '';
+    if (/load failed|failed to fetch/i.test(msg)) {
+      return (
+        `Falha de rede no envio (sem resposta HTTP — “${msg}”).` +
+        ` Provável: corpo grande, timeout ou conexão interrompida. Tente de novo com o mesmo arquivo.`
+      );
+    }
+    return msg;
+  }
+
+  return String(err || 'Falha no upload');
+}
+
+export { isIoReadError, isNetworkError };

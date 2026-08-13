@@ -7,7 +7,7 @@ const DEFAULT_ACCEPT = '.xml,.zip,application/xml,text/xml,application/zip';
 /**
  * Dropzone + seletor de arquivo.
  * Limpa o input antes de abrir (permite reescolher o mesmo .zip)
- * e destaca “Escolher de novo” quando a leitura I/O falhou.
+ * e destaca “Escolher de novo” quando a leitura/envio I/O falhou.
  */
 export function FileDropZone({
   disabled,
@@ -23,7 +23,7 @@ export function FileDropZone({
   accept?: string;
   multiple?: boolean;
   onFiles: (files: FileList | File[]) => void;
-  /** Exibe CTA “Escolher de novo” após NotReadableError / iCloud. */
+  /** Exibe CTA “Escolher de novo” após falha de leitura/envio. */
   ioFailed?: boolean;
   children?: ReactNode;
 }) {
@@ -75,9 +75,9 @@ export function FileDropZone({
         {acceptHint ? ` — ${acceptHint}` : ''}, ou use o botão abaixo.
       </p>
       <p className="muted" style={{ fontSize: 13 }}>
-        Se o arquivo estiver em <strong>Downloads / iCloud</strong>, copie antes para o{' '}
-        <strong>Desktop</strong> (ou Documents local) — o Safari/Chrome não consegue ler
-        placeholders da nuvem.
+        Se a leitura falhar: use “Escolher de novo”, confira se o arquivo não está vazio e
+        que o ZIP não ultrapassa o limite (80&nbsp;MB). Em macOS, arquivos só na nuvem
+        (Downloads/iCloud) às vezes também falham — nesse caso, copie para pasta local.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         <button

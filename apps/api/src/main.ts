@@ -11,8 +11,8 @@ async function bootstrap() {
   assertBootEnv('api');
 
   const app = await NestFactory.create(AppModule, { bodyParser: false });
-  // Upload LEDI grande: preferir multipart + jobs; 20mb cobre patch/JSON comuns.
-  const bodyLimit = process.env.HTTP_BODY_LIMIT || '20mb';
+  // JSON/urlencoded: fallback ZIP base64 e patches. Multipart ZIP usa multer (até 80mb).
+  const bodyLimit = process.env.HTTP_BODY_LIMIT || '50mb';
   app.use(json({ limit: bodyLimit }));
   app.use(urlencoded({ extended: true, limit: bodyLimit }));
 

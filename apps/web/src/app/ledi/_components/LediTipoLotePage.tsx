@@ -7,7 +7,7 @@ import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 import { isAsyncJobResponse, waitForJob } from '@/lib/jobs';
 import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
-import { formatUploadError, isIoReadError } from '@/lib/format-upload-error';
+import { formatUploadError, isIoReadError, isNetworkError } from '@/lib/format-upload-error';
 import { FileDropZone } from '@/components/ui/FileDropZone';
 import {
   explainError,
@@ -299,7 +299,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       await loadBatches();
       await loadBatch(created.id);
     } catch (err) {
-      setUploadIoFailed(isIoReadError(err));
+      setUploadIoFailed(isIoReadError(err) || isNetworkError(err));
       setError(formatUploadError(err));
     } finally {
       setBusy(false);

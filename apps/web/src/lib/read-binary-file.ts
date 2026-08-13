@@ -1,24 +1,90 @@
 /**
  * Leitura binária resiliente no browser.
- * Downloads/iCloud no macOS frequentemente falham com NotReadableError
- * ("The I/O read operation failed") — retries, stream e cópia em memória
- * costumam recuperar; se não, a UX pede escolher de novo / Desktop.
+ * Retries / stream / FileReader quando o SO ou o navegador falham na 1ª leitura.
+ * A mensagem NÃO culpa iCloud por padrão — só sugere se a heurística indicar.
  */
+
+export type IoReadErrorInit = {
+  fileName: string;
+  cause?: unknown;
+  fileSize?: number;
+  fileType?: string;
+  /** path relativo (webkitRelativePath) se houver */
+  relativePath?: string;
+};
+
+function formatBytes(n?: number): string | null {
+  if (typeof n !== 'number' || !Number.isFinite(n) || n < 0) return null;
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function describeCause(cause: unknown): string | null {
+  if (cause == null) return null;
+  if (cause instanceof Error) {
+    const bits = [cause.name, cause.message].filter(Boolean);
+    return bits.join(': ') || null;
+  }
+  const s = String(cause);
+  return s && s !== '[object Object]' ? s : null;
+}
+
+/** Heurística fraca: path/nome/size 0 / NotReadable típico — tip, não diagnóstico. */
+export function shouldHintCloudPlaceholder(opts: {
+  fileName?: string;
+  relativePath?: string;
+  fileSize?: number;
+  cause?: unknown;
+}): boolean {
+  const pathish = `${opts.relativePath || ''} ${opts.fileName || ''}`.toLowerCase();
+  if (/icloud|downloads\//i.test(pathish)) return true;
+  if (opts.fileSize === 0) return true;
+  const detail = describeCause(opts.cause) || '';
+  return /NotReadableError|I\/O read operation failed/i.test(detail);
+}
 
 export class IoReadError extends Error {
   readonly code = 'IO_READ' as const;
   readonly fileName: string;
+  readonly fileSize?: number;
+  readonly fileType?: string;
+  readonly causeDetail: string | null;
+  readonly hintCloud: boolean;
 
-  constructor(fileName: string, cause?: unknown) {
-    const who = fileName ? `“${fileName}”` : 'o arquivo';
-    super(
-      `O navegador não conseguiu ler ${who} (erro típico de Downloads/iCloud). ` +
-        `Use “Escolher de novo”, ou copie o .zip para o Desktop (fora do iCloud) e selecione de lá.`,
-    );
+  constructor(fileNameOrInit: string | IoReadErrorInit, cause?: unknown) {
+    const init: IoReadErrorInit =
+      typeof fileNameOrInit === 'string'
+        ? { fileName: fileNameOrInit, cause }
+        : fileNameOrInit;
+
+    const who = init.fileName ? `“${init.fileName}”` : 'o arquivo';
+    const sizeLabel = formatBytes(init.fileSize);
+    const causeDetail = describeCause(init.cause);
+    const hintCloud = shouldHintCloudPlaceholder(init);
+
+    const meta: string[] = [];
+    if (sizeLabel) meta.push(sizeLabel);
+    if (init.fileType) meta.push(`tipo ${init.fileType}`);
+    const metaStr = meta.length ? ` (${meta.join(', ')})` : '';
+
+    let msg = `Não foi possível ler ${who}${metaStr}`;
+    if (causeDetail) msg += ` — ${causeDetail}`;
+    msg += '. Use “Escolher de novo” e confira se o arquivo existe, não está vazio e não está em uso.';
+    if (hintCloud) {
+      msg +=
+        ' Dica: se estiver em Downloads sincronizado com iCloud (placeholder na nuvem), copie para uma pasta local (ex.: Desktop) e selecione de lá.';
+    }
+
+    super(msg);
     this.name = 'IoReadError';
-    this.fileName = fileName;
-    if (cause !== undefined) {
-      (this as Error & { cause?: unknown }).cause = cause;
+    this.fileName = init.fileName || '';
+    this.fileSize = init.fileSize;
+    this.fileType = init.fileType;
+    this.causeDetail = causeDetail;
+    this.hintCloud = hintCloud;
+    if (init.cause !== undefined) {
+      (this as Error & { cause?: unknown }).cause = init.cause;
     }
   }
 }
@@ -32,12 +98,11 @@ export function isIoReadError(err: unknown): boolean {
     /NotReadableError/i.test(name) ||
     /NotReadableError/i.test(msg) ||
     /NotFoundError/i.test(name) ||
-    /Downloads\/iCloud/i.test(msg) ||
     (err as { code?: string } | null)?.code === 'IO_READ'
   );
 }
 
-/** Cache por Blob/File — evita 2ª leitura no disco (comum falhar no iCloud). */
+/** Cache por Blob/File — evita 2ª leitura no disco. */
 const bufferCache = new WeakMap<Blob, ArrayBuffer>();
 
 function sleep(ms: number): Promise<void> {
@@ -106,9 +171,18 @@ function strategies(file: NamedBlob): Array<() => Promise<ArrayBuffer>> {
     async () => readViaResponse(file),
     async () => readViaObjectUrl(file),
     async () => readViaFileReader(file),
-    // slice “inteiro” de novo — às vezes materializa placeholder iCloud
     async () => file.slice(0).arrayBuffer(),
   ];
+}
+
+function toIoInit(file: NamedBlob, cause?: unknown): IoReadErrorInit {
+  return {
+    fileName: file.name || 'arquivo',
+    cause,
+    fileSize: typeof file.size === 'number' ? file.size : undefined,
+    fileType: file.type || undefined,
+    relativePath: file.webkitRelativePath || undefined,
+  };
 }
 
 /**
@@ -125,8 +199,7 @@ export async function readBinaryFile(
   const name = file.name || 'arquivo';
   if (typeof file.size === 'number' && file.size === 0) {
     throw new IoReadError(
-      name,
-      new Error('Arquivo com 0 bytes (placeholder iCloud ou seleção vazia)'),
+      toIoInit(file, new Error('Arquivo com 0 bytes (seleção vazia ou placeholder de nuvem)')),
     );
   }
 
@@ -145,17 +218,17 @@ export async function readBinaryFile(
           bufferCache.set(file, owned);
           return owned;
         }
-        last = new Error('buffer vazio');
+        last = new Error('buffer vazio após leitura');
       } catch (e) {
         last = e;
       }
     }
   }
 
-  throw new IoReadError(name, last);
+  throw new IoReadError(toIoInit(file, last));
 }
 
-/** Copia para File em memória (Blob) e popula o cache — upload não rele o disco. */
+/** Copia para File em memória (Blob) e popula o cache. */
 export async function materializeAsMemoryFile(file: File): Promise<File> {
   const buf = await readBinaryFile(file);
   const mem = new File([buf], file.name, {
@@ -169,19 +242,21 @@ export async function materializeAsMemoryFile(file: File): Promise<File> {
 export async function materializeFiles(
   files: File[],
   onProgress?: (msg: string) => void,
-): Promise<{ files: File[]; failedNames: string[] }> {
+): Promise<{ files: File[]; failedNames: string[]; errors: Error[] }> {
   const out: File[] = [];
   const failedNames: string[] = [];
+  const errors: Error[] = [];
   for (let i = 0; i < files.length; i++) {
     const f = files[i]!;
     onProgress?.(`Preparando ${i + 1}/${files.length}: ${f.name}…`);
     try {
       out.push(await materializeAsMemoryFile(f));
-    } catch {
+    } catch (e) {
       failedNames.push(f.name);
+      errors.push(e instanceof Error ? e : new Error(String(e)));
     }
   }
-  return { files: out, failedNames };
+  return { files: out, failedNames, errors };
 }
 
 function guessMime(name: string): string {
@@ -189,3 +264,5 @@ function guessMime(name: string): string {
   if (/\.xml$/i.test(name)) return 'application/xml';
   return 'application/octet-stream';
 }
+
+export { formatBytes };

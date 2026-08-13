@@ -7,9 +7,38 @@ export class ApiError extends Error {
   body: unknown;
   constructor(status: number, message: string, body?: unknown) {
     super(message);
+    this.name = 'ApiError';
     this.status = status;
     this.body = body;
   }
+}
+
+/** fetch sem Response (Safari: "Load failed"; Chrome: "Failed to fetch"). */
+export class NetworkError extends Error {
+  readonly code = 'NETWORK' as const;
+  readonly bytesHint?: number;
+
+  constructor(message: string, opts?: { cause?: unknown; bytesHint?: number }) {
+    super(message);
+    this.name = 'NetworkError';
+    this.bytesHint = opts?.bytesHint;
+    if (opts?.cause !== undefined) {
+      (this as Error & { cause?: unknown }).cause = opts.cause;
+    }
+  }
+}
+
+export function isNetworkError(err: unknown): boolean {
+  if (err instanceof NetworkError) return true;
+  if (!(err instanceof Error)) return false;
+  const msg = err.message || '';
+  return (
+    err.name === 'TypeError' &&
+    (/load failed/i.test(msg) ||
+      /failed to fetch/i.test(msg) ||
+      /networkerror/i.test(msg) ||
+      /network request failed/i.test(msg))
+  );
 }
 
 export function getToken(): string | null {
@@ -34,22 +63,54 @@ export function setFacilityId(id: string | null) {
   else localStorage.removeItem('sigs_facility_id');
 }
 
+function formatMb(bytes?: number): string | null {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return null;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function networkMessage(cause: unknown, bytesHint?: number): string {
+  const raw = cause instanceof Error ? cause.message : String(cause || '');
+  const size = formatMb(bytesHint);
+  const sizeBit = size ? ` Payload ≈ ${size}.` : '';
+  return (
+    `Falha de rede no envio (sem resposta HTTP — típico Safari “Load failed” / Chrome “Failed to fetch”).` +
+    sizeBit +
+    ` Provável: corpo grande demais para o proxy/Railway, timeout ou conexão interrompida.` +
+    (raw ? ` Detalhe: ${raw}.` : '')
+  );
+}
+
 export async function api<T = unknown>(
   path: string,
-  options: RequestInit & { json?: unknown } = {},
+  options: RequestInit & { json?: unknown; bytesHint?: number } = {},
 ): Promise<T> {
   const headers = new Headers(options.headers || {});
-  if (options.json !== undefined) {
+  const { json, bytesHint, ...rest } = options;
+
+  if (json !== undefined) {
     headers.set('Content-Type', 'application/json');
   }
+  // FormData: não forçar Content-Type (boundary do browser).
+  if (rest.body instanceof FormData) {
+    headers.delete('Content-Type');
+  }
+
   const token = getToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-    body: options.json !== undefined ? JSON.stringify(options.json) : options.body,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...rest,
+      headers,
+      body: json !== undefined ? JSON.stringify(json) : rest.body,
+    });
+  } catch (e) {
+    if (isNetworkError(e) || (e instanceof TypeError)) {
+      throw new NetworkError(networkMessage(e, bytesHint), { cause: e, bytesHint });
+    }
+    throw e;
+  }
 
   const text = await res.text();
   let data: unknown = null;

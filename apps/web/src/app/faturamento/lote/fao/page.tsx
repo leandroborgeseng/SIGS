@@ -7,7 +7,7 @@ import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError, getToken } from '@/lib/api';
 import { isAsyncJobResponse, waitForJob } from '@/lib/jobs';
 import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
-import { formatUploadError, isIoReadError } from '@/lib/format-upload-error';
+import { formatUploadError, isIoReadError, isNetworkError } from '@/lib/format-upload-error';
 import { FileDropZone } from '@/components/ui/FileDropZone';
 import { bodyForRepairUi, lookupRepair, type AlertRepair } from './repair-catalog';
 import {
@@ -377,7 +377,7 @@ export default function OdontoLotePage() {
       );
       await loadBatches();
     } catch (err) {
-      setUploadIoFailed(isIoReadError(err));
+      setUploadIoFailed(isIoReadError(err) || isNetworkError(err));
       setError(formatUploadError(err));
     } finally {
       setBusy(false);
