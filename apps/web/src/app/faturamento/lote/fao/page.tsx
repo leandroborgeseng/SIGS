@@ -7,7 +7,7 @@ import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError, getToken } from '@/lib/api';
 import { isAsyncJobResponse, waitForJob } from '@/lib/jobs';
 import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
-import { formatUploadError } from '@/lib/format-upload-error';
+import { formatUploadError, isIoReadError } from '@/lib/format-upload-error';
 import { FileDropZone } from '@/components/ui/FileDropZone';
 import { bodyForRepairUi, lookupRepair, type AlertRepair } from './repair-catalog';
 import {
@@ -233,6 +233,7 @@ export default function OdontoLotePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<ItemDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadIoFailed, setUploadIoFailed] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [exportAction, setExportAction] = useState<ExportAction | null>(null);
@@ -351,6 +352,7 @@ export default function OdontoLotePage() {
     const listLike = files ? Array.from(files as ArrayLike<File>) : [];
     if (!listLike.length) return;
     setError(null);
+    setUploadIoFailed(false);
     setOk(null);
     setBusy(true);
     try {
@@ -366,6 +368,7 @@ export default function OdontoLotePage() {
       });
       setBatch(created);
       setCodeFilter('');
+      setUploadIoFailed(false);
       const failNote = failedNames.length
         ? ` · ${failedNames.length} não lidos (ex.: ${failedNames[0]}) — copie a pasta para o Desktop e reenvie só esses.`
         : '';
@@ -374,6 +377,7 @@ export default function OdontoLotePage() {
       );
       await loadBatches();
     } catch (err) {
+      setUploadIoFailed(isIoReadError(err));
       setError(formatUploadError(err));
     } finally {
       setBusy(false);
@@ -961,15 +965,13 @@ export default function OdontoLotePage() {
         </div>
         <div className="field">
           <label>Arquivos .xml ou .zip</label>
-          <FileDropZone disabled={busy} acceptHint="FAO tipo 5" onFiles={(f) => void onUpload(f as FileList)}>
-            <input
-              type="file"
-              accept=".xml,.zip,text/xml,application/xml,application/zip"
-              multiple
-              disabled={busy}
-              onChange={(e) => void onUpload(e.target.files)}
-            />
-          </FileDropZone>
+          <FileDropZone
+            disabled={busy}
+            acceptHint="FAO tipo 5"
+            accept=".zip,.xml,application/zip,application/xml,text/xml"
+            ioFailed={uploadIoFailed}
+            onFiles={(f) => void onUpload(f)}
+          />
         </div>
         {uploadProgress ? <p className="muted">{uploadProgress}</p> : null}
         {batches.length ? (

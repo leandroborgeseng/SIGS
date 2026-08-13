@@ -1,48 +1,23 @@
 /**
- * Lê arquivo de texto no browser com fallbacks.
- * Evita NotReadableError ("The I/O read operation failed") comum com FileReader
- * em Downloads / iCloud / muitos arquivos de uma vez.
+ * Lê arquivo de texto no browser via leitura binária resiliente
+ * (cache + stream + retries) — evita NotReadableError em Downloads/iCloud.
  */
 
-function friendlyIoError(err: unknown, fileName: string): Error {
-  const raw = err instanceof Error ? err.message : String(err || '');
-  if (/I\/O read operation failed|NotReadableError|NotFoundError|Permission/i.test(raw)) {
-    return new Error(
-      `Não foi possível ler “${fileName}”. Reabra a pasta (Downloads), selecione de novo ou copie os XMLs para uma pasta local e tente outra vez.`,
-    );
-  }
-  return err instanceof Error ? err : new Error(`Falha ao ler ${fileName}: ${raw}`);
-}
+import { IoReadError, isIoReadError, readBinaryFile } from '@/lib/read-binary-file';
 
-async function readWithFileReader(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(reader.error || new Error('Falha ao ler arquivo'));
-    reader.onabort = () => reject(new Error('Leitura abortada'));
-    reader.readAsText(file);
-  });
+function friendlyIoError(err: unknown, fileName: string): Error {
+  if (err instanceof IoReadError) return err;
+  if (isIoReadError(err)) return new IoReadError(fileName, err);
+  const raw = err instanceof Error ? err.message : String(err || '');
+  return err instanceof Error ? err : new Error(`Falha ao ler ${fileName}: ${raw}`);
 }
 
 export async function readTextFile(file: File): Promise<string> {
   try {
-    if (typeof file.text === 'function') {
-      return await file.text();
-    }
-  } catch {
-    // cai no FileReader
-  }
-  try {
-    return await readWithFileReader(file);
-  } catch (first) {
-    // retry único (alguns browsers falham na 1ª passagem em pastas sincronizadas)
-    await new Promise((r) => setTimeout(r, 40));
-    try {
-      if (typeof file.text === 'function') return await file.text();
-      return await readWithFileReader(file);
-    } catch (second) {
-      throw friendlyIoError(second || first, file.name);
-    }
+    const buf = await readBinaryFile(file);
+    return new TextDecoder('utf-8').decode(buf);
+  } catch (e) {
+    throw friendlyIoError(e, file.name);
   }
 }
 

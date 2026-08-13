@@ -1,11 +1,16 @@
 /**
- * Upload de lote LEDI.
- * XML → um POST JSON; ZIP → base64 → /from-zip.
- * Erros de I/O do browser (Downloads/iCloud) são traduzidos — o arquivo
- * precisa estar legível localmente (ex.: copiado para o Desktop).
+ * Upload de lote LEDI (FAI / FAO / PROC).
+ * Materializa o arquivo em memória (1ª leitura) e envia ZIP em base64
+ * ou XMLs em JSON — evita 2ª leitura no disco (Downloads/iCloud).
  */
 
 import { api, ApiError, getToken } from '@/lib/api';
+import {
+  IoReadError,
+  isIoReadError,
+  materializeAsMemoryFile,
+  readBinaryFile,
+} from '@/lib/read-binary-file';
 
 export type LediUploadResult<T> = {
   batch: T;
@@ -13,28 +18,9 @@ export type LediUploadResult<T> = {
   failedNames: string[];
 };
 
-function isIoReadError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err || '');
-  const name = err instanceof Error ? err.name : '';
-  return (
-    /I\/O read operation failed/i.test(msg) ||
-    /NotReadableError/i.test(name) ||
-    /NotReadableError/i.test(msg) ||
-    /NotFoundError/i.test(name)
-  );
-}
-
-function ioHint(fileName?: string): string {
-  const who = fileName ? `“${fileName}”` : 'o arquivo';
-  return (
-    `O navegador não conseguiu ler ${who} (erro típico de Downloads/iCloud). ` +
-    `Copie o .zip ou a pasta para o Desktop (ou ~/Documents), selecione de lá, ` +
-    `ou arraste o arquivo desta pasta para a área de envio.`
-  );
-}
-
 function wrapErr(err: unknown, fileName?: string): Error {
-  if (isIoReadError(err)) return new Error(ioHint(fileName));
+  if (err instanceof IoReadError) return err;
+  if (isIoReadError(err)) return new IoReadError(fileName || '', err);
   if (err instanceof ApiError) return new Error(`Falha no envio (${err.status}): ${err.message}`);
   if (err instanceof Error) return err;
   return new Error(String(err || 'Falha no envio'));
@@ -50,36 +36,8 @@ function bufferToBase64(buf: ArrayBuffer): string {
   return btoa(binary);
 }
 
-/** Várias estratégias — algumas pastas do macOS falham só em um método. */
-async function readArrayBufferRobust(file: File): Promise<ArrayBuffer> {
-  const attempts: Array<() => Promise<ArrayBuffer>> = [
-    async () => file.arrayBuffer(),
-    async () => file.slice(0, file.size).arrayBuffer(),
-    async () =>
-      new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = () => reject(reader.error || new Error('FileReader falhou'));
-        reader.readAsArrayBuffer(file);
-      }),
-  ];
-
-  let last: unknown;
-  for (const attempt of attempts) {
-    try {
-      const buf = await attempt();
-      if (buf && buf.byteLength > 0) return buf;
-      last = new Error('buffer vazio');
-    } catch (e) {
-      last = e;
-      await new Promise((r) => setTimeout(r, 50));
-    }
-  }
-  throw wrapErr(last, file.name);
-}
-
-async function readXmlFile(file: File): Promise<string> {
-  const buf = await readArrayBufferRobust(file);
+async function readXmlFromMemory(file: File): Promise<string> {
+  const buf = await readBinaryFile(file);
   const text = new TextDecoder('utf-8').decode(buf);
   if (!text.trim()) throw new Error(`Arquivo vazio: ${file.name}`);
   return text;
@@ -104,17 +62,19 @@ export async function uploadLediBatchMultipart<
       if (zips.length > 1) throw new Error('Envie um ZIP por vez.');
       const zip = zips[0]!;
       opts.onProgress?.(`Lendo ZIP ${zip.name}…`);
-      let buf: ArrayBuffer;
+      let mem: File;
       try {
-        buf = await readArrayBufferRobust(zip);
+        // 1ª (e única) leitura do disco → File em RAM + cache de bytes
+        mem = await materializeAsMemoryFile(zip);
       } catch (e) {
         throw wrapErr(e, zip.name);
       }
+      const buf = await readBinaryFile(mem);
       opts.onProgress?.(`Enviando ZIP (${Math.round(buf.byteLength / 1024)} KB)…`);
       const batch = await api<T>('/v1/dental/ledi/batches/from-zip', {
         method: 'POST',
         json: {
-          name: opts.name || zip.name.replace(/\.zip$/i, ''),
+          name: opts.name || mem.name.replace(/\.zip$/i, ''),
           expectedTipo: opts.expectedTipo,
           zipBase64: bufferToBase64(buf),
         },
@@ -129,18 +89,15 @@ export async function uploadLediBatchMultipart<
       const f = xmls[i]!;
       opts.onProgress?.(`Lendo ${i + 1}/${xmls.length}…`);
       try {
-        items.push({ name: f.name.slice(0, 255), xml: await readXmlFile(f) });
+        const mem = await materializeAsMemoryFile(f);
+        items.push({ name: mem.name.slice(0, 255), xml: await readXmlFromMemory(mem) });
       } catch {
         failedNames.push(f.name);
       }
     }
 
     if (!items.length) {
-      throw new Error(
-        failedNames.length
-          ? ioHint(failedNames[0])
-          : 'Nenhum XML legível. Compacte a pasta em .zip no Desktop e envie o ZIP.',
-      );
+      throw new IoReadError(failedNames[0] || 'XMLs');
     }
 
     opts.onProgress?.(`Enviando ${items.length} fichas…`);

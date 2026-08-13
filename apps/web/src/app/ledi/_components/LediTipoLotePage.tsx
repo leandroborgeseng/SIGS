@@ -7,7 +7,7 @@ import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 import { isAsyncJobResponse, waitForJob } from '@/lib/jobs';
 import { uploadLediBatchMultipart } from '@/lib/ledi-batch-upload';
-import { formatUploadError } from '@/lib/format-upload-error';
+import { formatUploadError, isIoReadError } from '@/lib/format-upload-error';
 import { FileDropZone } from '@/components/ui/FileDropZone';
 import {
   explainError,
@@ -170,6 +170,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
   const [itemsTotal, setItemsTotal] = useState(0);
   const [selected, setSelected] = useState<ItemDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadIoFailed, setUploadIoFailed] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [exportAction, setExportAction] = useState<ExportAction | null>(null);
@@ -272,6 +273,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     const listLike = files ? Array.from(files as ArrayLike<File>) : [];
     if (!listLike.length) return;
     setError(null);
+    setUploadIoFailed(false);
     setOk(null);
     setBusy(true);
     try {
@@ -287,6 +289,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       });
       setBatch(created);
       setCodeFilter('');
+      setUploadIoFailed(false);
       const failNote = failedNames.length
         ? ` · ${failedNames.length} não lidos (ex.: ${failedNames[0]})`
         : '';
@@ -296,6 +299,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       await loadBatches();
       await loadBatch(created.id);
     } catch (err) {
+      setUploadIoFailed(isIoReadError(err));
       setError(formatUploadError(err));
     } finally {
       setBusy(false);
@@ -627,7 +631,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>1. Enviar XMLs {meta.label}</h3>
         <p className="muted">
-          Para pastas grandes: no Finder, clique direito → <strong>Comprimir</strong> e envie o .zip.
+          Para pastas grandes: no Finder, clique direito → <strong>Comprimir</strong> e envie o .zip
+          (preferível a partir do Desktop).
         </p>
         <div className="field">
           <label>Nome do lote (opcional)</label>
@@ -640,16 +645,10 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
         <FileDropZone
           disabled={anyBusy}
           acceptHint={meta.acceptHint}
-          onFiles={(f) => void onUpload(f as FileList)}
-        >
-          <input
-            type="file"
-            accept=".xml,.zip,application/xml,text/xml,application/zip"
-            multiple
-            disabled={anyBusy}
-            onChange={(e) => void onUpload(e.target.files)}
-          />
-        </FileDropZone>
+          accept=".zip,.xml,application/zip,application/xml,text/xml"
+          ioFailed={uploadIoFailed}
+          onFiles={(f) => void onUpload(f)}
+        />
         {uploadProgress ? <p className="muted">{uploadProgress}</p> : null}
       </div>
 

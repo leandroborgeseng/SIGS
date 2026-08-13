@@ -1,20 +1,41 @@
 'use client';
 
-import { useState, type DragEvent, type ReactNode } from 'react';
+import { useRef, useState, type DragEvent, type ReactNode } from 'react';
 
-/** Área de arrastar/soltar — às vezes funciona quando o seletor de Downloads falha. */
+const DEFAULT_ACCEPT = '.xml,.zip,application/xml,text/xml,application/zip';
+
+/**
+ * Dropzone + seletor de arquivo.
+ * Limpa o input antes de abrir (permite reescolher o mesmo .zip)
+ * e destaca “Escolher de novo” quando a leitura I/O falhou.
+ */
 export function FileDropZone({
   disabled,
   acceptHint,
+  accept = DEFAULT_ACCEPT,
+  multiple = true,
   onFiles,
+  ioFailed,
   children,
 }: {
   disabled?: boolean;
   acceptHint?: string;
+  accept?: string;
+  multiple?: boolean;
   onFiles: (files: FileList | File[]) => void;
+  /** Exibe CTA “Escolher de novo” após NotReadableError / iCloud. */
+  ioFailed?: boolean;
   children?: ReactNode;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
+
+  function openPicker() {
+    const el = inputRef.current;
+    if (!el || disabled) return;
+    el.value = '';
+    el.click();
+  }
 
   function onDragOver(e: DragEvent) {
     e.preventDefault();
@@ -51,9 +72,44 @@ export function FileDropZone({
     >
       <p className="muted" style={{ marginTop: 0 }}>
         Arraste o <strong>.zip</strong> (ou XMLs) para cá
-        {acceptHint ? ` — ${acceptHint}` : ''}. Se der “I/O read failed”, copie antes para o{' '}
-        <strong>Desktop</strong> e arraste de lá.
+        {acceptHint ? ` — ${acceptHint}` : ''}, ou use o botão abaixo.
       </p>
+      <p className="muted" style={{ fontSize: 13 }}>
+        Se o arquivo estiver em <strong>Downloads / iCloud</strong>, copie antes para o{' '}
+        <strong>Desktop</strong> (ou Documents local) — o Safari/Chrome não consegue ler
+        placeholders da nuvem.
+      </p>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={disabled}
+          onClick={openPicker}
+        >
+          Escolher .zip ou XMLs…
+        </button>
+        {ioFailed ? (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={disabled}
+            onClick={openPicker}
+          >
+            Escolher de novo
+          </button>
+        ) : null}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        disabled={disabled}
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          if (e.target.files?.length) onFiles(e.target.files);
+        }}
+      />
       {children}
     </div>
   );
