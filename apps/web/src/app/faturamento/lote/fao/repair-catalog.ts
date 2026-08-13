@@ -38,6 +38,8 @@ export type AlertRepair = {
     | 'manual';
   button?: string;
   batchable?: boolean;
+  /** FAI: BLOCKER clínico — só sugerir, não aplicar em lote. */
+  suggestOnly?: boolean;
   /** Campo do formulário individual a destacar */
   focusField?: string;
   /** Passos orientados até a ficha ficar pronta para envio */

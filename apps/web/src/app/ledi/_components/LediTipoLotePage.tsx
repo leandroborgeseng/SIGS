@@ -25,8 +25,9 @@ import { LoteQualityPanel } from '@/app/faturamento/lote/fao/LoteQualityPanel';
 import { baselineFromTreatment } from '@/app/faturamento/lote/fao/ModalQualityMiniDash';
 import {
   bodyForRepairUi,
-  lookupRepair,
+  lookupRepair as lookupFaoRepair,
 } from '@/app/faturamento/lote/fao/repair-catalog';
+import { faiBodyForRepairUi, lookupFaiRepair } from '@/app/faturamento/lote/fai/repair-catalog';
 
 type LoteTipo = 'FAI' | 'PROCEDIMENTOS';
 type ExportAction = 'zip-current' | 'zip-conformant' | 'dry-run' | 'closure';
@@ -207,6 +208,7 @@ async function downloadClosureReport(batchId: string, fileSlug: string) {
 
 export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
   const meta = META[expectedTipo];
+  const lookupRepair = expectedTipo === 'FAI' ? lookupFaiRepair : lookupFaoRepair;
   const [batches, setBatches] = useState<BatchListRow[]>([]);
   const [batch, setBatch] = useState<Batch | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
@@ -254,7 +256,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
 
   const activeRepair = useMemo(
     () => (codeFilter ? lookupRepair(codeFilter) : undefined),
-    [codeFilter],
+    [codeFilter, lookupRepair],
   );
 
   const lotQuality = useMemo(() => {
@@ -391,6 +393,11 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       return;
     }
 
+    if (guide.suggestOnly) {
+      setError('Este alerta exige dado clínico — abra a ficha. Não aplicamos em lote.');
+      return;
+    }
+
     const ids = items.map((it) => it.id);
     if (!ids.length) {
       setError('Nenhuma ficha neste filtro.');
@@ -427,10 +434,13 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       };
       if (editIne.trim()) body.ine = editIne.trim();
     } else {
-      const patch = bodyForRepairUi(guide.ui, fields);
+      const patchFn = expectedTipo === 'FAI' ? faiBodyForRepairUi : bodyForRepairUi;
+      const patch = patchFn(guide.ui, fields);
       if (!patch) {
         setError(
-          guide.ui === 'ine'
+          expectedTipo === 'FAI' && (guide.ui === 'ciap' || guide.ui === 'cbo')
+            ? 'Este ajuste não é automático na FAI — abra a ficha (não inventamos diagnóstico/ocupação).'
+            : guide.ui === 'ine'
             ? 'Informe o INE no guia.'
             : guide.ui === 'cnes'
               ? 'Informe CNES com 7 dígitos.'
@@ -592,6 +602,14 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
           quantidade: 1,
         }));
       }
+    }
+    if (condutas.trim()) {
+      const codes = condutas
+        .split(',')
+        .map((x) => Number(x.trim()))
+        .filter((n) => Number.isFinite(n) && n >= 1);
+      if (meta.variant === 'fai' && codes.length) body.condutas = codes;
+      else if (codes.length) body.tiposEncamOdonto = codes;
     }
 
     if (!Object.keys(body).length) {
@@ -976,6 +994,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                         wouldTouch: number;
                         before: { withBlockers: number; siapsReady: number };
                         after: { withBlockers: number; siapsReady: number };
+                        samples?: Array<{ fileName: string; applied: string[]; codesRemoved: string[] }>;
                         codeDelta?: Array<{
                           code: string;
                           before: number;
@@ -990,12 +1009,47 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                         .slice(0, 5)
                         .map((d) => `${d.code}: ${d.before}→${d.after}`)
                         .join(' · ');
-                      return `Dry-run: tocariam ${dry.wouldTouch} fichas · blockers ${dry.before.withBlockers}→${dry.after.withBlockers} · Siaps ${dry.before.siapsReady}→${dry.after.siapsReady}${top ? ` · ${top}` : ''}`;
+                      const sample = (dry.samples || [])[0];
+                      const preview = sample
+                        ? ` · ex.: ${sample.fileName} [${(sample.applied || []).join(', ')}]`
+                        : '';
+                      return `Dry-run: tocariam ${dry.wouldTouch} fichas · blockers ${dry.before.withBlockers}→${dry.after.withBlockers} · Siaps ${dry.before.siapsReady}→${dry.after.siapsReady}${top ? ` · ${top}` : ''}${preview}`;
                     });
                   }}
                 >
                   {exportAction === 'dry-run' ? 'Simulando…' : 'Dry-run (simular auto)'}
                 </button>
+                {expectedTipo === 'FAI' ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={anyBusy || totalFichas < 1}
+                    title="Aplica só correções seguras (stNaoPossuiCpf, turno, local, IBGE, UUID, encoding). Não inventa CIAP, conduta nem paciente."
+                    onClick={() => {
+                      void runExport('dry-run', async () => {
+                        const res = await api<Batch & { touched: number; async?: boolean; jobId?: string }>(
+                          `/v1/dental/ledi/batches/${batch.id}/auto-fix`,
+                          { method: 'POST', json: { stNaoPossuiCpf: true } },
+                        );
+                        let touched = res.touched ?? 0;
+                        let finalBatch: Batch = res;
+                        if (isAsyncJobResponse(res)) {
+                          const job = await waitForJob(res.jobId);
+                          if (job.status !== 'completed') {
+                            throw new Error(job.errorMessage || `Job ${job.status}`);
+                          }
+                          touched = Number((job.result as { touched?: number } | null)?.touched ?? 0);
+                          finalBatch = await api<Batch>(`/v1/dental/ledi/batches/${batch.id}`);
+                        }
+                        setBatch(finalBatch);
+                        await loadItems(batch.id, codeFilter);
+                        return `Correções seguras FAI: ${touched} ficha(s) alterada(s). Conduta/CIAP/paciente continuam manuais.`;
+                      });
+                    }}
+                  >
+                    Corrigir em lote (ajustes seguros)
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="btn btn-secondary"

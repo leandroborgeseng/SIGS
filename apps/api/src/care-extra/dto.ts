@@ -245,6 +245,9 @@ export class AutoFixLediFaoBatchDto {
   @IsOptional() @IsIn(['remove', 'force_st']) justificativaCpfUnexpected?: 'remove' | 'force_st';
   /** Regenerar uuidFicha inválido (default true no applyAutoFixes). */
   @IsOptional() @IsBoolean() regenerateUuidFicha?: boolean;
+  /** Condutas FAI (TipoEncaminhamentoIndividual) — só com confirmação explícita. */
+  @IsOptional() @IsArray() condutas?: number[];
+  @IsOptional() @IsInt() tipoAtendimento?: number;
 }
 
 export class PatchLediFaoBatchItemDto {
@@ -297,6 +300,9 @@ export class PatchLediFaoBatchItemDto {
   @IsOptional() @IsString() dataHoraFinalAtendimento?: string;
   /** Substitui condutas tiposEncamOdonto. */
   @IsOptional() @IsArray() tiposEncamOdonto?: number[];
+  /** Condutas FAI (TipoEncaminhamentoIndividual). */
+  @IsOptional() @IsArray() condutas?: number[];
+  @IsOptional() @IsInt() tipoAtendimento?: number;
   /** Ficha Procedimentos: lista SIGTAP 10 dígitos (tags &lt;procedimentos&gt;). */
   @IsOptional() @IsArray() @IsString({ each: true }) procedimentosCodes?: string[];
   /** Substitui o XML inteiro (edição avançada). */

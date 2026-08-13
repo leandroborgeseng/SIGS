@@ -41,6 +41,12 @@ export const AUTO_FIXABLE_CODES = new Set([
   'VIGILANCIA_MAX',
   'TIPO_CONSULTA_MULTI',
   'UUID_FICHA_LENGTH',
+  'UUID_FICHA_CASE',
+  'XML_ENCODING',
+  'CNS_FORMAT',
+  'CPF_FORMAT',
+  'CIAP_FORMAT',
+  'CID_FORMAT',
 ]);
 
 export type AutoFixOptions = {
@@ -437,6 +443,7 @@ export function fixDtNascimento(xml: string, value: string): { xml: string; chan
     if (Number.isFinite(t)) epoch = String(t);
   }
   if (!epoch) return { xml, changed: false };
+  if (/<dataNascimento\b/i.test(xml)) return fixAtendimentoField(xml, 'dataNascimento', epoch);
   return fixAtendimentoField(xml, 'dtNascimento', epoch);
 }
 
@@ -607,7 +614,28 @@ export function fixJustificativaNaoPossuiCpf(
 export function fixLocalAtendimento(xml: string, local: number): { xml: string; changed: boolean } {
   const n = Number(local);
   if (!Number.isFinite(n) || n < 1 || n > 10) return { xml, changed: false };
-  return fixAtendimentoField(xml, 'localAtendimento', String(n));
+  const value = String(n);
+  const hasDe = /<localDeAtendimento\b/i.test(xml);
+  const hasPlain = /<localAtendimento\b/i.test(xml);
+  if (hasDe || hasPlain) {
+    let changed = false;
+    let next = xml;
+    if (hasDe) {
+      const r = fixAtendimentoField(next, 'localDeAtendimento', value);
+      next = r.xml;
+      changed = changed || r.changed;
+    }
+    if (hasPlain) {
+      const r = fixAtendimentoField(next, 'localAtendimento', value);
+      next = r.xml;
+      changed = changed || r.changed;
+    }
+    return { xml: next, changed };
+  }
+  if (/<atendimentosIndividuais\b/i.test(xml)) {
+    return fixAtendimentoField(xml, 'localDeAtendimento', value);
+  }
+  return fixAtendimentoField(xml, 'localAtendimento', value);
 }
 
 /** Origem do sistema (LEDI PEC / terceiros) = 3. */
@@ -838,10 +866,36 @@ export function escapeXml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export function classifyAutoFixable(findings: FaoFinding[]): string[] {
+export function classifyAutoFixable(
+  findings: FaoFinding[],
+  tipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS',
+): string[] {
   const codes = new Set<string>();
+  const faiOnly = new Set([
+    'ST_NAO_POSSUI_CPF',
+    'JUSTIFICATIVA_CPF_MISSING',
+    'INE_MISSING',
+    'TURNO',
+    'LOCAL_ATENDIMENTO',
+    'CNES_MISSING',
+    'CNES_FORMAT',
+    'IBGE_MISSING',
+    'IBGE_FORMAT',
+    'TP_CDS_ORIGEM_MISSING',
+    'TP_CDS_ORIGEM_NOT_3',
+    'PROC_QTD',
+    'CONDUTAS_MAX',
+    'UUID_FICHA_LENGTH',
+    'UUID_FICHA_CASE',
+    'XML_ENCODING',
+    'CNS_FORMAT',
+    'CPF_FORMAT',
+    'CIAP_FORMAT',
+    'CID_FORMAT',
+  ]);
+  const allow = tipo === 'FAI' ? faiOnly : AUTO_FIXABLE_CODES;
   for (const f of findings) {
-    if (AUTO_FIXABLE_CODES.has(f.code)) codes.add(f.code);
+    if (allow.has(f.code)) codes.add(f.code);
   }
   return [...codes];
 }

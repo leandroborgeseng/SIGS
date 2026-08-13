@@ -56,7 +56,7 @@ export function ErrorGuideModal({
   const sev = resolveSeverity(code, repair.channel === 'PREVINE' ? 'MONEY_RISK' : 'BLOCKER');
   const fields = fieldsForRepairUi(repair.ui);
   const canAuto =
-    repair.mode === 'auto' && repair.batchable !== false && repair.ui !== 'manual';
+    repair.mode === 'auto' && repair.batchable !== false && !repair.suggestOnly;
 
   return (
     <Modal
@@ -104,6 +104,12 @@ export function ErrorGuideModal({
             <p style={{ marginTop: 0, fontSize: 14, lineHeight: 1.45 }}>{repair.why || repair.how}</p>
             <h4>2. O que fazer</h4>
             <p style={{ marginTop: 0, fontSize: 14, lineHeight: 1.45 }}>{repair.how}</p>
+            {repair.suggestOnly ? (
+              <p className="alert" style={{ fontSize: 13 }}>
+                Este alerta exige dado clínico ou cadastral ausente. O lote só sugere — abra a ficha
+                para preencher. Não aplicamos em massa.
+              </p>
+            ) : null}
             {repair.readyGoal ? (
               <>
                 <h4>3. Meta antes do envio</h4>

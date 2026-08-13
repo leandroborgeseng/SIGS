@@ -1,6 +1,6 @@
 # Cobertura LEDI — erros e caminho de correção (P0)
 
-**Atualizado:** 2026-08-12  
+**Atualizado:** 2026-08-13  
 **Fonte:** `apps/api/src/care-extra/ledi-error-registry.ts` (espelho em `apps/web/src/lib/ledi/error-registry.ts`)  
 **Gate CI:** `ledi-error-registry.spec.ts`
 
@@ -8,15 +8,16 @@
 
 | Métrica | Valor |
 |---|---:|
-| Total de códigos | 78 |
-| auto | 33 |
+| Total de códigos | 86 |
+| auto | 39 |
 | semi | 1 |
-| individual | 24 |
+| individual | 25 |
 | reexport | 12 |
 | info | 8 |
 | pending implement (fixer/UI) | **0** |
 
-**P2 fechado:** `CONDUTAS_MAX`, `PROC_QTD`, `TIPO_CONSULTA_MULTI`, `TP_CDS_ORIGEM_*`, `UUID_FICHA_LENGTH`, `VIGILANCIA_MAX` (auto) · `JUSTIFICATIVA_CPF_UNEXPECTED` (semi: remove \| force_st).
+**P2 fechado:** `CONDUTAS_MAX`, `PROC_QTD`, `TIPO_CONSULTA_MULTI`, `TP_CDS_ORIGEM_*`, `UUID_FICHA_LENGTH`, `VIGILANCIA_MAX` (auto) · `JUSTIFICATIVA_CPF_UNEXPECTED` (semi: remove \| force_st).  
+**FAI autofix (2026-08-13):** higiene + defaults documentados (turno 2, local UBS, IBGE Franca, tpCdsOrigem 3, stNaoPossuiCpf). **Não** inventa CIAP/CID, conduta, profissional nem paciente (`CONDUTA_MISSING` / `PROBLEMAS_MISSING` / `TIPO_ATENDIMENTO` só sugestão na ficha).
 
 ## Legenda repairClass (A–E)
 
@@ -37,15 +38,21 @@
 | `ATENDIMENTOS_MAX` | MONEY_RISK | reexport | sim | Ficha com pacientes demais |
 | `CBO_MISSING` | BLOCKER | auto | sim | Falta a ocupação do profissional |
 | `CBO_NOT_ODONTO` | BLOCKER | auto | sim | Ocupação não é de saúde bucal |
+| `CIAP_FORMAT` | QUALITY_WARN | auto | sim | CIAP com formato a normalizar (FAI) |
+| `CID_FORMAT` | QUALITY_WARN | auto | sim | CID-10 com formato a normalizar (FAI) |
 | `CNES_FORMAT` | MONEY_RISK | auto | sim | Código da unidade com formato errado |
 | `CNES_MISSING` | BLOCKER | auto | sim | Falta o código da unidade de saúde |
 | `CNS_INVALID` | BLOCKER | individual | sim | Cartão do cidadão inválido |
+| `CNS_FORMAT` | QUALITY_WARN | auto | sim | CNS com espaços/pontuação (checksum ok) |
+| `CONDUTA_MISSING` | BLOCKER | individual | sim | Falta a conduta FAI (TipoEncaminhamentoIndividual) |
 | `CONDUTAS_MAX` | MONEY_RISK | auto | sim | Condutas em excesso |
 | `CONDUTAS_MISSING` | BLOCKER | individual | sim | Falta a conduta / encaminhamento |
 | `CPF_CNS_BOTH` | BLOCKER | individual | sim | CPF e cartão do cidadão juntos |
 | `CPF_INVALID` | BLOCKER | individual | sim | CPF do cidadão inválido |
+| `CPF_FORMAT` | QUALITY_WARN | auto | sim | CPF com espaços/pontuação (checksum ok) |
 | `DATA_ATENDIMENTO_MISSING` | BLOCKER | individual | sim | Falta a data do atendimento |
 | `DT_NASCIMENTO_MISSING` | BLOCKER | individual | sim | Falta a data de nascimento |
+| `DT_NASCIMENTO_AFTER_ATEND` | BLOCKER | individual | sim | Nascimento depois do atendimento |
 | `FAI_ATENDIMENTO_MISSING` | BLOCKER | reexport | sim | FAI sem atendimento |
 | `FAI_ROOT_NOT_FOUND` | BLOCKER | reexport | sim | Ficha individual incompleta |
 | `FAO_ROOT_NOT_FOUND` | BLOCKER | reexport | sim | Ficha odontológica incompleta |
@@ -104,11 +111,13 @@
 | `TP_CDS_ORIGEM_NOT_3` | MONEY_RISK | auto | sim | Origem do sistema diferente do esperado |
 | `TRATAMENTO_CONCLUIDO_RULE` | BLOCKER | auto | sim | Tratamento concluído sem tipo de consulta adequado |
 | `TURNO` | BLOCKER | auto | sim | Turno inválido ou ausente |
+| `UUID_FICHA_CASE` | QUALITY_WARN | auto | sim | UUID da ficha em minúsculas |
 | `UUID_FICHA_LENGTH` | MONEY_RISK | auto | sim | Número único da ficha com tamanho errado |
 | `UUID_FICHA_MISSING` | BLOCKER | reexport | sim | Ficha sem número único de identificação |
 | `VIGILANCIA_MAX` | MONEY_RISK | auto | sim | Vigilância com itens demais |
 | `VIGILANCIA_MISSING` | BLOCKER | auto | sim | Falta a vigilância em saúde bucal |
 | `WRONG_FICHA_TIPO` | BLOCKER | reexport | sim | Tipo de ficha errado nesta tela |
+| `XML_ENCODING` | QUALITY_WARN | auto | sim | Encoding XML diferente de UTF-8 |
 | `XML_PARSE_ERROR` | BLOCKER | reexport | sim | Arquivo quebrado ou incompleto |
 
 ## Manutenção

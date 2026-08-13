@@ -53,6 +53,7 @@ import {
   previneGapCodes,
   runAutoFixPipeline,
 } from './ledi-autofix.pipeline';
+import { fixCondutasFai, fixTipoAtendimentoFai } from './ledi-fai-xml.fixer';
 import { buildStoreZip } from './zip-store';
 import {
   CreateLediFaoBatchDto,
@@ -285,7 +286,7 @@ export class LediFaoBatchService {
           rule: 'LEDI-tipo',
         });
       }
-      const auto = classifyAutoFixable(findings);
+      const auto = classifyAutoFixable(findings, expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo);
       let masterJson: string | null = null;
       if (expectedTipo === 'FAO') {
         try {
@@ -721,7 +722,7 @@ export class LediFaoBatchService {
       const result = runAutoFixPipeline(
         xml,
         findings,
-        dto,
+        { ...dto, fichaTipo: expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo },
         previneGapCodes(item.previneJson),
       );
       if (!result.changed) continue;
@@ -779,7 +780,7 @@ export class LediFaoBatchService {
       const result = runAutoFixPipeline(
         await this.resolveCurrentXml(item),
         findings,
-        dto,
+        { ...dto, fichaTipo: expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo },
         previneGapCodes(item.previneJson),
       );
       if (!result.changed) {
@@ -1078,6 +1079,18 @@ export class LediFaoBatchService {
       if (r.changed) applied.push('CONDUTAS');
     }
 
+    if (dto.condutas?.length) {
+      const r = fixCondutasFai(xml, dto.condutas);
+      xml = r.xml;
+      if (r.changed) applied.push('CONDUTAS_FAI');
+    }
+
+    if (dto.tipoAtendimento != null) {
+      const r = fixTipoAtendimentoFai(xml, dto.tipoAtendimento);
+      xml = r.xml;
+      if (r.changed) applied.push('TIPO_ATENDIMENTO');
+    }
+
     if (dto.procedimentosCodes?.length) {
       const r = fixProcFichaProcedimentos(xml, dto.procedimentosCodes);
       xml = r.xml;
@@ -1197,7 +1210,10 @@ export class LediFaoBatchService {
         rule: 'LEDI-tipo',
       });
     }
-    const auto = classifyAutoFixable(findings);
+    const auto = classifyAutoFixable(
+      findings,
+      expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo,
+    );
     const status = this.findingsStatus(findings);
 
     let masterJson: string | null = null;

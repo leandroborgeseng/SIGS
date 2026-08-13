@@ -212,6 +212,8 @@ describe('LEDI P5 pipeline (upload→fix→zip)', () => {
 <cnesDadoSerializado>2035871</cnesDadoSerializado>
 <ineDadoSerializado>0002321246</ineDadoSerializado>
 <ns4:fichaAtendimentoIndividualMasterTransport>
+<uuidFicha>2035871-4F1FDA7E-B1D8-4496-AFB4-5ADCBC6389C7</uuidFicha>
+<tpCdsOrigem>3</tpCdsOrigem>
 <headerTransport>
 <profissionalCNS>126090861660005</profissionalCNS>
 <cboCodigo_2002>225125</cboCodigo_2002>
@@ -227,6 +229,8 @@ describe('LEDI P5 pipeline (upload→fix→zip)', () => {
 <localDeAtendimento>1</localDeAtendimento>
 <tipoAtendimento>2</tipoAtendimento>
 <turno>2</turno>
+<cid10>Z000</cid10>
+<condutas>1</condutas>
 </atendimentosIndividuais>
 </ns4:fichaAtendimentoIndividualMasterTransport>
 </ns3:dadoTransporteTransportXml>`;

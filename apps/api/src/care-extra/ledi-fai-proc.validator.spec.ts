@@ -8,8 +8,10 @@ const FAI_SAMPLE = `<?xml version="1.0" encoding="utf-8"?>
 <cnesDadoSerializado>2035871</cnesDadoSerializado>
 <ineDadoSerializado>0002321246</ineDadoSerializado>
 <ns4:fichaAtendimentoIndividualMasterTransport>
+<uuidFicha>2035871-4F1FDA7E-B1D8-4496-AFB4-5ADCBC6389C7</uuidFicha>
+<tpCdsOrigem>3</tpCdsOrigem>
 <headerTransport>
-<profissionalCNS>126090861660005</profissionalCNS>
+<profissionalCNS>703601040321538</profissionalCNS>
 <cboCodigo_2002>225125</cboCodigo_2002>
 <cnes>2035871</cnes>
 <ine>0002321246</ine>
@@ -24,6 +26,7 @@ const FAI_SAMPLE = `<?xml version="1.0" encoding="utf-8"?>
 <tipoAtendimento>2</tipoAtendimento>
 <turno>2</turno>
 <cid10>Z000</cid10>
+<condutas>1</condutas>
 </atendimentosIndividuais>
 </ns4:fichaAtendimentoIndividualMasterTransport>
 </ns3:dadoTransporteTransportXml>`;

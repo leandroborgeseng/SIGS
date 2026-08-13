@@ -24,6 +24,7 @@ import {
   fixTurno,
   type AutoFixOptions,
 } from './ledi-fao-xml.fixer';
+import { applyFaiAutoFixes, FAI_SAFE_DEFAULTS, fixCondutasFai, fixTipoAtendimentoFai } from './ledi-fai-xml.fixer';
 
 export type AutoFixPipelineInput = {
   stNaoPossuiCpf?: boolean;
@@ -46,6 +47,10 @@ export type AutoFixPipelineInput = {
   justificativaNaoPossuiCpf?: number;
   justificativaCpfUnexpected?: 'remove' | 'force_st';
   regenerateUuidFicha?: boolean;
+  /** Canal do lote — FAI não aplica CIAP/CBO/vigilância odonto. */
+  fichaTipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+  condutas?: number[];
+  tipoAtendimento?: number;
 };
 
 export type AutoFixPipelineResult = {
@@ -61,6 +66,10 @@ export function runAutoFixPipeline(
   dto: AutoFixPipelineInput,
   previneGaps: string[] = [],
 ): AutoFixPipelineResult {
+  if (dto.fichaTipo === 'FAI') {
+    return runFaiAutoFixPipeline(xml, findings, dto);
+  }
+
   const opts: AutoFixOptions = {
     stNaoPossuiCpf: dto.forceSelected
       ? dto.stNaoPossuiCpf === true
@@ -172,6 +181,75 @@ export function runAutoFixPipeline(
         ? fixRemoveJustificativaNaoPossuiCpf(current)
         : fixForceStNaoPossuiCpfTrue(current),
     );
+  }
+
+  return { xml: current, changed, applied };
+}
+
+function runFaiAutoFixPipeline(
+  xml: string,
+  findings: FaoFinding[],
+  dto: AutoFixPipelineInput,
+): AutoFixPipelineResult {
+  const applied: string[] = [];
+  let current = xml;
+  let changed = false;
+
+  const auto = applyFaiAutoFixes(current, findings, {
+    stNaoPossuiCpf: dto.stNaoPossuiCpf !== false,
+    stNaoPossuiCpfWhenAbsent: dto.stNaoPossuiCpfWhenAbsent !== false,
+    ine: dto.ine,
+    justificativaCpfUnexpected: dto.justificativaCpfUnexpected,
+    regenerateUuidFicha: dto.regenerateUuidFicha !== false,
+    ibgeDefault: dto.codigoIbgeMunicipio?.trim() || FAI_SAFE_DEFAULTS.ibge,
+  });
+  if (auto.applied.length) {
+    current = auto.xml;
+    changed = true;
+    applied.push(...auto.applied);
+  }
+
+  const codes = new Set(findings.map((f) => f.code));
+  const force = !!dto.forceSelected && !!dto.onlyItemIds?.length;
+  const step = (label: string, next: { xml: string; changed: boolean }) => {
+    if (!next.changed) return;
+    current = next.xml;
+    changed = true;
+    applied.push(label);
+  };
+
+  if (dto.ine?.trim() && (force || codes.has('INE_MISSING'))) {
+    step('INE', fixIne(current, dto.ine));
+  }
+  if (dto.turno != null && (force || codes.has('TURNO'))) {
+    step('TURNO', fixTurno(current, dto.turno));
+  }
+  if (dto.localAtendimento != null && (force || codes.has('LOCAL_ATENDIMENTO'))) {
+    step('LOCAL', fixLocalAtendimento(current, dto.localAtendimento));
+  }
+  if (dto.cnes?.trim() && (force || codes.has('CNES_MISSING') || codes.has('CNES_FORMAT'))) {
+    step('CNES', fixCnes(current, dto.cnes));
+  }
+  if (dto.codigoIbgeMunicipio?.trim() && (force || codes.has('IBGE_MISSING') || codes.has('IBGE_FORMAT'))) {
+    step('IBGE', fixIbge(current, dto.codigoIbgeMunicipio));
+  }
+  if (dto.justificativaNaoPossuiCpf != null && (force || codes.has('JUSTIFICATIVA_CPF_MISSING'))) {
+    step('JUSTIFICATIVA', fixJustificativaNaoPossuiCpf(current, dto.justificativaNaoPossuiCpf));
+  }
+  if (dto.justificativaCpfUnexpected && (force || codes.has('JUSTIFICATIVA_CPF_UNEXPECTED'))) {
+    step(
+      'JUSTIFICATIVA_UNEXPECTED',
+      dto.justificativaCpfUnexpected === 'remove'
+        ? fixRemoveJustificativaNaoPossuiCpf(current)
+        : fixForceStNaoPossuiCpfTrue(current),
+    );
+  }
+  // Conduta / tipo / CIAP só com valor explícito do usuário — nunca default em lote.
+  if (dto.condutas?.length && force) {
+    step('CONDUTAS_FAI', fixCondutasFai(current, dto.condutas));
+  }
+  if (dto.tipoAtendimento != null && force) {
+    step('TIPO_ATENDIMENTO', fixTipoAtendimentoFai(current, dto.tipoAtendimento));
   }
 
   return { xml: current, changed, applied };
