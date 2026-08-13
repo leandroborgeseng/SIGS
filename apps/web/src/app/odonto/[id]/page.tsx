@@ -8,12 +8,35 @@ import {
   OdontogramGrid,
   type OdontogramArches,
   type OdontogramCondition,
+  type OdontogramScopes,
 } from '@/components/odonto/OdontogramGrid';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError } from '@/lib/api';
 import { displayPatientName, formatDateTime } from '@/lib/labels';
 import { getLediError } from '@/lib/ledi/error-registry';
+
+/** Espelha procedurePlacementFromKey do domínio API (FDI → tooth; Q/S/BOCA → region). */
+function procedurePlacementFromKey(key: string): { tooth?: string; region?: string } {
+  const k = String(key || '').trim();
+  if (/^\d{2}$/.test(k)) return { tooth: k };
+  const scope = k.toUpperCase();
+  if (/^Q[1-4]$/.test(scope) || /^S[1-6]$/.test(scope) || scope === 'BOCA') {
+    return { region: scope };
+  }
+  return {};
+}
+
+function selectionKeyFromProcedure(p: {
+  tooth?: string | null;
+  region?: string | null;
+}): string {
+  const tooth = String(p.tooth || '').trim();
+  if (/^\d{2}$/.test(tooth)) return tooth;
+  const region = String(p.region || '').trim().toUpperCase();
+  if (/^Q[1-4]$/.test(region) || /^S[1-6]$/.test(region) || region === 'BOCA') return region;
+  return tooth || '11';
+}
 
 type Catalog = {
   config: {
@@ -31,6 +54,7 @@ type Catalog = {
   odontogram?: {
     conditions: OdontogramCondition[];
     arches: OdontogramArches;
+    scopes?: OdontogramScopes;
     note?: string;
   };
 };
@@ -68,7 +92,13 @@ type Encounter = {
   };
   facility: { id: string; name: string; cnes: string; ibgeCode?: string | null };
   professional?: { id: string; civilName: string } | null;
-  procedures: Array<{ tooth?: string; code: string; label: string; done?: boolean }>;
+  procedures: Array<{
+    tooth?: string;
+    region?: string;
+    code: string;
+    label: string;
+    done?: boolean;
+  }>;
   odontogram?: Record<string, string>;
   care: Care;
   voidMeta?: {
@@ -144,7 +174,7 @@ export default function OdontoAtendimentoPage() {
   const [cid10, setCid10] = useState('');
   const [procCode, setProcCode] = useState('0301010030');
   const [procLabel, setProcLabel] = useState('Consulta odontológica');
-  const [tooth, setTooth] = useState('11');
+  const [selectedKey, setSelectedKey] = useState('11');
   const [odontogram, setOdontogram] = useState<Record<string, string>>({});
   const [showDeciduous, setShowDeciduous] = useState(false);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
@@ -175,13 +205,13 @@ export default function OdontoAtendimentoPage() {
     setCid10(p0?.cid10 || '');
     const proc0 = row.procedures?.[0];
     if (proc0) {
-      setTooth(proc0.tooth || '11');
+      setSelectedKey(selectionKeyFromProcedure(proc0));
       setProcCode(proc0.code || '0301010030');
       setProcLabel(proc0.label || 'Consulta odontológica');
     }
     setOdontogram(row.odontogram || {});
     const marked = Object.keys(row.odontogram || {});
-    if (marked.some((t) => Number(t) >= 51)) setShowDeciduous(true);
+    if (marked.some((t) => /^\d{2}$/.test(t) && Number(t) >= 51)) setShowDeciduous(true);
     if (row.status === 'COMPLETED') {
       setFinishSummary((prev) =>
         prev || {
@@ -217,14 +247,15 @@ export default function OdontoAtendimentoPage() {
       ciap.trim() || cid10.trim()
         ? [{ ciap: ciap.trim() || undefined, cid10: cid10.trim() || undefined }]
         : [];
+    const placement = procedurePlacementFromKey(selectedKey);
     return {
       anamnese,
       ...care,
       problemasCondicoes: problemas,
-      procedures: [{ tooth, code: procCode, label: procLabel, done: true }],
+      procedures: [{ ...placement, code: procCode, label: procLabel, done: true }],
       odontogram,
     };
-  }, [care, anamnese, ciap, cid10, tooth, procCode, procLabel, odontogram]);
+  }, [care, anamnese, ciap, cid10, selectedKey, procCode, procLabel, odontogram]);
 
   const draftFingerprint = useMemo(
     () => JSON.stringify(buildPatchBody()),
@@ -693,7 +724,7 @@ export default function OdontoAtendimentoPage() {
             />
           </label>
 
-          <h2>Odontograma (RF-12.12 parcial)</h2>
+          <h2>Odontograma (RF-12.12)</h2>
           {catalog.odontogram ? (
             <>
               <label className="check">
@@ -709,8 +740,9 @@ export default function OdontoAtendimentoPage() {
                 value={odontogram}
                 conditions={catalog.odontogram.conditions}
                 arches={catalog.odontogram.arches}
-                selectedTooth={tooth}
-                onSelectTooth={setTooth}
+                scopes={catalog.odontogram.scopes}
+                selectedKey={selectedKey}
+                onSelectKey={setSelectedKey}
                 onChange={setOdontogram}
                 disabled={readonly}
                 showDeciduous={showDeciduous}
@@ -727,8 +759,13 @@ export default function OdontoAtendimentoPage() {
 
           <div className="row-3">
             <label>
-              Dente (proc.)
-              <input disabled={readonly} value={tooth} onChange={(e) => setTooth(e.target.value)} />
+              Local do procedimento
+              <input
+                disabled={readonly}
+                value={selectedKey}
+                onChange={(e) => setSelectedKey(e.target.value.trim())}
+                placeholder="FDI, Q1–Q4, S1–S6 ou BOCA"
+              />
             </label>
             <label>
               SIGTAP

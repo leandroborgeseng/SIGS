@@ -43,4 +43,4 @@ authors: [SIGS]
 ## RF (Onda 1 + F + odontograma)
 
 Cobertos no mínimo: RF-12.2, 12.3, 12.5, 12.6, 12.7, 12.8, 12.9 · Previne na origem (orientação).  
-Parcial: RF-12.12 odontograma MVP (sem histórico/quadrante/sextante). Depois: agenda (12.1), prótese.
+Parcial: RF-12.12 odontograma FDI + quadrante/sextante/boca (sem histórico). RF-12.13 só `done` no SIGTAP (sem predefinidos ricos). Depois: agenda (12.1), prótese.

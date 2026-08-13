@@ -9,12 +9,19 @@ export type OdontogramArches = {
   lowerDeciduous: string[];
 };
 
+export type OdontogramScopes = {
+  quadrants: OdontogramCondition[];
+  sextants: OdontogramCondition[];
+  mouth: OdontogramCondition;
+};
+
 type Props = {
   value: Record<string, string>;
   conditions: OdontogramCondition[];
   arches: OdontogramArches;
-  selectedTooth: string;
-  onSelectTooth: (tooth: string) => void;
+  scopes?: OdontogramScopes;
+  selectedKey: string;
+  onSelectKey: (key: string) => void;
   onChange: (next: Record<string, string>) => void;
   disabled?: boolean;
   showDeciduous?: boolean;
@@ -72,18 +79,56 @@ function ToothButton({
   );
 }
 
+function ScopeChip({
+  code,
+  label,
+  marked,
+  selected,
+  disabled,
+  onSelect,
+}: {
+  code: string;
+  label: string;
+  marked?: string;
+  selected: boolean;
+  disabled?: boolean;
+  onSelect: () => void;
+}) {
+  const bg = marked ? CONDITION_COLOR[marked] || '#334155' : undefined;
+  return (
+    <button
+      type="button"
+      className="btn ghost"
+      disabled={disabled}
+      onClick={onSelect}
+      title={marked ? `${label}: ${marked}` : label}
+      aria-pressed={selected}
+      style={{
+        padding: '4px 8px',
+        fontSize: 12,
+        border: selected ? '2px solid var(--fg, #111)' : undefined,
+        background: bg,
+        color: marked ? '#fff' : undefined,
+      }}
+    >
+      {code}
+      {marked ? ` · ${marked}` : ''}
+    </button>
+  );
+}
+
 function ArchRow({
   teeth,
   value,
-  selectedTooth,
+  selectedKey,
   disabled,
-  onSelectTooth,
+  onSelectKey,
 }: {
   teeth: string[];
   value: Record<string, string>;
-  selectedTooth: string;
+  selectedKey: string;
   disabled?: boolean;
-  onSelectTooth: (t: string) => void;
+  onSelectKey: (t: string) => void;
 }) {
   const mid = Math.floor(teeth.length / 2);
   return (
@@ -93,9 +138,9 @@ function ArchRow({
           key={t}
           tooth={t}
           code={value[t]}
-          selected={selectedTooth === t}
+          selected={selectedKey === t}
           disabled={disabled}
-          onSelect={() => onSelectTooth(t)}
+          onSelect={() => onSelectKey(t)}
         />
       ))}
       <span style={{ width: 8 }} aria-hidden />
@@ -104,9 +149,9 @@ function ArchRow({
           key={t}
           tooth={t}
           code={value[t]}
-          selected={selectedTooth === t}
+          selected={selectedKey === t}
           disabled={disabled}
-          onSelect={() => onSelectTooth(t)}
+          onSelect={() => onSelectKey(t)}
         />
       ))}
     </div>
@@ -117,19 +162,21 @@ export function OdontogramGrid({
   value,
   conditions,
   arches,
-  selectedTooth,
-  onSelectTooth,
+  scopes,
+  selectedKey,
+  onSelectKey,
   onChange,
   disabled,
   showDeciduous,
 }: Props) {
-  const current = selectedTooth ? value[selectedTooth] : undefined;
+  const current = selectedKey ? value[selectedKey] : undefined;
+  const isTooth = /^\d{2}$/.test(selectedKey);
 
   function setCondition(code: string | null) {
-    if (disabled || !selectedTooth) return;
+    if (disabled || !selectedKey) return;
     const next = { ...value };
-    if (!code) delete next[selectedTooth];
-    else next[selectedTooth] = code;
+    if (!code) delete next[selectedKey];
+    else next[selectedKey] = code;
     onChange(next);
   }
 
@@ -138,8 +185,8 @@ export function OdontogramGrid({
   return (
     <div className="odontogram" style={{ display: 'grid', gap: 10 }}>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        Clique no dente (FDI) e marque a condição. O dente selecionado preenche o campo do
-        procedimento SIGTAP. Marcações: {marked}.
+        Clique no dente (FDI) ou no escopo (quadrante / sextante / boca) e marque a condição. A
+        seleção preenche tooth ou region do procedimento SIGTAP. Marcações: {marked}.
       </p>
       {showDeciduous && (
         <>
@@ -150,9 +197,9 @@ export function OdontogramGrid({
             <ArchRow
               teeth={arches.upperDeciduous}
               value={value}
-              selectedTooth={selectedTooth}
+              selectedKey={selectedKey}
               disabled={disabled}
-              onSelectTooth={onSelectTooth}
+              onSelectKey={onSelectKey}
             />
           </div>
         </>
@@ -164,9 +211,9 @@ export function OdontogramGrid({
         <ArchRow
           teeth={arches.upperPermanent}
           value={value}
-          selectedTooth={selectedTooth}
+          selectedKey={selectedKey}
           disabled={disabled}
-          onSelectTooth={onSelectTooth}
+          onSelectKey={onSelectKey}
         />
       </div>
       <div>
@@ -176,9 +223,9 @@ export function OdontogramGrid({
         <ArchRow
           teeth={arches.lowerPermanent}
           value={value}
-          selectedTooth={selectedTooth}
+          selectedKey={selectedKey}
           disabled={disabled}
-          onSelectTooth={onSelectTooth}
+          onSelectKey={onSelectKey}
         />
       </div>
       {showDeciduous && (
@@ -189,23 +236,76 @@ export function OdontogramGrid({
           <ArchRow
             teeth={arches.lowerDeciduous}
             value={value}
-            selectedTooth={selectedTooth}
+            selectedKey={selectedKey}
             disabled={disabled}
-            onSelectTooth={onSelectTooth}
+            onSelectKey={onSelectKey}
           />
+        </div>
+      )}
+
+      {scopes && (
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Escopos (RF-12.12)
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            <span className="muted" style={{ fontSize: 12 }}>
+              Quadrante
+            </span>
+            {scopes.quadrants.map((q) => (
+              <ScopeChip
+                key={q.code}
+                code={q.code}
+                label={q.label}
+                marked={value[q.code]}
+                selected={selectedKey === q.code}
+                disabled={disabled}
+                onSelect={() => onSelectKey(q.code)}
+              />
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            <span className="muted" style={{ fontSize: 12 }}>
+              Sextante
+            </span>
+            {scopes.sextants.map((s) => (
+              <ScopeChip
+                key={s.code}
+                code={s.code}
+                label={s.label}
+                marked={value[s.code]}
+                selected={selectedKey === s.code}
+                disabled={disabled}
+                onSelect={() => onSelectKey(s.code)}
+              />
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            <span className="muted" style={{ fontSize: 12 }}>
+              Boca
+            </span>
+            <ScopeChip
+              code={scopes.mouth.code}
+              label={scopes.mouth.label}
+              marked={value[scopes.mouth.code]}
+              selected={selectedKey === scopes.mouth.code}
+              disabled={disabled}
+              onSelect={() => onSelectKey(scopes.mouth.code)}
+            />
+          </div>
         </div>
       )}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
         <span className="muted" style={{ fontSize: 13 }}>
-          Dente {selectedTooth || '—'}:
+          {isTooth ? 'Dente' : 'Escopo'} {selectedKey || '—'}:
         </span>
         {conditions.map((c) => (
           <button
             key={c.code}
             type="button"
             className="btn ghost"
-            disabled={disabled || !selectedTooth}
+            disabled={disabled || !selectedKey}
             onClick={() => setCondition(c.code)}
             style={{
               padding: '4px 8px',
@@ -221,7 +321,7 @@ export function OdontogramGrid({
         <button
           type="button"
           className="btn ghost"
-          disabled={disabled || !selectedTooth || !current}
+          disabled={disabled || !selectedKey || !current}
           onClick={() => setCondition(null)}
           style={{ padding: '4px 8px', fontSize: 12 }}
         >

@@ -1,6 +1,6 @@
 # Desenho — Atendimento odontológico (SIGS)
 
-**Status:** Onda 1 + Stream F / VOID + odontograma MVP (RF-12.12 parcial)  
+**Status:** Onda 1 + Stream F / VOID + odontograma FDI+escopos (RF-12.12 parcial)  
 **Atualizado:** 2026-08-12  
 **Contexto:** uso solo → faturamento Siaps primeiro → depois UI clínica completa  
 **Fontes:** Thrift FAO 5.5.24 · `ledi-fao.validator.ts` · `ledi-dental.mapper.ts` · `dental-odontogram.ts` · `dental-encounter-mapping.md` · RF-12 Anexo I · docs/conhecimento/15 · lote Franca
@@ -153,7 +153,7 @@ Cada item: **CIAP e/ou CID-10**. UI: busca (já existe `CodeSearchSelect` no lot
 | **Cabeçalho** | Paciente, unidade, lotação, data | A |
 | **Identificação** | CPF/CNS/st/justificativa (editar se gap) | A |
 | **Tipo e contexto** | tipoAtendimento, consulta (se 2), local, turno, gestante, horas | A |
-| **Clínico leve** | Anamnese (texto) · procedimentos SIGTAP · **odontograma MVP** (FDI → condição; `odontogramJson`) | A parcial |
+| **Clínico leve** | Anamnese (texto) · procedimentos SIGTAP · **odontograma** (FDI/Q/S/BOCA → condição; `odontogramJson` + `region`) | A parcial |
 | **Problemas** | CIAP/CID (≥1) | A |
 | **Vigilância** | multi 1–7 (≥1) | A |
 | **Condutas / desfecho** | multi enum odonto (≥1) + regras 15/17 | A |
@@ -198,7 +198,8 @@ Onda 2 (TR): tabelas/odontograma, prótese, patologias — sem bloquear faturame
 | 12.8 Fornecimentos | **coberto** | UI + mapper (não BLOCKER) |
 | 12.9 Anamnese | **coberto** | texto livre |
 | 12.1 Agenda | parcial | só abertura encounter |
-| 12.12 | parcial | odontograma MVP FDI + condições (ficha + LEDI); sem região/histórico |
+| 12.12 | parcial | odontograma FDI + Q/S/BOCA (ficha + careJson/LEDI `odontograma` + proc. region); gap Thrift FAO sem tooth/region; sem histórico |
+| 12.13 | parcial | `done` no procedimento; sem catálogo predefinido no odontograma |
 | 12.13 / 12.16 / 12.20 | parcial | procs predefinidos / CIAP-CID / lista |
 | 12.10–11, 14–15, 17–19 | não iniciado | tele, prótese, exames, atestados |
 
