@@ -4,12 +4,19 @@ title: Faturamento & Validação — visão geral
 type: user
 module: faturamento
 feature: hub
-version: 0.1.0
+version: 0.2.0
 product_min: 0.2.0
 status: draft
 audience: [gestor, faturamento, profissional]
 related_rf: [RF-12.7, RF-10.3]
-related_screens: [/faturamento, /faturamento/odonto, /faturamento/lote/fao]
+related_screens:
+  [
+    /faturamento,
+    /faturamento/odonto,
+    /faturamento/lote/fao,
+    /faturamento/lote/fai,
+    /faturamento/lote/proc,
+  ]
 updated_at: 2026-08-12
 authors: [SIGS]
 ---
@@ -23,9 +30,9 @@ Hub com atalhos (separado do clínico `/odonto`):
 | Destino | Uso |
 |---|---|
 | `/faturamento/odonto` | Fila mensal odonto (cores LEDI; Atualizar / Revalidar) |
-| `/faturamento/lote/fao` | Lote XML FAO |
-| `/faturamento/lote/fai` | Lote FAI |
-| `/faturamento/lote/proc` | Lote Procedimentos |
+| `/faturamento/lote/fao` | Lote XML FAO (tipo 5) — export ZIP |
+| `/faturamento/lote/fai` | Lote FAI (tipo 4) — export ZIP |
+| `/faturamento/lote/proc` | Lote Procedimentos (tipo 7) — export ZIP |
 | `/producao` | Produção / BPA |
 
-Nav lateral: grupo **Faturamento & Validação** (sanfona). Aliases antigos (`/odonto/lote`, etc.) redirecionam.
+Nav lateral: grupo **Faturamento & Validação** (sanfona). Aliases antigos (`/odonto/lote`, `/aps/lote`, `/procedimentos/lote`) redirecionam.
