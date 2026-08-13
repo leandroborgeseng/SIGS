@@ -41,6 +41,11 @@ import {
   type OdontogramMap,
 } from './dental-odontogram';
 import {
+  normalizeDentalProcedures,
+  predefinedDentalCatalog,
+  realizadosForLedi,
+} from './dental-predefined-procedures';
+import {
   bucketFromFindings,
   competenciaFromDate,
   competenciaRange,
@@ -148,6 +153,7 @@ export class CareExtraService {
         { id: 99, label: 'Outro' },
       ],
       odontogram: odontogramCatalog(),
+      predefinedProcedures: predefinedDentalCatalog(),
       channelNote:
         'Conformidade de envio odonto APS/CEO→Siaps/RNDS: LEDI FAO (XML|Thrift), não Bundle FHIR RIA neste fluxo.',
     };
@@ -164,6 +170,14 @@ export class CareExtraService {
   private coerceOdontogram(raw: unknown): OdontogramMap {
     try {
       return normalizeOdontogram(raw ?? {});
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
+  }
+
+  private coerceProcedures(raw: unknown) {
+    try {
+      return normalizeDentalProcedures(raw ?? []);
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
@@ -330,7 +344,7 @@ export class CareExtraService {
         appointmentId: appointmentId || null,
         encounterType: dto.encounterType || 'CONSULTA',
         anamnese: dto.anamnese,
-        proceduresJson: JSON.stringify(dto.procedures || []),
+        proceduresJson: JSON.stringify(this.coerceProcedures(dto.procedures || [])),
         odontogramJson: JSON.stringify(this.coerceOdontogram(dto.odontogram || {})),
         careJson: JSON.stringify(care),
         status: 'IN_PROGRESS',
@@ -349,7 +363,7 @@ export class CareExtraService {
       data: {
         kind: 'dental_encounter',
         status: 'draft',
-        rfIdsCsv: [RF.ODONTO.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id, RF.AGENDA.id].join(','),
+        rfIdsCsv: [RF.ODONTO.id, RF.ODONTOGRAM_PROCS.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id, RF.AGENDA.id].join(','),
         payloadJson: JSON.stringify({
           encounterId: row.id,
           facilityId: row.facilityId,
@@ -454,7 +468,9 @@ export class CareExtraService {
         professionalId: dto.professionalId !== undefined ? dto.professionalId : undefined,
         assignmentId: dto.assignmentId !== undefined ? dto.assignmentId : undefined,
         proceduresJson:
-          dto.procedures !== undefined ? JSON.stringify(dto.procedures) : undefined,
+          dto.procedures !== undefined
+            ? JSON.stringify(this.coerceProcedures(dto.procedures))
+            : undefined,
         odontogramJson:
           dto.odontogram !== undefined
             ? JSON.stringify(this.coerceOdontogram(dto.odontogram))
@@ -499,7 +515,7 @@ export class CareExtraService {
     }
 
     const care = this.parseCare(row.careJson);
-    const procedures = JSON.parse(row.proceduresJson || '[]') as unknown[];
+    const procedures = this.coerceProcedures(JSON.parse(row.proceduresJson || '[]'));
     let hasIne = false;
     try {
       const lot = await this.resolveLotacao({
@@ -520,7 +536,7 @@ export class CareExtraService {
       patient: row.patient,
       hasIne,
       requireIne: requireIneOnDentalOpen(),
-      proceduresCount: procedures.length,
+      proceduresCount: realizadosForLedi(procedures).length,
     });
 
     let findings: FaoFinding[] = missing.map((m) => ({
@@ -618,7 +634,7 @@ export class CareExtraService {
       data: {
         kind: 'dental_encounter',
         status: batchStatus,
-        rfIdsCsv: [RF.ODONTO.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id].join(','),
+        rfIdsCsv: [RF.ODONTO.id, RF.ODONTOGRAM_PROCS.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id].join(','),
         payloadJson: JSON.stringify(snapshot),
         errorMessage,
         statusChangedAt: new Date(),
@@ -895,7 +911,7 @@ export class CareExtraService {
         justificativaNaoPossuiCpf,
         localAtendimento,
         turno,
-        procedures: JSON.parse(row.proceduresJson || '[]'),
+        procedures: realizadosForLedi(this.coerceProcedures(JSON.parse(row.proceduresJson || '[]'))),
         odontogram: this.parseOdontogram(row.odontogramJson),
       });
     } catch (e) {
@@ -1068,7 +1084,7 @@ export class CareExtraService {
           status: batchStatus,
           errorMessage,
           statusChangedAt: new Date(),
-          rfIdsCsv: [RF.ODONTO.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id].join(','),
+          rfIdsCsv: [RF.ODONTO.id, RF.ODONTOGRAM_PROCS.id, RF.PROD.id, RF.BPA.id, RF.ESUS.id].join(','),
           payloadJson: batchPayload,
         },
       });
@@ -1093,7 +1109,7 @@ export class CareExtraService {
       });
     }
 
-    await this.prisma.audit('finish', 'dental_encounter', id, [RF.ODONTO.id, RF.PROD.id, RF.AGENDA.id], {
+    await this.prisma.audit('finish', 'dental_encounter', id, [RF.ODONTO.id, RF.ODONTOGRAM_PROCS.id, RF.PROD.id, RF.AGENDA.id], {
       productionBatchId: batch.id,
       faoConformant: faoReport.conformant,
       appointmentId: updated.appointmentId,

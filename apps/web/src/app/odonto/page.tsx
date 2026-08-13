@@ -106,7 +106,7 @@ export default function OdontoPage() {
           assignmentId: assignmentId || undefined,
           anamnese: anamnese || undefined,
           encounterType: 'CONSULTA',
-          procedures: [{ tooth: '11', code: '0301010030', label: 'Consulta odontológica', done: false }],
+          procedures: [{ code: '0101020010', label: 'Consulta odontológica', done: false }],
         },
       });
       router.push(`/odonto/${row.id}`);

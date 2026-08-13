@@ -35,7 +35,37 @@ function selectionKeyFromProcedure(p: {
   if (/^\d{2}$/.test(tooth)) return tooth;
   const region = String(p.region || '').trim().toUpperCase();
   if (/^Q[1-4]$/.test(region) || /^S[1-6]$/.test(region) || region === 'BOCA') return region;
-  return tooth || '11';
+  return tooth || '';
+}
+
+function clientScopeFromKey(key: string): string | null {
+  const k = String(key || '').trim();
+  if (/^\d{2}$/.test(k)) return 'tooth';
+  const u = k.toUpperCase();
+  if (/^Q[1-4]$/.test(u)) return 'quadrant';
+  if (/^S[1-6]$/.test(u)) return 'sextant';
+  if (u === 'BOCA') return 'mouth';
+  return null;
+}
+
+function catalogFitsSelection(
+  item: { scopes: string[] },
+  selectedKey: string,
+): boolean {
+  if (item.scopes.length === 1 && item.scopes[0] === 'encounter') return true;
+  const scope = clientScopeFromKey(selectedKey);
+  if (!scope) return item.scopes.includes('encounter');
+  return item.scopes.includes(scope);
+}
+
+function procedureLine(p: {
+  tooth?: string;
+  region?: string;
+  code: string;
+  label: string;
+}): string {
+  const loc = p.tooth || p.region || 'atendimento';
+  return `${p.code} · ${p.label} (${loc})`;
 }
 
 type Catalog = {
@@ -55,6 +85,16 @@ type Catalog = {
     conditions: OdontogramCondition[];
     arches: OdontogramArches;
     scopes?: OdontogramScopes;
+    note?: string;
+  };
+  predefinedProcedures?: {
+    procedures: Array<{
+      code: string;
+      label: string;
+      group: string;
+      scopes: string[];
+      previne?: string | null;
+    }>;
     note?: string;
   };
 };
@@ -172,8 +212,10 @@ export default function OdontoAtendimentoPage() {
   const [anamnese, setAnamnese] = useState('');
   const [ciap, setCiap] = useState('');
   const [cid10, setCid10] = useState('');
-  const [procCode, setProcCode] = useState('0301010030');
-  const [procLabel, setProcLabel] = useState('Consulta odontológica');
+  const [procedures, setProcedures] = useState<
+    Array<{ tooth?: string; region?: string; code: string; label: string; done?: boolean }>
+  >([]);
+  const [catalogCode, setCatalogCode] = useState('');
   const [selectedKey, setSelectedKey] = useState('11');
   const [odontogram, setOdontogram] = useState<Record<string, string>>({});
   const [showDeciduous, setShowDeciduous] = useState(false);
@@ -205,10 +247,10 @@ export default function OdontoAtendimentoPage() {
     setCid10(p0?.cid10 || '');
     const proc0 = row.procedures?.[0];
     if (proc0) {
-      setSelectedKey(selectionKeyFromProcedure(proc0));
-      setProcCode(proc0.code || '0301010030');
-      setProcLabel(proc0.label || 'Consulta odontológica');
+      const key = selectionKeyFromProcedure(proc0);
+      if (key) setSelectedKey(key);
     }
+    setProcedures(row.procedures || []);
     setOdontogram(row.odontogram || {});
     const marked = Object.keys(row.odontogram || {});
     if (marked.some((t) => /^\d{2}$/.test(t) && Number(t) >= 51)) setShowDeciduous(true);
@@ -247,15 +289,14 @@ export default function OdontoAtendimentoPage() {
       ciap.trim() || cid10.trim()
         ? [{ ciap: ciap.trim() || undefined, cid10: cid10.trim() || undefined }]
         : [];
-    const placement = procedurePlacementFromKey(selectedKey);
     return {
       anamnese,
       ...care,
       problemasCondicoes: problemas,
-      procedures: [{ ...placement, code: procCode, label: procLabel, done: true }],
+      procedures,
       odontogram,
     };
-  }, [care, anamnese, ciap, cid10, selectedKey, procCode, procLabel, odontogram]);
+  }, [care, anamnese, ciap, cid10, procedures, odontogram]);
 
   const draftFingerprint = useMemo(
     () => JSON.stringify(buildPatchBody()),
@@ -768,22 +809,127 @@ export default function OdontoAtendimentoPage() {
               />
             </label>
             <label>
-              SIGTAP
-              <input
+              Catálogo SIGTAP (RF-12.13)
+              <select
                 disabled={readonly}
-                value={procCode}
-                onChange={(e) => setProcCode(e.target.value)}
-              />
+                value={catalogCode}
+                onChange={(e) => setCatalogCode(e.target.value)}
+              >
+                <option value="">Selecione…</option>
+                {(catalog.predefinedProcedures?.procedures || [])
+                  .filter((p) => catalogFitsSelection(p, selectedKey))
+                  .map((p) => (
+                    <option key={p.code} value={p.code}>
+                      {p.code} — {p.label}
+                      {p.previne ? ` (${p.previne})` : ''}
+                    </option>
+                  ))}
+              </select>
             </label>
-            <label>
-              Label
-              <input
-                disabled={readonly}
-                value={procLabel}
-                onChange={(e) => setProcLabel(e.target.value)}
-              />
-            </label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={readonly || !catalogCode}
+                onClick={() => {
+                  const item = catalog.predefinedProcedures?.procedures.find(
+                    (p) => p.code === catalogCode,
+                  );
+                  if (!item) return;
+                  const encounterOnly =
+                    item.scopes.length === 1 && item.scopes[0] === 'encounter';
+                  const placement = encounterOnly ? {} : procedurePlacementFromKey(selectedKey);
+                  const next = {
+                    ...placement,
+                    code: item.code,
+                    label: item.label,
+                    done: false,
+                  };
+                  setProcedures((prev) => {
+                    const key = `${next.code}|${next.tooth || ''}|${(next.region || '').toUpperCase()}`;
+                    const rest = prev.filter(
+                      (p) => `${p.code}|${p.tooth || ''}|${(p.region || '').toUpperCase()}` !== key,
+                    );
+                    return [...rest, next];
+                  });
+                }}
+              >
+                Adicionar planejado
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={readonly || !catalogCode}
+                onClick={() => {
+                  const item = catalog.predefinedProcedures?.procedures.find(
+                    (p) => p.code === catalogCode,
+                  );
+                  if (!item) return;
+                  const encounterOnly =
+                    item.scopes.length === 1 && item.scopes[0] === 'encounter';
+                  const placement = encounterOnly ? {} : procedurePlacementFromKey(selectedKey);
+                  const next = {
+                    ...placement,
+                    code: item.code,
+                    label: item.label,
+                    done: true,
+                  };
+                  setProcedures((prev) => {
+                    const key = `${next.code}|${next.tooth || ''}|${(next.region || '').toUpperCase()}`;
+                    const rest = prev.filter(
+                      (p) => `${p.code}|${p.tooth || ''}|${(p.region || '').toUpperCase()}` !== key,
+                    );
+                    return [...rest, next];
+                  });
+                }}
+              >
+                Adicionar e concluir
+              </button>
+            </div>
           </div>
+          {catalog.predefinedProcedures?.note && (
+            <p className="muted" style={{ fontSize: 12 }}>
+              {catalog.predefinedProcedures.note}
+            </p>
+          )}
+          {procedures.length ? (
+            <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0' }}>
+              {procedures.map((p, idx) => (
+                <li
+                  key={`${p.code}-${p.tooth || p.region || 'enc'}-${idx}`}
+                  className="check"
+                  style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
+                >
+                  <label className="check" style={{ margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      disabled={readonly}
+                      checked={p.done !== false}
+                      onChange={(e) => {
+                        const done = e.target.checked;
+                        setProcedures((prev) =>
+                          prev.map((row, i) => (i === idx ? { ...row, done } : row)),
+                        );
+                      }}
+                    />
+                    Concluído
+                  </label>
+                  <span>{procedureLine(p)}</span>
+                  {!readonly && (
+                    <button
+                      type="button"
+                      className="btn ghost"
+                      onClick={() => setProcedures((prev) => prev.filter((_, i) => i !== idx))}
+                    >
+                      Remover
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">Nenhum procedimento no odontograma — escolha no catálogo.</p>
+          )}
 
           <h2>Problemas (CIAP/CID) *</h2>
           <div className="row-2">

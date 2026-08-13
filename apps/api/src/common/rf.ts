@@ -73,6 +73,13 @@ export const RF = {
     teste_faturamento: 'previsto',
     nota: 'Agenda odonto + abertura encounter (MVP parcial)',
   },
+  ODONTOGRAM_PROCS: {
+    id: 'RF-12.13',
+    tipo: 'Obrigatório',
+    fonte: 'ambos',
+    teste_faturamento: 'automatizado',
+    nota: 'Procedimentos predefinidos no odontograma, marcáveis como concluídos',
+  },
   HOME_CARE: {
     id: 'RF-3.54',
     tipo: 'Obrigatório',

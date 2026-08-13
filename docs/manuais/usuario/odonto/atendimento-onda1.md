@@ -4,13 +4,13 @@ title: Atendimento odontológico — Onda 1
 type: user
 module: odontologia
 feature: dental-encounter
-version: 1.3.0
+version: 1.4.0
 product_min: 0.2.0
 status: draft
 audience: [profissional, gestor]
-related_rf: [RF-12.1, RF-12.2, RF-12.3, RF-12.5, RF-12.6, RF-12.7, RF-12.8, RF-12.9, RF-12.12]
+related_rf: [RF-12.1, RF-12.2, RF-12.3, RF-12.5, RF-12.6, RF-12.7, RF-12.8, RF-12.9, RF-12.12, RF-12.13]
 related_screens: [/odonto, /odonto/agenda, /odonto/[id], /faturamento/odonto]
-updated_at: 2026-08-12
+updated_at: 2026-08-13
 authors: [SIGS]
 ---
 
@@ -24,7 +24,7 @@ authors: [SIGS]
 
 1. **Agendado:** `/odonto/agenda` → Abrir atendimento (tipo **2**). **Espontâneo:** `/odonto` → paciente, profissional e **lotação/equipe** → **Abrir** (tipo padrão **5**).
 2. Na ficha: vigilância ≥1, CIAP/CID ≥1 (`CodeSearchSelect`), conduta ≥1 (catálogo LEDI), fornecimentos opcional, anamnese texto.
-3. **Odontograma (parcial):** clique no dente FDI, marque condição (cárie, restaurado, etc.). O dente selecionado preenche o campo do procedimento SIGTAP. Decídua opcional (“Mostrar dentição decídua”).
+3. **Odontograma:** clique no dente FDI ou escopo Q/S/BOCA, marque condição. Em seguida escolha um procedimento **predefinido** (SIGTAP) compatível com o local e use **Adicionar planejado** ou **Adicionar e concluir**. Só os concluídos (`done`) vão para a FAO.
 4. Painel LEDI + **Previne ESB (B1–B6)** atualiza ~1s após editar; ou use **Validar agora**.
 5. Evite vigilância só `99` (não se aplica) em massa — aviso de qualidade; **não** bloqueia Finalizar se Siaps ok.
 6. **Finalizar e faturar** — só exige zero BLOCKER Siaps (avisos Previne orientam).
@@ -42,5 +42,5 @@ authors: [SIGS]
 
 ## RF (Onda 1 + F + odontograma)
 
-Cobertos no mínimo: RF-12.2, 12.3, 12.5, 12.6, 12.7, 12.8, 12.9 · Previne na origem (orientação).  
-Parcial: RF-12.1 agenda do dia + open-dental; RF-12.12 odontograma FDI + quadrante/sextante/boca (sem histórico). RF-12.13 só `done` no SIGTAP. Depois: agenda TR rica, prótese.
+Cobertos no mínimo: RF-12.2, 12.3, 12.5, 12.6, 12.7, 12.8, 12.9, **12.13** (catálogo predefinido + concluir).  
+Parcial: RF-12.1 agenda do dia + open-dental; RF-12.12 odontograma FDI + quadrante/sextante/boca (sem histórico RF-12.11). Depois: agenda TR rica, prótese.

@@ -73,5 +73,6 @@ describe('dental-odontogram', () => {
     expect(cat.scopes.sextants).toHaveLength(6);
     expect(cat.scopes.mouth.code).toBe('BOCA');
     expect(cat.note).toMatch(/quadrante/i);
+    expect(cat.note).toMatch(/RF-12\.13/);
   });
 });

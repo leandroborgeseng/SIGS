@@ -38,6 +38,31 @@ describe('LEDI care-extra mappers v2', () => {
     expect(p.fichaOdontoTransport.condutas).toEqual([17]);
   });
 
+  it('FAO omite procedimentos planejados (done=false)', () => {
+    const p = buildDentalLediPayload({
+      uuidFicha: 'd-2',
+      lotacao,
+      startedAt: new Date('2026-08-11T10:00:00Z'),
+      finishedAt: new Date('2026-08-11T10:30:00Z'),
+      patient: {
+        cpf: '52998224725',
+        cns: null,
+        birthDate: new Date('1990-01-01'),
+        sex: 'F',
+      },
+      outcomes: ['ALTA'],
+      vigilanciaSaudeBucal: [1],
+      problemasCondicoes: [{ ciap: 'D82' }],
+      procedures: [
+        { code: '0101020066', label: 'Selante', tooth: '16', done: false },
+        { code: '0101020010', label: 'Consulta odonto', done: true },
+      ],
+    });
+    expect(
+      p.atendimentosOdontologicos[0].procedimentosRealizados.map((x) => x.coMsProcedimento),
+    ).toEqual(['0101020010']);
+  });
+
   it('AD emite modalidade id + desfecho', () => {
     const p = buildHomeCareLediPayload({
       uuidFicha: 'ad-1',

@@ -13,6 +13,8 @@ describe('SIGTAP seed expandido', () => {
     expect(codes.has('0301010072')).toBe(true);
     expect(codes.has('0301040079')).toBe(true);
     expect(codes.has('0101020029')).toBe(true);
+    expect(codes.has('0301010153')).toBe(true);
+    expect(codes.has('0414020138')).toBe(true);
     expect(codes.has('0301010110')).toBe(true);
     expect(SIGTAP_SEED.length).toBeGreaterThanOrEqual(20);
   });

@@ -157,13 +157,15 @@ export function buildDentalLediPayload(input: {
     ine: input.lotacao.ine ?? null,
   };
 
-  const procedimentosRealizados = input.procedures.map((p) => ({
-    coMsProcedimento: p.code.replace(/\D/g, ''),
-    quantidade: 1,
-    tooth: p.tooth,
-    region: p.region,
-    label: p.label,
-  }));
+  const procedimentosRealizados = input.procedures
+    .filter((p) => p.done !== false)
+    .map((p) => ({
+      coMsProcedimento: p.code.replace(/\D/g, ''),
+      quantidade: 1,
+      tooth: p.tooth,
+      region: p.region,
+      label: p.label,
+    }));
 
   const tiposFornecimOdonto = (input.fornecimentos || [])
     .map((f) => FORNECIMENTO_MAP[f.toUpperCase()] ?? Number(f))

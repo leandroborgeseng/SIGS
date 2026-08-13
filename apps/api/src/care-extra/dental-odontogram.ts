@@ -195,7 +195,7 @@ export function odontogramCatalog() {
     fdiDeciduous: [...FDI_DECIDUOUS],
     note:
       'RF-12.12: marcação por dente (FDI), quadrante (Q1–Q4), sextante (S1–S6) e boca. ' +
-      'Procedimento SIGTAP usa tooth (FDI) ou region (escopo). ' +
-      'Gap: Thrift FAO oficial não serializa tooth/region — ficam no careJson/mapper. Histórico e procedimentos predefinidos (RF-12.13) depois.',
+      'RF-12.13: catálogo predefinido (GET /v1/catalog/dental) + done → FAO só com realizados. ' +
+      'Gap: Thrift FAO oficial não serializa tooth/region — ficam no careJson/mapper. Histórico (RF-12.11) depois.',
   };
 }
