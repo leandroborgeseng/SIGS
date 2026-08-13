@@ -180,6 +180,61 @@ export function odontogramMarkedCount(map: OdontogramMap): number {
 /** Cap da timeline RF-12.11 (atendimentos anteriores, mesma unidade). */
 export const ODONTOGRAM_HISTORY_LIMIT = 50;
 
+export type OdontogramSnapshotParty = {
+  id: string;
+  patientId: string;
+  facilityId: string;
+  status: string;
+  startedAt: Date;
+};
+
+export type OdontogramSnapshotApplyBlocker =
+  | 'SOURCE_NOT_FOUND'
+  | 'SELF'
+  | 'TARGET_NOT_EDITABLE'
+  | 'SOURCE_VOID'
+  | 'DIFFERENT_PATIENT'
+  | 'DIFFERENT_FACILITY'
+  | 'SOURCE_NOT_PRIOR';
+
+export const ODONTOGRAM_SNAPSHOT_APPLY_MESSAGES: Record<OdontogramSnapshotApplyBlocker, string> = {
+  SOURCE_NOT_FOUND: 'Atendimento de origem não encontrado',
+  SELF: 'Não é possível copiar o próprio odontograma',
+  TARGET_NOT_EDITABLE:
+    'Só é possível aplicar snapshot em atendimento em andamento (não sobrescreve VOID/COMPLETED)',
+  SOURCE_VOID: 'Não é possível copiar odontograma de atendimento anulado',
+  DIFFERENT_PATIENT: 'Snapshot pertence a outro paciente',
+  DIFFERENT_FACILITY: 'Snapshot pertence a outra unidade',
+  SOURCE_NOT_PRIOR: 'Só é possível copiar odontograma de atendimento anterior nesta unidade',
+};
+
+/**
+ * RF-12.11 — copiar snapshot só entre atendimentos do mesmo paciente e unidade.
+ * Alvo precisa estar IN_PROGRESS; origem não pode ser VOID nem posterior.
+ */
+export function odontogramSnapshotApplyBlocker(
+  target: OdontogramSnapshotParty,
+  source: OdontogramSnapshotParty | null | undefined,
+): OdontogramSnapshotApplyBlocker | null {
+  if (!source) return 'SOURCE_NOT_FOUND';
+  if (source.id === target.id) return 'SELF';
+  if (target.status !== 'IN_PROGRESS') return 'TARGET_NOT_EDITABLE';
+  if (source.status === 'VOID') return 'SOURCE_VOID';
+  if (source.patientId !== target.patientId) return 'DIFFERENT_PATIENT';
+  if (source.facilityId !== target.facilityId) return 'DIFFERENT_FACILITY';
+  if (source.startedAt.getTime() > target.startedAt.getTime()) return 'SOURCE_NOT_PRIOR';
+  return null;
+}
+
+/** Procedimentos concluídos do snapshot (done omitido = realizado, como na FAO). */
+export function selectDoneProceduresFromSnapshot(raw: unknown): unknown[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+    return (item as { done?: unknown }).done !== false;
+  });
+}
+
 /** Decídua FDI 5x–8x — UI do histórico pode ligar a arcada automaticamente. */
 export function odontogramHasDeciduous(map: OdontogramMap): boolean {
   return Object.keys(map).some((k) => /^\d{2}$/.test(k) && Number(k) >= 51);
@@ -204,7 +259,8 @@ export function odontogramCatalog() {
     note:
       'RF-12.12: marcação por dente (FDI), quadrante (Q1–Q4), sextante (S1–S6) e boca. ' +
       'RF-12.13: catálogo predefinido (GET /v1/catalog/dental) + done → FAO só com realizados. ' +
-      'RF-12.11: GET /v1/dental-encounters/:id/odontogram-history (mesmo paciente e unidade; sem VOID). ' +
+      'RF-12.11: GET /v1/dental-encounters/:id/odontogram-history e PATCH …/odontogram-history/:sourceId ' +
+      '(mesmo paciente e unidade; sem VOID; não sobrescreve VOID/COMPLETED). ' +
       'Gap: Thrift FAO oficial não serializa tooth/region — ficam no careJson/mapper.',
   };
 }

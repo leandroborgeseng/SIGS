@@ -456,6 +456,11 @@ export class CareExtraController {
     return this.service.listDentalOdontogramHistory(id);
   }
 
+  @Patch('dental-encounters/:id/odontogram-history/:sourceId')
+  applyOdontogramSnapshot(@Param('id') id: string, @Param('sourceId') sourceId: string) {
+    return this.service.applyDentalOdontogramSnapshot(id, sourceId);
+  }
+
   @Patch('dental-encounters/:id')
   patchDental(@Param('id') id: string, @Body() dto: PatchDentalEncounterDto) {
     return this.service.patchDental(id, dto);

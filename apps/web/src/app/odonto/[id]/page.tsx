@@ -529,6 +529,44 @@ export default function OdontoAtendimentoPage() {
     }
   }
 
+  async function applyHistorySnapshot(sourceId: string) {
+    if (!enc || enc.status !== 'IN_PROGRESS') return;
+    const okApply = confirm(
+      [
+        'Usar este odontograma neste atendimento?',
+        '',
+        'Substitui o odontograma e os procedimentos concluídos atuais pelos do histórico.',
+        'Procedimentos só planejados do snapshot não entram.',
+        'Atendimentos finalizados ou anulados não são alterados.',
+        'Concluídos copiados entram na FAO deste atendimento se permanecerem marcados.',
+      ].join('\n'),
+    );
+    if (!okApply) return;
+
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    try {
+      const row = await api<Encounter>(
+        `/v1/dental-encounters/${id}/odontogram-history/${sourceId}`,
+        { method: 'PATCH' },
+      );
+      skipLiveRef.current = true;
+      setEnc(row);
+      setCare(row.care);
+      setOdontogram(row.odontogram || {});
+      setProcedures(row.procedures || []);
+      const marked = Object.keys(row.odontogram || {});
+      if (marked.some((t) => /^\d{2}$/.test(t) && Number(t) >= 51)) setShowDeciduous(true);
+      setOk('Odontograma do atendimento anterior aplicado neste atendimento.');
+      await refreshPreview({ quiet: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao aplicar odontograma');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const blockers = useMemo(
     () => preview?.fao.findings.filter((f) => f.severity === 'BLOCKER') || [],
     [preview],
@@ -836,7 +874,8 @@ export default function OdontoAtendimentoPage() {
               <h3 style={{ marginBottom: 4 }}>Histórico de odontogramas (RF-12.11)</h3>
               <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
                 Atendimentos anteriores deste paciente nesta unidade (VOID não entra). Clique para
-                ver o snapshot — não altera o odontograma atual.
+                ver o snapshot. Em atendimento em andamento, use o snapshot no atual — não
+                sobrescreve finalizado ou anulado.
               </p>
               {history.length === 0 ? (
                 <p className="muted">Nenhum odontograma anterior nesta unidade.</p>
@@ -897,6 +936,17 @@ export default function OdontoAtendimentoPage() {
                                 ))}
                               </ul>
                             ) : null}
+                            {!readonly && (
+                              <button
+                                type="button"
+                                className="btn"
+                                disabled={busy}
+                                onClick={() => void applyHistorySnapshot(item.id)}
+                                style={{ marginTop: 10 }}
+                              >
+                                Usar neste atendimento
+                              </button>
+                            )}
                           </div>
                         )}
                       </li>

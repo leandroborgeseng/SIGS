@@ -77,8 +77,8 @@ export const RF = {
     id: 'RF-12.11',
     tipo: 'Obrigatório',
     fonte: 'ambos',
-    teste_faturamento: 'n/a',
-    nota: 'Visualização de odontogramas anteriores (mesmo paciente e unidade)',
+    teste_faturamento: 'automatizado',
+    nota: 'Histórico de odontogramas (mesmo paciente/unidade) + copiar snapshot para o atual',
   },
   ODONTOGRAM_PROCS: {
     id: 'RF-12.13',

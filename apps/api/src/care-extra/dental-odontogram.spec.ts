@@ -6,8 +6,11 @@ import {
   odontogramCatalog,
   odontogramHasDeciduous,
   odontogramMarkedCount,
+  odontogramSnapshotApplyBlocker,
   ODONTOGRAM_HISTORY_LIMIT,
+  ODONTOGRAM_SNAPSHOT_APPLY_MESSAGES,
   procedurePlacementFromKey,
+  selectDoneProceduresFromSnapshot,
   selectionKeyFromProcedure,
 } from './dental-odontogram';
 
@@ -80,5 +83,77 @@ describe('dental-odontogram', () => {
     expect(cat.note).toMatch(/quadrante/i);
     expect(cat.note).toMatch(/RF-12\.13/);
     expect(cat.note).toMatch(/RF-12\.11/);
+    expect(cat.note).toMatch(/odontogram-history\/:sourceId/);
+  });
+
+  it('autoriza copiar snapshot do mesmo paciente e unidade em IN_PROGRESS', () => {
+    const target = {
+      id: 'curr',
+      patientId: 'p1',
+      facilityId: 'f1',
+      status: 'IN_PROGRESS',
+      startedAt: new Date('2026-08-13T12:00:00.000Z'),
+    };
+    const source = {
+      id: 'prev1',
+      patientId: 'p1',
+      facilityId: 'f1',
+      status: 'COMPLETED',
+      startedAt: new Date('2026-08-01T10:00:00.000Z'),
+    };
+    expect(odontogramSnapshotApplyBlocker(target, source)).toBeNull();
+  });
+
+  it('bloqueia VOID/COMPLETED no alvo, outro paciente/unidade e origem VOID', () => {
+    const target = {
+      id: 'curr',
+      patientId: 'p1',
+      facilityId: 'f1',
+      status: 'IN_PROGRESS',
+      startedAt: new Date('2026-08-13T12:00:00.000Z'),
+    };
+    const source = {
+      id: 'prev1',
+      patientId: 'p1',
+      facilityId: 'f1',
+      status: 'COMPLETED',
+      startedAt: new Date('2026-08-01T10:00:00.000Z'),
+    };
+    expect(odontogramSnapshotApplyBlocker({ ...target, status: 'VOID' }, source)).toBe(
+      'TARGET_NOT_EDITABLE',
+    );
+    expect(odontogramSnapshotApplyBlocker({ ...target, status: 'COMPLETED' }, source)).toBe(
+      'TARGET_NOT_EDITABLE',
+    );
+    expect(odontogramSnapshotApplyBlocker(target, { ...source, status: 'VOID' })).toBe('SOURCE_VOID');
+    expect(odontogramSnapshotApplyBlocker(target, { ...source, patientId: 'p2' })).toBe(
+      'DIFFERENT_PATIENT',
+    );
+    expect(odontogramSnapshotApplyBlocker(target, { ...source, facilityId: 'f2' })).toBe(
+      'DIFFERENT_FACILITY',
+    );
+    expect(odontogramSnapshotApplyBlocker(target, { ...source, id: 'curr' })).toBe('SELF');
+    expect(odontogramSnapshotApplyBlocker(target, null)).toBe('SOURCE_NOT_FOUND');
+    expect(
+      odontogramSnapshotApplyBlocker(target, {
+        ...source,
+        startedAt: new Date('2026-08-14T00:00:00.000Z'),
+      }),
+    ).toBe('SOURCE_NOT_PRIOR');
+    expect(ODONTOGRAM_SNAPSHOT_APPLY_MESSAGES.TARGET_NOT_EDITABLE).toMatch(/VOID\/COMPLETED/);
+  });
+
+  it('seleciona só procedimentos done do snapshot (omitido = realizado)', () => {
+    expect(
+      selectDoneProceduresFromSnapshot([
+        { code: '0101020066', label: 'Selante', tooth: '11', done: true },
+        { code: '0414020138', label: 'Exodontia', tooth: '28', done: false },
+        { code: '0101020010', label: 'Consulta' },
+      ]),
+    ).toEqual([
+      { code: '0101020066', label: 'Selante', tooth: '11', done: true },
+      { code: '0101020010', label: 'Consulta' },
+    ]);
+    expect(selectDoneProceduresFromSnapshot('nope')).toEqual([]);
   });
 });

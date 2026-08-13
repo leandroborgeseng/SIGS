@@ -13,7 +13,7 @@
 
 Odonto exige **lotação**, **vigilanciaSaudeBucal[]**, **problemasCondicoes[]** e emite `headerTransport.lotacaoFormPrincipal`.  
 Catálogo RF-12.13: `GET /v1/catalog/dental` → `predefinedProcedures`. Só procedimentos com `done !== false` entram em `procedimentosRealizados` (FAO).  
-Histórico RF-12.11: `GET /v1/dental-encounters/:id/odontogram-history` — odontogramas anteriores do mesmo paciente na mesma unidade (`status ≠ VOID`, cap 50). Snapshot de leitura; não altera o atendimento atual.  
+Histórico RF-12.11: `GET /v1/dental-encounters/:id/odontogram-history` — odontogramas anteriores do mesmo paciente na mesma unidade (`status ≠ VOID`, cap 50). `PATCH /v1/dental-encounters/:id/odontogram-history/:sourceId` copia `odontogramJson` + procedimentos `done` para o atual (`IN_PROGRESS`; mesmo paciente e unidade; não sobrescreve VOID/COMPLETED).  
 Validação XML/JSON: `POST /v1/dental/ledi/validate-xml` — ver `ledi-fao-rnds-validacao.md`.
 
 ## Aliases UI → id

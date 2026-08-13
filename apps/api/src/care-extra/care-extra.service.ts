@@ -40,7 +40,10 @@ import {
   odontogramCatalog,
   odontogramHasDeciduous,
   odontogramMarkedCount,
+  odontogramSnapshotApplyBlocker,
   ODONTOGRAM_HISTORY_LIMIT,
+  ODONTOGRAM_SNAPSHOT_APPLY_MESSAGES,
+  selectDoneProceduresFromSnapshot,
   type OdontogramMap,
 } from './dental-odontogram';
 import {
@@ -322,6 +325,57 @@ export class CareExtraService {
         };
       }),
     };
+  }
+
+  /**
+   * RF-12.11 — copia odontogramJson + procedimentos done do snapshot
+   * para o atendimento atual (IN_PROGRESS). Mesmo paciente e unidade.
+   */
+  async applyDentalOdontogramSnapshot(id: string, sourceId: string) {
+    const current = await this.prisma.dentalEncounter.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException('Atendimento odontológico não encontrado');
+
+    const source = await this.prisma.dentalEncounter.findUnique({ where: { id: sourceId } });
+    const blocker = odontogramSnapshotApplyBlocker(current, source);
+    if (blocker === 'SOURCE_NOT_FOUND') {
+      throw new NotFoundException(ODONTOGRAM_SNAPSHOT_APPLY_MESSAGES[blocker]);
+    }
+    if (blocker) {
+      throw new BadRequestException(ODONTOGRAM_SNAPSHOT_APPLY_MESSAGES[blocker]);
+    }
+    if (!source) throw new NotFoundException(ODONTOGRAM_SNAPSHOT_APPLY_MESSAGES.SOURCE_NOT_FOUND);
+
+    const odontogram = this.parseOdontogram(source.odontogramJson);
+    let rawProcs: unknown[] = [];
+    try {
+      const parsed = JSON.parse(source.proceduresJson || '[]');
+      rawProcs = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      rawProcs = [];
+    }
+    const procedures = this.coerceProcedures(selectDoneProceduresFromSnapshot(rawProcs));
+
+    const updated = await this.prisma.dentalEncounter.update({
+      where: { id },
+      data: {
+        odontogramJson: JSON.stringify(odontogram),
+        proceduresJson: JSON.stringify(procedures),
+      },
+      include: { patient: true, facility: true, professional: true },
+    });
+    await this.syncDentalBillingQueue(id).catch(() => undefined);
+    await this.prisma.audit(
+      'apply_odontogram_snapshot',
+      'dental_encounter',
+      id,
+      [RF.ODONTOGRAM_HISTORY.id, RF.ODONTOGRAM_PROCS.id],
+      {
+        sourceEncounterId: sourceId,
+        markedCount: odontogramMarkedCount(odontogram),
+        proceduresCopied: procedures.length,
+      },
+    );
+    return this.serializeDental(updated);
   }
 
   async openDental(dto: CreateDentalEncounterDto) {

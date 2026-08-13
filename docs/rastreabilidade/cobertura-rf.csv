@@ -450,8 +450,8 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 12,Módulo de Odontologia,8,RF-12.8,Obrigatório,e-SUS,coberto,P0-P6,apps/api/src/care-extra (tiposFornecimOdonto);apps/web/src/app/odonto/[id],previsto,Informação de fornecimentos ao paciente.
 12,Módulo de Odontologia,9,RF-12.9,Obrigatório,e-SUS,coberto,P0-P6,apps/web/src/app/odonto (anamnese texto),previsto,Anamnese de atendimentos em odontologia.
 12,Módulo de Odontologia,10,RF-12.10,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Roteiro de telemonitoramento.
-12,Módulo de Odontologia,11,RF-12.11,Obrigatório,ambos,coberto,P0-P6,apps/api/src/care-extra (odontogram-history);apps/web/src/app/odonto/[id],n/a,Visualização de odontogramas anteriores.
-12,Módulo de Odontologia,12,RF-12.12,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra/dental-odontogram.ts,automatizado,"Procedimentos em odontograma por dente, quadrante, sextante e boca."
+12,Módulo de Odontologia,11,RF-12.11,Obrigatório,ambos,coberto,P0-P6,apps/api/src/care-extra (odontogram-history + apply snapshot);apps/web/src/app/odonto/[id],automatizado,Histórico de odontogramas anteriores e copiar snapshot para o atendimento atual.
+12,Módulo de Odontologia,12,RF-12.12,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/care-extra/dental-odontogram.ts,automatizado,"Procedimentos em odontograma por dente, quadrante, sextante e boca. Snapshot do histórico aplica odontogramJson no atual."
 12,Módulo de Odontologia,13,RF-12.13,Obrigatório,ambos,coberto,P0-P6,apps/api/src/care-extra/dental-predefined-procedures.ts,automatizado,"Procedimentos predefinidos no odontograma, marcáveis como concluídos."
 12,Módulo de Odontologia,14,RF-12.14,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Informar próteses.
 12,Módulo de Odontologia,15,RF-12.15,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,Serviços protéticos.

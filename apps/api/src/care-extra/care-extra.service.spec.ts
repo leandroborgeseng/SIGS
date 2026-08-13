@@ -341,3 +341,137 @@ describe('RF-12.11 histórico de odontograma', () => {
     expect(out.items[0].procedures).toEqual([]);
   });
 });
+
+describe('RF-12.11 copiar snapshot de odontograma', () => {
+  const startedCurrent = new Date('2026-08-13T12:00:00.000Z');
+  const startedPrev = new Date('2026-08-01T10:00:00.000Z');
+
+  const currentRow = {
+    id: 'curr',
+    patientId: 'p1',
+    facilityId: 'f1',
+    professionalId: 'pr1',
+    assignmentId: null,
+    appointmentId: null,
+    encounterType: 'CONSULTA',
+    status: 'IN_PROGRESS',
+    anamnese: null,
+    proceduresJson: '[]',
+    odontogramJson: '{}',
+    outcomesJson: '[]',
+    careJson: '{}',
+    startedAt: startedCurrent,
+    finishedAt: null,
+    productionBatchId: 'b1',
+    createdAt: startedCurrent,
+    updatedAt: startedCurrent,
+  };
+
+  const sourceRow = {
+    id: 'prev1',
+    patientId: 'p1',
+    facilityId: 'f1',
+    professionalId: 'pr1',
+    status: 'COMPLETED',
+    startedAt: startedPrev,
+    odontogramJson: JSON.stringify({ '11': 'C', Q1: 'S' }),
+    proceduresJson: JSON.stringify([
+      { code: '0101020066', label: 'Selante', tooth: '11', done: true },
+      { code: '0414020138', label: 'Exodontia', tooth: '28', done: false },
+      { code: '0101020010', label: 'Consulta' },
+    ]),
+  };
+
+  function prismaFor(current: typeof currentRow, source: typeof sourceRow | null) {
+    const updated = {
+      ...current,
+      odontogramJson: JSON.stringify({ '11': 'C', Q1: 'S' }),
+      proceduresJson: JSON.stringify([
+        { code: '0101020066', label: 'Selante', tooth: '11', done: true },
+        { code: '0101020010', label: 'Consulta' },
+      ]),
+      patient: {},
+      facility: {},
+      professional: null,
+    };
+    return {
+      dentalEncounter: {
+        findUnique: jest.fn().mockImplementation(({ where: { id } }: { where: { id: string } }) => {
+          if (id === current.id) return Promise.resolve(current);
+          if (source && id === source.id) return Promise.resolve(source);
+          return Promise.resolve(null);
+        }),
+        update: jest.fn().mockResolvedValue(updated),
+      },
+      audit: jest.fn().mockResolvedValue(undefined),
+    };
+  }
+
+  it('aplica odontogramJson e só procedimentos done no atendimento atual', async () => {
+    const prisma = prismaFor(currentRow, sourceRow);
+    const service = new CareExtraService(prisma as never);
+    const out = await service.applyDentalOdontogramSnapshot('curr', 'prev1');
+    expect(out.odontogram).toEqual({ '11': 'C', Q1: 'S' });
+    expect(out.procedures).toEqual([
+      expect.objectContaining({ code: '0101020066', tooth: '11', done: true }),
+      expect.objectContaining({ code: '0101020010', label: 'Consulta' }),
+    ]);
+    expect(prisma.dentalEncounter.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'curr' },
+        data: expect.objectContaining({
+          odontogramJson: JSON.stringify({ '11': 'C', Q1: 'S' }),
+        }),
+      }),
+    );
+    const savedProcs = JSON.parse(
+      (prisma.dentalEncounter.update as jest.Mock).mock.calls[0][0].data.proceduresJson,
+    );
+    expect(savedProcs.map((p: { code: string }) => p.code).sort()).toEqual([
+      '0101020010',
+      '0101020066',
+    ]);
+    expect(savedProcs.some((p: { code: string }) => p.code === '0414020138')).toBe(false);
+    expect(prisma.audit).toHaveBeenCalledWith(
+      'apply_odontogram_snapshot',
+      'dental_encounter',
+      'curr',
+      expect.arrayContaining(['RF-12.11', 'RF-12.13']),
+      expect.objectContaining({ sourceEncounterId: 'prev1', markedCount: 2, proceduresCopied: 2 }),
+    );
+  });
+
+  it('recusa VOID e COMPLETED no atendimento atual', async () => {
+    for (const status of ['VOID', 'COMPLETED'] as const) {
+      const prisma = prismaFor({ ...currentRow, status }, sourceRow);
+      const service = new CareExtraService(prisma as never);
+      await expect(service.applyDentalOdontogramSnapshot('curr', 'prev1')).rejects.toThrow(
+        /VOID\/COMPLETED/,
+      );
+      expect(prisma.dentalEncounter.update).not.toHaveBeenCalled();
+    }
+  });
+
+  it('recusa snapshot de outro paciente ou outra unidade', async () => {
+    const otherPatient = prismaFor(currentRow, { ...sourceRow, patientId: 'p2' });
+    await expect(
+      new CareExtraService(otherPatient as never).applyDentalOdontogramSnapshot('curr', 'prev1'),
+    ).rejects.toThrow(/outro paciente/);
+    expect(otherPatient.dentalEncounter.update).not.toHaveBeenCalled();
+
+    const otherFacility = prismaFor(currentRow, { ...sourceRow, facilityId: 'f2' });
+    await expect(
+      new CareExtraService(otherFacility as never).applyDentalOdontogramSnapshot('curr', 'prev1'),
+    ).rejects.toThrow(/outra unidade/);
+    expect(otherFacility.dentalEncounter.update).not.toHaveBeenCalled();
+  });
+
+  it('404 se origem não existe', async () => {
+    const prisma = prismaFor(currentRow, null);
+    const service = new CareExtraService(prisma as never);
+    await expect(service.applyDentalOdontogramSnapshot('curr', 'missing')).rejects.toThrow(
+      /origem não encontrado/,
+    );
+    expect(prisma.dentalEncounter.update).not.toHaveBeenCalled();
+  });
+});
