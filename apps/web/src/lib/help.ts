@@ -196,7 +196,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '1.2.0',
     updatedAt: '2026-08-12',
     summary: 'Upload de XMLs odonto, inconsistências, auto-correção e download ZIP.',
-    body: `Em Faturamento → Tratamento de lotes LEDI → Lote FAO (/faturamento/lote/fao): (1) envie XMLs ou ZIP; (2) veja o funil Siaps/Previne; (3) corrija alertas (lote ou ficha); (4) quando houver prontas Siaps, use Exportar / baixar ZIP — preferir “só conformes”; dry-run simula auto-correção; relatório .md fecha a análise. Alias antigo: /odonto/lote. Irmãos: FAI (/faturamento/lote/fai) e Procedimentos (/faturamento/lote/proc).`,
+    body: `Em Faturamento → Tratamento de lotes LEDI → Lote FAO (/faturamento/lote/fao): wizard único (upload → gate de tipo → análise com gráfico → problema a problema → fechamento antes×depois → dois ZIPs: aptos para envio e ainda precisam correção → ficha a ficha). Pronto Siaps ≠ Pronto Previne ≠ 100% OK. ZIP do tipo errado é recusado e não analisa. Alias: /odonto/lote. Irmãos: FAI e Procedimentos.`,
   },
   {
     id: 'faturamento.lote-fai',
@@ -205,7 +205,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '0.2.1',
     updatedAt: '2026-08-14',
     summary: 'Upload/validação de XMLs FAI (tipo 4), correção e export ZIP.',
-    body: `Em /faturamento/lote/fai: (1) envie XMLs ou ZIP da Ficha de Atendimento Individual tipo 4 — não é odonto (cada fatia 512 KiB é lida e enviada na hora: a tela mostra “lendo+enviando parte n/m”, depois a última fatia 202 e “analisando no servidor”; o Safari não monta o ZIP na RAM; se uma fatia de leitura falhar, use Chrome/Edge ou Escolher de novo pelo botão — não arraste do Finder; se uma fatia HTTP falhar, Retomar ou Recomeçar); (2) leia o funil Siaps, os buckets vermelho/laranja/verde e o mini-dash nos modais; (3) Dry-run + Corrigir em lote (ajustes seguros — não inventa CIAP/CID/conduta) ou clique no alerta → guia / ficha; (4) com prontas Siaps, Exportar → ZIP só conformes (recomendado) ou ZIP atuais; relatório .md arquiva o fechamento. Fila de produção nativa: /faturamento/aps (?encounterId= / ?batchId=). Alias: /aps/lote. Hub: /faturamento.`,
+    body: `Em /faturamento/lote/fai: wizard de lote FAI tipo 4 (não é odonto). (1) Envie o ZIP — o sistema abre ficha a ficha; auto vs pessoa; Pronto Siaps ≠ Pronto Previne ≠ 100% OK. (2) Se o ZIP for FAO/PROC, a tela recusa e volta ao início (não analisa). (3) Análise: quantidade, já podem enviar, erros, corrigem em lote vs individuais. (4) Modal sequencial problema a problema. (5) Fechamento: campos corrigidos + gráfico antes×depois. (6) Dois ZIPs: aptos-envio e pendentes. (7) Residual ficha a ficha. Safari: fatias 512 KiB no rodapé da etapa 1; não monta o ZIP na RAM. Fila nativa: /faturamento/aps. Alias: /aps/lote.`,
   },
   {
     id: 'faturamento.lote-proc',
@@ -214,7 +214,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '0.1.0',
     updatedAt: '2026-08-12',
     summary: 'Upload/validação de XMLs de Procedimentos (tipo 7) e export ZIP.',
-    body: `Em /faturamento/lote/proc: (1) envie XMLs ou ZIP da Ficha de Procedimentos; (2) priorize CPF/CNS, turno e CNES; ABPG/SIGTAP na ficha; (3) corrija via guia do alerta ou edição; (4) Exportar / baixar ZIP (só conformes ou atuais), dry-run e relatório .md — mesmos endpoints do FAO/FAI. Alias: /procedimentos/lote. Hub: /faturamento.`,
+    body: `Em /faturamento/lote/proc: mesmo wizard das telas FAI/FAO (upload → gate de tipo 7 → análise → problema a problema → dois ZIPs aptos/pendentes → ficha a ficha). Priorize CPF/CNS, turno e CNES; ABPG/SIGTAP na ficha. Alias: /procedimentos/lote. Hub: /faturamento.`,
   },
   {
     id: 'ad.stub',

@@ -5,6 +5,7 @@ import { JOB_NAMES, QueueService } from '../queue/queue.service';
 import { LediFaoBatchService } from '../../care-extra/ledi-fao-batch.service';
 import { StorageService } from '../storage/storage.service';
 import { extractXmlFilesFromZipBuffer, extractXmlFilesFromZipPath } from '../../care-extra/ledi-zip.extract';
+import { extractTipoMismatch } from '../../care-extra/ledi-ficha-tipo';
 import type { AutoFixLediFaoBatchDto } from '../../care-extra/dto';
 import {
   lediFichaProgressMessage,
@@ -115,7 +116,8 @@ export class LediJobProcessors {
   private async runExportZip(payload: Record<string, unknown>) {
     const jobRunId = String(payload.jobRunId);
     const batchId = String(payload.batchId);
-    const mode = payload.mode === 'conformant' ? 'conformant' : 'current';
+    const mode =
+      payload.mode === 'pending' ? 'pending' : payload.mode === 'conformant' ? 'conformant' : 'current';
     await this.jobs.markActive(jobRunId);
     try {
       const file = await this.batches().exportZipBuffer(batchId, mode);
@@ -156,6 +158,7 @@ export class LediJobProcessors {
       const files = localPath
         ? await extractXmlFilesFromZipPath(localPath)
         : await extractXmlFilesFromZipBuffer(await this.storage.getBuffer(objectKey));
+      await this.jobs.markProgress(jobRunId, 13, 'Conferindo tipo das fichas…');
       await this.jobs.markProgress(
         jobRunId,
         15,
@@ -188,6 +191,12 @@ export class LediJobProcessors {
       await this.jobs.markCompleted(jobRunId, summary);
       return summary;
     } catch (err) {
+      const mismatch = extractTipoMismatch(err);
+      if (mismatch) {
+        this.log.warn(`import-zip job ${jobRunId}: tipo recusado (${mismatch.detectedTipo})`);
+        await this.jobs.markFailed(jobRunId, mismatch.message, true, mismatch);
+        throw err;
+      }
       const msg = err instanceof Error ? err.message : String(err);
       this.log.error(`import-zip job ${jobRunId}: ${msg}`);
       await this.jobs.markFailed(jobRunId, msg);

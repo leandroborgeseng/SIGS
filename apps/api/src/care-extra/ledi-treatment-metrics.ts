@@ -24,6 +24,8 @@ export type TreatmentProgress = {
   current: TreatmentSnapshot;
   /** Fichas tocadas por auto-correção/patch acumuladas no lote. */
   fichasCorrigidasAcumulado: number;
+  /** Campos/códigos aplicados (não só fichas tocadas). */
+  camposCorrigidosAcumulado: number;
   ultimaCorrecaoQtd: number;
   ultimaCorrecaoEm: string | null;
 };
@@ -120,11 +122,13 @@ export function buildTreatmentSnapshot(
 export function mergeTreatmentProgress(
   prev: Partial<TreatmentProgress> | undefined,
   current: TreatmentSnapshot,
-  opts?: { touchedDelta?: number },
+  opts?: { touchedDelta?: number; camposDelta?: number },
 ): TreatmentProgress {
   const baseline = prev?.baseline || current;
   const fichasCorrigidasAcumulado =
     (prev?.fichasCorrigidasAcumulado || 0) + (opts?.touchedDelta || 0);
+  const camposCorrigidosAcumulado =
+    (prev?.camposCorrigidosAcumulado || 0) + (opts?.camposDelta || 0);
   const ultimaCorrecaoQtd = opts?.touchedDelta ?? prev?.ultimaCorrecaoQtd ?? 0;
   const ultimaCorrecaoEm =
     opts?.touchedDelta && opts.touchedDelta > 0
@@ -135,6 +139,7 @@ export function mergeTreatmentProgress(
     baseline,
     current,
     fichasCorrigidasAcumulado,
+    camposCorrigidosAcumulado,
     ultimaCorrecaoQtd,
     ultimaCorrecaoEm,
   };

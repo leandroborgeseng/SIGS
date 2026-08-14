@@ -88,6 +88,11 @@ type Props = {
   variant?: 'fao' | 'fai' | 'proc';
   lotQuality?: LotQualitySnapshot | null;
   lotQualityBaseline?: LotQualitySnapshot | null;
+  sequential?: boolean;
+  fichaIndex?: number;
+  fichaTotal?: number;
+  hasNext?: boolean;
+  onNextFicha?: () => void;
 };
 
 export function FichaFixModal({
@@ -103,6 +108,11 @@ export function FichaFixModal({
   variant = 'fao',
   lotQuality,
   lotQualityBaseline,
+  sequential,
+  fichaIndex,
+  fichaTotal,
+  hasNext,
+  onNextFicha,
 }: Props) {
   if (!selected) return null;
 
@@ -133,16 +143,22 @@ export function FichaFixModal({
           {selected.fichaTipoCode != null ? ` (${selected.fichaTipoCode})` : ''} · Siaps{' '}
           {selected.siapsReady ? 'ok' : 'bloqueia'} · Previne {selected.previneReady ? 'ok' : 'risco'} · Envio{' '}
           {selected.readyForFinalSend ? 'recomendado' : 'ainda não'}
+          {sequential && fichaTotal ? ` · ficha ${fichaIndex} de ${fichaTotal}` : ''}
         </span>
       }
       footer={
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Fechar
+            {sequential ? 'Voltar ao fechamento' : 'Fechar'}
           </button>
           <button type="button" className="btn btn-primary" disabled={busy} onClick={(e) => onSave(e as unknown as FormEvent)}>
             Salvar e revalidar
           </button>
+          {sequential && hasNext ? (
+            <button type="button" className="btn btn-secondary" disabled={busy} onClick={onNextFicha}>
+              Próxima ficha
+            </button>
+          ) : null}
         </div>
       }
     >

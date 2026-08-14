@@ -53,7 +53,14 @@ describe('ledi-treatment-metrics', () => {
       items[3],
     ];
     const progress = mergeTreatmentProgress(
-      { baseline: snap, current: snap, fichasCorrigidasAcumulado: 0, ultimaCorrecaoQtd: 0, ultimaCorrecaoEm: null },
+      {
+        baseline: snap,
+        current: snap,
+        fichasCorrigidasAcumulado: 0,
+        camposCorrigidosAcumulado: 0,
+        ultimaCorrecaoQtd: 0,
+        ultimaCorrecaoEm: null,
+      },
       buildTreatmentSnapshot(fixed),
       { touchedDelta: 1 },
     );
@@ -61,5 +68,26 @@ describe('ledi-treatment-metrics', () => {
     expect(progress.current.bloqueioEnvio).toBe(1);
     expect(progress.current.riscoFaturamento).toBe(0);
     expect(progress.fichasCorrigidasAcumulado).toBe(1);
+    expect(progress.camposCorrigidosAcumulado).toBe(0);
+  });
+
+  it('acumula campos corrigidos além das fichas tocadas', () => {
+    const snap = buildTreatmentSnapshot([
+      { findingsJson: '[]', previneJson: null, currentXml: '<x/>' },
+    ]);
+    const progress = mergeTreatmentProgress(
+      {
+        baseline: snap,
+        current: snap,
+        fichasCorrigidasAcumulado: 2,
+        camposCorrigidosAcumulado: 3,
+        ultimaCorrecaoQtd: 0,
+        ultimaCorrecaoEm: null,
+      },
+      snap,
+      { touchedDelta: 1, camposDelta: 4 },
+    );
+    expect(progress.fichasCorrigidasAcumulado).toBe(3);
+    expect(progress.camposCorrigidosAcumulado).toBe(7);
   });
 });

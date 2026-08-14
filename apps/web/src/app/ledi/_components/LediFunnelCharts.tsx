@@ -7,7 +7,16 @@ export type LediChartSummary = {
   withWarn?: number;
   previneReady?: number;
   readyForFinalSend?: number;
+  autoFixableItems?: number;
+  individualItems?: number;
   treatment?: {
+    baseline?: {
+      fichas?: number;
+      bloqueioEnvio?: number;
+      riscoFaturamento?: number;
+      indicadores?: number;
+      ideais?: number;
+    };
     current?: {
       fichas?: number;
       bloqueioEnvio?: number;
@@ -15,13 +24,15 @@ export type LediChartSummary = {
       indicadores?: number;
       ideais?: number;
     };
+    fichasCorrigidasAcumulado?: number;
+    camposCorrigidosAcumulado?: number;
   };
 };
 
 type Slice = { key: string; label: string; value: number; color: string };
 
-function slicesFromSummary(summary: LediChartSummary): Slice[] {
-  const t = summary.treatment?.current;
+function slicesFromSummary(summary: LediChartSummary, useBaseline = false): Slice[] {
+  const t = useBaseline ? summary.treatment?.baseline : summary.treatment?.current;
   const total = Math.max(0, summary.total || t?.fichas || 0);
   const bloqueio = t?.bloqueioEnvio ?? summary.withBlockers ?? 0;
   const qualidade = t?.riscoFaturamento ?? summary.withWarn ?? 0;
@@ -33,7 +44,7 @@ function slicesFromSummary(summary: LediChartSummary): Slice[] {
     { key: 'bloqueio', label: 'Bloqueio', value: bloqueio, color: 'var(--danger)' },
     { key: 'qualidade', label: 'Qualidade', value: qualidade, color: 'var(--warn)' },
     { key: 'indicadores', label: 'Indicadores', value: indicadores, color: '#0f766e' },
-    { key: 'ideais', label: 'Ideais', value: ideais, color: 'var(--ok)' },
+    { key: 'ideais', label: '100% OK', value: ideais, color: 'var(--ok)' },
     ...(resto > 0 ? [{ key: 'resto', label: 'Demais', value: resto, color: '#94a3b8' }] : []),
   ];
 }
@@ -106,21 +117,62 @@ function Pie({ slices, size = 132 }: { slices: Slice[]; size?: number }) {
   );
 }
 
+function CountsRow({ summary }: { summary: LediChartSummary }) {
+  const total = summary.total || summary.treatment?.current?.fichas || 0;
+  const siaps = summary.siapsReady ?? Math.max(0, total - (summary.withBlockers ?? 0));
+  const erros = (summary.withBlockers ?? 0) + (summary.withWarn ?? 0);
+  const lote = summary.autoFixableItems ?? 0;
+  const individual = summary.individualItems ?? Math.max(0, erros - lote);
+  const cells = [
+    { label: 'Fichas', value: total },
+    { label: 'Já podem enviar (Siaps)', value: siaps },
+    { label: 'Com erro', value: erros },
+    { label: 'Corrigem em lote', value: lote },
+    { label: 'Individuais', value: individual },
+  ];
+  return (
+    <div
+      className="ledi-wizard-counts"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))',
+        gap: 8,
+        marginBottom: 12,
+      }}
+    >
+      {cells.map((c) => (
+        <div key={c.label} className="lote-funnel-item" style={{ padding: '8px 10px' }}>
+          <div className="muted" style={{ fontSize: 12 }}>
+            {c.label}
+          </div>
+          <strong>{c.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Funil + pizza do summary LEDI (sem R$). Atualiza no poll do job. */
 export function LediFunnelCharts({
   summary,
   live,
+  variant = 'analise',
 }: {
   summary?: LediChartSummary | null;
   live?: boolean;
+  variant?: 'analise' | 'fechamento';
 }) {
   if (!summary || !(summary.total > 0 || (summary.treatment?.current?.fichas || 0) > 0)) {
     return null;
   }
   const total = summary.total || summary.treatment?.current?.fichas || 0;
   const siaps = summary.siapsReady ?? Math.max(0, total - (summary.withBlockers ?? 0));
+  const previne = summary.previneReady ?? 0;
+  const ok100 = summary.readyForFinalSend ?? summary.treatment?.current?.ideais ?? 0;
   const slices = slicesFromSummary(summary);
   const t = summary.treatment?.current;
+  const base = summary.treatment?.baseline;
+  const fechamento = variant === 'fechamento' && base;
 
   return (
     <div className="ledi-charts" aria-live={live ? 'polite' : undefined}>
@@ -129,30 +181,46 @@ export function LediFunnelCharts({
           Gráficos ao vivo — atualizam enquanto o servidor analisa.
         </p>
       ) : null}
+      {variant === 'analise' ? <CountsRow summary={summary} /> : null}
+      {fechamento ? (
+        <p className="muted" style={{ margin: '0 0 8px', fontSize: 13 }}>
+          Campos corrigidos:{' '}
+          <strong>{summary.treatment?.camposCorrigidosAcumulado ?? 0}</strong>
+          {' · '}
+          fichas tocadas: <strong>{summary.treatment?.fichasCorrigidasAcumulado ?? 0}</strong>
+        </p>
+      ) : null}
       <div className="ledi-charts-grid">
         <div>
-          <h4 style={{ margin: '0 0 8px', fontSize: 14 }}>Funil do lote</h4>
+          <h4 style={{ margin: '0 0 8px', fontSize: 14 }}>
+            {fechamento ? 'Funil agora' : 'Funil do lote'}
+          </h4>
           <FunnelBar label="Total" value={total} total={total} color="#64748b" />
-          <FunnelBar label="Siaps-ready" value={siaps} total={total} color="var(--ok)" />
+          <FunnelBar label="Pronto Siaps" value={siaps} total={total} color="var(--ok)" />
+          <FunnelBar label="Pronto Previne" value={previne} total={total} color="#0f766e" />
+          <FunnelBar label="100% OK" value={ok100} total={total} color="var(--ok)" />
           <FunnelBar
             label="Bloqueio"
             value={t?.bloqueioEnvio ?? summary.withBlockers ?? 0}
             total={total}
             color="var(--danger)"
           />
-          <FunnelBar
-            label="Qualidade"
-            value={t?.riscoFaturamento ?? summary.withWarn ?? 0}
-            total={total}
-            color="var(--warn)"
-          />
-          <FunnelBar label="Indicadores" value={t?.indicadores ?? 0} total={total} color="#0f766e" />
-          <FunnelBar
-            label="Ideais"
-            value={t?.ideais ?? summary.readyForFinalSend ?? 0}
-            total={total}
-            color="var(--ok)"
-          />
+          {variant === 'analise' ? (
+            <>
+              <FunnelBar
+                label="Corrigem em lote"
+                value={summary.autoFixableItems ?? 0}
+                total={total}
+                color="#2563eb"
+              />
+              <FunnelBar
+                label="Individuais"
+                value={summary.individualItems ?? 0}
+                total={total}
+                color="var(--warn)"
+              />
+            </>
+          ) : null}
         </div>
         <div className="ledi-charts-pie">
           <h4 style={{ margin: '0 0 8px', fontSize: 14 }}>Composição</h4>
@@ -167,6 +235,30 @@ export function LediFunnelCharts({
           </ul>
         </div>
       </div>
+      {fechamento && base ? (
+        <div style={{ marginTop: 14 }}>
+          <h4 style={{ margin: '0 0 8px', fontSize: 14 }}>Antes × depois</h4>
+          <FunnelBar
+            label="Bloqueio antes"
+            value={base.bloqueioEnvio ?? 0}
+            total={base.fichas || total}
+            color="#fecaca"
+          />
+          <FunnelBar
+            label="Bloqueio agora"
+            value={t?.bloqueioEnvio ?? 0}
+            total={total}
+            color="var(--danger)"
+          />
+          <FunnelBar
+            label="100% OK antes"
+            value={base.ideais ?? 0}
+            total={base.fichas || total}
+            color="#bbf7d0"
+          />
+          <FunnelBar label="100% OK agora" value={t?.ideais ?? ok100} total={total} color="var(--ok)" />
+        </div>
+      ) : null}
     </div>
   );
 }

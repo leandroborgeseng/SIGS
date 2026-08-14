@@ -36,7 +36,7 @@ Ficha FAO (XML ou Thrift LEDI)
 | `POST` | `/v1/dental/ledi/batches/:id/dry-run` | **simula** auto-fix (não grava) — impacto de códigos |
 | `GET` | `/v1/dental/ledi/batches/:id/closure-report` | relatório de fechamento (JSON + `markdown`) |
 | `GET` | `/v1/dental/ledi/batches/:id/pending-report` | o que ainda falta (JSON). `?format=csv\|md\|pdf` · `?severity=BLOCKER\|MONEY_RISK\|QUALITY_WARN` — PDF colorido para a Secretaria; sem R$; CPF mascarado |
-| `GET` | `/v1/dental/ledi/batches/:id/export.zip` | ZIP dos XMLs (`?mode=current\|conformant`) |
+| `GET` | `/v1/dental/ledi/batches/:id/export.zip` | ZIP dos XMLs (`?mode=current\|conformant\|pending`) — `conformant` = aptos envio (Siaps); `pending` = ainda bloqueiam |
 | `GET` | `/v1/catalog/dental` | catálogo vigilância / condutas / tipoAtendimento |
 | `POST` | `/v1/dental-encounters/:id/finish` | exige `vigilanciaSaudeBucal[]` + `problemasCondicoes[]`; `enforceFaoConformity` (default true) |
 
@@ -63,8 +63,7 @@ Resposta do validador:
 ## UI
 
 - `/odonto` — atendimento clínico; finish envia campos críticos.
-- `/faturamento/lote/fao` — upload em lote (ZIP ≤ ~5 MB unzip no browser; ZIP maior em fatias `/upload-zip/chunk` + análise no servidor; tipo LEDI conferido — FAI nesta tela é recusado), inconsistências, auto-correção (`stNaoPossuiCpf` / INE) e edição manual (CIAP/CID, consulta); download ZIP.
-- `/faturamento/lote/fai` — mesmo upload em fatias; após a última fatia (HTTP 202) a UI faz poll `GET /v1/jobs/:id` (ou `by-key` se o 202 se perder) até o lote abrir com summary; fatia falha → Retomar/Recomeçar; Dry-run + Corrigir em lote só com ajustes seguros (não inventa CIAP/CID/conduta).
+- `/faturamento/lote/fao` · `/faturamento/lote/fai` · `/faturamento/lote/proc` — wizard compartilhado (`LediTipoLotePage`): upload (copy Siaps/Previne/100% OK) → **gate de tipo no servidor** (ZIP errado = HTTP 400 `LEDI_TIPO_MISMATCH`, job falha cedo, **não persiste lote**) → análise + gráficos → modal sequencial → fechamento antes×depois → dois ZIPs (`-aptos-envio` / `-pendentes`) → correção ficha a ficha. Chunks Safari 512 KiB inalterados.
 
 Deploy: `docs/planejamento/deploy-railway-coolify.md`.
 

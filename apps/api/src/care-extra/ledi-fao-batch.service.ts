@@ -16,7 +16,11 @@ import {
   aggregatePrevineXrays,
   type PrevineXray,
 } from './ledi-fao-previne-xray';
-import { detectLediFichaTipo } from './ledi-ficha-tipo';
+import {
+  assertLoteTipoMatch,
+  detectLediFichaTipo,
+  LediTipoMismatchError,
+} from './ledi-ficha-tipo';
 import { runRulesEngine } from '../clinical-core/rules-engine';
 import {
   classifyAutoFixable,
@@ -175,6 +179,7 @@ export class LediFaoBatchService {
     }>,
     prevTreatment?: Partial<TreatmentProgress>,
     touchedDelta = 0,
+    camposDelta = 0,
   ) {
     const codeFiles = new Map<string, number>();
     const tipoCounts = new Map<string, number>();
@@ -182,6 +187,7 @@ export class LediFaoBatchService {
     let withBlockers = 0;
     let withWarn = 0;
     let autoFixableItems = 0;
+    let individualItems = 0;
     let siapsReady = 0;
     let previneReady = 0;
     let readyForFinalSend = 0;
@@ -197,6 +203,10 @@ export class LediFaoBatchService {
         : [];
       if (codes.length) autoFixableItems += 1;
       const findings = JSON.parse(it.findingsJson || '[]') as FaoFinding[];
+      const autoSet = new Set(codes);
+      if (findings.some((f) => f.severity !== 'INFO' && f.code && !autoSet.has(f.code))) {
+        individualItems += 1;
+      }
       const seen = new Set<string>();
       for (const f of findings) {
         if (seen.has(f.code)) continue;
@@ -233,6 +243,7 @@ export class LediFaoBatchService {
     const treatmentCurrent = buildTreatmentSnapshot(items);
     const treatment = mergeTreatmentProgress(prevTreatment, treatmentCurrent, {
       touchedDelta,
+      camposDelta,
     });
 
     return {
@@ -241,6 +252,7 @@ export class LediFaoBatchService {
       withBlockers,
       withWarn,
       autoFixableItems,
+      individualItems,
       siapsReady,
       previneReady,
       readyForFinalSend,
@@ -379,6 +391,14 @@ export class LediFaoBatchService {
     }
 
     const expectedTipo = this.normalizeExpectedTipo(dto.expectedTipo);
+    try {
+      assertLoteTipoMatch({ expectedTipo, files: dto.files });
+    } catch (err) {
+      if (err instanceof LediTipoMismatchError) {
+        throw new BadRequestException(err.toHttpBody());
+      }
+      throw err;
+    }
     const label =
       expectedTipo === 'FAI'
         ? 'FAI'
@@ -482,6 +502,14 @@ export class LediFaoBatchService {
       );
     }
     const expectedTipo = await this.expectedTipoOf(batchId);
+    try {
+      assertLoteTipoMatch({ expectedTipo, files });
+    } catch (err) {
+      if (err instanceof LediTipoMismatchError) {
+        throw new BadRequestException(err.toHttpBody());
+      }
+      throw err;
+    }
     const prepared = await this.prepareItems(files, expectedTipo, batchId);
     await this.createManyItems(prepared.map((p) => ({ ...p, batchId })));
     if (opts?.refreshSummary === false) {
@@ -791,6 +819,7 @@ export class LediFaoBatchService {
     const chunkSize = opts.chunkSize ?? lediAutofixChunkSize();
     let offset = Math.max(0, Math.min(opts.startOffset ?? 0, total));
     let touched = 0;
+    let campos = 0;
 
     while (offset < total) {
       const slice = ids.slice(offset, offset + chunkSize);
@@ -799,6 +828,7 @@ export class LediFaoBatchService {
       });
       const byId = new Map(items.map((it) => [it.id, it]));
       let chunkTouched = 0;
+      let chunkCampos = 0;
       for (const id of slice) {
         const item = byId.get(id);
         if (!item) continue;
@@ -813,15 +843,18 @@ export class LediFaoBatchService {
         if (!result.changed) continue;
         await this.persistXml(item.id, result.xml, expectedTipo);
         chunkTouched += 1;
+        chunkCampos += result.applied.length;
       }
       touched += chunkTouched;
+      campos += chunkCampos;
       offset += slice.length;
-      await this.refreshBatchSummary(batchId, chunkTouched);
+      await this.refreshBatchSummary(batchId, chunkTouched, chunkCampos);
       const batch = await this.get(batchId);
       const checkpoint: LediAutofixCheckpoint = {
         processed: offset,
         total,
         touched,
+        campos,
         batchId,
         summary: chartSnapshotFromSummary(batch.summary as LediChartSummary),
       };
@@ -830,9 +863,10 @@ export class LediFaoBatchService {
 
     void this.prisma.audit('ledi_fao_batch_auto_fix', 'ledi_fao_batch', batchId, [RF.ODONTO.id], {
       touched,
+      campos,
       force: dto.forceSelected,
     });
-    return { touched, total, processed: offset };
+    return { touched, campos, total, processed: offset };
   }
 
   /**
@@ -1315,26 +1349,30 @@ export class LediFaoBatchService {
     }
 
     await this.persistXml(item.id, xml, expectedTipo, dto.expectedVersion);
-    await this.refreshBatchSummary(batchId, 1);
+    await this.refreshBatchSummary(batchId, 1, applied.length);
     return this.getItem(batchId, itemId);
   }
 
-  async exportZip(batchId: string, mode: 'current' | 'conformant' = 'current') {
+  async exportZip(batchId: string, mode: 'current' | 'conformant' | 'pending' = 'current') {
     const zip = await this.exportZipBuffer(batchId, mode);
+    const suffix =
+      mode === 'conformant' ? '-aptos-envio' : mode === 'pending' ? '-pendentes' : '';
     return new StreamableFile(zip, {
       type: 'application/zip',
-      disposition: `attachment; filename="ledi-fao-lote-${batchId.slice(0, 8)}.zip"`,
+      disposition: `attachment; filename="ledi-fao-lote-${batchId.slice(0, 8)}${suffix}.zip"`,
     });
   }
 
-  async exportZipBuffer(batchId: string, mode: 'current' | 'conformant' = 'current') {
+  async exportZipBuffer(batchId: string, mode: 'current' | 'conformant' | 'pending' = 'current') {
     await this.ensureBatch(batchId);
     const items = await this.prisma.lediFaoBatchItem.findMany({
       where: {
         batchId,
         ...(mode === 'conformant'
           ? { OR: [{ status: 'conformant' }, { status: 'warn' }] }
-          : {}),
+          : mode === 'pending'
+            ? { status: 'blocker' }
+            : {}),
       },
       select: {
         id: true,
@@ -1469,7 +1507,7 @@ export class LediFaoBatchService {
     });
   }
 
-  private async refreshBatchSummary(batchId: string, touchedDelta = 0) {
+  private async refreshBatchSummary(batchId: string, touchedDelta = 0, camposDelta = 0) {
     const batch = await this.prisma.lediFaoBatch.findUnique({
       where: { id: batchId },
       select: { summaryJson: true },
@@ -1491,7 +1529,7 @@ export class LediFaoBatchService {
       },
     });
     const summary = {
-      ...this.summarizeBatch(items, prev.treatment, touchedDelta),
+      ...this.summarizeBatch(items, prev.treatment, touchedDelta, camposDelta),
       expectedTipo,
     };
     const status =

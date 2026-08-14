@@ -1,6 +1,6 @@
 # Plano de UI — wizard único de lote LEDI (FAI / FAO / Procedimentos)
 
-**Status:** plano (não implementar o wizard nesta entrega)  
+**Status:** implementado (P0–P3 homologável — wizard nas 3 telas)  
 **Data:** 2026-08-14  
 **Fonte:** instrução do usuário — fluxo de trabalho otimizado para upload de lotes  
 **Telas:** `/faturamento/lote/fai` · `/faturamento/lote/fao` · `/faturamento/lote/proc`  
@@ -131,7 +131,7 @@ O wizard **reusa** o shell e os contratos; muda a **orquestração** (passos + c
 
 ## Plano de implementação (ondas)
 
-Fora desta tarefa: **não** implementar o wizard. Copy na tela de upload só se for stub de uma frase **sem** alterar o fluxo; preferência: só este documento.
+Fora desta tarefa original: o wizard foi implementado em 2026-08-14 (P0 gate + P1 modal sequencial + P2 ficha a ficha + P3 dois ZIPs / antes×depois).
 
 ### P0 — Copy + gate + gráficos
 

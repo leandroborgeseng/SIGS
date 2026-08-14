@@ -137,7 +137,7 @@ export class JobsService {
     });
   }
 
-  async markFailed(id: string, error: string, dead = false) {
+  async markFailed(id: string, error: string, dead = false, result?: unknown) {
     const job = await this.prisma.jobRun.findUnique({ where: { id } });
     const attempts = job?.attempts ?? 0;
     const max = job?.maxAttempts ?? 5;
@@ -148,6 +148,7 @@ export class JobsService {
         status,
         errorMessage: error.slice(0, 2000),
         finishedAt: status === 'dead' ? new Date() : undefined,
+        ...(result !== undefined ? { resultJson: JSON.stringify(result) } : {}),
       },
     });
   }

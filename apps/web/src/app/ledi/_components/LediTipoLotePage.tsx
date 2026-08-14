@@ -42,9 +42,15 @@ import {
   type LediJobUi,
 } from '@/app/ledi/_components/LediJobProgressModal';
 import { isLediCondutaOdontoId } from '@/app/faturamento/lote/fao/condutas-odonto';
+import {
+  isLediTipoMismatchError,
+  parseLediTipoMismatch,
+  type LediTipoMismatchError,
+} from '@/lib/ledi-xml-batch';
 
 type LoteTipo = 'FAO' | 'FAI' | 'PROCEDIMENTOS';
-type ExportAction = 'zip-current' | 'zip-conformant' | 'dry-run' | 'closure';
+type ExportAction = 'zip-current' | 'zip-conformant' | 'zip-pending' | 'dry-run' | 'closure';
+type WizardStep = 'upload' | 'recusado' | 'analise' | 'tratar' | 'fechamento' | 'individual';
 
 type BatchSummary = {
   total: number;
@@ -52,6 +58,7 @@ type BatchSummary = {
   withBlockers: number;
   withWarn: number;
   autoFixableItems: number;
+  individualItems?: number;
   siapsReady?: number;
   previneReady?: number;
   readyForFinalSend?: number;
@@ -142,7 +149,7 @@ const META: Record<
 > = {
   FAO: {
     title: 'Lote LEDI FAO',
-    help: 'Ficha de Atendimento Odontológico (tipo 5). Funil Siaps, Previne ESB, correção e ZIP.',
+    help: 'Ficha de Atendimento Odontológico (tipo 5). Wizard: upload → análise → problema a problema → dois ZIPs.',
     label: 'FAO',
     helpId: 'faturamento.lote-fao',
     fileSlug: 'fao',
@@ -159,7 +166,7 @@ const META: Record<
   },
   FAI: {
     title: 'Lote LEDI FAI',
-    help: 'Ficha de Atendimento Individual (tipo 4) — não é odonto. Funil Siaps, buckets de tratamento, correção e ZIP iguais ao FAO.',
+    help: 'Ficha de Atendimento Individual (tipo 4) — não é odonto. Wizard de lote: ficha a ficha, auto vs pessoa, Siaps ≠ Previne ≠ 100% OK.',
     label: 'FAI',
     helpId: 'faturamento.lote-fai',
     fileSlug: 'fai',
@@ -176,7 +183,7 @@ const META: Record<
   },
   PROCEDIMENTOS: {
     title: 'Lote LEDI Procedimentos',
-    help: 'Ficha de Procedimentos (tipo 7). Prioridade: CPF/CNS, turno, CNES; ABPG → SIGTAP na ficha. Export ZIP igual ao FAO.',
+    help: 'Ficha de Procedimentos (tipo 7). Mesmo wizard de lote FAI/FAO: gate de tipo, análise, tratamento e dois ZIPs.',
     label: 'Procedimentos',
     helpId: 'faturamento.lote-proc',
     fileSlug: 'proc',
@@ -218,7 +225,7 @@ function pickNextPriorityCode(
 
 async function downloadZip(
   batchId: string,
-  mode: 'current' | 'conformant',
+  mode: 'current' | 'conformant' | 'pending',
   fileSlug: string,
 ) {
   const token = getToken();
@@ -241,7 +248,9 @@ async function downloadZip(
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `ledi-${fileSlug}-lote-${batchId.slice(0, 8)}${mode === 'conformant' ? '-conformes' : ''}.zip`;
+  a.download = `ledi-${fileSlug}-lote-${batchId.slice(0, 8)}${
+    mode === 'conformant' ? '-aptos-envio' : mode === 'pending' ? '-pendentes' : ''
+  }.zip`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -312,6 +321,12 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
   const [tipoConsulta, setTipoConsulta] = useState('1');
   const [jobUi, setJobUi] = useState<LediJobUi | null>(null);
   const [liveSummary, setLiveSummary] = useState<LediChartSummary | null>(null);
+  const [wizardStep, setWizardStep] = useState<WizardStep>('upload');
+  const [tipoRecusa, setTipoRecusa] = useState<LediTipoMismatchError | null>(null);
+  const [deferredCodes, setDeferredCodes] = useState<string[]>([]);
+  const [individualQueue, setIndividualQueue] = useState<string[]>([]);
+  const [individualIndex, setIndividualIndex] = useState(0);
+  const [listOpen, setListOpen] = useState(false);
 
   const activeRepair = useMemo(
     () => (codeFilter ? lookupRepair(codeFilter) : undefined),
@@ -375,7 +390,10 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     const id = new URLSearchParams(window.location.search).get('batchId');
     if (!id) return;
     void api<Batch>(`/v1/dental/ledi/batches/${id}`)
-      .then((b) => setBatch(b))
+      .then((b) => {
+        setBatch(b);
+        setWizardStep('analise');
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Falha'));
   }, []);
 
@@ -422,6 +440,10 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       setChunkResume(null);
       setLiveSummary(created.summary);
       setJobUi(null);
+      setWizardStep('analise');
+      setTipoRecusa(null);
+      setDeferredCodes([]);
+      startTreat(created.summary, created.id);
       const failNote = failedNames.length
         ? ` · ${failedNames.length} não lidos (ex.: ${failedNames[0]})`
         : '';
@@ -431,6 +453,18 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       await loadBatches();
       await loadBatch(created.id);
     } catch (err) {
+      const mismatch = parseLediTipoMismatch(err) || (isLediTipoMismatchError(err) ? err : null);
+      if (mismatch) {
+        setTipoRecusa(mismatch);
+        setWizardStep('recusado');
+        setBatch(null);
+        setLiveSummary(null);
+        setJobUi(null);
+        setError(null);
+        setBusy(false);
+        setUploadProgress('');
+        return;
+      }
       if (isChunkUploadError(err)) {
         setChunkResume({
           uploadId: err.uploadId,
@@ -453,6 +487,29 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     const b = await api<Batch>(`/v1/dental/ledi/batches/${batchId}`);
     setBatch(b);
     const next = pickNextPriorityCode(b.summary, justFixed);
+    if (wizardStep === 'tratar') {
+      if (next && !next.same) {
+        setCodeFilter(next.code);
+        setErrorModalOpen(true);
+        const files = (b.summary.topCodes || []).find((c) => c.code === next.code)?.files;
+        setOk(
+          `${baseMsg} Próximo: ${lookupRepair(next.code)?.title || next.code}${files != null ? ` (${files})` : ''}.`,
+        );
+        await loadItems(batchId, next.code);
+        return;
+      }
+      if (next?.same) {
+        setOk(`${baseMsg} Ainda neste alerta — corrija de novo ou deixe para individual.`);
+        await loadItems(batchId, next.code);
+        return;
+      }
+      setCodeFilter('');
+      setErrorModalOpen(false);
+      setWizardStep('fechamento');
+      setOk(`${baseMsg} Sem próximos alertas — fechamento da análise.`);
+      await loadItems(batchId);
+      return;
+    }
     if (next) {
       setCodeFilter(next.code);
       setErrorModalOpen(true);
@@ -466,6 +523,111 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       setOk(`${baseMsg} Sem próximos alertas no topo do lote.`);
     }
     await loadItems(batchId, next?.code);
+  }
+
+  function resetWizardToUpload() {
+    setWizardStep('upload');
+    setTipoRecusa(null);
+    setBatch(null);
+    setItems([]);
+    setSelected(null);
+    setCodeFilter('');
+    setErrorModalOpen(false);
+    setFichaModalOpen(false);
+    setLiveSummary(null);
+    setDeferredCodes([]);
+    setIndividualQueue([]);
+    setIndividualIndex(0);
+    setError(null);
+    setOk(null);
+  }
+
+  function problemEntries(summary: BatchSummary) {
+    return (summary.topCodes || [])
+      .filter((c) => c.files > 0 && !deferredCodes.includes(c.code))
+      .map((c) => ({
+        code: c.code,
+        files: c.files,
+        severity: String(resolveSeverity(c.code, 'BLOCKER')),
+      }))
+      .sort(compareBySeverityThenCount);
+  }
+
+  function startTreat(fromSummary?: BatchSummary, batchId?: string) {
+    const s = fromSummary || batch?.summary;
+    const id = batchId || batch?.id;
+    if (!s) return;
+    const queue = problemEntries(s);
+    if (!queue.length) {
+      setWizardStep('fechamento');
+      setErrorModalOpen(false);
+      return;
+    }
+    const first = queue[0]!;
+    setWizardStep('tratar');
+    setCodeFilter(first.code);
+    setErrorModalOpen(true);
+    if (id) void loadItems(id, first.code);
+  }
+
+  function goNextProblem() {
+    if (!batch) {
+      setWizardStep('fechamento');
+      return;
+    }
+    const queue = problemEntries(batch.summary).filter((e) => e.code !== codeFilter);
+    if (!queue.length) {
+      setErrorModalOpen(false);
+      setCodeFilter('');
+      setWizardStep('fechamento');
+      return;
+    }
+    const next = queue[0]!;
+    setCodeFilter(next.code);
+    setErrorModalOpen(true);
+    void loadItems(batch.id, next.code);
+  }
+
+  function deferCurrentProblem() {
+    if (codeFilter) setDeferredCodes((prev) => [...prev, codeFilter]);
+    goNextProblem();
+  }
+
+  async function startIndividual() {
+    if (!batch) return;
+    setWizardStep('individual');
+    setErrorModalOpen(false);
+    const page = await api<{ total: number; items: ItemRow[] }>(
+      `/v1/dental/ledi/batches/${batch.id}/items?bucket=bloqueio&limit=200`,
+    );
+    let rows = page.items.filter((it) => !it.siapsReady);
+    if (!rows.length) {
+      const warn = await api<{ items: ItemRow[] }>(
+        `/v1/dental/ledi/batches/${batch.id}/items?status=warn&limit=200`,
+      );
+      rows = warn.items;
+    }
+    const ids = rows.map((it) => it.id);
+    setIndividualQueue(ids);
+    setIndividualIndex(0);
+    setListOpen(false);
+    if (ids[0]) await openItem(ids[0]);
+    else {
+      setOk('Nenhuma ficha residual para correção individual.');
+      setWizardStep('fechamento');
+    }
+  }
+
+  async function goNextIndividual() {
+    const next = individualIndex + 1;
+    if (next >= individualQueue.length) {
+      setFichaModalOpen(false);
+      setWizardStep('fechamento');
+      if (batch) await loadBatch(batch.id);
+      return;
+    }
+    setIndividualIndex(next);
+    await openItem(individualQueue[next]!);
   }
 
   async function applySelectedRepair(code?: string) {
@@ -718,6 +880,10 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       setSelected(detail);
       setOk(`Ficha ${selected.fileName} revalidada.`);
       await loadBatch(batch.id);
+      if (wizardStep === 'individual') {
+        const stillBlocker = detail.findings.some((f) => String(f.severity) === 'BLOCKER');
+        if (!stillBlocker) await goNextIndividual();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao salvar');
     } finally {
@@ -732,9 +898,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     try {
       await api(`/v1/dental/ledi/batches/${id}`, { method: 'DELETE' });
       if (batch?.id === id) {
-        setBatch(null);
-        setItems([]);
-        setSelected(null);
+        resetWizardToUpload();
       }
       setOk(`Análise “${label}” excluída.`);
       await loadBatches();
@@ -822,15 +986,28 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
   }
 
   const siapsReady = batch?.summary.siapsReady ?? 0;
+  const previneReady = batch?.summary.previneReady ?? 0;
   const readyFinal = batch?.summary.readyForFinalSend ?? 0;
   const withBlockers = batch?.summary.withBlockers ?? 0;
   const totalFichas = batch?.summary.total ?? 0;
+  const treatQueue = batch ? problemEntries(batch.summary) : [];
+  const treatIndex = Math.max(1, treatQueue.findIndex((e) => e.code === codeFilter) + 1);
+  const showUpload = wizardStep === 'upload' || wizardStep === 'recusado';
+
+  const stepLabel: Record<WizardStep, string> = {
+    upload: '1. Upload',
+    recusado: 'Tipo recusado',
+    analise: '3. Análise',
+    tratar: '4. Problema a problema',
+    fechamento: '5. Fechamento',
+    individual: '7. Ficha a ficha',
+  };
 
   return (
     <AppShell helpId={meta.helpId}>
       <PageHeader
         title={meta.title}
-        eyebrow="Raio-x · correção · export"
+        eyebrow="Wizard de lote LEDI"
         description={meta.help}
         actions={
           <>
@@ -873,35 +1050,80 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
           </>
         }
       />
-      {error ? <ErrorBox message={error} /> : null}
+      {error && wizardStep !== 'recusado' ? <ErrorBox message={error} /> : null}
       {ok ? <div className="alert ok">{ok}</div> : null}
 
+      {!showUpload && batch ? (
+        <div className="card" style={{ marginBottom: 16, padding: '10px 14px' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <strong style={{ fontSize: 13 }}>{stepLabel[wizardStep]}</strong>
+            <span className="muted" style={{ fontSize: 13 }}>
+              {batch.name}
+            </span>
+            <span style={{ flex: 1 }} />
+            <button type="button" className="btn btn-ghost" onClick={resetWizardToUpload}>
+              Novo lote
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {wizardStep === 'recusado' && tipoRecusa ? (
+        <div className="card" style={{ marginBottom: 16, borderColor: 'var(--danger)' }}>
+          <h3 style={{ marginTop: 0 }}>Este ZIP não é {meta.label}</h3>
+          <p>{tipoRecusa.message}</p>
+          <p className="muted" style={{ fontSize: 13 }}>
+            Nenhuma ficha foi analisada e nenhum lote foi gravado. Separe os tipos e envie na tela certa.
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-primary" onClick={resetWizardToUpload}>
+              Voltar ao início
+            </button>
+            {tipoRecusa.href ? (
+              <Link className="btn btn-secondary" href={tipoRecusa.href}>
+                Ir para {tipoRecusa.detectedTipo === 'FAO' ? 'Lote FAO' : tipoRecusa.detectedTipo === 'PROCEDIMENTOS' ? 'Lote Procedimentos' : 'Lote FAI'}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {showUpload ? (
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>1. Enviar XMLs {meta.label}</h3>
-        <p className="muted">
-          ZIP até 100 MB. Cada fatia (512 KiB) é lida e enviada na hora — o Safari
-          não monta o ZIP na RAM nem descompacta. Pasta e-SUS ou achatado. Tipo LEDI conferido
+        <p style={{ marginTop: 0, lineHeight: 1.5 }}>
+          O sistema abre <strong>ficha a ficha</strong>. Correções automatizáveis entram sozinhas; o que
+          precisa de pessoa vai para tratamento depois.
+        </p>
+        <ul className="muted" style={{ marginTop: 0, lineHeight: 1.55 }}>
+          <li>
+            <strong>Pronto Siaps</strong> — pode enviar ao Ministério / a produção entra
+          </li>
+          <li>
+            <strong>Pronto Previne</strong> — qualidade / indicador
+            {expectedTipo === 'FAO' ? ' (ESB B1–B6)' : ' (qualidade LEDI)'}
+          </li>
+          <li>
+            <strong>100% OK</strong> — Siaps e Previne
+          </li>
+        </ul>
+        <p className="muted" style={{ fontSize: 13 }}>
           {expectedTipo === 'FAI' ? (
             <>
-              {' '}
-              — FAO vai em <Link href="/faturamento/lote/fao">Lote FAO</Link>. Produção nativa APS
-              (não XML) fica na <Link href="/faturamento/aps">fila APS</Link>
-              {' '}
-              (<code>?encounterId=</code> / <code>?batchId=</code> após finalizar em /aps/[id]).
+              Esta tela aceita só FAI (tipo 4). FAO vai em <Link href="/faturamento/lote/fao">Lote FAO</Link>.
+              Produção nativa APS: <Link href="/faturamento/aps">fila APS</Link>.
             </>
           ) : expectedTipo === 'FAO' ? (
             <>
-              {' '}
-              — FAI vai em <Link href="/faturamento/lote/fai">Lote FAI</Link>. Produção nativa odonto
-              (não XML) fica na <Link href="/faturamento/odonto">fila odonto</Link>.
+              Esta tela aceita só FAO (tipo 5). FAI vai em <Link href="/faturamento/lote/fai">Lote FAI</Link>.
+              Produção nativa odonto: <Link href="/faturamento/odonto">fila odonto</Link>.
             </>
           ) : (
             <>
-              {' '}
-              — FAI vai em <Link href="/faturamento/lote/fai">Lote FAI</Link>
+              Esta tela aceita só Procedimentos (tipo 7). FAI vai em{' '}
+              <Link href="/faturamento/lote/fai">Lote FAI</Link>.
             </>
           )}
-          .
         </p>
         <div className="field">
           <label>Nome do lote (opcional)</label>
@@ -944,8 +1166,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             })()}
             {isAnalyzingProgress(uploadProgress) ? (
               <p className="muted" style={{ margin: '8px 0 0', fontSize: 13 }}>
-                A última fatia devolve 202 — esta tela consulta o job até o lote abrir com o resumo
-                (fichas, blockers, Siaps). Os gráficos abaixo atualizam a cada poll.
+                Conferência de tipo primeiro. Se o ZIP for de outra tela, paramos — sem análise.
               </p>
             ) : null}
             {jobUi?.mode === 'import' && jobUi.job ? (
@@ -980,11 +1201,24 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             </button>
           </div>
         ) : null}
+        <details style={{ marginTop: 14 }}>
+          <summary className="muted" style={{ cursor: 'pointer', fontSize: 13 }}>
+            Safari / ZIP grande (fatias 512 KiB)
+          </summary>
+          <p className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>
+            Cada fatia é lida e enviada na hora — o Safari não monta o ZIP na RAM. Se a leitura
+            falhar, use Chrome/Edge ou Escolher de novo pelo botão (não arraste do Finder). Fatia HTTP
+            falhou: Retomar ou Recomeçar.
+          </p>
+        </details>
       </div>
+      ) : null}
 
-      {batches.length ? (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <h3 style={{ marginTop: 0 }}>Lotes recentes ({meta.label})</h3>
+      {showUpload && batches.length ? (
+        <details className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <summary style={{ cursor: 'pointer' }}>
+            Lotes recentes ({meta.label}) — {batches.length}
+          </summary>
           <ul style={{ margin: '12px 0 0', paddingLeft: 0, listStyle: 'none' }}>
             {batches.map((b) => (
               <li
@@ -996,7 +1230,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                   className="btn btn-ghost"
                   onClick={() => {
                     setCodeFilter('');
-                    void loadBatch(b.id).then(() => setBatch(b as Batch));
+                    setWizardStep('analise');
+                    void loadBatch(b.id);
                   }}
                 >
                   {b.name} · {b.itemCount} fichas · {b.status}
@@ -1013,16 +1248,34 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
               </li>
             ))}
           </ul>
-        </div>
+        </details>
       ) : null}
 
-      {batch ? (
+      {batch && !showUpload ? (
         <>
           <div className="card" style={{ marginBottom: 16 }}>
-            <h3 style={{ marginTop: 0 }}>2. Diagnóstico — {batch.name}</h3>
+            <h3 style={{ marginTop: 0 }}>
+              {wizardStep === 'fechamento'
+                ? `5. Fechamento — ${batch.name}`
+                : wizardStep === 'individual'
+                  ? `7. Correção ficha a ficha — ${batch.name}`
+                  : wizardStep === 'tratar'
+                    ? `4. Problema a problema — ${batch.name}`
+                    : `3. Análise — ${batch.name}`}
+            </h3>
             <p className="muted" style={{ marginTop: 0 }}>
-              Ordem de trabalho: primeiro liberar o envio, depois melhorar a qualidade da informação, por
-              último indicadores. {expectedTipo === 'FAI' ? 'FAI tipo 4 — atendimento individual, não odonto.' : expectedTipo === 'FAO' ? 'FAO tipo 5 — saúde bucal / Previne ESB.' : 'Ficha de procedimentos tipo 7.'}
+              {wizardStep === 'fechamento'
+                ? 'Campos corrigidos, aptas a envio / Previne / 100% OK, e gráfico antes × depois.'
+                : wizardStep === 'individual'
+                  ? 'Uma ficha por vez: o que falta, salvar, próxima. A lista fica recolhida como busca.'
+                  : wizardStep === 'tratar'
+                    ? `Um problema por vez, do mais grave e abrangente ao mais leve. ${treatQueue.length ? `Problema ${treatIndex} de ${treatQueue.length}.` : ''}`
+                    : 'Quantidade, já podem enviar, erros, corrigem em lote vs individuais.'}{' '}
+              {expectedTipo === 'FAI'
+                ? 'FAI tipo 4 — atendimento individual, não odonto.'
+                : expectedTipo === 'FAO'
+                  ? 'FAO tipo 5 — saúde bucal / Previne ESB.'
+                  : 'Ficha de procedimentos tipo 7.'}
             </p>
 
             <div className="lote-priority">
@@ -1049,7 +1302,11 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
               </div>
             </div>
 
-            <LediFunnelCharts summary={liveSummary || batch.summary} live={Boolean(jobUi && jobUi.mode !== 'import')} />
+            <LediFunnelCharts
+              summary={liveSummary || batch.summary}
+              live={Boolean(jobUi && jobUi.mode !== 'import')}
+              variant={wizardStep === 'fechamento' ? 'fechamento' : 'analise'}
+            />
 
             {jobUi && jobUi.mode !== 'import' ? (
               <div className="card" style={{ margin: '12px 0', padding: 12, background: 'var(--surface-2)' }}>
@@ -1077,6 +1334,49 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
               kind={meta.variant}
               withWarn={batch.summary.withWarn}
             />
+
+            {wizardStep === 'analise' ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' }}>
+                <button type="button" className="btn btn-primary" disabled={anyBusy} onClick={() => startTreat()}>
+                  Tratar problemas um a um
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={anyBusy}
+                  onClick={() => setWizardStep('fechamento')}
+                >
+                  Ir ao fechamento
+                </button>
+              </div>
+            ) : null}
+            {wizardStep === 'tratar' ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' }}>
+                <button type="button" className="btn btn-primary" onClick={() => startTreat()}>
+                  Continuar tratamento
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setWizardStep('fechamento')}>
+                  Ir ao fechamento
+                </button>
+              </div>
+            ) : null}
+            {wizardStep === 'fechamento' || wizardStep === 'individual' ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={anyBusy}
+                  onClick={() => void startIndividual()}
+                >
+                  Corrigir ficha a ficha
+                </button>
+                {wizardStep === 'individual' ? (
+                  <button type="button" className="btn btn-secondary" onClick={() => setWizardStep('fechamento')}>
+                    Voltar ao fechamento
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             <h4 style={{ marginBottom: 8 }}>Alertas (clique para o guia)</h4>
             <div className="lote-bars">
@@ -1153,35 +1453,12 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                 background: readyFinal > 0 ? 'var(--ok-bg)' : 'var(--surface-2)',
               }}
             >
-              <h4 style={{ margin: '0 0 6px' }}>Exportar / baixar ZIP</h4>
+              <h4 style={{ margin: '0 0 6px' }}>6. Dois ZIPs</h4>
               <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
-                {readyFinal > 0 ? (
-                  <>
-                    <strong>{readyFinal}</strong> ficha(s) com envio final OK — use o ZIP só conformes para
-                    fechar o lote {meta.label}.
-                  </>
-                ) : siapsReady > 0 ? (
-                  <>
-                    <strong>{siapsReady}</strong> pronta(s) Siaps
-                    {withBlockers > 0 ? (
-                      <>
-                        {' '}
-                        · ainda <strong>{withBlockers}</strong> com bloqueio
-                      </>
-                    ) : null}
-                    . O ZIP conformes exclui as com BLOCKER; o ZIP atuais inclui tudo (corrigido + pendente).
-                  </>
-                ) : withBlockers > 0 ? (
-                  <>
-                    Ainda há <strong>{withBlockers}</strong> ficha(s) bloqueando envio. Corrija os vermelhos
-                    antes de exportar — ou baixe o ZIP atuais só para conferência.
-                  </>
-                ) : (
-                  <>
-                    Quando houver fichas prontas, baixe o ZIP só conformes (recomendado) ou o ZIP com todas as
-                    fichas atuais. Mesmos endpoints do lote FAO.
-                  </>
-                )}
+                <strong>{siapsReady}</strong> aptas para envio (Pronto Siaps) ·{' '}
+                <strong>{withBlockers}</strong> ainda precisam correção ·{' '}
+                <strong>{previneReady}</strong> Pronto Previne · <strong>{readyFinal}</strong> 100% OK.
+                O segundo ZIP <strong>não</strong> inclui as já aptas.
               </p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
@@ -1191,21 +1468,40 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                   title={
                     siapsReady < 1
                       ? 'Nenhuma ficha pronta Siaps ainda'
-                      : 'ZIP só com fichas sem BLOCKER (recomendado para envio)'
+                      : 'ZIP só com fichas sem BLOCKER (podem ir ao Siaps agora)'
                   }
                   onClick={() =>
                     void runExport(
                       'zip-conformant',
                       () => downloadZip(batch.id, 'conformant', meta.fileSlug),
-                      `ZIP só conformes baixado (${siapsReady} pronta(s) Siaps · ${readyFinal} envio final OK).`,
+                      `ZIP aptos para envio (${siapsReady} Pronto Siaps · ${readyFinal} 100% OK).`,
                     )
                   }
                 >
-                  {exportAction === 'zip-conformant' ? 'Gerando ZIP…' : 'Baixar ZIP só conformes'}
+                  {exportAction === 'zip-conformant' ? 'Gerando ZIP…' : 'Baixar aptos para envio'}
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary"
+                  disabled={anyBusy || withBlockers < 1}
+                  title={
+                    withBlockers < 1
+                      ? 'Nenhuma ficha pendente de correção'
+                      : 'ZIP só com fichas que ainda bloqueiam o envio'
+                  }
+                  onClick={() =>
+                    void runExport(
+                      'zip-pending',
+                      () => downloadZip(batch.id, 'pending', meta.fileSlug),
+                      `ZIP pendentes (${withBlockers} ainda precisam correção).`,
+                    )
+                  }
+                >
+                  {exportAction === 'zip-pending' ? 'Gerando ZIP…' : 'Baixar ainda precisam correção'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
                   disabled={anyBusy || totalFichas < 1}
                   title="Todas as fichas do lote no estado atual (incluindo com alerta)"
                   onClick={() =>
@@ -1216,7 +1512,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                     )
                   }
                 >
-                  {exportAction === 'zip-current' ? 'Gerando ZIP…' : 'Baixar ZIP (todas as atuais)'}
+                  {exportAction === 'zip-current' ? 'Gerando ZIP…' : 'ZIP todas (legado)'}
                 </button>
                 <button
                   type="button"
@@ -1393,14 +1689,19 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             disabled={anyBusy}
           />
 
-          <div className="card">
-            <h3 style={{ marginTop: 0 }}>
-              4. Fichas{' '}
+          <details className="card" open={listOpen || wizardStep === 'individual'}>
+            <summary
+              style={{ cursor: 'pointer' }}
+              onClick={(e) => {
+                e.preventDefault();
+                setListOpen((v) => !v);
+              }}
+            >
+              Busca de fichas (atalho){' '}
               {codeFilter ? `(${itemsTotal} com este alerta)` : `(${itemsTotal})`}
-            </h3>
-            <p className="muted" style={{ marginTop: 0 }}>
-              Clique numa ficha para o modal de correção. Filtros iguais ao FAO: status, nome e buckets
-              acima.
+            </summary>
+            <p className="muted" style={{ marginTop: 8 }}>
+              Fluxo principal é ficha a ficha. Use esta lista só para ir a um arquivo.
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
@@ -1467,7 +1768,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                 </tbody>
               </table>
             </div>
-          </div>
+          </details>
         </>
       ) : null}
 
@@ -1509,11 +1810,20 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             else if (key === 'vigilancia') setVigilancia(value);
             else if (key === 'tipoConsulta') setTipoConsulta(value);
           }}
-          onClose={() => setErrorModalOpen(false)}
+          onClose={() => {
+            setErrorModalOpen(false);
+            if (wizardStep === 'tratar') setWizardStep('analise');
+          }}
           onFixAllAffected={() => void applySelectedRepair(codeFilter)}
           onOpenFicha={(id) => void openItem(id)}
           lotQuality={lotQuality}
           lotQualityBaseline={lotQualityBaseline}
+          sequential={wizardStep === 'tratar'}
+          problemIndex={treatIndex}
+          problemTotal={treatQueue.length}
+          isLastProblem={treatIndex >= treatQueue.length}
+          onDeferToIndividual={deferCurrentProblem}
+          onNextProblem={goNextProblem}
         />
       ) : null}
 
@@ -1552,13 +1862,21 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
           focusField,
         }}
         setForm={setFichaForm}
-        onClose={() => setFichaModalOpen(false)}
+        onClose={() => {
+          setFichaModalOpen(false);
+          if (wizardStep === 'individual') setWizardStep('fechamento');
+        }}
         onSave={(e) => void saveItem(e)}
         onApplyGap={(code) => {
           openGuide(code);
           setFichaModalOpen(false);
         }}
         onFocusField={(field) => setFocusField(field || '')}
+        sequential={wizardStep === 'individual'}
+        fichaIndex={individualIndex + 1}
+        fichaTotal={individualQueue.length}
+        hasNext={individualIndex + 1 < individualQueue.length}
+        onNextFicha={() => void goNextIndividual()}
       />
 
       <LediJobProgressModal

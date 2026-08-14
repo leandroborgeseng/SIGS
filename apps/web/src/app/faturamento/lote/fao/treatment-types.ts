@@ -14,6 +14,7 @@ export type TreatmentProgress = {
   baseline: TreatmentSnapshot;
   current: TreatmentSnapshot;
   fichasCorrigidasAcumulado: number;
+  camposCorrigidosAcumulado?: number;
   ultimaCorrecaoQtd: number;
   ultimaCorrecaoEm: string | null;
 };

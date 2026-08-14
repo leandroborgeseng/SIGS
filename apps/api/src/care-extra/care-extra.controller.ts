@@ -413,11 +413,14 @@ export class CareExtraController {
   @HttpCode(202)
   async enqueueExportFaoBatch(
     @Param('batchId') batchId: string,
-    @Query('mode') mode: 'current' | 'conformant' | undefined,
+    @Query('mode') mode: 'current' | 'conformant' | 'pending' | undefined,
   ) {
     const job = await this.jobs.enqueue({
       type: JOB_NAMES.LEDI_EXPORT_ZIP,
-      payload: { batchId, mode: mode === 'conformant' ? 'conformant' : 'current' },
+      payload: {
+        batchId,
+        mode: mode === 'pending' ? 'pending' : mode === 'conformant' ? 'conformant' : 'current',
+      },
     });
     return {
       async: true,
@@ -473,13 +476,17 @@ export class CareExtraController {
   @Header('Content-Type', 'application/zip')
   async exportFaoBatchZip(
     @Param('batchId') batchId: string,
-    @Query('mode') mode: 'current' | 'conformant' | undefined,
+    @Query('mode') mode: 'current' | 'conformant' | 'pending' | undefined,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const file = await this.faoBatches.exportZip(batchId, mode === 'conformant' ? 'conformant' : 'current');
+    const resolved =
+      mode === 'pending' ? 'pending' : mode === 'conformant' ? 'conformant' : 'current';
+    const file = await this.faoBatches.exportZip(batchId, resolved);
+    const suffix =
+      resolved === 'conformant' ? '-aptos-envio' : resolved === 'pending' ? '-pendentes' : '';
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="ledi-fao-lote-${batchId.slice(0, 8)}.zip"`,
+      `attachment; filename="ledi-lote-${batchId.slice(0, 8)}${suffix}.zip"`,
     );
     return file;
   }

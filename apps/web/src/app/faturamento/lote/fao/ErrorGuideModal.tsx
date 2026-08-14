@@ -36,6 +36,12 @@ type Props = {
   /** Qualidade atual do lote (atualiza a cada correção). */
   lotQuality?: LotQualitySnapshot | null;
   lotQualityBaseline?: LotQualitySnapshot | null;
+  sequential?: boolean;
+  problemIndex?: number;
+  problemTotal?: number;
+  isLastProblem?: boolean;
+  onDeferToIndividual?: () => void;
+  onNextProblem?: () => void;
 };
 
 export function ErrorGuideModal({
@@ -52,6 +58,12 @@ export function ErrorGuideModal({
   onOpenFicha,
   lotQuality,
   lotQualityBaseline,
+  sequential,
+  problemIndex,
+  problemTotal,
+  isLastProblem,
+  onDeferToIndividual,
+  onNextProblem,
 }: Props) {
   const sev = resolveSeverity(code, repair.channel === 'PREVINE' ? 'MONEY_RISK' : 'BLOCKER');
   const fields = fieldsForRepairUi(repair.ui);
@@ -71,23 +83,47 @@ export function ErrorGuideModal({
             {repair.mode === 'auto' ? 'Pode corrigir em lote' : repair.mode === 'individual' ? 'Ficha a ficha' : repair.mode === 'reexport' ? 'Só na origem' : 'Só orientação'}
           </span>{' '}
           · {affectedTotal} ficha(s) com este problema
+          {sequential && problemTotal ? ` · problema ${problemIndex}/${problemTotal}` : ''}
         </span>
       }
       footer={
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Voltar ao painel
-          </button>
-          {canAuto ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={busy || affectedTotal === 0}
-              onClick={onFixAllAffected}
-            >
-              {repair.button || 'Corrigir'} em todas as {affectedTotal} afetada(s)
-            </button>
-          ) : null}
+          {sequential ? (
+            <>
+              <button type="button" className="btn btn-ghost" onClick={onDeferToIndividual}>
+                Deixar para individual
+              </button>
+              {canAuto ? (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={busy || affectedTotal === 0}
+                  onClick={onFixAllAffected}
+                >
+                  {repair.button || 'Corrigir em lote'}
+                </button>
+              ) : null}
+              <button type="button" className="btn btn-secondary" onClick={onNextProblem}>
+                {isLastProblem ? 'Ir ao fechamento' : 'Próximo problema'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn btn-secondary" onClick={onClose}>
+                Voltar ao painel
+              </button>
+              {canAuto ? (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={busy || affectedTotal === 0}
+                  onClick={onFixAllAffected}
+                >
+                  {repair.button || 'Corrigir'} em todas as {affectedTotal} afetada(s)
+                </button>
+              ) : null}
+            </>
+          )}
         </div>
       }
     >

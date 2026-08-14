@@ -4,7 +4,7 @@ title: Lote LEDI FAO — atendimento odontológico
 type: user
 module: faturamento
 feature: lote-fao
-version: 0.1.0
+version: 0.2.0
 product_min: 0.2.0
 status: draft
 audience: [gestor, faturamento, profissional]
@@ -14,18 +14,14 @@ updated_at: 2026-08-14
 authors: [SIGS]
 ---
 
-# Lote LEDI FAO (stub usuário)
+# Lote LEDI FAO (wizard)
 
 **Tela:** `/faturamento/lote/fao` (alias `/odonto/lote`)  
 **Ajuda in-app:** `odonto.lote-ledi`  
 **Tipo:** Ficha de Atendimento Odontológico (tipo 5).
 
-## Como usar
+Mesmo wizard das telas FAI/PROC: upload → gate de tipo → análise + gráfico → problema a problema → fechamento (antes × depois) → dois ZIPs (aptos para envio / ainda precisam correção) → ficha a ficha.
 
-1. Envie XMLs ou ZIP da FAO.
-2. Veja o funil Siaps × Previne e os buckets de tratamento.
-3. Dry-run e correção em lote (ou ficha a ficha no modal).
-4. **Relatório do que falta** após o tratamento: tabela na tela + baixar CSV/Markdown/**PDF (secretaria)**. Só fichas ainda não ideais. CPF `***.***.***-xx`. BLOCKER bloqueia Siaps/envio; MONEY_RISK e QUALITY_WARN são qualidade/Previne. O PDF é colorido (vermelho / laranja / oliva) para impressão e e-mail interno.
-5. Export ZIP (só conformes ou atuais) e relatório de fechamento `.md`.
+Pronto Siaps ≠ Pronto Previne (ESB B1–B6) ≠ 100% OK. ZIP FAI nesta tela é recusado e não analisa.
 
-API: `GET /v1/dental/ledi/batches/:id/pending-report` (`?format=csv|md|pdf&severity=BLOCKER|MONEY_RISK|QUALITY_WARN`).
+Produção nativa: `/faturamento/odonto`.

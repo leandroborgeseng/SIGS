@@ -1,6 +1,6 @@
 # STATUS — SIGS
 
-- **etapa_atual:** Lote LEDI — gráficos do funil + autofix async em chunks (202 + poll)
+- **etapa_atual:** Wizard de lote LEDI (FAI/FAO/PROC) — upload → gate de tipo → análise → problema a problema → dois ZIPs → ficha a ficha
 - **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI Onda 1 + fila APS + LEDI P1 + autofix FAI):**
   - Área `/faturamento` (hub · filas `/faturamento/odonto` e `/faturamento/aps` · sanfona **Tratamento de lotes LEDI**: FAO / FAI / Procedimentos em `/faturamento/lote/{fao,fai,proc}`)
   - Gaps clínicos B–D: lotação, `CodeSearchSelect`, preview FAO, Tela C, fila, condutas LEDI
@@ -29,7 +29,8 @@
 ## Retomar daqui (2026-08-14)
 
 ### Entregue nesta onda
-- **Lote FAO/FAI/PROC — gráficos:** funil (barras) + pizza SVG do summary LEDI (total, Siaps-ready, bloqueio, qualidade, indicadores, ideais). Cores vermelho/laranja/verde; sem R$. Atualizam no poll se o job de import ainda analisa.
+- **Wizard de lote LEDI** nas 3 telas (`LediTipoLotePage`): upload (copy ficha a ficha / auto vs pessoa / Siaps ≠ Previne ≠ 100% OK) → **gate de tipo no servidor** (`LEDI_TIPO_MISMATCH`: recusa o ZIP inteiro, **não persiste lote**, job não analisa) → análise + 5 contagens + gráficos → modal sequencial (BLOCKER abrangente primeiro) → fechamento (campos + antes×depois) → dois ZIPs (`-aptos-envio` / `-pendentes`) → correção **ficha a ficha**. Chunks Safari 512 KiB inalterados.
+- Percorrer: `/faturamento/lote/fai` (e FAO/PROC). ZIP do tipo errado → alerta + voltar ao início. ZIP certo → análise e tratamento.
 - **Autofix/dry-run async em chunks:** POST devolve 202 + jobId (mesmo padrão do import ZIP). Worker processa 100–200 fichas, persiste avanço; poll `processando ficha 1240 de 8149` no modal e no card. Clique de novo no mesmo lote retoma se o job caiu. Ao terminar, fecha o ciclo e atualiza o summary.
 - **Menu / hub:** Faturamento & Validação → sanfona **Tratamento de lotes LEDI** (Lote FAO · Lote FAI · Lote Procedimentos). Hub `/faturamento` com o mesmo agrupamento. Outros tipos AB (cadastro individual/domiciliar, visita ACS, coletivo, AD, consumo alimentar, vacina, elegibilidade, Zika, cuidado compartilhado) **não** entram no menu de lote: vacina/AD/coletivo têm origem nativa em Operação; o restante está adiado — ver tabela em `docs/planejamento/fluxo-lote-ledi-wizard.md`.
 - **UI compartilhada:** `/faturamento/lote/{fao,fai,proc}` usam `LediTipoLotePage`.
@@ -49,7 +50,7 @@
 
 ### Pendente
 1. Smoke visual browser: `/aps/agenda` → abrir FAI; `/aps` → ficha → CIAP/CID + SIGTAP + conduta → finalizar → **fila `/faturamento/aps`**; `/odonto/agenda` grade → abrir → ficha → odontograma Q/S + histórico + catálogo SIGTAP concluir → finalizar → fila → ZIP FAI/FAO
-2. Railway: confirmar `JWT_SECRET` ok; `SEED_ADMIN_PASSWORD` ≥12 chars; smoke ZIP FAI em `/faturamento/lote/fai` (qualquer ZIP → chunks + “analisando no servidor”); FAO com `Arquivo.zip` em `/faturamento/lote/fao`
+2. Railway: smoke wizard `/faturamento/lote/fai` — ZIP certo (análise) e ZIP FAO na tela FAI (recusa, 0 lote); dois ZIPs no fechamento
 3. Redis/Bull (opcional em prod — hoje opcional no boot)
 4. Fase 2 UI (Claude Design) — **não** nesta fase backend-first
 5. Agenda TR além do MVP: cadastro livre de tipos de item, salas, grade municipal compartilhada
@@ -61,4 +62,4 @@
 - **Hotfix prod:** entrypoint trata `prisma db push` + `--accept-data-loss` após dedupe de `appointment_id` (unique agenda odonto)
 - Colunas novas em `appointment_slots`: `item_type` (default CONSULTA), `care_line` (default GENERAL)
 
-_Atualizado em 2026-08-14 (menu Tratamento de lotes LEDI + catálogo de tipos AB)_
+_Atualizado em 2026-08-14 (wizard lote LEDI P0–P3 homologável)_

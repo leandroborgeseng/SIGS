@@ -34,7 +34,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-2.56 | Obr | parcial | n/a | `apps/api/src/patients#search` + UI |
 | RF-3.1 | Obr | parcial | automatizado | `POST /v1/encounters` fila SOAP + origem FAI `/aps` (paciente+lotação) |
 | RF-3.24 | Obr | parcial | automatizado | ficha APS `/aps/[id]` · preview-fai · finish → batch · fila `/faturamento/aps` |
-| RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` · finish FAI/FAO → motor `clinical-core` (`source=native`) |
+| RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` · finish FAI/FAO → motor `clinical-core` (`source=native`) · **wizard lote** `/faturamento/lote/{fai,fao,proc}` (gate de tipo + 2 ZIPs) |
 | RF-10.20 | Obr | parcial | automatizado | preflight + `POST /production/send` + UI `/producao` |
 | RF-14.1 | Obr | parcial | automatizado | `apps/api/src/vaccinations` |
 | RF-14.2 | Obr | parcial | n/a | cartão vacinal UI + API |

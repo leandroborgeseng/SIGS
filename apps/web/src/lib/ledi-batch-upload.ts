@@ -14,6 +14,8 @@ import { extractJobId, isAsyncJobResponse, jobProgressLabel, waitForJob, type Jo
 import {
   assertLediTipoMatch,
   isMemoryError,
+  parseLediTipoMismatch,
+  parseLediTipoMismatchFromJob,
   shouldUnzipZipInBrowser,
   BROWSER_UNZIP_MAX_BYTES,
   sliceEntryRanges,
@@ -189,6 +191,8 @@ async function waitForImportJob<T extends { id: string; summary?: { total?: numb
     },
   });
   if (job.status !== 'completed') {
+    const mismatch = parseLediTipoMismatchFromJob(job);
+    if (mismatch) throw mismatch;
     throw new Error(job.errorMessage || `Análise do ZIP falhou (${job.status}).`);
   }
   const batchId = String((job.result as { batchId?: unknown } | null)?.batchId || '');
@@ -289,6 +293,8 @@ async function uploadZipViaServerChunks<T extends { id: string; summary?: { tota
 }
 
 function wrapErr(err: unknown, fileName?: string, fileSize?: number): Error {
+  const mismatch = parseLediTipoMismatch(err);
+  if (mismatch) return mismatch;
   if (err instanceof ChunkUploadError) return err;
   if (err instanceof IoReadError || err instanceof NetworkError || err instanceof ApiError) {
     return err;

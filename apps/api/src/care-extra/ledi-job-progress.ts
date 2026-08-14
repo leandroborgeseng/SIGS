@@ -13,6 +13,7 @@ export type LediChartSummary = {
   previneReady?: number;
   readyForFinalSend?: number;
   autoFixableItems?: number;
+  individualItems?: number;
   treatment?: {
     current?: {
       fichas?: number;
@@ -28,6 +29,7 @@ export type LediAutofixCheckpoint = {
   processed: number;
   total: number;
   touched: number;
+  campos?: number;
   wouldTouch?: number;
   dryRun?: boolean;
   before?: { withBlockers: number; siapsReady: number };
@@ -108,6 +110,7 @@ export function chartSnapshotFromSummary(summary: LediChartSummary | null | unde
     previneReady: summary?.previneReady,
     readyForFinalSend: summary?.readyForFinalSend,
     autoFixableItems: summary?.autoFixableItems,
+    individualItems: summary?.individualItems,
     treatment: t
       ? {
           current: {
@@ -146,6 +149,7 @@ export function parseAutofixCheckpoint(raw: unknown): LediAutofixCheckpoint | nu
     processed,
     total,
     touched,
+    campos: typeof o.campos === 'number' ? o.campos : undefined,
     wouldTouch: typeof o.wouldTouch === 'number' ? o.wouldTouch : undefined,
     dryRun: o.dryRun === true,
     before:

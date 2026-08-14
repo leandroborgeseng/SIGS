@@ -4,33 +4,32 @@ title: Lote LEDI FAI — atendimento individual
 type: user
 module: faturamento
 feature: lote-fai
-version: 0.2.0
+version: 0.3.0
 product_min: 0.2.0
 status: draft
 audience: [gestor, faturamento, profissional]
 related_rf: [RF-12.7, RF-10.3]
 related_screens: [/faturamento/lote/fai, /faturamento/aps, /faturamento]
-updated_at: 2026-08-13
+updated_at: 2026-08-14
 authors: [SIGS]
 ---
 
-# Lote LEDI FAI
+# Lote LEDI FAI (wizard)
 
 **Tela:** `/faturamento/lote/fai` (alias `/aps/lote`)  
 **Ajuda in-app:** `faturamento.lote-fai`  
-**Tipo:** Ficha de Atendimento Individual (tipo 4) — **não** é odonto (FAO tipo 5).
+**Tipo:** Ficha de Atendimento Individual (tipo 4) — **não** é odonto.
 
-## Como usar
+## Como usar o wizard
 
-1. Envie XMLs ou ZIP da FAI. O ZIP (ex.: `sistemas.zip`) é lido inteiro na memória e sobe em fatias. No Safari, se a leitura falhar, use **Escolher de novo** pelo botão — não arraste do Finder.
-2. Veja o **funil de qualidade** (Siaps × alerta de qualidade × envio final) e os **buckets** vermelho / laranja / verde (mesmo painel do FAO).
-3. Clique no alerta → guia em modal (mini-dash do lote) → corrija em lote ou abra a ficha. Condutas = TipoEncaminhamentoIndividual, não odonto.
-4. **Correção automática FAI:** use **Dry-run** (preview) e **Corrigir em lote (ajustes seguros)**. Aplica só o que é seguro: `stNaoPossuiCpf`, turno (padrão tarde), local (UBS), IBGE Franca, origem 3, UUID, encoding, dígitos de CNS/CPF quando o checksum já fecha. **Não** inventa CIAP/CID, conduta, profissional nem paciente — esses BLOCKERs só sugerem; abra a ficha.
-5. Filtre por bucket, status ou nome do arquivo.
-6. Com prontas Siaps: **Baixar ZIP só conformes** (recomendado) ou ZIP com todas as atuais.
-7. Use **Dry-run** para simular auto-correção; **Relatório fechamento (.md)** para arquivar o lote.
-8. Depois do tratamento, **Relatório do que falta**: tabela na tela (arquivo, UUID, CPF/CNS mascarados, data, profissional, o que ainda corrigir) + baixar CSV, Markdown ou **PDF (secretaria)** colorido para impressão/e-mail. Só fichas não ideais (BLOCKER / MONEY_RISK / QUALITY_WARN). Filtro opcional de severidade. BLOCKER = bloqueia Siaps/envio; o resto é qualidade/Previne.
+1. **Upload** — o sistema abre ficha a ficha. Auto vs pessoa. **Pronto Siaps** (pode enviar) ≠ **Pronto Previne** (qualidade) ≠ **100% OK** (os dois).
+2. **Gate de tipo** — ZIP FAO/PROC nesta tela é recusado, **não analisa**, volta ao início.
+3. **Análise** — quantidade, já podem enviar, erros, corrigem em lote vs individuais.
+4. **Problema a problema** — modal sequencial (grave/abrangente → leve). Corrigir em lote ou deixar para individual.
+5. **Fechamento** — campos corrigidos + gráfico antes × depois.
+6. **Dois ZIPs** — `…-aptos-envio.zip` (Pronto Siaps) e `…-pendentes.zip` (ainda bloqueiam).
+7. **Ficha a ficha** — residual uma ficha por vez (lista só como busca).
 
-Produção nativa (ficha `/aps`, não XML legado): fila `/faturamento/aps` com deep-link `?encounterId=` / `?batchId=`. Lote XML: `?batchId=` (id da análise LEDI) reabre o lote.
+Safari / ZIP grande: fatias 512 KiB no rodapé da etapa 1 (não monta o ZIP na RAM).
 
-API compartilhada com FAO/PROC: `GET …/export.zip`, `POST …/dry-run`, `POST …/auto-fix`, `GET …/closure-report`, `GET …/pending-report` (`?format=csv|md|pdf&severity=`). FAI usa o mesmo batch XML persistido; o pipeline recusa CIAP/CBO/vigilância odonto.
+Produção nativa (não XML): fila `/faturamento/aps`.

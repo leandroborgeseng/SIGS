@@ -44,7 +44,7 @@ export class LediTipoMismatchError extends Error {
       : 'a tela correspondente ao tipo da ficha';
     super(
       `Este arquivo é ${opts.detectedTipo}, não ${opts.expectedTipo}. ` +
-        `Abra ${where} e envie de lá — senão todas as fichas entram como tipo errado.`,
+        `Abra ${where} e envie de lá. Separe os tipos — não analisamos este arquivo.`,
     );
     this.name = 'LediTipoMismatchError';
     this.expectedTipo = opts.expectedTipo;
@@ -159,8 +159,58 @@ export function assertLediTipoMatch(opts: {
   }
 }
 
+export function parseLediTipoMismatch(err: unknown): LediTipoMismatchError | null {
+  if (isLediTipoMismatchError(err)) return err;
+  if (!err || typeof err !== 'object') return null;
+  const body = (err as { body?: unknown }).body;
+  const fromBody = parseMismatchPayload(body);
+  if (fromBody) return fromBody;
+  const msg = err instanceof Error ? err.message : '';
+  if (/não analisamos este arquivo|LEDI_TIPO_MISMATCH/i.test(msg)) {
+    return mismatchFromMessage(msg);
+  }
+  return null;
+}
+
+export function parseLediTipoMismatchFromJob(job: {
+  errorMessage?: string | null;
+  result?: Record<string, unknown> | null;
+}): LediTipoMismatchError | null {
+  const fromResult = parseMismatchPayload(job.result);
+  if (fromResult) return fromResult;
+  const msg = job.errorMessage || '';
+  if (/não analisamos este arquivo|LEDI_TIPO_MISMATCH/i.test(msg)) {
+    return mismatchFromMessage(msg);
+  }
+  return null;
+}
+
+function parseMismatchPayload(raw: unknown): LediTipoMismatchError | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (o.code !== 'LEDI_TIPO_MISMATCH') return null;
+  const expected = o.expectedTipo === 'FAO' || o.expectedTipo === 'PROCEDIMENTOS' || o.expectedTipo === 'FAI'
+    ? o.expectedTipo
+    : 'FAI';
+  return new LediTipoMismatchError({
+    expectedTipo: expected,
+    detectedTipo: String(o.detectedTipo || 'UNKNOWN'),
+  });
+}
+
+function mismatchFromMessage(msg: string): LediTipoMismatchError {
+  let detected = 'UNKNOWN';
+  if (/Lote LEDI FAO|é FAO/i.test(msg)) detected = 'FAO';
+  else if (/Lote LEDI FAI|é FAI/i.test(msg)) detected = 'FAI';
+  else if (/Procedimentos/i.test(msg)) detected = 'PROCEDIMENTOS';
+  let expected: LediLoteTipo = 'FAI';
+  if (/não FAI/i.test(msg)) expected = 'FAI';
+  else if (/não FAO/i.test(msg)) expected = 'FAO';
+  else if (/não Procedimentos/i.test(msg)) expected = 'PROCEDIMENTOS';
+  return new LediTipoMismatchError({ expectedTipo: expected, detectedTipo: detected });
+}
+
 /**
- * Fatias de ~50–100 XMLs ou ≤ 1 MB (o que estourar primeiro).
  * Um XML maior que o teto vai sozinho (limite por arquivo é outro).
  */
 export function sliceEntryRanges(

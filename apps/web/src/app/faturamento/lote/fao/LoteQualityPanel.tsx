@@ -38,7 +38,7 @@ export function LoteQualityPanel({
   const soEnvio = Math.max(0, (siapsReady || 0) - (readyForFinalSend || 0));
   const qualityGaps = withWarn ?? Math.max(0, (siapsReady || 0) - (readyForFinalSend || 0));
   const pQuality = pct(qualityGaps, total);
-  const col3Label = isFao ? 'Prontas Previne' : 'Alerta qualidade';
+  const col3Label = isFao ? 'Pronto Previne' : 'Alerta qualidade';
   const col3Value = isFao ? previneReady : qualityGaps;
   const col3Pct = isFao ? pPrevine : pQuality;
 
@@ -50,7 +50,7 @@ export function LoteQualityPanel({
           <strong>{total}</strong>
         </div>
         <div className="lote-funnel-item">
-          <div className="muted">Prontas Siaps</div>
+          <div className="muted">Pronto Siaps</div>
           <strong>
             {siapsReady ?? '—'}
             <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>
@@ -70,7 +70,7 @@ export function LoteQualityPanel({
           </strong>
         </div>
         <div className="lote-funnel-item">
-          <div className="muted">Envio final OK</div>
+          <div className="muted">100% OK</div>
           <strong>
             {readyForFinalSend ?? '—'}
             <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>

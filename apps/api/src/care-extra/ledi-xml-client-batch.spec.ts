@@ -6,6 +6,7 @@ import {
   isLediXmlZipEntry,
   isLediTipoMismatchError,
   LediTipoMismatchError,
+  parseLediTipoMismatchFromJob,
   sliceEntryRanges,
   uniqueBaseName,
   BROWSER_UNZIP_MAX_BYTES,
@@ -57,6 +58,22 @@ describe('ledi-xml-batch (cliente)', () => {
       expect(String(e)).toMatch(/Lote LEDI FAO/);
     }
     expect(() => assertLediTipoMatch({ expectedTipo: 'FAI', sampleXmls: [fai] })).not.toThrow();
+  });
+
+  it('parseLediTipoMismatchFromJob lê recusa do servidor', () => {
+    const err = parseLediTipoMismatchFromJob({
+      errorMessage: 'Este ZIP é FAO, não FAI. não analisamos este arquivo.',
+      result: {
+        code: 'LEDI_TIPO_MISMATCH',
+        expectedTipo: 'FAI',
+        detectedTipo: 'FAO',
+        href: '/faturamento/lote/fao',
+        message: 'x',
+      },
+    });
+    expect(err?.code).toBe('LEDI_TIPO_MISMATCH');
+    expect(err?.detectedTipo).toBe('FAO');
+    expect(err?.href).toBe('/faturamento/lote/fao');
   });
 
   it('uniqueBaseName achata pasta e-SUS', () => {
