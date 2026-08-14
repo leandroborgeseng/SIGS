@@ -28,13 +28,21 @@ export function isRawOctetStream(req: { headers?: { 'content-type'?: string } })
   return ct.includes('application/octet-stream');
 }
 
+export function isJsonContentType(req: { headers?: { 'content-type'?: string } }): boolean {
+  const ct = String(req.headers?.['content-type'] || '').toLowerCase();
+  return ct.includes('application/json');
+}
+
 export function isLediZipChunkRequest(req: {
   originalUrl?: string;
   url?: string;
   headers?: { 'content-type'?: string };
 }): boolean {
   const url = String(req.originalUrl || req.url || '');
-  if (url.includes('/dental/ledi/batches/upload-zip/chunk')) return true;
+  const onChunkPath = url.includes('/dental/ledi/batches/upload-zip/chunk');
+  // Fallback Safari: POST JSON no mesmo path — o parser json precisa consumir o body.
+  if (onChunkPath && isJsonContentType(req)) return false;
+  if (onChunkPath) return true;
   return isRawOctetStream(req);
 }
 

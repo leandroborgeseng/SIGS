@@ -6,7 +6,8 @@
  *                └─ resto   →  WEB_INTERNAL_PORT (3002) Next
  *
  * O rewrite do Next clona o body (default 10mb; mesmo com 100mb ainda trunca).
- * ZIP LEDI grande sobe em fatias octet-stream 512 KiB por este pipe até o Nest.
+ * ZIP LEDI: fatias 512 KiB (octet-stream ou JSON base64) em pipe até o Nest.
+ * POST /upload-zip/chunk usa Connection: close (Safari HTTP/2 multiplex).
  */
 import http from 'node:http';
 import path from 'node:path';
@@ -70,7 +71,10 @@ export function createPublicProxy(opts = {}) {
 
     const cl = Number(req.headers['content-length']);
     if (Number.isFinite(cl) && cl > PUBLIC_PROXY_MAX_BODY_BYTES) {
-      res.writeHead(413, { 'content-type': 'application/json; charset=utf-8' });
+          res.writeHead(413, {
+            'content-type': 'application/json; charset=utf-8',
+            connection: 'close',
+          });
       res.end(
         JSON.stringify({
           statusCode: 413,
@@ -83,10 +87,16 @@ export function createPublicProxy(opts = {}) {
 
     const ct = String(req.headers['content-type'] || '');
     const streamBody = isStreamedBody(req.url, ct);
+    const zipChunk = isZipChunkPath(req.url);
+    // Connection: close no POST de chunk — evita HTTP/2 multiplex / keep-alive
+    // reutilizar um socket já RST (Safari “Load failed” sem HTTP).
+    if (zipChunk) {
+      headers.connection = 'close';
+    }
     if (streamBody) {
-      const cl = req.headers['content-length'] || 'chunked';
+      const clh = req.headers['content-length'] || 'chunked';
       console.log(
-        `SIGS public-proxy stream ${ct.split(';')[0] || 'body'} ${req.method} ${req.url} → ${dest.label}:${dest.port} content-length=${cl}`,
+        `SIGS public-proxy stream ${ct.split(';')[0] || 'body'} ${req.method} ${req.url} → ${dest.label}:${dest.port} content-length=${clh}${zipChunk ? ' connection=close' : ''}`,
       );
       // Idle no meio do body (Safari pausa / backpressure) não pode derrubar o socket.
       req.setTimeout(0);
@@ -97,17 +107,32 @@ export function createPublicProxy(opts = {}) {
     const fail = (status, message) => {
       if (settled) return;
       settled = true;
+      console.error(`SIGS public-proxy ${status} ${req.method} ${req.url}: ${message}`);
       try {
         proxyReq.destroy();
       } catch {
         /* already closed */
       }
+      // Nunca destruir o socket do cliente se o Nest ainda não respondeu —
+      // RST vira Safari “Load failed” sem HTTP. Sempre tenta 502/504 JSON.
       if (!res.headersSent && !res.writableEnded) {
-        res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ statusCode: status, message }));
+        try {
+          res.writeHead(status, {
+            'content-type': 'application/json; charset=utf-8',
+            connection: 'close',
+          });
+          res.end(JSON.stringify({ statusCode: status, message }));
+        } catch (err) {
+          console.error(
+            'SIGS public-proxy não escreveu JSON de erro:',
+            err instanceof Error ? err.message : err,
+          );
+        }
         return;
       }
-      if (!res.writableEnded) res.destroy();
+      console.error(
+        `SIGS public-proxy: Nest já respondeu; não destruo o socket do cliente (${req.method} ${req.url})`,
+      );
     };
 
     const proxyReq = http.request(
@@ -120,14 +145,31 @@ export function createPublicProxy(opts = {}) {
         headers,
         // timeout do http.request é idle/inactivity — corta POST /upload-zip/chunk.
         timeout: streamBody ? 0 : requestTimeoutMs,
+        agent: zipChunk ? false : undefined,
       },
       (proxyRes) => {
         settled = true;
         const resHeaders = { ...proxyRes.headers };
         for (const h of HOP) delete resHeaders[h];
+        if (zipChunk) resHeaders.connection = 'close';
+        console.log(
+          `SIGS public-proxy ← ${dest.label} ${proxyRes.statusCode} ${req.method} ${req.url}`,
+        );
         res.writeHead(proxyRes.statusCode || 502, resHeaders);
         proxyRes.on('error', (err) => {
-          if (!res.writableEnded) res.destroy(err);
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`SIGS public-proxy upstream res error: ${msg}`);
+          if (!res.headersSent && !res.writableEnded) {
+            fail(502, `Proxy público: falha na resposta de ${dest.label} (${msg}).`);
+            return;
+          }
+          if (!res.writableEnded) {
+            try {
+              res.end();
+            } catch {
+              /* already closed */
+            }
+          }
         });
         proxyRes.pipe(res);
       },
@@ -149,12 +191,24 @@ export function createPublicProxy(opts = {}) {
     // Erro no pipe do body (Safari “Load failed” se o socket cair sem HTTP).
     req.on('error', (err) => {
       const msg = err instanceof Error ? err.message : String(err);
+      console.error(
+        `SIGS public-proxy req error ${req.method} ${req.url}: ${msg} settled=${settled}`,
+      );
       fail(502, `Proxy público: falha no pipe (${msg}).`);
     });
 
-    // Cliente abortou. Não RST a resposta se headers já foram; senão encerra o upstream.
+    // Cliente abortou. Encerra o upstream; não RST a resposta se headers já foram.
     req.on('aborted', () => {
-      if (!res.headersSent) proxyReq.destroy();
+      console.warn(
+        `SIGS public-proxy client aborted ${req.method} ${req.url} settled=${settled} headersSent=${res.headersSent}`,
+      );
+      if (!settled) {
+        try {
+          proxyReq.destroy();
+        } catch {
+          /* already closed */
+        }
+      }
     });
 
     req.pipe(proxyReq);

@@ -216,6 +216,91 @@ test('upstream RST em POST pequeno devolve 502 JSON (não fecha o cliente sem HT
   }
 });
 
+test('POST /upload-zip/chunk manda Connection: close ao Nest e ao cliente', async () => {
+  let upstreamConnection;
+  const api = http.createServer((req, res) => {
+    upstreamConnection = req.headers.connection;
+    req.resume();
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ complete: false, index: 0, received: 1, total: 27 }));
+    });
+  });
+  await listen(api, 0);
+  const web = http.createServer((_req, res) => {
+    res.writeHead(500);
+    res.end('web');
+  });
+  await listen(web, 0);
+  const proxy = createPublicProxy({
+    apiPort: api.address().port,
+    webPort: web.address().port,
+  });
+  await listen(proxy, 0);
+  try {
+    const result = await postBuffer(
+      proxy.address().port,
+      '/api/v1/dental/ledi/batches/upload-zip/chunk?uploadId=x&index=0&total=27',
+      Buffer.alloc(512, 0x41),
+      'application/octet-stream',
+    );
+    assert.equal(result.status, 200);
+    assert.equal(result.json.complete, false);
+    assert.equal(upstreamConnection, 'close');
+    assert.equal(result.connection, 'close');
+  } finally {
+    await close(proxy);
+    await close(api);
+    await close(web);
+  }
+});
+
+test('POST JSON no path de chunk chega na API (fallback Safari)', async () => {
+  let receivedCt;
+  let received = '';
+  const api = http.createServer((req, res) => {
+    receivedCt = req.headers['content-type'];
+    req.setEncoding('utf8');
+    req.on('data', (c) => {
+      received += c;
+    });
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ complete: false, index: 0, received: 1, total: 27 }));
+    });
+  });
+  await listen(api, 0);
+  const web = http.createServer((_req, res) => {
+    res.writeHead(500);
+    res.end('web');
+  });
+  await listen(web, 0);
+  const proxy = createPublicProxy({
+    apiPort: api.address().port,
+    webPort: web.address().port,
+  });
+  await listen(proxy, 0);
+  try {
+    const payload = Buffer.from(
+      JSON.stringify({ uploadId: 'x', index: 0, total: 27, data: Buffer.alloc(64, 1).toString('base64') }),
+    );
+    const result = await postBuffer(
+      proxy.address().port,
+      '/api/v1/dental/ledi/batches/upload-zip/chunk',
+      payload,
+      'application/json',
+    );
+    assert.equal(result.status, 200);
+    assert.match(String(receivedCt), /application\/json/);
+    assert.match(received, /"data":/);
+    assert.equal(result.connection, 'close');
+  } finally {
+    await close(proxy);
+    await close(api);
+    await close(web);
+  }
+});
+
 function listen(server, port) {
   return new Promise((resolve, reject) => {
     server.listen(port, '127.0.0.1', () => resolve());
@@ -251,7 +336,11 @@ function postBuffer(port, pathName, buf, contentType) {
           } catch {
             json = text;
           }
-          resolve({ status: res.statusCode, json });
+          resolve({
+            status: res.statusCode,
+            json,
+            connection: res.headers.connection,
+          });
         });
       },
     );
@@ -286,7 +375,11 @@ function postBufferWithIdle(port, pathName, buf, contentType, idleMs) {
           } catch {
             json = text;
           }
-          resolve({ status: res.statusCode, json });
+          resolve({
+            status: res.statusCode,
+            json,
+            connection: res.headers.connection,
+          });
         });
       },
     );

@@ -30,6 +30,7 @@ import {
   loadLediZip,
 } from './ledi-zip.extract';
 import { LEDI_ZIP_MAX_BYTES, LEDI_ZIP_MAX_LABEL } from './ledi-zip.limits';
+import { mergeLediChunkInput } from './ledi-chunk-body';
 import { JobsService } from '../infra/jobs/jobs.service';
 import { JOB_NAMES } from '../infra/queue/queue.service';
 import { StorageService } from '../infra/storage/storage.service';
@@ -219,9 +220,12 @@ export class CareExtraController {
   }
 
   /**
-   * Fatia raw do ZIP (UI: qualquer ZIP; CLI). Junta em disco; a última fatia
+   * Fatia do ZIP (UI: qualquer ZIP; CLI). Junta em disco; a última fatia
    * enfileira análise (não extrai 8k–20k XML neste request HTTP).
+   * 1ª fatia: 200 JSON imediato (só cria tmp + grava a parte). Unzip só no job.
+   * Corpo: octet-stream ou JSON `{ uploadId, index, total, data: base64 }`.
    */
+  @HttpCode(200)
   @Post('dental/ledi/batches/upload-zip/chunk')
   @Put('dental/ledi/batches/upload-zip/chunk')
   async uploadZipChunk(
@@ -229,30 +233,21 @@ export class CareExtraController {
     @Query() q: LediZipChunkQueryDto,
     @Res({ passthrough: true }) res?: Response,
   ) {
-    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
-    const progress = await this.zipChunks.acceptChunk({
-      uploadId: q.uploadId,
-      index: q.index,
-      total: q.total,
-      body,
-      fileName: q.fileName,
-      expectedTipo: q.expectedTipo,
-      name: q.name,
-      totalBytes: q.totalBytes,
-    });
+    const input = mergeLediChunkInput(req, q);
+    const progress = await this.zipChunks.acceptChunk(input);
     if (!progress.complete) {
       res?.status(200);
       return progress;
     }
     try {
       const stored = await this.storage.putFromFile(
-        this.storage.buildKey(['uploads', 'ledi-zip', `${q.uploadId}.zip`]),
+        this.storage.buildKey(['uploads', 'ledi-zip', `${input.uploadId}.zip`]),
         progress.assembledPath,
         'application/zip',
       );
       const job = await this.jobs.enqueue({
         type: JOB_NAMES.LEDI_IMPORT_ZIP,
-        idempotencyKey: `ledi-import-zip:${q.uploadId}`,
+        idempotencyKey: `ledi-import-zip:${input.uploadId}`,
         payload: {
           objectKey: stored.key,
           name: progress.name || progress.fileName.replace(/\.zip$/i, ''),
@@ -269,7 +264,7 @@ export class CareExtraController {
     } catch (e) {
       throw new BadRequestException(e instanceof Error ? e.message : 'ZIP inválido');
     } finally {
-      await this.zipChunks.cleanup(q.uploadId);
+      await this.zipChunks.cleanup(input.uploadId);
     }
   }
 

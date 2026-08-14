@@ -163,24 +163,32 @@ export class CreateLediFaoBatchFromZipDto {
   @IsString() zipBase64!: string;
 }
 
-/** Query do POST (preferido) / PUT /upload-zip/chunk (corpo = octet-stream). */
+/**
+ * Query do POST (preferido) / PUT /upload-zip/chunk.
+ * Octet-stream: metadados na query, corpo = bytes.
+ * Fallback Safari: POST JSON `{ uploadId, index, total, data: base64 }` —
+ * query opcional (o controller lê o JSON se faltar).
+ */
 export class LediZipChunkQueryDto {
+  @IsOptional()
   @IsString()
   @Matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, {
     message: 'uploadId inválido',
   })
-  uploadId!: string;
+  uploadId?: string;
 
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  index!: number;
+  index?: number;
 
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(LEDI_ZIP_MAX_CHUNKS)
-  total!: number;
+  total?: number;
 
   @IsOptional() @IsString() fileName?: string;
   @IsOptional() @IsIn(['FAO', 'FAI', 'PROCEDIMENTOS']) expectedTipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS';

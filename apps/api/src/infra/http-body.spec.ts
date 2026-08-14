@@ -43,6 +43,12 @@ describe('http-body multipart skip', () => {
         headers: { 'content-type': 'text/plain' },
       }),
     ).toBe(true);
+    expect(
+      isLediZipChunkRequest({
+        url: '/api/v1/dental/ledi/batches/upload-zip/chunk',
+        headers: { 'content-type': 'application/json' },
+      }),
+    ).toBe(false);
   });
 
   it('não chama json/urlencoded quando o pedido é multipart', () => {
@@ -77,5 +83,18 @@ describe('http-body multipart skip', () => {
     const req = { headers: { 'content-type': 'application/json' } } as unknown as Request;
     mw(req, {} as Response, next);
     expect(parser).toHaveBeenCalled();
+  });
+
+  it('JSON no path de chunk vai ao parser json (fallback Safari)', () => {
+    const parser = jest.fn((_req, _res, next: NextFunction) => next()) as unknown as RequestHandler;
+    const mw = skipMultipart(parser);
+    const next = jest.fn() as NextFunction;
+    const req = {
+      url: '/api/v1/dental/ledi/batches/upload-zip/chunk',
+      headers: { 'content-type': 'application/json' },
+    } as unknown as Request;
+    mw(req, {} as Response, next);
+    expect(parser).toHaveBeenCalled();
+    expect(next).toHaveBeenCalled();
   });
 });

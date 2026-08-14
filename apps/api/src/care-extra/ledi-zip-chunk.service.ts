@@ -182,6 +182,9 @@ export class LediZipChunkService implements OnModuleInit, OnModuleDestroy {
     await writeFile(partPath, body);
 
     const received = await this.countParts(dir, total);
+    this.log.log(
+      `chunk ${index + 1}/${total} ${body.length}B uploadId=${input.uploadId} received=${received} complete=${received >= total}`,
+    );
     if (received < total) {
       return {
         complete: false,

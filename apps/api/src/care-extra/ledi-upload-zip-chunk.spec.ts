@@ -169,4 +169,41 @@ describe('POST /v1/dental/ledi/batches/upload-zip/chunk', () => {
     expect(create).not.toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
   });
+
+  it('1ª fatia JSON base64 responde 200 rápido (sem unzip/job)', async () => {
+    const buf = await zipBuf();
+    const mid = Math.max(1, Math.floor(buf.length / 2));
+    const a = buf.subarray(0, mid);
+    const b = buf.subarray(mid);
+    const uploadId = '22222222-3333-4444-8555-666666666666';
+
+    const r1 = await request(app.getHttpServer())
+      .post('/v1/dental/ledi/batches/upload-zip/chunk')
+      .set('Content-Type', 'application/json')
+      .send({
+        uploadId,
+        index: 0,
+        total: 2,
+        fileName: 'sistemas.zip',
+        expectedTipo: 'FAI',
+        name: 'sistemas',
+        totalBytes: buf.length,
+        data: Buffer.from(a).toString('base64'),
+      });
+    expect(r1.status).toBe(200);
+    expect(r1.body.complete).toBe(false);
+    expect(r1.body.index).toBe(0);
+    expect(r1.body.received).toBe(1);
+    expect(enqueue).not.toHaveBeenCalled();
+
+    const r2 = await request(app.getHttpServer())
+      .post(
+        `/v1/dental/ledi/batches/upload-zip/chunk?uploadId=${uploadId}&index=1&total=2&fileName=sistemas.zip&expectedTipo=FAI&totalBytes=${buf.length}`,
+      )
+      .set('Content-Type', 'application/octet-stream')
+      .send(Buffer.from(b));
+    expect(r2.status).toBe(202);
+    expect(r2.body.async).toBe(true);
+    expect(enqueue).toHaveBeenCalledTimes(1);
+  });
 });

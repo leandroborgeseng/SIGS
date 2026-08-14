@@ -1,14 +1,13 @@
 /**
  * Upload de lote LEDI (FAI / FAO / PROC).
  *
- * ZIP (qualquer tamanho): NÃO unzipa no Safari — fatias octet-stream 512 KiB
- * em POST /upload-zip/chunk; unzip + análise no Node (job). O caminho antigo
- * (unzip no browser + POST /upload de XMLs ≈ 0.2 MB) gerava “Load failed”
- * sem HTTP — não era limite de tamanho.
+ * ZIP (qualquer tamanho): NÃO unzipa no Safari — fatias 512 KiB
+ * em POST /upload-zip/chunk via XMLHttpRequest (não fetch); unzip + análise
+ * no Node (job). Se o XHR octet-stream RST, fallback JSON `{ data: base64 }`.
  * XMLs soltos: ainda POST /upload multipart (fatias ≤ 1 MB).
  */
 
-import { api, apiBinary, apiUpload, getToken, isNetworkError, NetworkError, ApiError, assertApiReachable } from '@/lib/api';
+import { api, apiBinary, apiChunkJson, apiUpload, getToken, isNetworkError, NetworkError, ApiError, assertApiReachable } from '@/lib/api';
 import { IoReadError, isIoReadError, formatBytes, readBinaryFile } from '@/lib/read-binary-file';
 import { extractJobId, isAsyncJobResponse, jobProgressLabel, waitForJob } from '@/lib/jobs';
 import {
@@ -138,8 +137,17 @@ async function postChunkWithRetry<T>(
     } catch (e) {
       last = e;
       if (e instanceof NetworkError && e.apiDown) throw e;
-      if (!isNetworkError(e) && !(e instanceof NetworkError)) throw e;
       if (e instanceof ApiError) throw e;
+      if (!isNetworkError(e) && !(e instanceof NetworkError)) throw e;
+      try {
+        opts.onProgress?.(`${opts.label} — fallback JSON (Safari)…`);
+        return await apiChunkJson<T>(path, body, { bytesHint: opts.bytesHint });
+      } catch (jsonErr) {
+        last = jsonErr;
+        if (jsonErr instanceof NetworkError && jsonErr.apiDown) throw jsonErr;
+        if (jsonErr instanceof ApiError) throw jsonErr;
+        if (!isNetworkError(jsonErr) && !(jsonErr instanceof NetworkError)) throw jsonErr;
+      }
     }
   }
   throw last;
