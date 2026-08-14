@@ -75,11 +75,12 @@ export function FileDropZone({
         {acceptHint ? ` — ${acceptHint}` : ''}, ou use o botão abaixo.
       </p>
       <p className="muted" style={{ fontSize: 13 }}>
-        ZIP até 100 MB: cada fatia (512 KiB) é lida e enviada na hora — o
-        Safari <strong>não</strong> monta o ZIP inteiro na RAM. Se uma fatia
-        falhar (“Blob loading failed”), use <strong>Chrome ou Edge</strong>,
-        ou <strong>Escolher de novo</strong> pelo botão; não arraste do Finder
-        se falhar. O arquivo não precisa estar no iCloud.
+        ZIP até 100 MB: cada fatia (512 KiB) é lida e enviada na hora. Se o
+        Safari falhar ao ler (“I/O read” / “Blob loading failed”), use{' '}
+        <strong>Escolher de novo</strong> pelo botão (não arraste do Finder),
+        ou <strong>envie via Chrome ou Edge</strong>. No Mac:{' '}
+        <code>node tools/split-ledi-zip.cjs &lt;arquivo.zip&gt;</code> gera
+        pedaços ~4 MB no Desktop. O arquivo não precisa estar no iCloud.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         <button
@@ -91,14 +92,19 @@ export function FileDropZone({
           Escolher .zip ou XMLs…
         </button>
         {ioFailed ? (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            disabled={disabled}
-            onClick={openPicker}
-          >
-            Escolher de novo
-          </button>
+          <>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={disabled}
+              onClick={openPicker}
+            >
+              Escolher de novo
+            </button>
+            <span className="muted" style={{ alignSelf: 'center', fontSize: 13 }}>
+              ou envie via Chrome / Edge
+            </span>
+          </>
         ) : null}
       </div>
       <input

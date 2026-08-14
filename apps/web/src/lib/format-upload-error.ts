@@ -16,7 +16,7 @@ export function formatUploadError(err: unknown): string {
     if (isIoReadError(cause)) {
       return cause instanceof Error
         ? cause.message
-        : 'O Safari falhou ao ler uma fatia; use Chrome ou Edge, ou escolha de novo pelo botão.';
+        : 'O Safari falhou ao ler o arquivo. Escolha de novo pelo botão, ou envie via Chrome/Edge. No Mac: node tools/split-ledi-zip.cjs <arquivo.zip>.';
     }
     const extra =
       cause instanceof ApiError

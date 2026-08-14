@@ -1,6 +1,6 @@
 /**
  * Leitura binária resiliente no browser.
- * Retries / stream / FileReader quando o SO ou o navegador falham na 1ª leitura.
+ * ZIP LEDI: fatias com cascata de estratégias (Safari/WebKit first).
  * A mensagem NÃO culpa iCloud por padrão — só sugere se a heurística indicar.
  */
 
@@ -11,12 +11,15 @@ export type IoReadErrorInit = {
   fileType?: string;
   /** path relativo (webkitRelativePath) se houver */
   relativePath?: string;
-  /** Fatia FileReader falhou — sugerir Chrome/Edge (não montar o ZIP na RAM). */
+  /** Fatia / File API falhou — sugerir Chrome/Edge + reescolher. */
   hintAltBrowser?: boolean;
 };
 
-/** XMLs soltos / textos. ZIP LEDI NÃO passa por aqui — sobe fatia a fatia. */
+/** XMLs soltos / textos. ZIP LEDI evita isto no caminho feliz. */
 export const READ_WHOLE_FILE_MAX_BYTES = 8 * 1024 * 1024;
+
+/** Fallback WebKit: ler ZIP inteiro (~13–20 MB) após falha de fatia. */
+const WHOLE_FILE_FALLBACK_MAX_BYTES = 24 * 1024 * 1024;
 
 function formatBytes(n?: number): string | null {
   if (typeof n !== 'number' || !Number.isFinite(n) || n < 0) return null;
@@ -84,7 +87,9 @@ export class IoReadError extends Error {
     if (causeDetail) msg += ` — ${causeDetail}`;
     if (hintAltBrowser) {
       msg +=
-        '. O Safari falhou ao ler uma fatia deste arquivo (não carregamos o ZIP inteiro na RAM). Use Chrome ou Edge, ou escolha de novo pelo botão — não arraste do Finder se falhar.';
+        '. Escolha de novo pelo botão (não arraste do Finder se falhar). ' +
+        'Se continuar, envie via Chrome ou Edge. ' +
+        'No Mac: `node tools/split-ledi-zip.cjs <arquivo.zip>` gera pedaços ~4 MB no Desktop para subir no Safari.';
     } else {
       msg +=
         '. O Safari não leu o arquivo; escolha de novo pelo botão, não arraste do Finder se falhar.';
@@ -121,8 +126,24 @@ export function isIoReadError(err: unknown): boolean {
   );
 }
 
+/**
+ * Safari / iOS (qualquer browser no iOS = WebKit). Chrome/Edge desktop = false.
+ */
+export function isWebKit(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  return /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR|Firefox|FxiOS|CriOS|EdgiOS/i.test(ua);
+}
+
 /** Cache por Blob/File — evita 2ª leitura no disco. */
 const bufferCache = new WeakMap<Blob, ArrayBuffer>();
+
+/** Fallback WebKit: ZIP inteiro em RAM após falha de fatia (uma vez por File). */
+const wholeFileFallbackCache = new WeakMap<Blob, Uint8Array>();
+
+/** Estratégia que funcionou por arquivo (só debug). */
+const sliceStrategyLog = new WeakMap<Blob, string>();
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -130,6 +151,20 @@ function sleep(ms: number): Promise<void> {
 
 function copyArrayBuffer(buf: ArrayBuffer): ArrayBuffer {
   return buf.slice(0);
+}
+
+function copySubarray(src: Uint8Array, start: number, end: number): ArrayBuffer {
+  const view = src.subarray(start, end);
+  const copy = new Uint8Array(view.byteLength);
+  copy.set(view);
+  return copy.buffer;
+}
+
+function isOomError(e: unknown): boolean {
+  const msg = e instanceof Error ? `${e.name} ${e.message}` : String(e || '');
+  return /out of memory|allocation failed|OOM|Array buffer allocation failed|Invalid array length/i.test(
+    msg,
+  );
 }
 
 async function readViaStream(file: Blob): Promise<ArrayBuffer> {
@@ -154,11 +189,6 @@ async function readViaStream(file: Blob): Promise<ArrayBuffer> {
   return out.buffer;
 }
 
-/**
- * FileReader.readAsArrayBuffer no Blob dado (File inteiro OU file.slice()).
- * NÃO usar blob.arrayBuffer() / fetch(blobUrl) — o WebKit falha com
- * “I/O read operation failed” / “Blob loading failed”.
- */
 async function readViaFileReader(file: Blob): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -177,12 +207,43 @@ async function readViaFileReader(file: Blob): Promise<ArrayBuffer> {
 }
 
 async function readViaResponse(file: Blob): Promise<ArrayBuffer> {
-  return new Response(file).arrayBuffer();
+  const buf = await new Response(file).arrayBuffer();
+  if (!buf.byteLength) throw new Error('Response.arrayBuffer vazio');
+  return buf;
+}
+
+async function readViaObjectUrl(file: Blob): Promise<ArrayBuffer> {
+  const url = URL.createObjectURL(file);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`fetch(objectURL) HTTP ${res.status}`);
+    const buf = await res.arrayBuffer();
+    if (!buf.byteLength) throw new Error('fetch(objectURL) buffer vazio');
+    return buf;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+type SliceStrategy = { name: string; run: (blob: Blob) => Promise<ArrayBuffer> };
+
+/**
+ * Ordem por motor:
+ * - WebKit: objectURL/fetch → Response → FileReader (FileReader(slice) costuma
+ *   dar NotReadableError / I/O read failed no Safari com ZIP ~13 MB).
+ * - Chromium: FileReader → Response → objectURL (caminho estável atual).
+ */
+function sliceStrategies(): SliceStrategy[] {
+  const fr: SliceStrategy = { name: 'FileReader', run: readViaFileReader };
+  const resp: SliceStrategy = { name: 'Response.arrayBuffer', run: readViaResponse };
+  const obj: SliceStrategy = { name: 'objectURL+fetch', run: readViaObjectUrl };
+  if (isWebKit()) return [obj, resp, fr];
+  return [fr, resp, obj];
 }
 
 type NamedBlob = Blob & { name?: string; webkitRelativePath?: string };
 
-/** Último recurso — nunca File.slice nem blob URL (Safari). */
+/** Último recurso para arquivos pequenos (XML) — nunca no caminho ZIP feliz. */
 function fallbackStrategies(file: NamedBlob): Array<() => Promise<ArrayBuffer>> {
   return [
     async () => file.arrayBuffer(),
@@ -208,8 +269,8 @@ function cacheAndReturn(file: NamedBlob, buf: ArrayBuffer): ArrayBuffer {
 }
 
 /**
- * Só XMLs / arquivos pequenos. ZIP LEDI NÃO usa isto — FileReader no Blob
- * inteiro (~13 MB) quebra o WebKit com “Blob loading failed” e 50–100 MB OOM.
+ * Só XMLs / arquivos pequenos. ZIP LEDI NÃO usa isto no caminho feliz —
+ * sobe fatia a fatia (com fallback WebKit controlado em readFileSlice).
  */
 export async function readBinaryFile(
   file: NamedBlob,
@@ -267,8 +328,62 @@ export async function readBinaryFile(
 }
 
 /**
- * Uma fatia via FileReader.readAsArrayBuffer(file.slice(start,end)).
- * Nunca blob.arrayBuffer() / fetch. Retry 3×. Não concatena o arquivo.
+ * Uma vez por File (WebKit): tenta ler o ZIP inteiro após falha de fatia.
+ * 13 MB às vezes passa com picker fresco. OOM → aborta sem derrubar a página.
+ */
+async function tryWholeFileFallback(
+  file: NamedBlob,
+  opts?: { onAttempt?: (label: string) => void },
+): Promise<Uint8Array> {
+  const hit = wholeFileFallbackCache.get(file);
+  if (hit) return hit;
+
+  const size = typeof file.size === 'number' ? file.size : 0;
+  if (size <= 0 || size > WHOLE_FILE_FALLBACK_MAX_BYTES) {
+    throw new Error(
+      `fallback inteiro indisponível (size=${formatBytes(size) || size}, max=${formatBytes(WHOLE_FILE_FALLBACK_MAX_BYTES)})`,
+    );
+  }
+
+  const name = file.name || 'arquivo';
+  const attempts: SliceStrategy[] = [
+    { name: 'whole-FileReader', run: readViaFileReader },
+    { name: 'whole-Response', run: readViaResponse },
+    { name: 'whole-objectURL+fetch', run: readViaObjectUrl },
+  ];
+
+  let last: unknown;
+  for (const s of attempts) {
+    try {
+      opts?.onAttempt?.(
+        `Safari: lendo “${name}” inteiro (${formatBytes(size)}) via ${s.name} (fallback após fatia)…`,
+      );
+      const buf = await s.run(file);
+      if (!buf.byteLength || (size > 0 && buf.byteLength !== size)) {
+        last = new Error(`${s.name}: ${buf.byteLength} bytes, esperado ${size}`);
+        continue;
+      }
+      const u8 = new Uint8Array(buf);
+      wholeFileFallbackCache.set(file, u8);
+      bufferCache.set(file, copyArrayBuffer(buf));
+      if (typeof console !== 'undefined' && typeof console.debug === 'function') {
+        console.debug(`[read-binary-file] WebKit whole-file fallback OK via ${s.name} (${formatBytes(size)})`);
+      }
+      return u8;
+    } catch (e) {
+      last = e;
+      if (isOomError(e)) {
+        throw new Error(`OOM ao ler arquivo inteiro (${formatBytes(size)}): ${describeCause(e)}`);
+      }
+    }
+  }
+  throw last instanceof Error ? last : new Error(String(last || 'fallback inteiro falhou'));
+}
+
+/**
+ * Fatia do File: cascata de estratégias (não depende só de FileReader(slice)).
+ * No WebKit, se todas as fatias falharem → tenta 1× ler o arquivo inteiro e
+ * fatiar de Uint8Array em memória (só após falha; try/catch de OOM).
  */
 export async function readFileSlice(
   file: NamedBlob,
@@ -286,26 +401,72 @@ export async function readFileSlice(
     });
   }
   const expected = hi - lo;
-  const rounds = Math.max(1, opts?.retries ?? 3);
-  const delays = [0, 150, 450];
+
+  const fromMem = wholeFileFallbackCache.get(file);
+  if (fromMem) {
+    if (hi > fromMem.byteLength) {
+      throw new IoReadError({
+        ...toIoInit(file, new Error(`fatia [${lo},${hi}) além do buffer em memória`)),
+        hintAltBrowser: true,
+      });
+    }
+    return copySubarray(fromMem, lo, hi);
+  }
+
+  const strategies = sliceStrategies();
+  const rounds = Math.max(1, opts?.retries ?? 2);
+  const delays = [0, 120, 350];
   let last: unknown;
-  for (let round = 0; round < rounds; round++) {
-    if (delays[round]) await sleep(delays[round]!);
-    try {
-      opts?.onAttempt?.(
-        `lendo fatia ${lo}-${hi} (tentativa ${round + 1}/${rounds})`,
-      );
-      const slice = file.slice(lo, hi);
-      const buf = await readViaFileReader(slice);
-      if (buf.byteLength !== expected) {
-        last = new Error(`fatia ${buf.byteLength} bytes, esperado ${expected}`);
-        continue;
+
+  for (const strategy of strategies) {
+    for (let round = 0; round < rounds; round++) {
+      if (delays[round]) await sleep(delays[round]!);
+      try {
+        opts?.onAttempt?.(
+          `lendo fatia ${lo}-${hi} via ${strategy.name} (${round + 1}/${rounds})`,
+        );
+        const slice = file.slice(lo, hi);
+        const buf = await strategy.run(slice);
+        if (buf.byteLength !== expected) {
+          last = new Error(
+            `${strategy.name}: fatia ${buf.byteLength} bytes, esperado ${expected}`,
+          );
+          continue;
+        }
+        if (!sliceStrategyLog.has(file)) {
+          sliceStrategyLog.set(file, strategy.name);
+          if (typeof console !== 'undefined' && typeof console.debug === 'function') {
+            console.debug(
+              `[read-binary-file] fatia OK via ${strategy.name}` +
+                (isWebKit() ? ' (WebKit)' : ' (non-WebKit)'),
+            );
+          }
+        }
+        return buf;
+      } catch (e) {
+        last = e;
       }
-      return buf;
-    } catch (e) {
-      last = e;
     }
   }
+
+  if (isWebKit()) {
+    try {
+      const all = await tryWholeFileFallback(file, opts);
+      if (hi > all.byteLength) {
+        throw new Error(`fallback inteiro curto: ${all.byteLength} < ${hi}`);
+      }
+      if (!sliceStrategyLog.has(file)) {
+        sliceStrategyLog.set(file, 'whole-file-fallback');
+      }
+      return copySubarray(all, lo, hi);
+    } catch (e) {
+      last = e;
+      if (typeof console !== 'undefined' && typeof console.debug === 'function') {
+        console.debug('[read-binary-file] WebKit whole-file fallback falhou:', e);
+      }
+    }
+  }
+
   throw new IoReadError({
     ...toIoInit(file, last),
     hintAltBrowser: true,
@@ -313,15 +474,12 @@ export async function readFileSlice(
 }
 
 /**
- * Fatia de um buffer já na RAM (XMLs). ZIP LEDI não usa — lê file.slice + POST.
+ * Fatia de um buffer já na RAM (XMLs). ZIP LEDI no caminho feliz usa file.slice.
  */
 export function subarrayChunk(bytes: Uint8Array, index: number, chunkSize: number): ArrayBuffer {
   const start = index * chunkSize;
   const end = Math.min(start + chunkSize, bytes.byteLength);
-  const view = bytes.subarray(start, end);
-  const copy = new Uint8Array(view.byteLength);
-  copy.set(view);
-  return copy.buffer;
+  return copySubarray(bytes, start, end);
 }
 
 /** Copia para File em memória (Blob) e popula o cache. */

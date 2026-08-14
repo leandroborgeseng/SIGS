@@ -1,9 +1,11 @@
 /**
  * Upload de lote LEDI (FAI / FAO / PROC).
  *
- * ZIP (até 100 MB): NÃO monta o arquivo na RAM. Para cada fatia 512 KiB:
- * FileReader.readAsArrayBuffer(file.slice(start,end)) → XHR POST imediato →
- * descarta o buffer. O servidor junta em disco (/upload-zip/chunk) e unzipa.
+ * ZIP (até 100 MB): caminho feliz NÃO monta na RAM. Para cada fatia 512 KiB:
+ * readFileSlice (cascata Safari: objectURL/fetch → Response → FileReader;
+ * Chromium: FileReader primeiro) → XHR POST imediato → descarta o buffer.
+ * WebKit: se fatia falhar, 1× fallback lendo o ZIP inteiro e fatiando em RAM.
+ * Servidor junta em disco (/upload-zip/chunk) e unzipa.
  * Se o XHR octet-stream RST, fallback JSON `{ data: base64 }` só da fatia.
  * XMLs soltos: ainda POST /upload multipart (fatias ≤ 1 MB).
  */
