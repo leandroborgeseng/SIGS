@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 export type OdontogramCondition = { code: string; label: string };
 
@@ -21,6 +21,12 @@ export type OdontogramFaceDef = { code: string; label: string };
 export type OdontogramFaceNeed = { code: string; label: string };
 export type OdontogramFacesMap = Record<string, Partial<Record<string, string>>>;
 
+/** Indicadores visuais de procedimentos SIGTAP por dente/escopo (não altera careJson). */
+export type OdontogramProcedureMark = {
+  planned?: number;
+  done?: number;
+};
+
 type Props = {
   value: Record<string, string>;
   conditions: OdontogramCondition[];
@@ -39,15 +45,17 @@ type Props = {
   showDeciduous?: boolean;
   /** Snapshot somente leitura (RF-12.11) — esconde o editor de condição. */
   hideEditor?: boolean;
+  /** Planejado / realizado por chave FDI ou escopo (Q/S/BOCA). */
+  procedureMarks?: Record<string, OdontogramProcedureMark>;
 };
 
 const CONDITION_COLOR: Record<string, string> = {
   C: '#c45c26',
-  R: '#2f6fed',
+  R: '#1d6fb8',
   E: '#6b7280',
   F: '#b45309',
   S: '#0d9488',
-  T: '#7c3aed',
+  T: '#0f766e',
   P: '#be185d',
   X: '#dc2626',
   O: '#4b5563',
@@ -55,10 +63,10 @@ const CONDITION_COLOR: Record<string, string> = {
 
 const FACE_NEED_COLOR: Record<string, string> = {
   AM: '#b45309',
-  RE: '#2563eb',
+  RE: '#1d6fb8',
   CA: '#c45c26',
   SE: '#0d9488',
-  FR: '#7c3aed',
+  FR: '#a16207',
   OU: '#4b5563',
 };
 
@@ -66,6 +74,8 @@ function ToothButton({
   tooth,
   code,
   faceCount,
+  planned,
+  done,
   selected,
   disabled,
   onSelect,
@@ -73,52 +83,52 @@ function ToothButton({
   tooth: string;
   code?: string;
   faceCount?: number;
+  planned?: number;
+  done?: number;
   selected: boolean;
   disabled?: boolean;
   onSelect: () => void;
 }) {
-  const bg = code ? CONDITION_COLOR[code] || '#334155' : 'transparent';
+  const bg = code ? CONDITION_COLOR[code] || '#334155' : undefined;
+  const titleParts = [
+    code ? `${tooth}: ${code}` : tooth,
+    faceCount ? `${faceCount} face(s)` : null,
+    planned ? `${planned} planejado(s)` : null,
+    done ? `${done} realizado(s)` : null,
+  ].filter(Boolean);
+
   return (
     <button
       type="button"
+      className={[
+        'odg-tooth',
+        code ? 'is-marked' : '',
+        selected ? 'is-selected' : '',
+        disabled ? 'is-disabled' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       disabled={disabled}
       onClick={onSelect}
-      title={
-        code
-          ? `${tooth}: ${code}${faceCount ? ` · ${faceCount} face(s)` : ''}`
-          : tooth
-      }
+      title={titleParts.join(' · ')}
       aria-pressed={selected}
-      style={{
-        width: 28,
-        height: 36,
-        padding: 0,
-        fontSize: 11,
-        fontWeight: 600,
-        borderRadius: 4,
-        border: selected ? '2px solid var(--fg, #111)' : '1px solid var(--border, #cbd5e1)',
-        background: code ? bg : 'var(--bg, #fff)',
-        color: code ? '#fff' : 'inherit',
-        cursor: disabled ? 'default' : 'pointer',
-        opacity: disabled && !code ? 0.7 : 1,
-        position: 'relative',
-      }}
+      style={
+        code
+          ? ({
+              '--odg-tooth-bg': bg,
+              '--odg-tooth-fg': '#fff',
+            } as CSSProperties)
+          : undefined
+      }
+      data-condition={code || undefined}
     >
-      {tooth}
-      {!!faceCount && (
-        <span
-          aria-hidden
-          style={{
-            position: 'absolute',
-            right: 1,
-            bottom: 1,
-            width: 6,
-            height: 6,
-            borderRadius: 99,
-            background: '#0f172a',
-          }}
-        />
-      )}
+      <span className="odg-tooth__num">{tooth}</span>
+      {code ? <span className="odg-tooth__code">{code}</span> : null}
+      <span className="odg-tooth__marks" aria-hidden>
+        {!!faceCount && <i className="odg-dot odg-dot--face" title="Faces" />}
+        {!!planned && <i className="odg-dot odg-dot--planned" title="Planejado" />}
+        {!!done && <i className="odg-dot odg-dot--done" title="Realizado" />}
+      </span>
     </button>
   );
 }
@@ -127,6 +137,8 @@ function ScopeChip({
   code,
   label,
   marked,
+  planned,
+  done,
   selected,
   disabled,
   onSelect,
@@ -134,6 +146,8 @@ function ScopeChip({
   code: string;
   label: string;
   marked?: string;
+  planned?: number;
+  done?: number;
   selected: boolean;
   disabled?: boolean;
   onSelect: () => void;
@@ -142,21 +156,40 @@ function ScopeChip({
   return (
     <button
       type="button"
-      className="btn ghost"
+      className={[
+        'odg-scope',
+        marked ? 'is-marked' : '',
+        selected ? 'is-selected' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       disabled={disabled}
       onClick={onSelect}
-      title={marked ? `${label}: ${marked}` : label}
+      title={[
+        marked ? `${label}: ${marked}` : label,
+        planned ? `${planned} planejado(s)` : null,
+        done ? `${done} realizado(s)` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')}
       aria-pressed={selected}
-      style={{
-        padding: '4px 8px',
-        fontSize: 12,
-        border: selected ? '2px solid var(--fg, #111)' : undefined,
-        background: bg,
-        color: marked ? '#fff' : undefined,
-      }}
+      style={
+        marked
+          ? ({
+              '--odg-scope-bg': bg,
+              '--odg-scope-fg': '#fff',
+            } as CSSProperties)
+          : undefined
+      }
     >
-      {code}
-      {marked ? ` · ${marked}` : ''}
+      <span className="odg-scope__code">{code}</span>
+      {marked ? <span className="odg-scope__mark">{marked}</span> : null}
+      {(planned || done) && (
+        <span className="odg-scope__proc" aria-hidden>
+          {!!planned && <i className="odg-dot odg-dot--planned" />}
+          {!!done && <i className="odg-dot odg-dot--done" />}
+        </span>
+      )}
     </button>
   );
 }
@@ -165,6 +198,7 @@ function ArchRow({
   teeth,
   value,
   facesValue,
+  procedureMarks,
   selectedKey,
   disabled,
   onSelectKey,
@@ -172,36 +206,45 @@ function ArchRow({
   teeth: string[];
   value: Record<string, string>;
   facesValue?: OdontogramFacesMap;
+  procedureMarks?: Record<string, OdontogramProcedureMark>;
   selectedKey: string;
   disabled?: boolean;
   onSelectKey: (t: string) => void;
 }) {
   const mid = Math.floor(teeth.length / 2);
   return (
-    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-      {teeth.slice(0, mid).map((t) => (
-        <ToothButton
-          key={t}
-          tooth={t}
-          code={value[t]}
-          faceCount={facesValue?.[t] ? Object.keys(facesValue[t]!).length : 0}
-          selected={selectedKey === t}
-          disabled={disabled}
-          onSelect={() => onSelectKey(t)}
-        />
-      ))}
-      <span style={{ width: 8 }} aria-hidden />
-      {teeth.slice(mid).map((t) => (
-        <ToothButton
-          key={t}
-          tooth={t}
-          code={value[t]}
-          faceCount={facesValue?.[t] ? Object.keys(facesValue[t]!).length : 0}
-          selected={selectedKey === t}
-          disabled={disabled}
-          onSelect={() => onSelectKey(t)}
-        />
-      ))}
+    <div className="odg-arch-row">
+      <div className="odg-arch-half">
+        {teeth.slice(0, mid).map((t) => (
+          <ToothButton
+            key={t}
+            tooth={t}
+            code={value[t]}
+            faceCount={facesValue?.[t] ? Object.keys(facesValue[t]!).length : 0}
+            planned={procedureMarks?.[t]?.planned}
+            done={procedureMarks?.[t]?.done}
+            selected={selectedKey === t}
+            disabled={disabled}
+            onSelect={() => onSelectKey(t)}
+          />
+        ))}
+      </div>
+      <span className="odg-midline" aria-hidden />
+      <div className="odg-arch-half">
+        {teeth.slice(mid).map((t) => (
+          <ToothButton
+            key={t}
+            tooth={t}
+            code={value[t]}
+            faceCount={facesValue?.[t] ? Object.keys(facesValue[t]!).length : 0}
+            planned={procedureMarks?.[t]?.planned}
+            done={procedureMarks?.[t]?.done}
+            selected={selectedKey === t}
+            disabled={disabled}
+            onSelect={() => onSelectKey(t)}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -227,11 +270,18 @@ function FaceCross({
   const byCode = Object.fromEntries(faceDefs.map((f) => [f.code, f]));
   const cell = (code: string) => {
     const need = faces[code];
-    const bg = need ? FACE_NEED_COLOR[need] || '#334155' : 'var(--bg, #fff)';
+    const bg = need ? FACE_NEED_COLOR[need] || '#334155' : undefined;
     const def = byCode[code];
     return (
       <button
         type="button"
+        className={[
+          'odg-face',
+          need ? 'is-marked' : '',
+          selectedFace === code ? 'is-selected' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         disabled={disabled}
         onClick={() => onSelectFace(code)}
         title={
@@ -240,40 +290,28 @@ function FaceCross({
             : def?.label || code
         }
         aria-pressed={selectedFace === code}
-        style={{
-          width: 36,
-          height: 36,
-          fontSize: 11,
-          fontWeight: 700,
-          border:
-            selectedFace === code
-              ? '2px solid var(--fg, #111)'
-              : '1px solid var(--border, #cbd5e1)',
-          background: bg,
-          color: need ? '#fff' : 'inherit',
-          cursor: disabled ? 'default' : 'pointer',
-        }}
+        style={
+          need
+            ? ({
+                '--odg-face-bg': bg,
+                '--odg-face-fg': '#fff',
+              } as CSSProperties)
+            : undefined
+        }
       >
-        {code}
-        {need ? `·${need}` : ''}
+        <span className="odg-face__code">{code}</span>
+        {need ? <span className="odg-face__need">{need}</span> : null}
       </button>
     );
   };
 
   return (
-    <div style={{ display: 'grid', gap: 6 }}>
-      <div className="muted" style={{ fontSize: 12 }}>
-        Faces do dente {tooth} (cruz clínica — só careJson; não vai ao Thrift FAO)
+    <div className="odg-face-cross">
+      <div className="odg-face-cross__title">
+        Faces · dente <strong className="mono">{tooth}</strong>
+        <span className="odg-face-cross__hint">clínico (careJson)</span>
       </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '36px 36px 36px',
-          gridTemplateRows: '36px 36px 36px',
-          gap: 4,
-          width: 'fit-content',
-        }}
-      >
+      <div className="odg-face-grid" role="group" aria-label={`Faces do dente ${tooth}`}>
         <span />
         {cell('V')}
         <span />
@@ -283,6 +321,70 @@ function FaceCross({
         <span />
         {cell('L')}
         <span />
+      </div>
+    </div>
+  );
+}
+
+function Legend({
+  conditions,
+  faceNeeds,
+}: {
+  conditions: OdontogramCondition[];
+  faceNeeds?: OdontogramFaceNeed[];
+}) {
+  return (
+    <div className="odg-legend">
+      <div className="odg-legend__block">
+        <span className="odg-legend__label">Condições</span>
+        <ul className="odg-legend__list">
+          {conditions.map((c) => (
+            <li key={c.code}>
+              <i
+                className="odg-swatch"
+                style={{ background: CONDITION_COLOR[c.code] || '#334155' }}
+                aria-hidden
+              />
+              <span className="mono">{c.code}</span>
+              <span className="odg-legend__name">{c.label}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {faceNeeds && faceNeeds.length > 0 ? (
+        <div className="odg-legend__block">
+          <span className="odg-legend__label">Faces</span>
+          <ul className="odg-legend__list">
+            {faceNeeds.map((n) => (
+              <li key={n.code}>
+                <i
+                  className="odg-swatch"
+                  style={{ background: FACE_NEED_COLOR[n.code] || '#334155' }}
+                  aria-hidden
+                />
+                <span className="mono">{n.code}</span>
+                <span className="odg-legend__name">{n.label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <div className="odg-legend__block odg-legend__block--marks">
+        <span className="odg-legend__label">Marcas</span>
+        <ul className="odg-legend__list">
+          <li>
+            <i className="odg-dot odg-dot--face" aria-hidden />
+            <span className="odg-legend__name">Faces marcadas</span>
+          </li>
+          <li>
+            <i className="odg-dot odg-dot--planned" aria-hidden />
+            <span className="odg-legend__name">Procedimento planejado</span>
+          </li>
+          <li>
+            <i className="odg-dot odg-dot--done" aria-hidden />
+            <span className="odg-legend__name">Procedimento realizado</span>
+          </li>
+        </ul>
       </div>
     </div>
   );
@@ -305,6 +407,7 @@ export function OdontogramGrid({
   disabled,
   showDeciduous,
   hideEditor,
+  procedureMarks,
 }: Props) {
   const current = selectedKey ? value[selectedKey] : undefined;
   const isTooth = /^\d{2}$/.test(selectedKey);
@@ -337,173 +440,226 @@ export function OdontogramGrid({
   const currentFaceNeed =
     isTooth && selectedFace ? facesValue[selectedKey]?.[selectedFace] : undefined;
 
+  const selectionLabel = useMemo(() => {
+    if (!selectedKey) return 'Nenhum dente/escopo';
+    if (isTooth) return `Dente ${selectedKey}`;
+    const q = scopes?.quadrants.find((x) => x.code === selectedKey);
+    if (q) return q.label;
+    const s = scopes?.sextants.find((x) => x.code === selectedKey);
+    if (s) return s.label;
+    if (scopes?.mouth.code === selectedKey) return scopes.mouth.label;
+    return selectedKey;
+  }, [selectedKey, isTooth, scopes]);
+
+  const archProps = {
+    value,
+    facesValue,
+    procedureMarks,
+    selectedKey,
+    disabled,
+    onSelectKey: selectKey,
+  };
+
   return (
-    <div className="odontogram" style={{ display: 'grid', gap: 10 }}>
-      <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        {hideEditor
-          ? `Snapshot somente leitura. Marcações: ${marked}.`
-          : `Clique no dente (FDI) ou no escopo (quadrante / sextante / boca). Marcadores do dente e faces (cruz) são clínicos; procedimentos planejados/realizados ficam na lista SIGTAP. Marcações: ${marked}.`}
-      </p>
-      {showDeciduous && (
-        <>
-          <div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-              Superior decídua
+    <div className={`odontogram${hideEditor ? ' is-readonly' : ''}`}>
+      <header className="odg-toolbar">
+        <div className="odg-toolbar__lead">
+          <p className="odg-toolbar__title">Odontograma FDI</p>
+          <p className="odg-toolbar__meta">
+            {hideEditor
+              ? `Snapshot · ${marked} marcação${marked === 1 ? '' : 'ões'}`
+              : `${marked} marcação${marked === 1 ? '' : 'ões'} · faces clínicas + SIGTAP à parte`}
+          </p>
+        </div>
+        {!hideEditor && (
+          <p className="odg-toolbar__hint">
+            Clique no dente ou escopo. Condição pinta o dente; faces usam a cruz; procedimentos
+            planejados/realizados aparecem como pontos.
+          </p>
+        )}
+      </header>
+
+      <div className="odg-stage">
+        {showDeciduous && (
+          <section className="odg-arch odg-arch--deciduous">
+            <div className="odg-arch__head">
+              <span className="odg-arch__tag">Decídua</span>
+              <h3 className="odg-arch__title">Superior</h3>
             </div>
-            <ArchRow
-              teeth={arches.upperDeciduous}
-              value={value}
-              facesValue={facesValue}
-              selectedKey={selectedKey}
-              disabled={disabled}
-              onSelectKey={selectKey}
-            />
+            <ArchRow teeth={arches.upperDeciduous} {...archProps} />
+          </section>
+        )}
+
+        <section className="odg-arch odg-arch--permanent">
+          <div className="odg-arch__head">
+            <span className="odg-arch__tag">Permanente</span>
+            <h3 className="odg-arch__title">Superior</h3>
           </div>
-        </>
-      )}
-      <div>
-        <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-          Superior permanente
+          <ArchRow teeth={arches.upperPermanent} {...archProps} />
+        </section>
+
+        <div className="odg-bite" aria-hidden>
+          <span>linha média</span>
         </div>
-        <ArchRow
-          teeth={arches.upperPermanent}
-          value={value}
-          facesValue={facesValue}
-          selectedKey={selectedKey}
-          disabled={disabled}
-          onSelectKey={selectKey}
-        />
-      </div>
-      <div>
-        <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-          Inferior permanente
-        </div>
-        <ArchRow
-          teeth={arches.lowerPermanent}
-          value={value}
-          facesValue={facesValue}
-          selectedKey={selectedKey}
-          disabled={disabled}
-          onSelectKey={selectKey}
-        />
-      </div>
-      {showDeciduous && (
-        <div>
-          <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
-            Inferior decídua
+
+        <section className="odg-arch odg-arch--permanent">
+          <div className="odg-arch__head">
+            <span className="odg-arch__tag">Permanente</span>
+            <h3 className="odg-arch__title">Inferior</h3>
           </div>
-          <ArchRow
-            teeth={arches.lowerDeciduous}
-            value={value}
-            facesValue={facesValue}
-            selectedKey={selectedKey}
-            disabled={disabled}
-            onSelectKey={selectKey}
-          />
+          <ArchRow teeth={arches.lowerPermanent} {...archProps} />
+        </section>
+
+        {showDeciduous && (
+          <section className="odg-arch odg-arch--deciduous">
+            <div className="odg-arch__head">
+              <span className="odg-arch__tag">Decídua</span>
+              <h3 className="odg-arch__title">Inferior</h3>
+            </div>
+            <ArchRow teeth={arches.lowerDeciduous} {...archProps} />
+          </section>
+        )}
+      </div>
+
+      {scopes && (
+        <div className="odg-scopes">
+          <div className="odg-scopes__group">
+            <span className="odg-scopes__label">Quadrante</span>
+            <div className="odg-scopes__chips">
+              {scopes.quadrants.map((q) => (
+                <ScopeChip
+                  key={q.code}
+                  code={q.code}
+                  label={q.label}
+                  marked={value[q.code]}
+                  planned={procedureMarks?.[q.code]?.planned}
+                  done={procedureMarks?.[q.code]?.done}
+                  selected={selectedKey === q.code}
+                  disabled={disabled}
+                  onSelect={() => selectKey(q.code)}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="odg-scopes__group">
+            <span className="odg-scopes__label">Sextante</span>
+            <div className="odg-scopes__chips">
+              {scopes.sextants.map((s) => (
+                <ScopeChip
+                  key={s.code}
+                  code={s.code}
+                  label={s.label}
+                  marked={value[s.code]}
+                  planned={procedureMarks?.[s.code]?.planned}
+                  done={procedureMarks?.[s.code]?.done}
+                  selected={selectedKey === s.code}
+                  disabled={disabled}
+                  onSelect={() => selectKey(s.code)}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="odg-scopes__group">
+            <span className="odg-scopes__label">Boca</span>
+            <div className="odg-scopes__chips">
+              <ScopeChip
+                code={scopes.mouth.code}
+                label={scopes.mouth.label}
+                marked={value[scopes.mouth.code]}
+                planned={procedureMarks?.[scopes.mouth.code]?.planned}
+                done={procedureMarks?.[scopes.mouth.code]?.done}
+                selected={selectedKey === scopes.mouth.code}
+                disabled={disabled}
+                onSelect={() => selectKey(scopes.mouth.code)}
+              />
+            </div>
+          </div>
         </div>
       )}
 
-      {scopes && (
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div className="muted" style={{ fontSize: 12 }}>
-            Escopos (RF-12.12)
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            <span className="muted" style={{ fontSize: 12 }}>
-              Quadrante
-            </span>
-            {scopes.quadrants.map((q) => (
-              <ScopeChip
-                key={q.code}
-                code={q.code}
-                label={q.label}
-                marked={value[q.code]}
-                selected={selectedKey === q.code}
-                disabled={disabled}
-                onSelect={() => selectKey(q.code)}
-              />
-            ))}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            <span className="muted" style={{ fontSize: 12 }}>
-              Sextante
-            </span>
-            {scopes.sextants.map((s) => (
-              <ScopeChip
-                key={s.code}
-                code={s.code}
-                label={s.label}
-                marked={value[s.code]}
-                selected={selectedKey === s.code}
-                disabled={disabled}
-                onSelect={() => selectKey(s.code)}
-              />
-            ))}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            <span className="muted" style={{ fontSize: 12 }}>
-              Boca
-            </span>
-            <ScopeChip
-              code={scopes.mouth.code}
-              label={scopes.mouth.label}
-              marked={value[scopes.mouth.code]}
-              selected={selectedKey === scopes.mouth.code}
-              disabled={disabled}
-              onSelect={() => selectKey(scopes.mouth.code)}
-            />
-          </div>
-        </div>
-      )}
+      <Legend conditions={conditions} faceNeeds={faceNeeds} />
 
       {hideEditor ? (
         selectedKey ? (
-          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-            {isTooth ? 'Dente' : 'Escopo'} {selectedKey}:{' '}
+          <p className="odg-readonly-sel">
+            {isTooth ? 'Dente' : 'Escopo'} <strong className="mono">{selectedKey}</strong>:{' '}
             {current
               ? `${current} — ${conditions.find((c) => c.code === current)?.label || current}`
               : 'sem marcação'}
           </p>
         ) : null
       ) : (
-        <>
-          <div style={{ display: 'grid', gap: 6 }}>
-            <div className="muted" style={{ fontSize: 12 }}>
-              Marcadores do dente / escopo {selectedKey || '—'}
+        <div className="odg-workspace">
+          <aside className="odg-panel">
+            <div className="odg-panel__head">
+              <span className="odg-panel__eyebrow">Seleção</span>
+              <h4 className="odg-panel__title">{selectionLabel}</h4>
+              {current ? (
+                <p className="odg-panel__status">
+                  <i
+                    className="odg-swatch"
+                    style={{ background: CONDITION_COLOR[current] || '#334155' }}
+                    aria-hidden
+                  />
+                  {current} — {conditions.find((c) => c.code === current)?.label || current}
+                </p>
+              ) : (
+                <p className="odg-panel__status muted">Sem condição</p>
+              )}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-              {conditions.map((c) => (
-                <button
-                  key={c.code}
-                  type="button"
-                  className="btn ghost"
-                  disabled={disabled || !selectedKey}
-                  onClick={() => setCondition(c.code)}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: 12,
-                    borderColor: current === c.code ? CONDITION_COLOR[c.code] : undefined,
-                    background: current === c.code ? CONDITION_COLOR[c.code] : undefined,
-                    color: current === c.code ? '#fff' : undefined,
-                  }}
-                >
-                  {c.code} — {c.label}
-                </button>
-              ))}
+
+            <div className="odg-panel__section">
+              <span className="odg-panel__label">Condição do dente / escopo</span>
+              <div className="odg-cond-grid">
+                {conditions.map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    className={[
+                      'odg-cond',
+                      current === c.code ? 'is-active' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    disabled={disabled || !selectedKey}
+                    onClick={() => setCondition(c.code)}
+                    style={
+                      {
+                        '--odg-cond-color': CONDITION_COLOR[c.code] || '#334155',
+                      } as CSSProperties
+                    }
+                  >
+                    <span className="odg-cond__code mono">{c.code}</span>
+                    <span className="odg-cond__label">{c.label}</span>
+                  </button>
+                ))}
+              </div>
               <button
                 type="button"
-                className="btn ghost"
+                className="odg-clear"
                 disabled={disabled || !selectedKey || !current}
                 onClick={() => setCondition(null)}
-                style={{ padding: '4px 8px', fontSize: 12 }}
               >
-                Limpar dente
+                Limpar condição
               </button>
             </div>
-          </div>
+
+            {isTooth && onChangeToothNote ? (
+              <label className="odg-note">
+                Observações do dente {selectedKey}
+                <textarea
+                  disabled={disabled}
+                  value={toothNote}
+                  onChange={(e) => onChangeToothNote(e.target.value)}
+                  rows={2}
+                  placeholder="Observação clínica deste dente"
+                />
+              </label>
+            ) : null}
+          </aside>
 
           {isTooth && faces?.length && faceNeeds?.length && onChangeFaces ? (
-            <div style={{ display: 'grid', gap: 8 }}>
+            <div className="odg-faces-pane">
               <FaceCross
                 tooth={selectedKey}
                 faces={facesValue[selectedKey] || {}}
@@ -513,54 +669,54 @@ export function OdontogramGrid({
                 onSelectFace={setSelectedFace}
                 disabled={disabled}
               />
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-                <span className="muted" style={{ fontSize: 12 }}>
-                  Face {selectedFace || '—'}:
+              <div className="odg-panel__section">
+                <span className="odg-panel__label">
+                  Necessidade da face <strong className="mono">{selectedFace || '—'}</strong>
                 </span>
-                {faceNeeds.map((n) => (
-                  <button
-                    key={n.code}
-                    type="button"
-                    className="btn ghost"
-                    disabled={disabled || !selectedFace}
-                    onClick={() => setFaceNeed(n.code)}
-                    style={{
-                      padding: '4px 8px',
-                      fontSize: 12,
-                      background:
-                        currentFaceNeed === n.code ? FACE_NEED_COLOR[n.code] : undefined,
-                      color: currentFaceNeed === n.code ? '#fff' : undefined,
-                    }}
-                  >
-                    {n.code} — {n.label}
-                  </button>
-                ))}
+                <div className="odg-cond-grid odg-cond-grid--faces">
+                  {faceNeeds.map((n) => (
+                    <button
+                      key={n.code}
+                      type="button"
+                      className={[
+                        'odg-cond',
+                        currentFaceNeed === n.code ? 'is-active' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      disabled={disabled || !selectedFace}
+                      onClick={() => setFaceNeed(n.code)}
+                      style={
+                        {
+                          '--odg-cond-color': FACE_NEED_COLOR[n.code] || '#334155',
+                        } as CSSProperties
+                      }
+                    >
+                      <span className="odg-cond__code mono">{n.code}</span>
+                      <span className="odg-cond__label">{n.label}</span>
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
-                  className="btn ghost"
+                  className="odg-clear"
                   disabled={disabled || !selectedFace || !currentFaceNeed}
                   onClick={() => setFaceNeed(null)}
-                  style={{ padding: '4px 8px', fontSize: 12 }}
                 >
                   Limpar face
                 </button>
               </div>
             </div>
-          ) : null}
-
-          {isTooth && onChangeToothNote ? (
-            <label>
-              Observações do dente {selectedKey}
-              <textarea
-                disabled={disabled}
-                value={toothNote}
-                onChange={(e) => onChangeToothNote(e.target.value)}
-                rows={2}
-                placeholder="Observação clínica deste dente"
-              />
-            </label>
-          ) : null}
-        </>
+          ) : (
+            <div className="odg-faces-pane odg-faces-pane--empty">
+              <p>
+                {selectedKey
+                  ? 'Selecione um dente FDI para editar a cruz de faces (M/D/V/L/O).'
+                  : 'Selecione um dente ou escopo à esquerda.'}
+              </p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

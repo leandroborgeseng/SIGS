@@ -8,6 +8,7 @@ import {
   OdontogramGrid,
   type OdontogramArches,
   type OdontogramCondition,
+  type OdontogramProcedureMark,
   type OdontogramScopes,
 } from '@/components/odonto/OdontogramGrid';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
@@ -617,6 +618,20 @@ export default function OdontoAtendimentoPage() {
     return history.filter((h) => h.treatmentId === care.treatment?.id);
   }, [history, historyOnlyCurrentTreatment, care?.treatment?.id]);
 
+  /** Pontos planejado/realizado no odontograma (só UI; não altera PATCH). */
+  const procedureMarks = useMemo(() => {
+    const marks: Record<string, OdontogramProcedureMark> = {};
+    for (const p of procedures) {
+      const key = selectionKeyFromProcedure(p);
+      if (!key) continue;
+      const row = marks[key] || { planned: 0, done: 0 };
+      if (p.done === false) row.planned = (row.planned || 0) + 1;
+      else row.done = (row.done || 0) + 1;
+      marks[key] = row;
+    }
+    return marks;
+  }, [procedures]);
+
   function startTreatment() {
     if (!care || !enc || enc.status !== 'IN_PROGRESS') return;
     const now = new Date().toISOString();
@@ -1011,40 +1026,51 @@ export default function OdontoAtendimentoPage() {
                   placeholder="Plano clínico (texto)"
                 />
               </label>
-              <label className="check">
-                <input
-                  type="checkbox"
+              <div className="odontogram-chrome">
+                <div className="odontogram-chrome__head">
+                  <div>
+                    <p className="odontogram-chrome__title">Arcadas e faces</p>
+                    <p className="odontogram-chrome__sub">
+                      Condição no dente · cruz M/D/V/L/O · pontos = SIGTAP planejado/realizado
+                    </p>
+                  </div>
+                  <label className="check" style={{ margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      disabled={readonly}
+                      checked={showDeciduous}
+                      onChange={(e) => setShowDeciduous(e.target.checked)}
+                    />
+                    Dentição decídua
+                  </label>
+                </div>
+                <OdontogramGrid
+                  value={odontogram}
+                  conditions={catalog.odontogram.conditions}
+                  arches={catalog.odontogram.arches}
+                  scopes={catalog.odontogram.scopes}
+                  faces={catalog.odontogram.faces}
+                  faceNeeds={catalog.odontogram.faceNeeds}
+                  facesValue={care.odontogramFaces || {}}
+                  onChangeFaces={(next) => setCare({ ...care, odontogramFaces: next })}
+                  toothNote={
+                    /^\d{2}$/.test(selectedKey) ? care.toothNotes?.[selectedKey] || '' : ''
+                  }
+                  onChangeToothNote={(note) => {
+                    if (!/^\d{2}$/.test(selectedKey)) return;
+                    const toothNotes = { ...(care.toothNotes || {}) };
+                    if (!note.trim()) delete toothNotes[selectedKey];
+                    else toothNotes[selectedKey] = note;
+                    setCare({ ...care, toothNotes });
+                  }}
+                  selectedKey={selectedKey}
+                  onSelectKey={setSelectedKey}
+                  onChange={setOdontogram}
                   disabled={readonly}
-                  checked={showDeciduous}
-                  onChange={(e) => setShowDeciduous(e.target.checked)}
+                  showDeciduous={showDeciduous}
+                  procedureMarks={procedureMarks}
                 />
-                Mostrar dentição decídua
-              </label>
-              <OdontogramGrid
-                value={odontogram}
-                conditions={catalog.odontogram.conditions}
-                arches={catalog.odontogram.arches}
-                scopes={catalog.odontogram.scopes}
-                faces={catalog.odontogram.faces}
-                faceNeeds={catalog.odontogram.faceNeeds}
-                facesValue={care.odontogramFaces || {}}
-                onChangeFaces={(next) => setCare({ ...care, odontogramFaces: next })}
-                toothNote={
-                  /^\d{2}$/.test(selectedKey) ? care.toothNotes?.[selectedKey] || '' : ''
-                }
-                onChangeToothNote={(note) => {
-                  if (!/^\d{2}$/.test(selectedKey)) return;
-                  const toothNotes = { ...(care.toothNotes || {}) };
-                  if (!note.trim()) delete toothNotes[selectedKey];
-                  else toothNotes[selectedKey] = note;
-                  setCare({ ...care, toothNotes });
-                }}
-                selectedKey={selectedKey}
-                onSelectKey={setSelectedKey}
-                onChange={setOdontogram}
-                disabled={readonly}
-                showDeciduous={showDeciduous}
-              />
+              </div>
               {catalog.odontogram.note && (
                 <p className="muted" style={{ fontSize: 12 }}>
                   {catalog.odontogram.note}
