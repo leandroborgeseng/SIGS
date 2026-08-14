@@ -60,6 +60,12 @@ describe('ledi-job-progress (chunks / poll)', () => {
     expect(a).toBe(b);
     expect(a).toMatch(/^ledi-auto-fix:batch-1:sel:[0-9a-f]{12}$/);
     expect(a).not.toBe(lediAutofixIdempotencyKey('batch-1', { onlyItemIds: ['a'] }));
+    expect(lediAutofixIdempotencyKey('batch-1', { onlyCode: 'ST_NAO_POSSUI_CPF' })).toBe(
+      'ledi-auto-fix:batch-1:code:ST_NAO_POSSUI_CPF',
+    );
+    expect(lediAutofixIdempotencyKey('batch-1', { dryRun: true, onlyCode: 'TURNO' })).toBe(
+      'ledi-dry-run:batch-1:code:TURNO',
+    );
   });
 
   it('checkpoint resume: Maps ↔ JSON', () => {

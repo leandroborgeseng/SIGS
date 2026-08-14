@@ -88,9 +88,11 @@ export function parseLediFichaProgress(
 
 export function lediAutofixIdempotencyKey(
   batchId: string,
-  opts: { dryRun?: boolean; onlyItemIds?: string[] },
+  opts: { dryRun?: boolean; onlyItemIds?: string[]; onlyCode?: string },
 ): string {
   const prefix = opts.dryRun ? 'ledi-dry-run' : 'ledi-auto-fix';
+  const code = opts.onlyCode?.trim();
+  if (code) return `${prefix}:${batchId}:code:${code}`;
   const ids = opts.onlyItemIds?.filter(Boolean) || [];
   if (!ids.length) return `${prefix}:${batchId}`;
   const h = createHash('sha1')

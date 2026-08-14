@@ -226,7 +226,13 @@ export class AutoFixLediFaoBatchDto {
   /** Restringe a correção às fichas selecionadas. */
   @IsOptional() @IsArray() @IsString({ each: true }) onlyItemIds?: string[];
   /**
-   * Se true (com onlyItemIds), aplica os campos de patch abaixo
+   * Restringe às fichas que têm este código de alerta (findings / Previne / autoFixable).
+   * Preferível a onlyItemIds quando o lote tem milhares de afetadas — evita o bug
+   * da UI que só conhece a 1ª página (limit 300).
+   */
+  @IsOptional() @IsString() onlyCode?: string;
+  /**
+   * Se true (com onlyItemIds ou onlyCode), aplica os campos de patch abaixo
    * mesmo sem o código correspondente no findings.
    */
   @IsOptional() @IsBoolean() forceSelected?: boolean;

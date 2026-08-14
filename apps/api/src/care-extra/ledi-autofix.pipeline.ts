@@ -32,6 +32,8 @@ export type AutoFixPipelineInput = {
   ine?: string;
   forceSelected?: boolean;
   onlyItemIds?: string[];
+  /** Escopo por código de alerta (lote inteiro filtrado no serviço). */
+  onlyCode?: string;
   problemasCondicoes?: Array<{ ciap?: string; cid10?: string }>;
   problemasCondicoesDefault?: Array<{ ciap?: string; cid10?: string }>;
   tiposConsultaOdonto?: number[];
@@ -92,7 +94,8 @@ export function runAutoFixPipeline(
   }
 
   const codes = new Set([...findings.map((f) => f.code), ...previneGaps]);
-  const force = !!dto.forceSelected && !!dto.onlyItemIds?.length;
+  const force =
+    !!dto.forceSelected && (!!dto.onlyItemIds?.length || !!dto.onlyCode?.trim());
 
   const step = (label: string, next: { xml: string; changed: boolean }) => {
     if (!next.changed) return;
@@ -210,7 +213,8 @@ function runFaiAutoFixPipeline(
   }
 
   const codes = new Set(findings.map((f) => f.code));
-  const force = !!dto.forceSelected && !!dto.onlyItemIds?.length;
+  const force =
+    !!dto.forceSelected && (!!dto.onlyItemIds?.length || !!dto.onlyCode?.trim());
   const step = (label: string, next: { xml: string; changed: boolean }) => {
     if (!next.changed) return;
     current = next.xml;

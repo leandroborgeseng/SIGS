@@ -644,8 +644,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       return;
     }
 
-    const ids = items.map((it) => it.id);
-    if (!ids.length) {
+    const affected = itemsTotal || items.length;
+    if (affected < 1) {
       setError('Nenhuma ficha neste filtro.');
       return;
     }
@@ -666,15 +666,17 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       justificativaUnexpected,
     };
 
+    // onlyCode no servidor — NÃO mandar onlyItemIds da página (limit 300),
+    // senão o job reporta "300 de 300" e ignora o restante do lote.
     let body: Record<string, unknown> = {
       forceSelected: false,
-      onlyItemIds: ids,
+      onlyCode: repairCode,
       stNaoPossuiCpf: false,
     };
 
     if (guide.ui === 'st_cpf' || !guide.ui || guide.ui === 'manual') {
       body = {
-        onlyItemIds: ids,
+        onlyCode: repairCode,
         stNaoPossuiCpf: guide.ui === 'st_cpf' || repairCode === 'ST_NAO_POSSUI_CPF',
         forceSelected: false,
       };
@@ -709,7 +711,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
         repairCode,
         `“${guide.title}”: corrigidas ${touched} ficha(s).`,
       );
-      if (selected && ids.includes(selected.id)) {
+      if (selected && items.some((it) => it.id === selected.id)) {
         setSelected(
           await api<ItemDetail>(`/v1/dental/ledi/batches/${batch.id}/items/${selected.id}`),
         );

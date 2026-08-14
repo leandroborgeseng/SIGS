@@ -93,4 +93,25 @@ describe('POST auto-fix / dry-run → job 202', () => {
     expect(autoFix).toHaveBeenCalled();
     expect(enqueue).not.toHaveBeenCalled();
   });
+
+  it('auto-fix com onlyCode usa contagem real e chave :code:', async () => {
+    countItems.mockResolvedValue(8149);
+    const res = await request(app.getHttpServer())
+      .post('/v1/dental/ledi/batches/batch-9/auto-fix')
+      .send({ stNaoPossuiCpf: true, onlyCode: 'ST_NAO_POSSUI_CPF' });
+    expect(res.status).toBe(202);
+    expect(res.body.itemCount).toBe(8149);
+    expect(enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: 'ledi-auto-fix:batch-9:code:ST_NAO_POSSUI_CPF',
+        payload: expect.objectContaining({
+          dto: expect.objectContaining({ onlyCode: 'ST_NAO_POSSUI_CPF' }),
+        }),
+      }),
+    );
+    expect(countItems).toHaveBeenCalledWith('batch-9', {
+      onlyItemIds: undefined,
+      onlyCode: 'ST_NAO_POSSUI_CPF',
+    });
+  });
 });

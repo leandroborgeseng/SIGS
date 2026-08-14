@@ -784,8 +784,49 @@ export class LediFaoBatchService {
     };
   }
 
-  async listItemIds(batchId: string, onlyItemIds?: string[]) {
+  /** True se a ficha tem o código em findings, Previne ou autoFixableCodes. */
+  private itemMatchesCode(
+    row: { findingsJson?: string | null; autoFixableCodes?: string | null; previneJson?: string | null },
+    code: string,
+  ): boolean {
+    const needle = code.trim();
+    if (!needle) return false;
+    if (row.autoFixableCodes?.split(',').includes(needle)) return true;
+    try {
+      const findings = JSON.parse(row.findingsJson || '[]') as Array<{ code?: string }>;
+      if (findings.some((f) => f.code === needle)) return true;
+    } catch {
+      /* ignore */
+    }
+    try {
+      const previne = row.previneJson ? (JSON.parse(row.previneJson) as PrevineXray) : null;
+      if (previne?.gaps?.some((g) => g.code === needle)) return true;
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+
+  async listItemIds(
+    batchId: string,
+    onlyItemIds?: string[],
+    onlyCode?: string,
+  ) {
     await this.ensureBatch(batchId);
+    const code = onlyCode?.trim();
+    if (code && !onlyItemIds?.length) {
+      const rows = await this.prisma.lediFaoBatchItem.findMany({
+        where: { batchId },
+        select: {
+          id: true,
+          findingsJson: true,
+          autoFixableCodes: true,
+          previneJson: true,
+        },
+        orderBy: { id: 'asc' },
+      });
+      return rows.filter((r) => this.itemMatchesCode(r, code)).map((r) => r.id);
+    }
     const rows = await this.prisma.lediFaoBatchItem.findMany({
       where: this.itemWhere(batchId, onlyItemIds),
       select: { id: true },
@@ -814,7 +855,7 @@ export class LediFaoBatchService {
   ) {
     await this.ensureBatch(batchId);
     const expectedTipo = await this.expectedTipoOf(batchId);
-    const ids = await this.listItemIds(batchId, dto.onlyItemIds);
+    const ids = await this.listItemIds(batchId, dto.onlyItemIds, dto.onlyCode);
     const total = ids.length;
     const chunkSize = opts.chunkSize ?? lediAutofixChunkSize();
     let offset = Math.max(0, Math.min(opts.startOffset ?? 0, total));
@@ -888,7 +929,7 @@ export class LediFaoBatchService {
   ) {
     await this.ensureBatch(batchId);
     const expectedTipo = await this.expectedTipoOf(batchId);
-    const ids = await this.listItemIds(batchId, dto.onlyItemIds);
+    const ids = await this.listItemIds(batchId, dto.onlyItemIds, dto.onlyCode);
     const total = ids.length;
     const chunkSize = opts.chunkSize ?? lediAutofixChunkSize();
     let offset = Math.max(0, Math.min(opts.startOffset ?? opts.checkpoint?.processed ?? 0, total));
@@ -1425,8 +1466,18 @@ export class LediFaoBatchService {
     if (!b) throw new NotFoundException('Lote não encontrado');
   }
 
-  async countItems(batchId: string, onlyItemIds?: string[]) {
+  async countItems(
+    batchId: string,
+    opts?: { onlyItemIds?: string[]; onlyCode?: string } | string[],
+  ) {
     await this.ensureBatch(batchId);
+    // Compat: assinatura antiga countItems(batchId, onlyItemIds[])
+    const onlyItemIds = Array.isArray(opts) ? opts : opts?.onlyItemIds;
+    const onlyCode = Array.isArray(opts) ? undefined : opts?.onlyCode?.trim();
+    if (onlyCode && !onlyItemIds?.length) {
+      const ids = await this.listItemIds(batchId, undefined, onlyCode);
+      return ids.length;
+    }
     return this.prisma.lediFaoBatchItem.count({
       where: {
         batchId,

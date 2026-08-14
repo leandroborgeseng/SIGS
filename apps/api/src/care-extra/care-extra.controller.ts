@@ -377,7 +377,10 @@ export class CareExtraController {
     opts: { dryRun: boolean; asyncFlag?: string; res?: Response },
   ) {
     const threshold = lediAutofixAsyncThreshold();
-    const itemCount = await this.faoBatches.countItems(batchId, dto.onlyItemIds);
+    const itemCount = await this.faoBatches.countItems(batchId, {
+      onlyItemIds: dto.onlyItemIds,
+      onlyCode: dto.onlyCode,
+    });
     const wantAsync =
       opts.asyncFlag === '1' ||
       opts.asyncFlag === 'true' ||
@@ -390,6 +393,7 @@ export class CareExtraController {
         idempotencyKey: lediAutofixIdempotencyKey(batchId, {
           dryRun: opts.dryRun,
           onlyItemIds: dto.onlyItemIds,
+          onlyCode: dto.onlyCode,
         }),
         payload: { batchId, dto, dryRun: opts.dryRun },
       });
