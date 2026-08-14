@@ -30,7 +30,11 @@ function describeCause(cause: unknown): string | null {
   return s && s !== '[object Object]' ? s : null;
 }
 
-/** Heurística fraca: path/nome/size 0 / NotReadable típico — tip, não diagnóstico. */
+/**
+ * Só sugere nuvem se o path/nome/size 0 apontarem para isso.
+ * “I/O read operation failed” no Safari NÃO implica iCloud (Downloads local,
+ * drag-drop e 2ª leitura no mesmo handle também falham).
+ */
 export function shouldHintCloudPlaceholder(opts: {
   fileName?: string;
   relativePath?: string;
@@ -38,10 +42,9 @@ export function shouldHintCloudPlaceholder(opts: {
   cause?: unknown;
 }): boolean {
   const pathish = `${opts.relativePath || ''} ${opts.fileName || ''}`.toLowerCase();
-  if (/icloud|downloads\//i.test(pathish)) return true;
+  if (/icloud/i.test(pathish)) return true;
   if (opts.fileSize === 0) return true;
-  const detail = describeCause(opts.cause) || '';
-  return /NotReadableError|I\/O read operation failed/i.test(detail);
+  return false;
 }
 
 export class IoReadError extends Error {
@@ -70,10 +73,11 @@ export class IoReadError extends Error {
 
     let msg = `Não foi possível ler ${who}${metaStr}`;
     if (causeDetail) msg += ` — ${causeDetail}`;
-    msg += '. Use “Escolher de novo” e confira se o arquivo existe, não está vazio e não está em uso.';
+    msg +=
+      '. O Safari não leu o arquivo; escolha de novo pelo botão, não arraste do Finder se falhar.';
     if (hintCloud) {
       msg +=
-        ' Dica: se estiver em Downloads sincronizado com iCloud (placeholder na nuvem), copie para uma pasta local (ex.: Desktop) e selecione de lá.';
+        ' Se o arquivo estiver só na nuvem (iCloud), copie para uma pasta local (ex.: Desktop) e selecione de lá.';
     }
 
     super(msg);
@@ -135,25 +139,26 @@ async function readViaStream(file: Blob): Promise<ArrayBuffer> {
   return out.buffer;
 }
 
+/**
+ * Caminho principal no Safari: FileReader no File inteiro.
+ * NÃO usar file.slice().arrayBuffer() nem fetch(blobUrl) — o WebKit falha
+ * no handle (Downloads, drag-drop, 2ª leitura) com “I/O read operation failed”.
+ */
 async function readViaFileReader(file: Blob): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onload = () => {
+      const result = reader.result;
+      if (!(result instanceof ArrayBuffer) || result.byteLength === 0) {
+        reject(new Error('FileReader devolveu buffer vazio'));
+        return;
+      }
+      resolve(result);
+    };
     reader.onerror = () => reject(reader.error || new Error('FileReader falhou'));
     reader.onabort = () => reject(new Error('FileReader abortado'));
     reader.readAsArrayBuffer(file);
   });
-}
-
-async function readViaObjectUrl(file: Blob): Promise<ArrayBuffer> {
-  const url = URL.createObjectURL(file);
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`fetch blob URL ${res.status}`);
-    return await res.arrayBuffer();
-  } finally {
-    URL.revokeObjectURL(url);
-  }
 }
 
 async function readViaResponse(file: Blob): Promise<ArrayBuffer> {
@@ -162,16 +167,12 @@ async function readViaResponse(file: Blob): Promise<ArrayBuffer> {
 
 type NamedBlob = Blob & { name?: string; webkitRelativePath?: string };
 
-function strategies(file: NamedBlob): Array<() => Promise<ArrayBuffer>> {
-  const size = file.size;
+/** Último recurso — nunca File.slice nem blob URL (Safari). */
+function fallbackStrategies(file: NamedBlob): Array<() => Promise<ArrayBuffer>> {
   return [
     async () => file.arrayBuffer(),
-    async () => file.slice(0, size).arrayBuffer(),
     async () => readViaStream(file),
     async () => readViaResponse(file),
-    async () => readViaObjectUrl(file),
-    async () => readViaFileReader(file),
-    async () => file.slice(0).arrayBuffer(),
   ];
 }
 
@@ -185,9 +186,16 @@ function toIoInit(file: NamedBlob, cause?: unknown): IoReadErrorInit {
   };
 }
 
+function cacheAndReturn(file: NamedBlob, buf: ArrayBuffer): ArrayBuffer {
+  const owned = copyArrayBuffer(buf);
+  bufferCache.set(file, owned);
+  return owned;
+}
+
 /**
- * Lê bytes com várias estratégias + backoff.
- * Resultado fica em WeakMap para reuso sem tocar o disco de novo.
+ * Materializa o arquivo inteiro na RAM.
+ * Principal: FileReader.readAsArrayBuffer (3×, backoff). Sem File.slice / blob URL.
+ * WeakMap evita 2ª leitura no disco (Safari costuma falhar no mesmo handle).
  */
 export async function readBinaryFile(
   file: NamedBlob,
@@ -204,28 +212,46 @@ export async function readBinaryFile(
   }
 
   const rounds = Math.max(1, opts?.retries ?? 3);
-  const delays = [0, 120, 400, 900];
+  const delays = [0, 150, 450];
   let last: unknown;
 
   for (let round = 0; round < rounds; round++) {
     if (delays[round]) await sleep(delays[round]!);
-    for (const attempt of strategies(file)) {
-      try {
-        opts?.onAttempt?.(`lendo ${name} (tentativa ${round + 1})`);
-        const buf = await attempt();
-        if (buf && buf.byteLength > 0) {
-          const owned = copyArrayBuffer(buf);
-          bufferCache.set(file, owned);
-          return owned;
-        }
-        last = new Error('buffer vazio após leitura');
-      } catch (e) {
-        last = e;
-      }
+    try {
+      opts?.onAttempt?.(`lendo ${name} na memória (tentativa ${round + 1}/${rounds})`);
+      const buf = await readViaFileReader(file);
+      if (buf && buf.byteLength > 0) return cacheAndReturn(file, buf);
+      last = new Error('buffer vazio após FileReader');
+    } catch (e) {
+      last = e;
+    }
+  }
+
+  for (const attempt of fallbackStrategies(file)) {
+    try {
+      opts?.onAttempt?.(`lendo ${name} (alternativa após FileReader)`);
+      const buf = await attempt();
+      if (buf && buf.byteLength > 0) return cacheAndReturn(file, buf);
+      last = new Error('buffer vazio após leitura');
+    } catch (e) {
+      last = e;
     }
   }
 
   throw new IoReadError(toIoInit(file, last));
+}
+
+/**
+ * Fatia em memória (cópia própria para o XHR). Nunca File.slice.
+ * `subarray` compartilha o buffer — copiamos para o POST não enviar o ZIP inteiro.
+ */
+export function subarrayChunk(bytes: Uint8Array, index: number, chunkSize: number): ArrayBuffer {
+  const start = index * chunkSize;
+  const end = Math.min(start + chunkSize, bytes.byteLength);
+  const view = bytes.subarray(start, end);
+  const copy = new Uint8Array(view.byteLength);
+  copy.set(view);
+  return copy.buffer;
 }
 
 /** Copia para File em memória (Blob) e popula o cache. */

@@ -1,6 +1,6 @@
 # STATUS — SIGS
 
-- **etapa_atual:** Hotfix Safari Load failed no 1º chunk 512 KiB — XHR + JSON fallback + proxy Connection: close
+- **etapa_atual:** Hotfix Safari File API — ZIP inteiro na RAM (FileReader) antes dos chunks
 - **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI Onda 1 + fila APS + LEDI P1 + autofix FAI):**
   - Área `/faturamento` (hub · filas `/faturamento/odonto` e `/faturamento/aps` · lotes `/faturamento/lote/{fao,fai,proc}`)
   - Gaps clínicos B–D: lotação, `CodeSearchSelect`, preview FAO, Tela C, fila, condutas LEDI
@@ -29,6 +29,7 @@
 ## Retomar daqui (2026-08-14)
 
 ### Entregue nesta onda
+- **Hotfix Safari File API no 1º chunk (“I/O read operation failed”, não HTTP):** o WebKit falha ao `File.slice`/`arrayBuffer` (Downloads, drag-drop, 2ª leitura) mesmo sem iCloud. Antes de qualquer fatia, o ZIP inteiro (13–100 MB) vai para a RAM com `FileReader.readAsArrayBuffer` (3×, backoff); as 27 partes saem de `Uint8Array.subarray`. Falha na 1ª leitura → **Escolher de novo** (botão, não arrastar do Finder).
 - **Hotfix Safari 1º POST `/upload-zip/chunk` (512 KiB) “Load failed” sem HTTP:** `fetch`+Blob+octet-stream no Safari RST via proxy (não era tamanho; não era unzip). Fatias agora sobem com **XMLHttpRequest + ArrayBuffer**; se falhar, **POST JSON `{ data: base64 }`** (≤0,7 MB). Proxy: log, `Connection: close`, `proxyReq.setTimeout(0)`, nunca destrói o socket do cliente se o Nest ainda não respondeu. 1ª fatia = **200 JSON** `{ complete:false, index:0, received:1, total }` (só grava tmp); unzip só no job da última.
 - **Hotfix Safari “Load failed” ~0.2 MB no lote FAI:** health/ready de prod estavam **ok** (API no ar ~17 h). O 0.2 MB **não era tamanho** — ZIP ≤5 MB unzipava no browser e POSTava XMLs em `/upload` (multipart). Safari via “Load failed” sem HTTP (proxy RST / CORS `*`+credentials). **ZIP agora sempre sobe em `/upload-zip/chunk`** (1 fatia se o ZIP for pequeno). Proxy devolve **502 JSON** se o Nest RST; CORS `*` reflecte Origin; fetch `same-origin`; health antes do envio (“API fora do ar”).
 - **FAI lote fechamento:** `/faturamento/lote/fai` mostra **parte x/y**, depois **analisando no servidor** com poll `GET /v1/jobs/:id` (a última fatia devolve 202). Se o 202 se perder, `GET /v1/jobs/by-key/ledi-import-zip:{uploadId}`. Fatia falha no meio → **Retomar** (mesmo uploadId) ou **Recomeçar**. Autofix visível no detalhe: Dry-run + Corrigir em lote (só ajustes seguros; **não** inventa CIAP/CID/conduta).

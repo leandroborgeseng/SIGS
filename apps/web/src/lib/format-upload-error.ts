@@ -13,6 +13,11 @@ function formatMb(bytes?: number): string | null {
 export function formatUploadError(err: unknown): string {
   if (isChunkUploadError(err)) {
     const cause = (err as Error & { cause?: unknown }).cause;
+    if (isIoReadError(cause)) {
+      return cause instanceof Error
+        ? cause.message
+        : 'O Safari não leu o arquivo; escolha de novo pelo botão, não arraste do Finder se falhar.';
+    }
     const extra =
       cause instanceof ApiError
         ? ` Detalhe HTTP ${cause.status}: ${cause.message}`

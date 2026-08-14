@@ -75,10 +75,11 @@ export function FileDropZone({
         {acceptHint ? ` — ${acceptHint}` : ''}, ou use o botão abaixo.
       </p>
       <p className="muted" style={{ fontSize: 13 }}>
-        Se a leitura falhar: use “Escolher de novo”, confira se o arquivo não está vazio.
-        ZIP até 100 MB sobe em partes (512 KiB) e analisa no servidor (o Safari não
-        descompacta o ZIP). Em macOS, arquivos só na nuvem (Downloads/iCloud) às vezes
-        falham — copie para pasta local (Desktop).
+        ZIP até 100 MB: o navegador lê o arquivo inteiro na memória e sobe em partes
+        (o Safari não descompacta). Se a leitura falhar (“I/O read operation failed”),
+        o Safari não leu o handle — use <strong>Escolher de novo</strong> pelo botão;
+        não arraste do Finder se falhar. Downloads/drag-drop e 2ª leitura no mesmo
+        arquivo costumam quebrar no WebKit; o arquivo não precisa estar no iCloud.
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         <button

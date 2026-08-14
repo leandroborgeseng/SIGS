@@ -378,6 +378,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
           total: err.total,
           fileName: err.fileName,
         });
+      } else if (isIoReadError(err)) {
+        setChunkResume(null);
       }
       setUploadIoFailed(isIoReadError(err) || isNetworkError(err) || isChunkUploadError(err));
       setError(formatUploadError(err));
