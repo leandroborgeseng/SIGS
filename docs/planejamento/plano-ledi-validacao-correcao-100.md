@@ -172,7 +172,7 @@ UI: badge “Só na origem”, botão **Excluir do lote**, link para tela do tip
 - [x] **Idempotência:** teste reaplicar auto-fix.  
 - [x] **Políticas municipais (Franca):** `FRANCA_LEDI_DEFAULTS` no dry-run/relatório.  
 - [x] Relatório de fechamento: `GET .../closure-report` + download `.md`.  
-- [x] Relatório do que falta: `GET .../pending-report` (JSON/CSV/MD) + UI nos 3 lotes.  
+- [x] Relatório do que falta: `GET .../pending-report` (JSON/CSV/MD/PDF) + UI nos 3 lotes. PDF colorido para a Secretaria (`?format=pdf`).  
 - [ ] Cache SIGTAP search como CIAP — backlog menor.  
 - [ ] Métricas de tempo operador — backlog.
 

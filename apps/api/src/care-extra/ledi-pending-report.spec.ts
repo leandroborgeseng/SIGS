@@ -10,6 +10,7 @@ import {
   maskCpf,
   parseSeverityFilter,
 } from './ledi-pending-report';
+import { buildPendingReportPdf } from './ledi-pending-report-pdf';
 import type { FaoFinding } from './ledi-fao.validator';
 
 const CPF = '52998224725';
@@ -36,6 +37,18 @@ const SAMPLE_XML = `<?xml version="1.0" encoding="utf-8"?>
 </headerTransport>
 </ns4:fichaAtendimentoOdontologicoMasterTransport>
 </ns3:dadoTransporteTransportXml>`;
+
+/** Junta hex TJ do pdfkit (WinAnsi) para assertar texto visível. */
+function extractPdfWinAnsi(buf: Buffer): string {
+  const hex = [...buf.toString('latin1').matchAll(/<([0-9a-fA-F]+)>/g)]
+    .map((m) => {
+      const h = m[1]!;
+      if (h.length % 2) return '';
+      return Buffer.from(h, 'hex').toString('latin1');
+    })
+    .join('');
+  return hex;
+}
 
 const blocker: FaoFinding = {
   severity: 'BLOCKER',
@@ -124,6 +137,9 @@ describe('ledi-pending-report', () => {
     });
 
     expect(report.pendingCount).toBe(2);
+    expect(report.fichasComBlocker).toBe(1);
+    expect(report.fichasSoQualidade).toBe(1);
+    expect(report.municipioNome).toBe('Franca');
     expect(report.fichas.map((f) => f.fileName)).toEqual(['bloqueio.xml', 'qualidade.xml']);
 
     const bloqueio = report.fichas[0]!;
@@ -200,5 +216,47 @@ describe('ledi-pending-report', () => {
 
   it('rejeita severity inválida', () => {
     expect(() => parseSeverityFilter('R$')).toThrow(/inválida/);
+  });
+
+  it('gera PDF buffer não vazio com 1 ficha fake', async () => {
+    const report = buildPendingReport({
+      batchId: 'lote-pdf-1',
+      name: 'Lote secretaria',
+      expectedTipo: 'FAO',
+      totalFichas: 1,
+      generatedAt: '2026-08-14T12:00:00.000Z',
+      municipioNome: 'Franca',
+      municipioIbge: '3516200',
+      items: [
+        {
+          itemId: 'f1',
+          fileName: 'ficha-fake.xml',
+          xml: SAMPLE_XML,
+          findings: [blocker],
+          fichaTipo: 'FAO',
+        },
+      ],
+    });
+    expect(report.pendingCount).toBe(1);
+    expect(report.fichasComBlocker).toBe(1);
+    expect(report.fichasSoQualidade).toBe(0);
+
+    const pdf = await buildPendingReportPdf(report, { compress: false });
+    expect(Buffer.isBuffer(pdf)).toBe(true);
+    expect(pdf.byteLength).toBeGreaterThan(200);
+    expect(pdf.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+    expect(pdf.includes(Buffer.from('%%EOF'))).toBe(true);
+
+    const extracted = extractPdfWinAnsi(pdf);
+    expect(extracted).toContain('Secretaria');
+    expect(extracted).toContain('ficha-fake.xml');
+    expect(extracted).toContain('***.***.***-25');
+    expect(extracted).toContain('Capa / resumo');
+    expect(extracted).toContain('BLOQUEIA SIAPS');
+    expect(extracted).not.toContain(CPF);
+    expect(extracted).not.toContain(CNS);
+    expect(extracted).not.toContain('D82');
+    expect(assertNoPedagogicalMoney(extracted)).toBe(true);
+    expect(assertIdentifiersMasked(pdf.toString('latin1'), [CPF, CNS, PROF])).toBe(true);
   });
 });

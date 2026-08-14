@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { api } from '@/lib/api';
+import { api, getToken } from '@/lib/api';
 
 export type PendingIssueRow = {
   code: string;
@@ -33,8 +33,12 @@ export type PendingReportPayload = {
   name: string;
   generatedAt: string;
   expectedTipo: string;
+  municipioNome?: string;
+  municipioIbge?: string;
   totalFichas: number;
   pendingCount: number;
+  fichasComBlocker?: number;
+  fichasSoQualidade?: number;
   severityFilter: string[] | null;
   countsBySeverity: { BLOCKER: number; MONEY_RISK: number; QUALITY_WARN: number };
   fichas: PendingFichaRow[];
@@ -81,6 +85,43 @@ export function PendingReportPanel({ batchId, fileSlug, disabled }: Props) {
   }
 
   const slug = `ledi-${fileSlug}-pendencias-${batchId.slice(0, 8)}`;
+
+  async function downloadPdf() {
+    setBusy(true);
+    setError(null);
+    try {
+      const token = getToken();
+      const params = new URLSearchParams({ format: 'pdf' });
+      if (severity) params.set('severity', severity);
+      const res = await fetch(`/api/v1/dental/ledi/batches/${batchId}/pending-report?${params.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        let detail = '';
+        try {
+          const body = (await res.json()) as { message?: string };
+          detail = body.message ? `: ${body.message}` : '';
+        } catch {
+          /* ignore */
+        }
+        throw new Error(`Falha ao gerar PDF (${res.status})${detail}`);
+      }
+      const blob = await res.blob();
+      if (!blob.size) throw new Error('PDF vazio');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${slug}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Falha ao baixar PDF');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
@@ -130,6 +171,14 @@ export function PendingReportPanel({ batchId, fileSlug, disabled }: Props) {
             >
               Baixar Markdown
             </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={busy}
+              onClick={() => void downloadPdf()}
+            >
+              Baixar PDF (secretaria)
+            </button>
           </>
         ) : null}
       </div>
@@ -141,8 +190,11 @@ export function PendingReportPanel({ batchId, fileSlug, disabled }: Props) {
       {report ? (
         <div style={{ marginTop: 12 }}>
           <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
-            {report.pendingCount} ficha(s) neste recorte de {report.totalFichas} · BLOCKER{' '}
-            {report.countsBySeverity.BLOCKER} · MONEY_RISK {report.countsBySeverity.MONEY_RISK} ·
+            {report.pendingCount} ficha(s) neste recorte de {report.totalFichas}
+            {typeof report.fichasComBlocker === 'number'
+              ? ` · ${report.fichasComBlocker} bloqueiam Siaps · ${report.fichasSoQualidade ?? 0} só qualidade`
+              : ''}{' '}
+            · BLOCKER {report.countsBySeverity.BLOCKER} · MONEY_RISK {report.countsBySeverity.MONEY_RISK} ·
             QUALITY_WARN {report.countsBySeverity.QUALITY_WARN}
           </p>
           {!report.fichas.length ? (

@@ -907,7 +907,7 @@ export class LediFaoBatchService {
 
   /**
    * Fichas ainda não ideais após tratamento: BLOCKER / MONEY_RISK / QUALITY_WARN.
-   * JSON + CSV + Markdown. Sem XML clínico; CPF/CNS mascarados.
+   * JSON + CSV + Markdown + PDF. Sem XML clínico; CPF/CNS mascarados.
    */
   async pendingReport(batchId: string, opts: { severity?: string } = {}) {
     let severityFilter;
@@ -968,6 +968,8 @@ export class LediFaoBatchService {
       totalFichas: batch.summary.total ?? rows.length,
       items,
       severityFilter,
+      municipioNome: FRANCA_LEDI_DEFAULTS.municipioNome,
+      municipioIbge: FRANCA_LEDI_DEFAULTS.municipioIbge,
     });
 
     void this.prisma.audit('ledi_fao_batch_pending_report', 'ledi_fao_batch', batchId, [RF.ODONTO.id], {

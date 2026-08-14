@@ -25,7 +25,7 @@ authors: [SIGS]
 1. Envie XMLs ou ZIP da FAO.
 2. Veja o funil Siaps × Previne e os buckets de tratamento.
 3. Dry-run e correção em lote (ou ficha a ficha no modal).
-4. **Relatório do que falta** após o tratamento: tabela na tela + baixar CSV/Markdown. Só fichas ainda não ideais. CPF `***.***.***-xx`. BLOCKER bloqueia Siaps/envio; MONEY_RISK e QUALITY_WARN são qualidade/Previne.
+4. **Relatório do que falta** após o tratamento: tabela na tela + baixar CSV/Markdown/**PDF (secretaria)**. Só fichas ainda não ideais. CPF `***.***.***-xx`. BLOCKER bloqueia Siaps/envio; MONEY_RISK e QUALITY_WARN são qualidade/Previne. O PDF é colorido (vermelho / laranja / oliva) para impressão e e-mail interno.
 5. Export ZIP (só conformes ou atuais) e relatório de fechamento `.md`.
 
-API: `GET /v1/dental/ledi/batches/:id/pending-report` (`?format=csv|md&severity=BLOCKER|MONEY_RISK|QUALITY_WARN`).
+API: `GET /v1/dental/ledi/batches/:id/pending-report` (`?format=csv|md|pdf&severity=BLOCKER|MONEY_RISK|QUALITY_WARN`).

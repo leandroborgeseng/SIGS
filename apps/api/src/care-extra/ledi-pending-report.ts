@@ -69,8 +69,12 @@ export type PendingReport = {
   name: string;
   generatedAt: string;
   expectedTipo: string;
+  municipioNome: string;
+  municipioIbge: string;
   totalFichas: number;
   pendingCount: number;
+  fichasComBlocker: number;
+  fichasSoQualidade: number;
   severityFilter: PendingSeverity[] | null;
   countsBySeverity: Record<PendingSeverity, number>;
   fichas: PendingFicha[];
@@ -353,6 +357,8 @@ export function buildPendingReport(opts: {
   items: PendingReportItemInput[];
   severityFilter?: PendingSeverity[] | null;
   generatedAt?: string;
+  municipioNome?: string;
+  municipioIbge?: string;
 }): PendingReport {
   const severityFilter = opts.severityFilter ?? null;
   const generatedAt = opts.generatedAt || new Date().toISOString();
@@ -403,13 +409,20 @@ export function buildPendingReport(opts: {
     fichas,
   });
 
+  const fichasComBlocker = fichas.filter((f) => f.gate === 'bloqueia_siaps').length;
+  const fichasSoQualidade = fichas.filter((f) => f.gate === 'qualidade_previne').length;
+
   return {
     batchId: opts.batchId,
     name: opts.name,
     generatedAt,
     expectedTipo: opts.expectedTipo,
+    municipioNome: opts.municipioNome || 'Franca',
+    municipioIbge: opts.municipioIbge || '3516200',
     totalFichas: opts.totalFichas,
     pendingCount: fichas.length,
+    fichasComBlocker,
+    fichasSoQualidade,
     severityFilter,
     countsBySeverity,
     fichas,

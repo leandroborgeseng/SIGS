@@ -29,8 +29,8 @@ authors: [SIGS]
 5. Filtre por bucket, status ou nome do arquivo.
 6. Com prontas Siaps: **Baixar ZIP só conformes** (recomendado) ou ZIP com todas as atuais.
 7. Use **Dry-run** para simular auto-correção; **Relatório fechamento (.md)** para arquivar o lote.
-8. Depois do tratamento, **Relatório do que falta**: tabela na tela (arquivo, UUID, CPF/CNS mascarados, data, profissional, o que ainda corrigir) + baixar CSV ou Markdown. Só fichas não ideais (BLOCKER / MONEY_RISK / QUALITY_WARN). Filtro opcional de severidade. BLOCKER = bloqueia Siaps/envio; o resto é qualidade/Previne.
+8. Depois do tratamento, **Relatório do que falta**: tabela na tela (arquivo, UUID, CPF/CNS mascarados, data, profissional, o que ainda corrigir) + baixar CSV, Markdown ou **PDF (secretaria)** colorido para impressão/e-mail. Só fichas não ideais (BLOCKER / MONEY_RISK / QUALITY_WARN). Filtro opcional de severidade. BLOCKER = bloqueia Siaps/envio; o resto é qualidade/Previne.
 
 Produção nativa (ficha `/aps`, não XML legado): fila `/faturamento/aps` com deep-link `?encounterId=` / `?batchId=`. Lote XML: `?batchId=` (id da análise LEDI) reabre o lote.
 
-API compartilhada com FAO/PROC: `GET …/export.zip`, `POST …/dry-run`, `POST …/auto-fix`, `GET …/closure-report`, `GET …/pending-report` (`?format=csv|md&severity=`). FAI usa o mesmo batch XML persistido; o pipeline recusa CIAP/CBO/vigilância odonto.
+API compartilhada com FAO/PROC: `GET …/export.zip`, `POST …/dry-run`, `POST …/auto-fix`, `GET …/closure-report`, `GET …/pending-report` (`?format=csv|md|pdf&severity=`). FAI usa o mesmo batch XML persistido; o pipeline recusa CIAP/CBO/vigilância odonto.

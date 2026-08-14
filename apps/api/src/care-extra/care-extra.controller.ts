@@ -36,6 +36,7 @@ import { JobsService } from '../infra/jobs/jobs.service';
 import { JOB_NAMES } from '../infra/queue/queue.service';
 import { StorageService } from '../infra/storage/storage.service';
 import { randomUUID } from 'crypto';
+import { buildPendingReportPdf } from './ledi-pending-report-pdf';
 import {
   CreateDentalEncounterDto,
   CreateHomeCareVisitDto,
@@ -430,6 +431,15 @@ export class CareExtraController {
         `attachment; filename="ledi-pendencias-${batchId.slice(0, 8)}.md"`,
       );
       return new StreamableFile(Buffer.from(report.markdown, 'utf8'));
+    }
+    if (fmt === 'pdf') {
+      const pdf = await buildPendingReportPdf(report);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="ledi-pendencias-secretaria-${batchId.slice(0, 8)}.pdf"`,
+      );
+      return new StreamableFile(pdf);
     }
     return report;
   }
