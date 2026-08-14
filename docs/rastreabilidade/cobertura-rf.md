@@ -44,14 +44,14 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-12.6 | Obr | coberto | automatizado | `tiposEncamOdonto` = `LEDI_CONDUTA_ODONTO` (UI + lote) |
 | RF-12.7 | Obr | coberto | automatizado | FAO: vigilância + finish/`validateFaoJson` + preview; aviso Previne 99 (não BLOCKER). FAI lote: autofix seguro (st/turno/local/IBGE/UUID) sem inventar CIAP/conduta |
 | RF-12.8 | Obr | coberto | previsto | `tiposFornecimOdonto` UI + mapper |
-| RF-12.9 | Obr | coberto | previsto | anamnese texto livre Onda 1 |
+| RF-12.9 | Obr | coberto | previsto | anamnese + antecedentes/observações (careJson) Onda 1 |
 | RF-12.1 | Obr | parcial | automatizado | `/odonto/agenda` + `/aps/agenda` · grade horários×profissional · CONSULTA (tipo 2) / ENCAIXE (tipo 5) · `POST …/open-dental` · `POST …/open-aps`; sem cadastro livre de tipos, salas, grade municipal |
 | RF-2.36 | Obr | parcial | automatizado | catálogo fechado CONSULTA/ENCAIXE em `GET /v1/appointments/catalog` (não é cadastro TR completo) |
 | RF-3.5 | Obr | parcial | automatizado | `POST /v1/appointments/:id/open-aps` → Encounter FAI `/aps/[id]` |
-| RF-12.4 | Obr | parcial | previsto | início tratamento (status/campo; sem fluxo rico) |
+| RF-12.4 | Obr | parcial | previsto | ciclo `careJson.treatment` (iniciar/finalizar ≠ finish FAO); interrupção formal depois |
 | RF-12.16 | Obr | parcial | automatizado | problemas CIAP/CID (`CodeSearchSelect`); patologias ricas depois |
-| RF-12.12 | Obr | parcial | automatizado | odontograma FDI + Q1–Q4 / S1–S6 / BOCA em `/odonto/[id]` · `odontogramJson` · proc. `tooth`\|`region` → mapper; PATCH snapshot aplica o mapa no atual; gap: Thrift FAO sem tooth/region |
-| RF-12.11 | Obr | coberto | automatizado | `GET …/odontogram-history` · `PATCH …/odontogram-history/:sourceId` (odontogramJson + procs `done`; mesmo paciente/unidade; sem VOID; não sobrescreve VOID/COMPLETED) · timeline + “Usar neste atendimento” em `/odonto/[id]` |
+| RF-12.12 | Obr | parcial | automatizado | odontograma FDI + Q/S/BOCA + faces careJson (cruz M/D/V/L/O) em `/odonto/[id]` · `odontogramJson` · proc. `tooth`\|`region` → mapper; gap: Thrift FAO sem tooth/region/face |
+| RF-12.11 | Obr | coberto | automatizado | `GET …/odontogram-history` (inclui `treatmentId`) · `PATCH …/odontogram-history/:sourceId` · timeline + filtro “só tratamento atual” + “Usar neste atendimento” em `/odonto/[id]` |
 | RF-12.13 | Obr | coberto | automatizado | catálogo predefinido `GET /v1/catalog/dental#predefinedProcedures` · PATCH lista + `done` · FAO só `done !== false` · UI `/odonto/[id]` |
 | RF-12.20 | Obr | parcial | previsto | lista `/odonto` cronológica básica |
 | RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` + UI `/ad` |

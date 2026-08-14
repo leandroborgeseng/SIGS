@@ -10,6 +10,7 @@ import {
   Matches,
   Max,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -46,6 +47,21 @@ export class DentalProblemaDto {
   @IsOptional() @IsString() cid10?: string;
 }
 
+export class DentalTreatmentCycleDto {
+  @IsString() id!: string;
+  @IsOptional() @IsString() number?: string | null;
+  @IsString() startedAt!: string;
+  @IsOptional() @IsString() endedAt?: string | null;
+  @IsIn(['OPEN', 'FINALIZED', 'INTERRUPTED']) status!: 'OPEN' | 'FINALIZED' | 'INTERRUPTED';
+}
+
+export class DentalReferralDto {
+  @IsString() id!: string;
+  @IsString() specialty!: string;
+  @IsString() justification!: string;
+  @IsString() createdAt!: string;
+}
+
 export class PatchDentalEncounterDto {
   @IsOptional() @IsString() anamnese?: string;
   @IsOptional() @IsString() assignmentId?: string;
@@ -76,6 +92,24 @@ export class PatchDentalEncounterDto {
   @IsOptional() @IsInt() justificativaNaoPossuiCpf?: number;
   @IsOptional() @IsString() dataHoraInicialAtendimento?: string;
   @IsOptional() @IsString() dataHoraFinalAtendimento?: string;
+  /** Antecedentes / observações / textos do odontograma (careJson) */
+  @IsOptional() @IsString() antecedentes?: string;
+  @IsOptional() @IsString() observacoes?: string;
+  @IsOptional() @IsString() planejamentoTratamento?: string;
+  @IsOptional() @IsString() tratamentoRealizadoNotas?: string;
+  @IsOptional() @IsObject() toothNotes?: Record<string, string>;
+  @IsOptional() @IsObject() odontogramFaces?: Record<string, Record<string, string>>;
+  /** null limpa o ciclo; objeto inicia/atualiza (≠ finish da consulta) */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @ValidateNested()
+  @Type(() => DentalTreatmentCycleDto)
+  treatment?: DentalTreatmentCycleDto | null;
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DentalReferralDto)
+  referrals?: DentalReferralDto[];
 }
 
 /**

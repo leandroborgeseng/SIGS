@@ -79,6 +79,39 @@ export const ODONTOGRAM_CONDITIONS = [
   { code: 'O', label: 'Outro / observação' },
 ] as const;
 
+/**
+ * Faces do dente (cruz 5 quadrados — clínico SIGS).
+ * Persistidas em careJson.odontogramFaces; Thrift FAO não leva superfície.
+ */
+export const ODONTOGRAM_FACES = [
+  { code: 'M', label: 'Mesial' },
+  { code: 'D', label: 'Distal' },
+  { code: 'V', label: 'Vestibular' },
+  { code: 'L', label: 'Lingual / palatina' },
+  { code: 'O', label: 'Oclusal' },
+] as const;
+
+/** Necessidades / marcadores por face (catálogo fechado SIGS). */
+export const ODONTOGRAM_FACE_NEEDS = [
+  { code: 'AM', label: 'Necessidade amálgama' },
+  { code: 'RE', label: 'Necessidade resina' },
+  { code: 'CA', label: 'Cárie na face' },
+  { code: 'SE', label: 'Selante na face' },
+  { code: 'FR', label: 'Fratura na face' },
+  { code: 'OU', label: 'Outro na face' },
+] as const;
+
+const FACE_SET = new Set<string>(ODONTOGRAM_FACES.map((f) => f.code));
+const FACE_NEED_SET = new Set<string>(ODONTOGRAM_FACE_NEEDS.map((n) => n.code));
+
+export function isValidOdontogramFace(code: string): boolean {
+  return FACE_SET.has(String(code || '').trim().toUpperCase());
+}
+
+export function isValidOdontogramFaceNeed(code: string): boolean {
+  return FACE_NEED_SET.has(String(code || '').trim().toUpperCase());
+}
+
 export type OdontogramConditionCode = (typeof ODONTOGRAM_CONDITIONS)[number]['code'];
 export type OdontogramScopeCode = (typeof ODONTOGRAM_SCOPE_CODES)[number];
 
@@ -243,6 +276,8 @@ export function odontogramHasDeciduous(map: OdontogramMap): boolean {
 export function odontogramCatalog() {
   return {
     conditions: ODONTOGRAM_CONDITIONS.map((c) => ({ code: c.code, label: c.label })),
+    faces: ODONTOGRAM_FACES.map((f) => ({ code: f.code, label: f.label })),
+    faceNeeds: ODONTOGRAM_FACE_NEEDS.map((n) => ({ code: n.code, label: n.label })),
     scopes: {
       quadrants: ODONTOGRAM_QUADRANTS.map((q) => ({ code: q.code, label: q.label })),
       sextants: ODONTOGRAM_SEXTANTS.map((s) => ({ code: s.code, label: s.label })),
@@ -258,9 +293,10 @@ export function odontogramCatalog() {
     fdiDeciduous: [...FDI_DECIDUOUS],
     note:
       'RF-12.12: marcação por dente (FDI), quadrante (Q1–Q4), sextante (S1–S6) e boca. ' +
+      'Faces (M/D/V/L/O) e necessidades por face ficam em careJson (não no Thrift FAO). ' +
       'RF-12.13: catálogo predefinido (GET /v1/catalog/dental) + done → FAO só com realizados. ' +
       'RF-12.11: GET /v1/dental-encounters/:id/odontogram-history e PATCH …/odontogram-history/:sourceId ' +
       '(mesmo paciente e unidade; sem VOID; não sobrescreve VOID/COMPLETED). ' +
-      'Gap: Thrift FAO oficial não serializa tooth/region — ficam no careJson/mapper.',
+      'Gap: Thrift FAO oficial não serializa tooth/region/face — ficam no careJson/mapper.',
   };
 }

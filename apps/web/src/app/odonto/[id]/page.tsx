@@ -85,6 +85,8 @@ type Catalog = {
     conditions: OdontogramCondition[];
     arches: OdontogramArches;
     scopes?: OdontogramScopes;
+    faces?: Array<{ code: string; label: string }>;
+    faceNeeds?: Array<{ code: string; label: string }>;
     note?: string;
   };
   predefinedProcedures?: {
@@ -97,6 +99,22 @@ type Catalog = {
     }>;
     note?: string;
   };
+  referralSpecialties?: Array<{ id: string; label: string }>;
+};
+
+type TreatmentCycle = {
+  id: string;
+  number?: string | null;
+  startedAt: string;
+  endedAt?: string | null;
+  status: 'OPEN' | 'FINALIZED' | 'INTERRUPTED';
+};
+
+type ReferralDraft = {
+  id: string;
+  specialty: string;
+  justification: string;
+  createdAt: string;
 };
 
 type Care = {
@@ -112,6 +130,14 @@ type Care = {
   problemasCondicoes: Array<{ ciap?: string; cid10?: string }>;
   stNaoPossuiCpf: boolean;
   justificativaNaoPossuiCpf?: number | null;
+  antecedentes?: string;
+  observacoes?: string;
+  planejamentoTratamento?: string;
+  tratamentoRealizadoNotas?: string;
+  toothNotes?: Record<string, string>;
+  odontogramFaces?: Record<string, Partial<Record<string, string>>>;
+  treatment?: TreatmentCycle | null;
+  referrals?: ReferralDraft[];
 };
 
 type Encounter = {
@@ -197,6 +223,7 @@ type OdontogramHistoryItem = {
   status: string;
   encounterType?: string;
   professionalName?: string | null;
+  treatmentId?: string | null;
   odontogram: Record<string, string>;
   markedCount: number;
   hasDeciduous?: boolean;
@@ -252,6 +279,9 @@ export default function OdontoAtendimentoPage() {
   const [history, setHistory] = useState<OdontogramHistoryItem[]>([]);
   const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
   const [historySnapKey, setHistorySnapKey] = useState('');
+  const [historyOnlyCurrentTreatment, setHistoryOnlyCurrentTreatment] = useState(false);
+  const [referralSpecialty, setReferralSpecialty] = useState('');
+  const [referralJustification, setReferralJustification] = useState('');
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
@@ -582,6 +612,74 @@ export default function OdontoAtendimentoPage() {
     return care.vigilanciaSaudeBucal.every((v) => v === 99);
   }, [care]);
 
+  const filteredHistory = useMemo(() => {
+    if (!historyOnlyCurrentTreatment || !care?.treatment?.id) return history;
+    return history.filter((h) => h.treatmentId === care.treatment?.id);
+  }, [history, historyOnlyCurrentTreatment, care?.treatment?.id]);
+
+  function startTreatment() {
+    if (!care || !enc || enc.status !== 'IN_PROGRESS') return;
+    const now = new Date().toISOString();
+    const id =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `tr-${Date.now()}`;
+    setCare({
+      ...care,
+      treatment: {
+        id,
+        number: String(history.length + 1),
+        startedAt: now,
+        endedAt: null,
+        status: 'OPEN',
+      },
+    });
+    setOk('Tratamento iniciado (ciclo clínico). Concluir consulta continua separado.');
+  }
+
+  function finalizeTreatment() {
+    if (!care?.treatment || care.treatment.status !== 'OPEN' || !enc || enc.status !== 'IN_PROGRESS') {
+      return;
+    }
+    const okFin = confirm(
+      [
+        'Finalizar o TRATAMENTO (ciclo clínico)?',
+        '',
+        'Isto NÃO conclui a consulta nem envia FAO.',
+        'Para faturar use “Concluir consulta (Finalizar e faturar)”.',
+        'Sugestão LEDI: marque a conduta “Tratamento concluído” (15) se aplicável.',
+      ].join('\n'),
+    );
+    if (!okFin) return;
+    setCare({
+      ...care,
+      treatment: {
+        ...care.treatment,
+        endedAt: new Date().toISOString(),
+        status: 'FINALIZED',
+      },
+    });
+    setOk('Tratamento finalizado. A consulta ainda pode ser concluída/faturada à parte.');
+  }
+
+  function addReferral() {
+    if (!care || !enc || enc.status !== 'IN_PROGRESS' || !referralSpecialty.trim()) return;
+    const id =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `ref-${Date.now()}`;
+    const next: ReferralDraft = {
+      id,
+      specialty: referralSpecialty.trim(),
+      justification: referralJustification.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    setCare({ ...care, referrals: [...(care.referrals || []), next] });
+    setReferralSpecialty('');
+    setReferralJustification('');
+    setOk('Encaminhamento registrado (MVP — sem reservas de agenda).');
+  }
+
   if (!enc || !care || !catalog) {
     return (
       <AppShell helpId="odonto.atendimento">
@@ -707,6 +805,8 @@ export default function OdontoAtendimentoPage() {
           <p className="muted">
             CPF: {enc.patient.cpf || '—'} · CNS: {enc.patient.cns || '—'} · Sexo:{' '}
             {enc.patient.sex || '—'}
+            <br />
+            Atendimento: <code>{enc.id}</code>
             <br />
             Início: {formatDateTime(enc.startedAt)}
             {catalog.config.requireIneOnDentalOpen && (
@@ -841,10 +941,76 @@ export default function OdontoAtendimentoPage() {
               rows={3}
             />
           </label>
+          <label>
+            Antecedentes
+            <textarea
+              disabled={readonly}
+              value={care.antecedentes || ''}
+              onChange={(e) => setCare({ ...care, antecedentes: e.target.value })}
+              rows={2}
+              placeholder="Antecedentes relevantes à saúde bucal"
+            />
+          </label>
+          <label>
+            Observações
+            <textarea
+              disabled={readonly}
+              value={care.observacoes || ''}
+              onChange={(e) => setCare({ ...care, observacoes: e.target.value })}
+              rows={2}
+            />
+          </label>
+
+          <h2>Tratamento (ciclo) · RF-12.4 / 12.7</h2>
+          <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+            <strong>Finalizar tratamento</strong> encerra o ciclo clínico.{" "}
+            <strong>Concluir consulta</strong> (abaixo) fecha o atendimento e fatura FAO. São ações
+            distintas. Interrupção formal fica para menu próprio (não nesta tela).
+          </p>
+          {care.treatment ? (
+            <ul className="muted" style={{ marginTop: 0, fontSize: 13 }}>
+              <li>Nº / id: {care.treatment.number || '—'} · <code>{care.treatment.id.slice(0, 8)}…</code></li>
+              <li>Status: {care.treatment.status}</li>
+              <li>Início: {formatDateTime(care.treatment.startedAt)}</li>
+              <li>Fim: {care.treatment.endedAt ? formatDateTime(care.treatment.endedAt) : '—'}</li>
+            </ul>
+          ) : (
+            <p className="muted">Nenhum ciclo de tratamento aberto neste atendimento.</p>
+          )}
+          {!readonly && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={busy || care.treatment?.status === 'OPEN'}
+                onClick={startTreatment}
+              >
+                {care.treatment ? 'Novo ciclo de tratamento' : 'Iniciar tratamento'}
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={busy || care.treatment?.status !== 'OPEN'}
+                onClick={finalizeTreatment}
+              >
+                Finalizar tratamento
+              </button>
+            </div>
+          )}
 
           <h2>Odontograma (RF-12.12)</h2>
           {catalog.odontogram ? (
             <>
+              <label>
+                Planejamento do tratamento
+                <textarea
+                  disabled={readonly}
+                  value={care.planejamentoTratamento || ''}
+                  onChange={(e) => setCare({ ...care, planejamentoTratamento: e.target.value })}
+                  rows={2}
+                  placeholder="Plano clínico (texto)"
+                />
+              </label>
               <label className="check">
                 <input
                   type="checkbox"
@@ -859,6 +1025,20 @@ export default function OdontoAtendimentoPage() {
                 conditions={catalog.odontogram.conditions}
                 arches={catalog.odontogram.arches}
                 scopes={catalog.odontogram.scopes}
+                faces={catalog.odontogram.faces}
+                faceNeeds={catalog.odontogram.faceNeeds}
+                facesValue={care.odontogramFaces || {}}
+                onChangeFaces={(next) => setCare({ ...care, odontogramFaces: next })}
+                toothNote={
+                  /^\d{2}$/.test(selectedKey) ? care.toothNotes?.[selectedKey] || '' : ''
+                }
+                onChangeToothNote={(note) => {
+                  if (!/^\d{2}$/.test(selectedKey)) return;
+                  const toothNotes = { ...(care.toothNotes || {}) };
+                  if (!note.trim()) delete toothNotes[selectedKey];
+                  else toothNotes[selectedKey] = note;
+                  setCare({ ...care, toothNotes });
+                }}
                 selectedKey={selectedKey}
                 onSelectKey={setSelectedKey}
                 onChange={setOdontogram}
@@ -870,6 +1050,16 @@ export default function OdontoAtendimentoPage() {
                   {catalog.odontogram.note}
                 </p>
               )}
+              <label>
+                Tratamento realizado (notas)
+                <textarea
+                  disabled={readonly}
+                  value={care.tratamentoRealizadoNotas || ''}
+                  onChange={(e) => setCare({ ...care, tratamentoRealizadoNotas: e.target.value })}
+                  rows={2}
+                  placeholder="Complemento textual; procedimentos SIGTAP concluídos entram na FAO"
+                />
+              </label>
 
               <h3 style={{ marginBottom: 4 }}>Histórico de odontogramas (RF-12.11)</h3>
               <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
@@ -877,11 +1067,25 @@ export default function OdontoAtendimentoPage() {
                 ver o snapshot. Em atendimento em andamento, use o snapshot no atual — não
                 sobrescreve finalizado ou anulado.
               </p>
-              {history.length === 0 ? (
-                <p className="muted">Nenhum odontograma anterior nesta unidade.</p>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={historyOnlyCurrentTreatment}
+                  disabled={!care.treatment?.id}
+                  onChange={(e) => setHistoryOnlyCurrentTreatment(e.target.checked)}
+                />
+                Mostrar só tratamento atual
+                {!care.treatment?.id ? ' (inicie um ciclo para filtrar)' : ''}
+              </label>
+              {filteredHistory.length === 0 ? (
+                <p className="muted">
+                  {historyOnlyCurrentTreatment
+                    ? 'Nenhum odontograma anterior neste ciclo de tratamento.'
+                    : 'Nenhum odontograma anterior nesta unidade.'}
+                </p>
               ) : (
                 <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 8px' }}>
-                  {history.map((item) => {
+                  {filteredHistory.map((item) => {
                     const open = historyOpenId === item.id;
                     return (
                       <li key={item.id} style={{ marginBottom: 8 }}>
@@ -901,6 +1105,9 @@ export default function OdontoAtendimentoPage() {
                           {DENTAL_STATUS_LABEL[item.status] || item.status}
                           {' · '}
                           {item.markedCount} marcação{item.markedCount === 1 ? '' : 'ões'}
+                          {item.treatmentId
+                            ? ` · tr ${item.treatmentId.slice(0, 8)}…`
+                            : ''}
                         </button>
                         {open && catalog.odontogram && (
                           <div
@@ -1150,6 +1357,81 @@ export default function OdontoAtendimentoPage() {
             </label>
           ))}
 
+          <h2>Encaminhamento (MVP)</h2>
+          <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+            Especialidade + justificativa + histórico neste atendimento. Reservas de agenda de
+            especialidade ficam para fase posterior.
+          </p>
+          {!readonly && (
+            <div className="row-2" style={{ marginBottom: 8 }}>
+              <label>
+                Especialidade
+                <select
+                  value={referralSpecialty}
+                  onChange={(e) => setReferralSpecialty(e.target.value)}
+                >
+                  <option value="">—</option>
+                  {(catalog.referralSpecialties || []).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Justificativa
+                <input
+                  value={referralJustification}
+                  onChange={(e) => setReferralJustification(e.target.value)}
+                  placeholder="Motivo clínico"
+                />
+              </label>
+            </div>
+          )}
+          {!readonly && (
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={busy || !referralSpecialty}
+              onClick={addReferral}
+              style={{ marginBottom: 8 }}
+            >
+              Gravar encaminhamento
+            </button>
+          )}
+          {(care.referrals || []).length ? (
+            <ul style={{ margin: '0 0 12px', paddingLeft: 18, fontSize: 13 }}>
+              {(care.referrals || []).map((r) => (
+                <li key={r.id}>
+                  {formatDateTime(r.createdAt)} ·{' '}
+                  {(catalog.referralSpecialties || []).find((s) => s.id === r.specialty)?.label ||
+                    r.specialty}
+                  {r.justification ? ` — ${r.justification}` : ''}
+                  {!readonly && (
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        style={{ padding: '2px 6px', fontSize: 12 }}
+                        onClick={() =>
+                          setCare({
+                            ...care,
+                            referrals: (care.referrals || []).filter((x) => x.id !== r.id),
+                          })
+                        }
+                      >
+                        Remover
+                      </button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">Nenhum encaminhamento neste atendimento.</p>
+          )}
+
           <h2>Fornecimentos (RF-12.8)</h2>
           {catalog.fornecimentos.map((f) => (
             <label key={f.id} className="check">
@@ -1171,7 +1453,7 @@ export default function OdontoAtendimentoPage() {
                 Salvar rascunho
               </button>
               <button className="btn" type="button" disabled={busy} onClick={() => void finish()}>
-                Finalizar e faturar
+                Concluir consulta (Finalizar e faturar)
               </button>
               <button
                 className="btn ghost"
@@ -1216,8 +1498,9 @@ export default function OdontoAtendimentoPage() {
                 </span>
               </p>
               <p className="muted" style={{ fontSize: 13 }}>
-                Finalizar exige zero BLOCKER Siaps. Alertas Previne (B1–B6) orientam qualidade e{' '}
-                <strong>não</strong> bloqueiam o envio.
+                <strong>Concluir consulta</strong> exige zero BLOCKER Siaps e gera FAO.{" "}
+                <strong>Finalizar tratamento</strong> (seção ciclo) não fatura. Alertas Previne
+                (B1–B6) orientam qualidade e <strong>não</strong> bloqueiam o envio.
               </p>
               <h3 style={{ marginBottom: 4 }}>Siaps / LEDI</h3>
               <ul className="findings">

@@ -33,6 +33,7 @@ import { validateFaoJson, validateFaoXml } from './ledi-fao.validator';
 import { tipoAtendimentoFromItemType } from '../appointments/appointments.constants';
 import {
   defaultDentalCareDraft,
+  DENTAL_REFERRAL_SPECIALTIES,
   dentalMunicipioIbgeFallback,
   requireIneOnDentalOpen,
   type DentalCareDraft,
@@ -179,6 +180,7 @@ export class CareExtraService {
       ],
       odontogram: odontogramCatalog(),
       predefinedProcedures: predefinedDentalCatalog(),
+      referralSpecialties: DENTAL_REFERRAL_SPECIALTIES.map((s) => ({ id: s.id, label: s.label })),
       channelNote:
         'Conformidade de envio odonto APS/CEO→Siaps/RNDS: LEDI FAO (XML|Thrift), não Bundle FHIR RIA neste fluxo.',
     };
@@ -323,6 +325,7 @@ export class CareExtraService {
       limit: ODONTOGRAM_HISTORY_LIMIT,
       items: rows.map((row) => {
         const odontogram = this.parseOdontogram(row.odontogramJson);
+        const care = this.parseCare(row.careJson);
         let procedures: unknown[] = [];
         try {
           procedures = JSON.parse(row.proceduresJson || '[]');
@@ -337,6 +340,7 @@ export class CareExtraService {
           status: row.status,
           encounterType: row.encounterType,
           professionalName: row.professional?.civilName ?? null,
+          treatmentId: care.treatment?.id ?? null,
           odontogram,
           markedCount: odontogramMarkedCount(odontogram),
           hasDeciduous: odontogramHasDeciduous(odontogram),
@@ -600,7 +604,21 @@ export class CareExtraService {
         : {}),
       ...(dto.assignmentId !== undefined ? { assignmentId: dto.assignmentId } : {}),
       ...(dto.cbo !== undefined ? { cbo: dto.cbo } : {}),
+      ...(dto.antecedentes !== undefined ? { antecedentes: dto.antecedentes } : {}),
+      ...(dto.observacoes !== undefined ? { observacoes: dto.observacoes } : {}),
+      ...(dto.planejamentoTratamento !== undefined
+        ? { planejamentoTratamento: dto.planejamentoTratamento }
+        : {}),
+      ...(dto.tratamentoRealizadoNotas !== undefined
+        ? { tratamentoRealizadoNotas: dto.tratamentoRealizadoNotas }
+        : {}),
+      ...(dto.toothNotes !== undefined ? { toothNotes: dto.toothNotes } : {}),
+      ...(dto.odontogramFaces !== undefined ? { odontogramFaces: dto.odontogramFaces } : {}),
+      ...(dto.treatment !== undefined ? { treatment: dto.treatment } : {}),
+      ...(dto.referrals !== undefined ? { referrals: dto.referrals } : {}),
     };
+    // Re-coerce via defaultDentalCareDraft para normalizar faces/treatment/referrals
+    const normalizedCare = defaultDentalCareDraft(nextCare);
 
     const updated = await this.prisma.dentalEncounter.update({
       where: { id },
@@ -616,7 +634,7 @@ export class CareExtraService {
           dto.odontogram !== undefined
             ? JSON.stringify(this.coerceOdontogram(dto.odontogram))
             : undefined,
-        careJson: JSON.stringify(nextCare),
+        careJson: JSON.stringify(normalizedCare),
         outcomesJson: dto.outcomes ? JSON.stringify(dto.outcomes) : undefined,
       },
       include: { patient: true, facility: true, professional: true },
@@ -641,21 +659,21 @@ export class CareExtraService {
           sex: updated.patient.sex,
         },
         practitionerCns: updated.professional?.cns,
-        cbo: nextCare.cbo,
+        cbo: normalizedCare.cbo,
         cnes: updated.facility?.cnes,
-        localAtendimento: nextCare.localAtendimento,
-        turno: nextCare.turno,
-        tipoAtendimento: nextCare.tipoAtendimento,
-        gestante: nextCare.gestante,
-        stNaoPossuiCpf: nextCare.stNaoPossuiCpf,
-        justificativaNaoPossuiCpf: nextCare.justificativaNaoPossuiCpf,
+        localAtendimento: normalizedCare.localAtendimento,
+        turno: normalizedCare.turno,
+        tipoAtendimento: normalizedCare.tipoAtendimento,
+        gestante: normalizedCare.gestante,
+        stNaoPossuiCpf: normalizedCare.stNaoPossuiCpf,
+        justificativaNaoPossuiCpf: normalizedCare.justificativaNaoPossuiCpf,
         procedures: procedures
           .filter((p) => p.done !== false)
           .map((p) => ({ code: p.code, quantity: 1 })),
-        conditions: nextCare.problemasCondicoes || [],
+        conditions: normalizedCare.problemasCondicoes || [],
         extensions: {
-          outcomes: nextCare.outcomes,
-          tiposVigilanciaSaudeBucal: nextCare.vigilanciaSaudeBucal,
+          outcomes: normalizedCare.outcomes,
+          tiposVigilanciaSaudeBucal: normalizedCare.vigilanciaSaudeBucal,
         },
       });
     }

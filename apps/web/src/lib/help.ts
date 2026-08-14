@@ -139,10 +139,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'odonto.atendimento',
     title: 'Atendimento odontológico',
     module: 'Odontologia',
-    version: '1.6.0',
-    updatedAt: '2026-08-13',
-    summary: 'Abertura com lotação, ficha LEDI, odontograma + histórico (RF-12.11, copiar snapshot) + catálogo SIGTAP (RF-12.13), Tela C e fila /faturamento/odonto.',
-    body: `Em /odonto escolha paciente, profissional e lotação — ou abra a partir de /odonto/agenda (slot do dia). Na ficha, CIAP/CID com busca, condutas LEDI, odontograma (dente/Q/S/BOCA), histórico de odontogramas anteriores desta unidade (Usar neste atendimento copia o snapshot) e procedimentos predefinidos (planejado ou concluído). Painel valida ~1s após editar. Finalizar e faturar exige zero BLOCKER. Pós-fechamento: fila /faturamento/odonto e lote /faturamento/lote/fao.`,
+    version: '1.7.0',
+    updatedAt: '2026-08-14',
+    summary:
+      'Ficha LEDI FAO: odontograma (dente/faces/Q/S), ciclo tratamento ≠ concluir consulta, histórico com filtro, encaminhamento MVP, fila /faturamento/odonto.',
+    body: `Em /odonto escolha paciente, profissional e lotação — ou abra a partir de /odonto/agenda. Na ficha: antecedentes/observações, ciclo de tratamento (iniciar/finalizar ≠ Concluir consulta), odontograma FDI com faces (cruz clínica em careJson), procedimentos planejados/realizados, histórico com filtro “só tratamento atual”, encaminhamento MVP (especialidade+justificativa). Concluir consulta exige zero BLOCKER Siaps. Adiados: medicamentos, exames, impressos, PEP, reservas de encaminhamento.`,
   },
   {
     id: 'odonto.agenda',

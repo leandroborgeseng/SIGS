@@ -1,15 +1,18 @@
 # STATUS — SIGS
 
-- **etapa_atual:** Wizard de lote LEDI (FAI/FAO/PROC) — upload → gate de tipo → análise → problema a problema → dois ZIPs → ficha a ficha
-- **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI Onda 1 + fila APS + LEDI P1 + autofix FAI):**
+- **etapa_atual:** Complemento clínico odonto (legado SIGS 3.0 × `/odonto`) + wizard lote LEDI
+- **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI Onda 1 + fila APS + LEDI P1 + autofix FAI + gap odonto 2026-08-14):**
   - Área `/faturamento` (hub · filas `/faturamento/odonto` e `/faturamento/aps` · sanfona **Tratamento de lotes LEDI**: FAO / FAI / Procedimentos em `/faturamento/lote/{fao,fai,proc}`)
   - Gaps clínicos B–D: lotação, `CodeSearchSelect`, preview FAO, Tela C, fila, condutas LEDI
   - **Stream F (Previne na origem):** painel B1–B6 / qualidade em `/odonto/[id]` + `preview-fao`
   - **VOID pós-COMPLETED:** anulação local (encounter VOID + batch `error` + audit)
-  - **Odontograma (RF-12.12 parcial):** grade FDI · escopos Q1–Q4 / S1–S6 / BOCA · condições · PATCH `odontogram` → LEDI
+  - **Odontograma (RF-12.12 parcial):** grade FDI · escopos Q1–Q4 / S1–S6 / BOCA · **faces careJson (cruz M/D/V/L/O)** · condições · PATCH `odontogram` → LEDI
+  - **Ciclo tratamento ≠ concluir consulta:** `careJson.treatment` · botões distintos em `/odonto/[id]` (RF-12.4 / 12.7)
+  - **Antecedentes / observações / planejamento / notas por dente** em careJson
+  - **Encaminhamento MVP:** especialidade + justificativa + lista (`careJson.referrals`) — sem reservas
+  - **Histórico RF-12.11:** `treatmentId` no item + filtro “só tratamento atual”
   - **Agenda (RF-12.1 / RF-3.5 / RF-2.36 parciais):** `AppointmentSlot` genérico (`itemType` CONSULTA=tipo 2 · ENCAIXE=tipo 5 · `careLine` ODONTO|APS|GENERAL) · grade `/odonto/agenda` e `/aps/agenda` · `GET /v1/appointments/day-grid` · `POST …/open-dental` · `POST …/open-aps`
   - **RF-12.13:** catálogo predefinido em `GET /v1/catalog/dental` · lista no odontograma · planejado/`done` · FAO só realizados
-  - **RF-12.11:** `GET /v1/dental-encounters/:id/odontogram-history` · `PATCH …/odontogram-history/:sourceId` (copia snapshot + procs `done`) · timeline na ficha (mesmo paciente + unidade; sem VOID; não sobrescreve VOID/COMPLETED)
   - **APS FAI origem (Onda 1):** `/aps` · `/aps/[id]` · `GET /v1/catalog/aps` · `POST /v1/encounters` `faiOrigin` · `GET …/preview-fai` · finish → `ProductionBatch` `individual_encounter`
   - **Fila APS:** `/faturamento/aps` · `GET/POST /v1/encounters/faturamento-queue` · deep-link `encounterId`/`batchId` · alias `/aps/faturamento`
   - **LEDI P1:** finish/patch FAI (`/aps`) e FAO (`/odonto`) persistem `ProductionRecord` nativo (Encounter + Condition/Procedure); falha do motor não derruba o lote LEDI
@@ -18,48 +21,38 @@
   2. `/aps` — abertura espontânea (tipo 5) se não houver slot
   3. `/odonto/agenda` — mesma grade · **Abrir** → `/odonto/[id]` (tipo 2 ou 5 conforme o item)
   4. `/odonto` — abertura espontânea (tipo 5) se não houver slot
-  5. `/odonto/[id]` — ficha + odontograma + histórico (usar snapshot) + catálogo SIGTAP (concluir) + LEDI/Previne → Finalizar e faturar
+  5. `/odonto/[id]` — ficha + odontograma (faces) + ciclo tratamento + histórico filtrável + catálogo SIGTAP + LEDI/Previne → **Concluir consulta** (faturar)
   6. Filas / lotes em `/faturamento/…` · lote FAI XML em `/faturamento/lote/fai`
 - **API:** `GET /v1/catalog/aps` · `GET/POST /v1/encounters` · `GET …/preview-fai` · `POST …/finish` · `GET/POST /v1/encounters/faturamento-queue` · agenda: `GET/POST /v1/appointments` · `GET …/day-grid` · `GET …/catalog` · `POST …/:id/open-dental` · `POST …/:id/open-aps` · odonto: `GET /v1/catalog/dental` · `GET …/odontogram-history` · `PATCH …/odontogram-history/:sourceId` · `POST …/void`
 - **params:** `REQUIRE_INE_APS_OPEN` · `APS_DEFAULT_TIPO_ATENDIMENTO=5` · `REQUIRE_INE_DENTAL_OPEN` · `DENTAL_DEFAULT_TIPO_ATENDIMENTO=5` · `MUNICIPIO_IBGE`
-- **limite documentado:** agenda TR completa (cadastro livre de tipos de item, salas, grade municipal compartilhada); VOID sem recall Ministério; histórico só mesma unidade (sem RNDS); Thrift FAO sem tooth/region
+- **limite documentado:** agenda TR completa; VOID sem recall Ministério; histórico só mesma unidade (sem RNDS); Thrift FAO sem tooth/region/face; medicamentos/exames/impressos/PEP/reservas encaminhamento adiados — ver `docs/planejamento/desenho-atendimento-odontologico.md` § Gap SIGS 3.0
 - **deploy:** hardening Railway — fail-fast env, health `/api/health`+`/api/ready`, Redis/Bull opcional; **hotfix 2026-08-13:** `nest build` emite `apps/api/dist/main.js` (não `dist/api/src/main.js`); imagem Docker falha se o bootstrap faltar
 - **próximo:** ver **Retomar daqui**
 
 ## Retomar daqui (2026-08-14)
 
-### Entregue nesta onda
-- **Wizard de lote LEDI** nas 3 telas (`LediTipoLotePage`): upload (copy ficha a ficha / auto vs pessoa / Siaps ≠ Previne ≠ 100% OK) → **gate de tipo no servidor** (`LEDI_TIPO_MISMATCH`: recusa o ZIP inteiro, **não persiste lote**, job não analisa) → análise + 5 contagens + gráficos → modal sequencial (BLOCKER abrangente primeiro) → fechamento (campos + antes×depois) → dois ZIPs (`-aptos-envio` / `-pendentes`) → correção **ficha a ficha**. Chunks Safari 512 KiB inalterados.
-- Percorrer: `/faturamento/lote/fai` (e FAO/PROC). ZIP do tipo errado → alerta + voltar ao início. ZIP certo → análise e tratamento.
-- **Autofix/dry-run async em chunks:** POST devolve 202 + jobId (mesmo padrão do import ZIP). Worker processa 100–200 fichas, persiste avanço; poll `processando ficha 1240 de 8149` no modal e no card. Clique de novo no mesmo lote retoma se o job caiu. Ao terminar, fecha o ciclo e atualiza o summary.
-- **Menu / hub:** Faturamento & Validação → sanfona **Tratamento de lotes LEDI** (Lote FAO · Lote FAI · Lote Procedimentos). Hub `/faturamento` com o mesmo agrupamento. Outros tipos AB (cadastro individual/domiciliar, visita ACS, coletivo, AD, consumo alimentar, vacina, elegibilidade, Zika, cuidado compartilhado) **não** entram no menu de lote: vacina/AD/coletivo têm origem nativa em Operação; o restante está adiado — ver tabela em `docs/planejamento/fluxo-lote-ledi-wizard.md`.
-- **UI compartilhada:** `/faturamento/lote/{fao,fai,proc}` usam `LediTipoLotePage`.
-- **PDF Secretaria (o que falta):** `GET …/pending-report?format=pdf` (pdfkit no servidor, sem Chrome). Capa com município/lote/tipo/totais; fichas com CPF mascarado; BLOCKER vermelho, MONEY_RISK laranja, QUALITY_WARN oliva. Botão **Baixar PDF (secretaria)** nos 3 lotes.
-- **Hotfix Safari File API (“I/O read failed” / “Blob loading failed” ~13 MB):** caminho feliz **não** monta o ZIP na RAM. Cada fatia 512 KiB com cascata (`readFileSlice`): WebKit prefere `objectURL+fetch` → `Response.arrayBuffer` → `FileReader`; Chromium mantém FileReader primeiro. Se **todas** as fatias falharem no WebKit → **1×** ler o arquivo inteiro (FileReader/Response/objectURL, try/catch OOM) e fatiar de `Uint8Array` em memória. Progresso **lendo+enviando parte n/m**. UI: Escolher de novo + “envie via Chrome/Edge”; Desktop `node tools/split-ledi-zip.cjs` → pedaços ~4 MB.
-- **Relatório do que falta (FAI/FAO/PROC):** após o autofix, `GET /v1/dental/ledi/batches/:id/pending-report` (JSON + `?format=csv|md|pdf` + `?severity=`). UI **Relatório do que falta** — tabela + CSV/MD/**PDF (secretaria)** colorido. CPF mascarado; BLOCKER = Siaps; o resto = qualidade/Previne. Sem R$ pedagógico.
-- **Hotfix Safari 1º POST `/upload-zip/chunk` (512 KiB) “Load failed” sem HTTP:** `fetch`+Blob+octet-stream no Safari RST via proxy (não era tamanho; não era unzip). Fatias agora sobem com **XMLHttpRequest + ArrayBuffer**; se falhar, **POST JSON `{ data: base64 }`** (≤0,7 MB). Proxy: log, `Connection: close`, `proxyReq.setTimeout(0)`, nunca destrói o socket do cliente se o Nest ainda não respondeu. 1ª fatia = **200 JSON** `{ complete:false, index:0, received:1, total }` (só grava tmp); unzip só no job da última.
-- **Hotfix Safari “Load failed” ~0.2 MB no lote FAI:** health/ready de prod estavam **ok** (API no ar ~17 h). O 0.2 MB **não era tamanho** — ZIP ≤5 MB unzipava no browser e POSTava XMLs em `/upload` (multipart). Safari via “Load failed” sem HTTP (proxy RST / CORS `*`+credentials). **ZIP agora sempre sobe em `/upload-zip/chunk`** (1 fatia se o ZIP for pequeno). Proxy devolve **502 JSON** se o Nest RST; CORS `*` reflecte Origin; fetch `same-origin`; health antes do envio (“API fora do ar”).
-- **FAI lote fechamento:** `/faturamento/lote/fai` mostra **parte x/y**, depois **analisando no servidor** com poll `GET /v1/jobs/:id` (a última fatia devolve 202). Se o 202 se perder, `GET /v1/jobs/by-key/ledi-import-zip:{uploadId}`. Fatia falha no meio → **Retomar** (mesmo uploadId) ou **Recomeçar**. Autofix visível no detalhe: Dry-run + Corrigir em lote (só ajustes seguros; **não** inventa CIAP/CID/conduta).
-- **Autofix FAI (lote XML):** catálogo de reparo + `POST /v1/dental/ledi/batches/:id/dry-run|auto-fix` no XML persistido. Seguros: stNaoPossuiCpf, turno=2, local UBS, IBGE Franca, tpCdsOrigem=3, UUID, encoding, dígitos CNS/CPF se checksum ok, qtd proc=1. **Não** inventa CIAP/CID, conduta, profissional, paciente (só sugere na ficha). UI `/faturamento/lote/fai`: Dry-run com preview + **Corrigir em lote (ajustes seguros)**.
-- **Agenda TR restante (MVP fechável):** grade do dia (horários × profissional, faixa 07:00–19:00 ou dia inteiro) + tipos CONSULTA (tipoAtendimento=2) e ENCAIXE (tipo 5). Modelo `AppointmentSlot` genérico: `/odonto/agenda` abre FAO; `/aps/agenda` abre FAI. Sem mexer no upload ZIP/LEDI.
-- **LEDI P1:** finish/patch da ficha APS (FAI tipo 4) e odonto (FAO) gravam `ProductionRecord` `source=native` com Encounter + Condition (CIAP/CID) + Procedure (SIGTAP). `ProductionBatch`/XML LEDI inalterados; se o motor falhar, o finish segue.
-- **Fila UI `/faturamento/aps`:** espelho de `/faturamento/odonto` (competência, unidade, buckets LEDI, deep-link, sync/refresh). API `GET/POST /v1/encounters/faturamento-queue`.
-- **Ficha APS origem FAI tipo 4:** abrir/listar com paciente + profissional + lotação/INE; `care` mínimo (CIAP/CID, SIGTAP, condutas FAI); preview Siaps-ready; finish atualiza `ProductionBatch` `individual_encounter`; UI `/aps` no grupo clínico (não mistura `/odonto`)
-- **Hotfix ZIP LEDI (chunk 100 MB):** ZIP (qualquer tamanho, até **100 MB**) sobe em `POST /upload-zip/chunk` (512 KiB octet-stream, retry por parte). Unzip **yauzl no Node**; última fatia **enfileira** `ledi.import-zip`. Tmp em `/data/ledi-chunks` se `PROCESS_ROLE=all`.
-- **Hotfix Railway `dist/main.js`:** spec da API importava `apps/web` → `nest build` limpo emitia `dist/api/src/main.js`. `tsconfig.build.json` exclui specs e trava `rootDir=src`. Docker falha se `apps/api/dist/main.js` faltar.
+### Entregue nesta onda (odonto gap legado)
+- Separação **Concluir consulta** × **Finalizar tratamento** (`careJson.treatment`)
+- Faces do odontograma + textos clínico (planejamento/realizado/toothNotes/antecedentes/observações)
+- Histórico com filtro por tratamento; encaminhamento MVP sem reservas
+- Gap documentado (medicamentos, exames, impressos, PEP, Dentinho de Leite, reservas) em `docs/planejamento/desenho-atendimento-odontologico.md`
+
+### Entregue nesta onda (LEDI wizard — mantido)
+- **Wizard de lote LEDI** nas 3 telas (`LediTipoLotePage`): upload → gate de tipo → análise → correção ficha a ficha → dois ZIPs
+- Autofix/dry-run async, PDF secretaria, hotfixes Safari/chunk — ver histórico de commits recentes
 
 ### Pendente
-1. Smoke visual browser: `/aps/agenda` → abrir FAI; `/aps` → ficha → CIAP/CID + SIGTAP + conduta → finalizar → **fila `/faturamento/aps`**; `/odonto/agenda` grade → abrir → ficha → odontograma Q/S + histórico + catálogo SIGTAP concluir → finalizar → fila → ZIP FAI/FAO
-2. Railway: smoke wizard `/faturamento/lote/fai` — ZIP certo (análise) e ZIP FAO na tela FAI (recusa, 0 lote); dois ZIPs no fechamento
-3. Redis/Bull (opcional em prod — hoje opcional no boot)
+1. Smoke visual browser: `/odonto/[id]` — faces + ciclo tratamento + filtro histórico + encaminhamento + concluir consulta → fila FAO
+2. Smoke visual: `/aps/agenda` → FAI → fila APS; wizard lote FAI/FAO
+3. Redis/Bull (opcional em prod)
 4. Fase 2 UI (Claude Design) — **não** nesta fase backend-first
-5. Agenda TR além do MVP: cadastro livre de tipos de item, salas, grade municipal compartilhada
-6. Histórico odonto extra: outras unidades; RNDS (RF-12.18)
+5. Agenda TR além do MVP; histórico odonto outras unidades / RNDS (RF-12.18)
+6. Toolbar odonto adiada: medicamentos, exames, impressos, PEP
 
 ### Notas handoff
 - Working tree: não commitar `data/esus`, `data/sigtap`, `sus_intelligence`, `tools/*-home`, `contexts/`
 - Sem dados reais de pacientes
-- **Hotfix prod:** entrypoint trata `prisma db push` + `--accept-data-loss` após dedupe de `appointment_id` (unique agenda odonto)
+- **Hotfix prod:** entrypoint trata `prisma db push` + `--accept-data-loss` após dedupe de `appointment_id`
 - Colunas novas em `appointment_slots`: `item_type` (default CONSULTA), `care_line` (default GENERAL)
 
-_Atualizado em 2026-08-14 (wizard lote LEDI P0–P3 homologável)_
+_Atualizado em 2026-08-14 (gap odonto SIGS 3.0 + wizard lote LEDI)_

@@ -1,9 +1,43 @@
 # Desenho — Atendimento odontológico (SIGS)
 
-**Status:** Onda 1 + Stream F / VOID + odontograma + agenda grade do dia (RF-12.1 parcial: CONSULTA/ENCAIXE + APS) + RF-12.13 + RF-12.11  
-**Atualizado:** 2026-08-13  
+**Status:** Onda 1 + Stream F / VOID + odontograma (faces careJson) + ciclo tratamento ≠ concluir consulta + encaminhamento MVP + agenda grade + RF-12.13 + RF-12.11  
+**Atualizado:** 2026-08-14  
 **Contexto:** uso solo → faturamento Siaps primeiro → depois UI clínica completa  
-**Fontes:** Thrift FAO 5.5.24 · `ledi-fao.validator.ts` · `ledi-dental.mapper.ts` · `dental-odontogram.ts` · `dental-encounter-mapping.md` · RF-12 Anexo I · docs/conhecimento/15 · lote Franca
+**Fontes:** Thrift FAO 5.5.24 · `ledi-fao.validator.ts` · `ledi-dental.mapper.ts` · `dental-odontogram.ts` · `dental-care.draft.ts` · RF-12 Anexo I · docs/conhecimento/15 · lote Franca · screenshots SIGS 3.0 (paridade comportamental, sem copiar e-SUS)
+
+---
+
+## Gap SIGS 3.0 (legado) × SIGS reescrito (2026-08-14)
+
+Comparação a partir das telas legado **Consulta Odontológica** vs `/odonto` + `/odonto/[id]` (fase backend-first; não Fase 2 Claude Design).
+
+| Área legado | Status SIGS | Evidência / nota |
+|---|---|---|
+| Odontograma FDI permanente+decídua | **parcial → melhorado** | Grade FDI + decídua opcional; marcadores de dente (C/R/E…) |
+| Faces (cruz 5 quadrados) + necessidade por face | **parcial (careJson)** | `careJson.odontogramFaces` + UI cruz M/D/V/L/O; **não** no Thrift FAO |
+| Observações do dente · planejamento · realizado (texto) | **feito (careJson)** | `toothNotes`, `planejamentoTratamento`, `tratamentoRealizadoNotas` + procs `done` |
+| Antecedentes / Observações / Vigilância / Conduta | **feito** | Antecedentes+observações na ficha; vigilância+condutas LEDI já obrigatórios no finish |
+| Data/turno/local/tipo · procs+CID | **feito** | Seções tipo/contexto + CIAP/CID + SIGTAP |
+| UUID / nº atendimento | **parcial** | id do encounter na ficha; UUID LEDI gerado no finish (não editável) |
+| Flag “Dentinho de Leite” | **adiado** | Sem RF dedicado; decídua já existe como toggle de arcada |
+| Histórico + “só tratamento atual” + ver odontograma | **parcial → melhorado** | RF-12.11 + filtro por `treatmentId` quando ciclo existe |
+| Encaminhamento (esp.+justificativa+lista) | **MVP** | `careJson.referrals` + catálogo especialidades; **sem** reservas em tempo real |
+| Reservas disponíveis (agenda especialidade) | **adiado** | Sem agenda de especialidade nesta fase |
+| Ciclo tratamento (Nº, início/fim) ≠ concluir consulta | **feito (careJson)** | `treatment` OPEN/FINALIZED; botões distintos; interrupção formal adiada |
+| Interrupção de tratamento (menu próprio) | **adiado** | Stub status `INTERRUPTED` no tipo; sem UI de interrupção |
+| Toolbar: Medicamentos / Exames / Impressos / PEP | **adiado** | RF-12.17 / 12.18 / 12.19 e módulos transversais — documentado só |
+| Medicamentos · Solicitação de exames · Impressos · PEP | **adiado** | Fora do eixo LEDI/FAO desta onda |
+
+### O que implementar depois (não nesta sessão)
+
+1. Medicamentos / receituário na ficha odonto (RF-12.17 + M3)
+2. Solicitação de exames (RF-12.17; LIS adiado)
+3. Impressos / declaração e atestados (RF-12.19)
+4. PEP / histórico multi-unidade + RNDS (RF-12.18)
+5. Reservas de encaminhamento em tempo real (agenda especialidade)
+6. Interrupção formal de tratamento (menu dedicado)
+7. Flag “Dentinho de Leite” se product/RF pedir além da arcada decídua
+8. Faces no XML Thrift FAO — **não viável** no schema oficial atual (permanecem careJson/mapper)
 
 ---
 
@@ -192,18 +226,18 @@ Onda 2 (TR): tabelas/odontograma, prótese, patologias — sem bloquear faturame
 |---|---|---|
 | 12.2 Profissional | **coberto** | lotação UI + `assignmentId` |
 | 12.3 Paciente | **coberto** | identificação |
-| 12.4 Início tratamento | parcial | status/campo |
+| 12.4 Início tratamento | **parcial** | ciclo `careJson.treatment` (iniciar/finalizar ≠ finish FAO); interrupção formal depois |
 | 12.5 Tipo atendimento | **coberto** | default 5 |
 | 12.6 Conduta/desfecho | **coberto** | `LEDI_CONDUTA_ODONTO` |
-| 12.7 Vigilância | **coberto** | finish + preview |
+| 12.7 Vigilância | **coberto** | finish + preview; finalizar tratamento (ciclo) distinto de concluir consulta |
 | 12.8 Fornecimentos | **coberto** | UI + mapper (não BLOCKER) |
-| 12.9 Anamnese | **coberto** | texto livre |
+| 12.9 Anamnese | **coberto** | texto livre + antecedentes/observações careJson |
 | 12.1 Agenda | parcial | só abertura encounter |
-| 12.11 | **coberto** | timeline + snapshot na ficha; PATCH copia odontogramJson + procs `done` (mesmo paciente/unidade; sem VOID; não sobrescreve VOID/COMPLETED) |
-| 12.12 | parcial | odontograma FDI + Q/S/BOCA (ficha + careJson/LEDI `odontograma` + proc. region); gap Thrift FAO sem tooth/region |
+| 12.11 | **coberto** | timeline + snapshot + filtro “só tratamento atual” (`treatmentId`) |
+| 12.12 | parcial | FDI + Q/S/BOCA + **faces careJson** (cruz M/D/V/L/O); gap Thrift sem tooth/region/face |
 | 12.13 | **coberto** | catálogo predefinido + `done`; FAO só realizados |
 | 12.13 / 12.16 / 12.20 | parcial | procs predefinidos / CIAP-CID / lista |
-| 12.10, 14–15, 17–19 | não iniciado | tele, prótese, exames, atestados |
+| 12.10, 14–15, 17–19 | não iniciado | tele, prótese, exames, atestados, PEP |
 
 ---
 
