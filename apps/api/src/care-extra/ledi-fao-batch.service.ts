@@ -71,6 +71,15 @@ import {
   parseSeverityFilter,
   type PendingReportItemInput,
 } from './ledi-pending-report';
+import {
+  chartSnapshotFromSummary,
+  countRecordToMap,
+  lediAnalyzeChunkSize,
+  lediAutofixChunkSize,
+  mapToCountRecord,
+  type LediAutofixCheckpoint,
+  type LediChartSummary,
+} from './ledi-job-progress';
 
 type ItemSummary = {
   id: string;
@@ -355,7 +364,10 @@ export class LediFaoBatchService {
     }
   }
 
-  async create(dto: CreateLediFaoBatchDto) {
+  async create(
+    dto: CreateLediFaoBatchDto,
+    opts?: { onProgress?: (p: LediAutofixCheckpoint) => Promise<void> },
+  ) {
     if (!dto.files?.length) {
       throw new BadRequestException('Envie ao menos um arquivo XML.');
     }
@@ -384,24 +396,44 @@ export class LediFaoBatchService {
     });
 
     try {
-      const prepared = await this.prepareItems(dto.files, expectedTipo, batchStub.id);
-      const summary = {
-        ...this.summarizeBatch(prepared),
-        expectedTipo,
-      };
-      await this.createManyItems(prepared.map((p) => ({ ...p, batchId: batchStub.id })));
       await this.prisma.lediFaoBatch.update({
         where: { id: batchStub.id },
         data: {
-          status:
-            summary.readyForFinalSend === summary.total
-              ? 'ready'
-              : summary.withBlockers === 0
-                ? 'partially_fixed'
-                : 'analyzed',
-          summaryJson: JSON.stringify(summary),
+          status: 'analyzing',
+          summaryJson: JSON.stringify({ expectedTipo, total: 0 }),
         },
       });
+
+      const chunkSize = lediAnalyzeChunkSize();
+      const live = Boolean(opts?.onProgress);
+      for (let i = 0; i < dto.files.length; i += chunkSize) {
+        const slice = dto.files.slice(i, i + chunkSize);
+        const prepared = await this.prepareItems(slice, expectedTipo, batchStub.id);
+        await this.createManyItems(prepared.map((p) => ({ ...p, batchId: batchStub.id })));
+        const last = i + chunkSize >= dto.files.length;
+        if (live || last) {
+          await this.refreshBatchSummary(batchStub.id);
+        } else {
+          await this.bumpBatchTotal(batchStub.id, prepared.length);
+        }
+        if (opts?.onProgress) {
+          const batch = await this.get(batchStub.id);
+          await opts.onProgress({
+            processed: Math.min(i + slice.length, dto.files.length),
+            total: dto.files.length,
+            touched: 0,
+            batchId: batchStub.id,
+            summary: chartSnapshotFromSummary(batch.summary as LediChartSummary),
+          });
+        }
+      }
+
+      const batch = await this.get(batchStub.id);
+      const summary = batch.summary as {
+        total?: number;
+        withBlockers?: number;
+        readyForFinalSend?: number;
+      };
 
       void this.prisma.audit(
         'ledi_fao_batch_create',
@@ -417,9 +449,16 @@ export class LediFaoBatchService {
         },
       );
 
-      return this.get(batchStub.id);
+      return batch;
     } catch (err) {
-      await this.prisma.lediFaoBatch.delete({ where: { id: batchStub.id } }).catch(() => undefined);
+      const existing = await this.prisma.lediFaoBatchItem.count({ where: { batchId: batchStub.id } });
+      if (existing > 0) {
+        await this.prisma.lediFaoBatch
+          .update({ where: { id: batchStub.id }, data: { status: 'error' } })
+          .catch(() => undefined);
+      } else {
+        await this.prisma.lediFaoBatch.delete({ where: { id: batchStub.id } }).catch(() => undefined);
+      }
       throw err;
     }
   }
@@ -710,60 +749,123 @@ export class LediFaoBatchService {
     };
   }
 
+  private itemWhere(batchId: string, onlyItemIds?: string[]) {
+    return {
+      batchId,
+      ...(onlyItemIds?.length ? { id: { in: onlyItemIds } } : {}),
+    };
+  }
+
+  async listItemIds(batchId: string, onlyItemIds?: string[]) {
+    await this.ensureBatch(batchId);
+    const rows = await this.prisma.lediFaoBatchItem.findMany({
+      where: this.itemWhere(batchId, onlyItemIds),
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+    return rows.map((r) => r.id);
+  }
+
   async autoFix(batchId: string, dto: AutoFixLediFaoBatchDto) {
+    const out = await this.autoFixInChunks(batchId, dto);
+    return { ...(await this.get(batchId)), touched: out.touched };
+  }
+
+  /**
+   * Auto-fix em fatias (100–200 fichas). Persiste cada XML na hora e o summary
+   * ao fim do chunk — se o job cair, retoma de `startOffset`.
+   */
+  async autoFixInChunks(
+    batchId: string,
+    dto: AutoFixLediFaoBatchDto,
+    opts: {
+      startOffset?: number;
+      chunkSize?: number;
+      onProgress?: (p: LediAutofixCheckpoint) => Promise<void>;
+    } = {},
+  ) {
     await this.ensureBatch(batchId);
     const expectedTipo = await this.expectedTipoOf(batchId);
-
-    const items = await this.prisma.lediFaoBatchItem.findMany({
-      where: {
-        batchId,
-        ...(dto.onlyItemIds?.length ? { id: { in: dto.onlyItemIds } } : {}),
-      },
-    });
-
+    const ids = await this.listItemIds(batchId, dto.onlyItemIds);
+    const total = ids.length;
+    const chunkSize = opts.chunkSize ?? lediAutofixChunkSize();
+    let offset = Math.max(0, Math.min(opts.startOffset ?? 0, total));
     let touched = 0;
-    for (const item of items) {
-      const findings = JSON.parse(item.findingsJson || '[]') as FaoFinding[];
-      const xml = await this.resolveCurrentXml(item);
-      const result = runAutoFixPipeline(
-        xml,
-        findings,
-        { ...dto, fichaTipo: expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo },
-        previneGapCodes(item.previneJson),
-      );
-      if (!result.changed) continue;
-      await this.persistXml(item.id, result.xml, expectedTipo);
-      touched += 1;
+
+    while (offset < total) {
+      const slice = ids.slice(offset, offset + chunkSize);
+      const items = await this.prisma.lediFaoBatchItem.findMany({
+        where: { id: { in: slice } },
+      });
+      const byId = new Map(items.map((it) => [it.id, it]));
+      let chunkTouched = 0;
+      for (const id of slice) {
+        const item = byId.get(id);
+        if (!item) continue;
+        const findings = JSON.parse(item.findingsJson || '[]') as FaoFinding[];
+        const xml = await this.resolveCurrentXml(item);
+        const result = runAutoFixPipeline(
+          xml,
+          findings,
+          { ...dto, fichaTipo: expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo },
+          previneGapCodes(item.previneJson),
+        );
+        if (!result.changed) continue;
+        await this.persistXml(item.id, result.xml, expectedTipo);
+        chunkTouched += 1;
+      }
+      touched += chunkTouched;
+      offset += slice.length;
+      await this.refreshBatchSummary(batchId, chunkTouched);
+      const batch = await this.get(batchId);
+      const checkpoint: LediAutofixCheckpoint = {
+        processed: offset,
+        total,
+        touched,
+        batchId,
+        summary: chartSnapshotFromSummary(batch.summary as LediChartSummary),
+      };
+      await opts.onProgress?.(checkpoint);
     }
 
-    await this.refreshBatchSummary(batchId, touched);
     void this.prisma.audit('ledi_fao_batch_auto_fix', 'ledi_fao_batch', batchId, [RF.ODONTO.id], {
       touched,
       force: dto.forceSelected,
     });
-    return { ...(await this.get(batchId)), touched };
+    return { touched, total, processed: offset };
   }
 
   /**
    * Simula auto-fix sem gravar — retorna impacto (alertas que somem / surgem).
    */
   async dryRun(batchId: string, dto: AutoFixLediFaoBatchDto) {
+    return this.dryRunInChunks(batchId, dto);
+  }
+
+  async dryRunInChunks(
+    batchId: string,
+    dto: AutoFixLediFaoBatchDto,
+    opts: {
+      startOffset?: number;
+      chunkSize?: number;
+      checkpoint?: LediAutofixCheckpoint | null;
+      onProgress?: (p: LediAutofixCheckpoint) => Promise<void>;
+    } = {},
+  ) {
     await this.ensureBatch(batchId);
     const expectedTipo = await this.expectedTipoOf(batchId);
-    const items = await this.prisma.lediFaoBatchItem.findMany({
-      where: {
-        batchId,
-        ...(dto.onlyItemIds?.length ? { id: { in: dto.onlyItemIds } } : {}),
-      },
-    });
+    const ids = await this.listItemIds(batchId, dto.onlyItemIds);
+    const total = ids.length;
+    const chunkSize = opts.chunkSize ?? lediAutofixChunkSize();
+    let offset = Math.max(0, Math.min(opts.startOffset ?? opts.checkpoint?.processed ?? 0, total));
 
-    const beforeCodes = new Map<string, number>();
-    const afterCodes = new Map<string, number>();
-    let wouldTouch = 0;
-    let beforeBlockers = 0;
-    let afterBlockers = 0;
-    let beforeSiaps = 0;
-    let afterSiaps = 0;
+    const beforeCodes = countRecordToMap(opts.checkpoint?.beforeCodes);
+    const afterCodes = countRecordToMap(opts.checkpoint?.afterCodes);
+    let wouldTouch = opts.checkpoint?.wouldTouch ?? 0;
+    let beforeBlockers = opts.checkpoint?.before?.withBlockers ?? 0;
+    let afterBlockers = opts.checkpoint?.after?.withBlockers ?? 0;
+    let beforeSiaps = opts.checkpoint?.before?.siapsReady ?? 0;
+    let afterSiaps = opts.checkpoint?.after?.siapsReady ?? 0;
     const samples: Array<{
       id: string;
       fileName: string;
@@ -776,42 +878,66 @@ export class LediFaoBatchService {
       map.set(code, (map.get(code) || 0) + 1);
     };
 
-    for (const item of items) {
-      const findings = JSON.parse(item.findingsJson || '[]') as FaoFinding[];
-      const beforeSet = new Set(findings.map((f) => f.code));
-      for (const c of beforeSet) bump(beforeCodes, c);
-      if (findings.some((f) => f.severity === 'BLOCKER')) beforeBlockers += 1;
-      else beforeSiaps += 1;
+    const snapshot = (): LediAutofixCheckpoint => ({
+      processed: offset,
+      total,
+      touched: wouldTouch,
+      wouldTouch,
+      dryRun: true,
+      batchId,
+      before: { withBlockers: beforeBlockers, siapsReady: beforeSiaps },
+      after: { withBlockers: afterBlockers, siapsReady: afterSiaps },
+      beforeCodes: mapToCountRecord(beforeCodes),
+      afterCodes: mapToCountRecord(afterCodes),
+    });
 
-      const result = runAutoFixPipeline(
-        await this.resolveCurrentXml(item),
-        findings,
-        { ...dto, fichaTipo: expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo },
-        previneGapCodes(item.previneJson),
-      );
-      if (!result.changed) {
-        for (const c of beforeSet) bump(afterCodes, c);
-        if (findings.some((f) => f.severity === 'BLOCKER')) afterBlockers += 1;
+    while (offset < total) {
+      const slice = ids.slice(offset, offset + chunkSize);
+      const items = await this.prisma.lediFaoBatchItem.findMany({
+        where: { id: { in: slice } },
+      });
+      const byId = new Map(items.map((it) => [it.id, it]));
+      for (const id of slice) {
+        const item = byId.get(id);
+        if (!item) continue;
+        const findings = JSON.parse(item.findingsJson || '[]') as FaoFinding[];
+        const beforeSet = new Set(findings.map((f) => f.code));
+        for (const c of beforeSet) bump(beforeCodes, c);
+        if (findings.some((f) => f.severity === 'BLOCKER')) beforeBlockers += 1;
+        else beforeSiaps += 1;
+
+        const result = runAutoFixPipeline(
+          await this.resolveCurrentXml(item),
+          findings,
+          { ...dto, fichaTipo: expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo },
+          previneGapCodes(item.previneJson),
+        );
+        if (!result.changed) {
+          for (const c of beforeSet) bump(afterCodes, c);
+          if (findings.some((f) => f.severity === 'BLOCKER')) afterBlockers += 1;
+          else afterSiaps += 1;
+          continue;
+        }
+
+        wouldTouch += 1;
+        const afterReport = this.reportFromXml(result.xml, expectedTipo);
+        const afterSet = new Set(afterReport.findings.map((f) => f.code));
+        for (const c of afterSet) bump(afterCodes, c);
+        if (afterReport.findings.some((f) => f.severity === 'BLOCKER')) afterBlockers += 1;
         else afterSiaps += 1;
-        continue;
-      }
 
-      wouldTouch += 1;
-      const afterReport = this.reportFromXml(result.xml, expectedTipo);
-      const afterSet = new Set(afterReport.findings.map((f) => f.code));
-      for (const c of afterSet) bump(afterCodes, c);
-      if (afterReport.findings.some((f) => f.severity === 'BLOCKER')) afterBlockers += 1;
-      else afterSiaps += 1;
-
-      if (samples.length < 8) {
-        samples.push({
-          id: item.id,
-          fileName: item.fileName,
-          applied: result.applied,
-          codesRemoved: [...beforeSet].filter((c) => !afterSet.has(c)),
-          codesAdded: [...afterSet].filter((c) => !beforeSet.has(c)),
-        });
+        if (samples.length < 8) {
+          samples.push({
+            id: item.id,
+            fileName: item.fileName,
+            applied: result.applied,
+            codesRemoved: [...beforeSet].filter((c) => !afterSet.has(c)),
+            codesAdded: [...afterSet].filter((c) => !beforeSet.has(c)),
+          });
+        }
       }
+      offset += slice.length;
+      await opts.onProgress?.(snapshot());
     }
 
     const allCodes = new Set([...beforeCodes.keys(), ...afterCodes.keys()]);
@@ -829,7 +955,8 @@ export class LediFaoBatchService {
       batchId,
       dryRun: true as const,
       wouldTouch,
-      totalConsidered: items.length,
+      totalConsidered: total,
+      processed: offset,
       before: { withBlockers: beforeBlockers, siapsReady: beforeSiaps },
       after: { withBlockers: afterBlockers, siapsReady: afterSiaps },
       codeDelta: delta,

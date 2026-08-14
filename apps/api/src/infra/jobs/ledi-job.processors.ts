@@ -6,6 +6,11 @@ import { LediFaoBatchService } from '../../care-extra/ledi-fao-batch.service';
 import { StorageService } from '../storage/storage.service';
 import { extractXmlFilesFromZipBuffer, extractXmlFilesFromZipPath } from '../../care-extra/ledi-zip.extract';
 import type { AutoFixLediFaoBatchDto } from '../../care-extra/dto';
+import {
+  lediFichaProgressMessage,
+  lediFichaProgressPct,
+  parseAutofixCheckpoint,
+} from '../../care-extra/ledi-job-progress';
 
 @Injectable()
 export class LediJobProcessors {
@@ -31,17 +36,71 @@ export class LediJobProcessors {
   private async runAutoFix(payload: Record<string, unknown>) {
     const jobRunId = String(payload.jobRunId);
     const batchId = String(payload.batchId);
+    const dryRun = payload.dryRun === true;
+    const dto = (payload.dto || {}) as AutoFixLediFaoBatchDto;
+    const mode = dryRun ? 'dry-run' : 'apply';
     await this.jobs.markActive(jobRunId);
-    await this.jobs.markProgress(jobRunId, 5, 'Iniciando auto-correção');
+
+    const current = await this.jobs.get(jobRunId);
+    const checkpoint = parseAutofixCheckpoint(current.result);
+    const startOffset = checkpoint?.processed ?? 0;
+    const knownTotal = checkpoint?.total ?? 0;
+    await this.jobs.markProgress(
+      jobRunId,
+      startOffset && knownTotal ? lediFichaProgressPct(startOffset, knownTotal) : 1,
+      startOffset
+        ? lediFichaProgressMessage(startOffset, knownTotal, mode)
+        : dryRun
+          ? 'Iniciando simulação'
+          : 'Iniciando auto-correção',
+      checkpoint || { processed: 0, total: 0, touched: 0, dryRun, batchId },
+    );
+
     try {
-      const dto = (payload.dto || {}) as AutoFixLediFaoBatchDto;
-      const result = await this.batches().autoFix(batchId, dto);
-      await this.jobs.markProgress(jobRunId, 95, 'Finalizando');
+      if (dryRun) {
+        const result = await this.batches().dryRunInChunks(batchId, dto, {
+          checkpoint,
+          onProgress: async (p) => {
+            await this.jobs.markProgress(
+              jobRunId,
+              lediFichaProgressPct(p.processed, p.total),
+              lediFichaProgressMessage(p.processed, p.total, 'dry-run'),
+              p,
+            );
+          },
+        });
+        await this.jobs.markCompleted(jobRunId, {
+          ...result,
+          processed: result.processed,
+          total: result.totalConsidered,
+          touched: result.wouldTouch,
+          dryRun: true,
+        });
+        return result;
+      }
+
+      const result = await this.batches().autoFixInChunks(batchId, dto, {
+        startOffset,
+        onProgress: async (p) => {
+          await this.jobs.markProgress(
+            jobRunId,
+            lediFichaProgressPct(p.processed, p.total),
+            lediFichaProgressMessage(p.processed, p.total, 'apply'),
+            p,
+          );
+        },
+      });
+      const batch = await this.batches().get(batchId);
       const summary = {
         touched: result.touched,
-        withBlockers: result.summary?.withBlockers,
-        siapsReady: result.summary?.siapsReady,
-        readyForFinalSend: result.summary?.readyForFinalSend,
+        processed: result.processed,
+        total: result.total,
+        withBlockers: batch.summary?.withBlockers,
+        siapsReady: batch.summary?.siapsReady,
+        readyForFinalSend: batch.summary?.readyForFinalSend,
+        summary: batch.summary,
+        batchId,
+        dryRun: false,
       };
       await this.jobs.markCompleted(jobRunId, summary);
       return summary;
@@ -93,17 +152,38 @@ export class LediJobProcessors {
     try {
       if (!objectKey) throw new Error('Import ZIP sem objectKey');
       const localPath = this.storage.tryLocalPath(objectKey);
-      await this.jobs.markProgress(jobRunId, 25, 'Extraindo XMLs do ZIP no servidor…');
+      await this.jobs.markProgress(jobRunId, 12, 'Extraindo XMLs do ZIP no servidor…');
       const files = localPath
         ? await extractXmlFilesFromZipPath(localPath)
         : await extractXmlFilesFromZipBuffer(await this.storage.getBuffer(objectKey));
-      await this.jobs.markProgress(jobRunId, 45, `Analisando ${files.length} fichas…`);
-      const batch = await this.batches().create({ name, expectedTipo, files });
+      await this.jobs.markProgress(
+        jobRunId,
+        15,
+        lediFichaProgressMessage(0, files.length, 'import'),
+        { processed: 0, total: files.length },
+      );
+      const batch = await this.batches().create(
+        { name, expectedTipo, files },
+        {
+          onProgress: async (p) => {
+            await this.jobs.markProgress(
+              jobRunId,
+              15 + Math.round(lediFichaProgressPct(p.processed, p.total) * 0.8),
+              lediFichaProgressMessage(p.processed, p.total, 'import'),
+              p,
+            );
+          },
+        },
+      );
       const summary = {
         batchId: batch.id,
         total: batch.summary?.total,
         withBlockers: batch.summary?.withBlockers,
+        siapsReady: batch.summary?.siapsReady,
+        readyForFinalSend: batch.summary?.readyForFinalSend,
         expectedTipo,
+        processed: batch.summary?.total ?? files.length,
+        summary: batch.summary,
       };
       await this.jobs.markCompleted(jobRunId, summary);
       return summary;

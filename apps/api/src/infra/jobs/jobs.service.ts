@@ -25,8 +25,19 @@ export class JobsService {
       const existing = await this.prisma.jobRun.findUnique({
         where: { idempotencyKey: input.idempotencyKey },
       });
-      if (existing && ['queued', 'active', 'completed'].includes(existing.status)) {
-        return existing;
+      if (existing) {
+        if (existing.status === 'queued' || existing.status === 'active') {
+          return existing;
+        }
+        if (existing.status === 'failed' || existing.status === 'dead') {
+          return this.requeue(existing.id, input);
+        }
+        if (existing.status === 'completed') {
+          await this.prisma.jobRun.update({
+            where: { id: existing.id },
+            data: { idempotencyKey: `${input.idempotencyKey}:done:${existing.id}` },
+          });
+        }
       }
     }
 
@@ -48,6 +59,28 @@ export class JobsService {
     });
 
     this.log.log(`Job enqueued ${job.type} id=${job.id}`);
+    return job;
+  }
+
+  /** Retoma job falho (mesmo id) — o processor lê o checkpoint em resultJson. */
+  async requeue(jobId: string, input: EnqueueJobInput) {
+    const job = await this.prisma.jobRun.update({
+      where: { id: jobId },
+      data: {
+        status: 'queued',
+        type: input.type,
+        payloadJson: JSON.stringify(input.payload),
+        errorMessage: null,
+        finishedAt: null,
+        attempts: 0,
+        maxAttempts: input.maxAttempts ?? 5,
+      },
+    });
+    await this.queue.enqueue(input.type as JobName, {
+      jobRunId: job.id,
+      ...input.payload,
+    });
+    this.log.log(`Job requeued ${job.type} id=${job.id}`);
     return job;
   }
 
@@ -74,12 +107,18 @@ export class JobsService {
     });
   }
 
-  async markProgress(id: string, pct: number, message?: string) {
+  async markProgress(
+    id: string,
+    pct: number,
+    message?: string,
+    result?: Record<string, unknown>,
+  ) {
     return this.prisma.jobRun.update({
       where: { id },
       data: {
         progressPct: Math.max(0, Math.min(100, pct)),
         progressMessage: message,
+        ...(result ? { resultJson: JSON.stringify(result) } : {}),
       },
     });
   }

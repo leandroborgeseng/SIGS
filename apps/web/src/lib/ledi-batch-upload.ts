@@ -10,7 +10,7 @@
 
 import { api, apiBinary, apiChunkJson, apiUpload, getToken, isNetworkError, NetworkError, ApiError, assertApiReachable } from '@/lib/api';
 import { IoReadError, isIoReadError, formatBytes, readBinaryFile, readFileSlice } from '@/lib/read-binary-file';
-import { extractJobId, isAsyncJobResponse, jobProgressLabel, waitForJob } from '@/lib/jobs';
+import { extractJobId, isAsyncJobResponse, jobProgressLabel, waitForJob, type JobStatus } from '@/lib/jobs';
 import {
   assertLediTipoMatch,
   isMemoryError,
@@ -178,12 +178,14 @@ function chunkQuery(opts: {
 async function waitForImportJob<T extends { id: string; summary?: { total?: number } }>(
   jobId: string,
   onProgress?: (msg: string) => void,
+  onJob?: (job: JobStatus) => void,
 ): Promise<LediUploadResult<T>> {
   const job = await waitForJob(jobId, {
-    timeoutMs: 30 * 60_000,
+    timeoutMs: 45 * 60_000,
     intervalMs: 1500,
     onProgress: (j) => {
       onProgress?.(jobProgressLabel(j));
+      onJob?.(j);
     },
   });
   if (job.status !== 'completed') {
@@ -201,6 +203,7 @@ async function uploadZipViaServerChunks<T extends { id: string; summary?: { tota
   name?: string;
   expectedTipo: LediLoteTipo;
   onProgress?: (msg: string) => void;
+  onJob?: (job: JobStatus) => void;
   resume?: LediChunkResume;
 }): Promise<LediUploadResult<T>> {
   const zip = opts.zip;
@@ -271,10 +274,10 @@ async function uploadZipViaServerChunks<T extends { id: string; summary?: { tota
     if (recovered) last = recovered;
   }
   if (jobId) {
-    return waitForImportJob<T>(jobId, opts.onProgress);
+    return waitForImportJob<T>(jobId, opts.onProgress, opts.onJob);
   }
   if (isAsyncJobResponse(last)) {
-    return waitForImportJob<T>(last.jobId, opts.onProgress);
+    return waitForImportJob<T>(last.jobId, opts.onProgress, opts.onJob);
   }
   if (last && typeof last === 'object' && last !== null && 'id' in last && !('jobId' in last)) {
     const batch = last as T;
@@ -479,6 +482,7 @@ export async function uploadLediBatchMultipart<
   name?: string;
   expectedTipo: LediLoteTipo;
   onProgress?: (msg: string) => void;
+  onJob?: (job: JobStatus) => void;
   resume?: LediChunkResume;
 }): Promise<LediUploadResult<T>> {
   if (!opts.files.length) throw new Error('Selecione arquivos .xml ou um .zip');
@@ -502,6 +506,7 @@ export async function uploadLediBatchMultipart<
           name: opts.name,
           expectedTipo: opts.expectedTipo,
           onProgress: opts.onProgress,
+          onJob: opts.onJob,
           resume: opts.resume,
         });
       }

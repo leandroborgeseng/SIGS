@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
-import { isAsyncJobResponse, jobProgressLabel, waitForJob } from '@/lib/jobs';
+import { isAsyncJobResponse, jobChartSummary, jobProgressLabel, waitForJob } from '@/lib/jobs';
 import {
   isAnalyzingProgress,
   isChunkUploadError,
@@ -35,8 +35,15 @@ import {
 } from '@/app/faturamento/lote/fao/repair-catalog';
 import { faiBodyForRepairUi, lookupFaiRepair } from '@/app/faturamento/lote/fai/repair-catalog';
 import { PendingReportPanel } from '@/app/ledi/_components/PendingReportPanel';
+import { LediFunnelCharts, type LediChartSummary } from '@/app/ledi/_components/LediFunnelCharts';
+import {
+  LediJobProgressModal,
+  LediJobProgressPanel,
+  type LediJobUi,
+} from '@/app/ledi/_components/LediJobProgressModal';
+import { isLediCondutaOdontoId } from '@/app/faturamento/lote/fao/condutas-odonto';
 
-type LoteTipo = 'FAI' | 'PROCEDIMENTOS';
+type LoteTipo = 'FAO' | 'FAI' | 'PROCEDIMENTOS';
 type ExportAction = 'zip-current' | 'zip-conformant' | 'dry-run' | 'closure';
 
 type BatchSummary = {
@@ -50,7 +57,27 @@ type BatchSummary = {
   readyForFinalSend?: number;
   expectedTipo?: string;
   topCodes: Array<{ code: string; files: number; pct: number }>;
+  byTipo?: Array<{ id: string; files: number; pct: number }>;
   treatment?: TreatmentProgress;
+  previne?: {
+    files: number;
+    codeCounts: Array<{
+      code: string;
+      indicator: string;
+      files: number;
+      severity: string;
+      sample: string;
+    }>;
+    indicatorGaps: Array<{ id: string; filesWithGap: number; pct: number }>;
+    signalRates: {
+      withFirstConsulta: number;
+      withConclusao: number;
+      withPreventive: number;
+      withArt: number;
+      withIne: number;
+      vigilancia99: number;
+    };
+  };
 };
 
 type Batch = {
@@ -103,7 +130,7 @@ const META: Record<
     fileSlug: string;
     siblingHref: string;
     siblingLabel: string;
-    variant: 'fai' | 'proc';
+    variant: 'fao' | 'fai' | 'proc';
     acceptHint: string;
     fichaLabel: string;
     queueHref: string;
@@ -113,6 +140,23 @@ const META: Record<
     defaultCbo: string;
   }
 > = {
+  FAO: {
+    title: 'Lote LEDI FAO',
+    help: 'Ficha de Atendimento Odontológico (tipo 5). Funil Siaps, Previne ESB, correção e ZIP.',
+    label: 'FAO',
+    helpId: 'faturamento.lote-fao',
+    fileSlug: 'fao',
+    siblingHref: '/faturamento/lote/fai',
+    siblingLabel: 'Lote FAI',
+    variant: 'fao',
+    acceptHint: 'FAO tipo 5',
+    fichaLabel: 'ficha odontológica',
+    queueHref: '/faturamento/odonto',
+    queueLabel: 'Fila odonto',
+    clinicalHref: '/odonto',
+    clinicalLabel: 'Atendimentos odonto',
+    defaultCbo: '223208',
+  },
   FAI: {
     title: 'Lote LEDI FAI',
     help: 'Ficha de Atendimento Individual (tipo 4) — não é odonto. Funil Siaps, buckets de tratamento, correção e ZIP iguais ao FAO.',
@@ -264,6 +308,10 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
   const [cid10, setCid10] = useState('');
   const [condutas, setCondutas] = useState('');
   const [focusField, setFocusField] = useState('');
+  const [vigilancia, setVigilancia] = useState('1,3');
+  const [tipoConsulta, setTipoConsulta] = useState('1');
+  const [jobUi, setJobUi] = useState<LediJobUi | null>(null);
+  const [liveSummary, setLiveSummary] = useState<LediChartSummary | null>(null);
 
   const activeRepair = useMemo(
     () => (codeFilter ? lookupRepair(codeFilter) : undefined),
@@ -357,12 +405,23 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
         name: batchName.trim() || `${meta.label} ${new Date().toLocaleString('pt-BR')}`,
         expectedTipo,
         onProgress: setUploadProgress,
+        onJob: (j) => {
+          setJobUi({ jobId: j.id, mode: 'import', job: j });
+          const snap = jobChartSummary(j);
+          if (snap) setLiveSummary(snap as LediChartSummary);
+          const bid = (j.result as { batchId?: string } | null)?.batchId;
+          if (bid) {
+            void api<Batch>(`/v1/dental/ledi/batches/${bid}`).then(setBatch).catch(() => undefined);
+          }
+        },
         resume,
       });
       setBatch(created);
       setCodeFilter('');
       setUploadIoFailed(false);
       setChunkResume(null);
+      setLiveSummary(created.summary);
+      setJobUi(null);
       const failNote = failedNames.length
         ? ` · ${failedNames.length} não lidos (ex.: ${failedNames[0]})`
         : '';
@@ -481,23 +540,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await api<Batch & { touched: number; async?: boolean; jobId?: string }>(
-        `/v1/dental/ledi/batches/${batch.id}/auto-fix`,
-        { method: 'POST', json: body },
-      );
-      let finalBatch: Batch & { touched?: number } = res;
-      let touched = res.touched ?? 0;
-      if (isAsyncJobResponse(res)) {
-        const job = await waitForJob(res.jobId, {
-          onProgress: (j) => setOk(jobProgressLabel(j)),
-        });
-        if (job.status !== 'completed') {
-          throw new Error(job.errorMessage || `Job ${job.status}`);
-        }
-        touched = Number((job.result as { touched?: number } | null)?.touched ?? 0);
-        finalBatch = await api<Batch>(`/v1/dental/ledi/batches/${batch.id}`);
-      }
-      setBatch(finalBatch);
+      const out = await runBatchAutofix('auto-fix', body);
+      const touched = Number(out?.result?.touched ?? 0);
       await advanceAfterFix(
         batch.id,
         repairCode,
@@ -539,6 +583,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     setCid10('');
     setCondutas('');
     setFocusField('');
+    setVigilancia('1,3');
+    setTipoConsulta('1');
   }
 
   async function openItem(id: string) {
@@ -584,6 +630,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     if (patch.horaFim !== undefined) setHoraFim(patch.horaFim);
     if (patch.procExtra !== undefined) setProcExtra(patch.procExtra);
     if (patch.condutas !== undefined) setCondutas(patch.condutas);
+    if (patch.vigilancia !== undefined) setVigilancia(patch.vigilancia);
+    if (patch.tipoConsulta !== undefined) setTipoConsulta(patch.tipoConsulta);
     if (patch.focusField !== undefined) setFocusField(patch.focusField);
   }
 
@@ -636,7 +684,23 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
         .map((x) => Number(x.trim()))
         .filter((n) => Number.isFinite(n) && n >= 1);
       if (meta.variant === 'fai' && codes.length) body.condutas = codes;
-      else if (codes.length) body.tiposEncamOdonto = codes;
+      else if (meta.variant === 'fao' && codes.length) {
+        const odonto = codes.filter((n) => isLediCondutaOdontoId(n));
+        if (odonto.length) body.tiposEncamOdonto = odonto;
+      } else if (codes.length) body.tiposEncamOdonto = codes;
+    }
+    if (expectedTipo === 'FAO') {
+      if (ciap.trim() || cid10.trim()) {
+        body.problemasCondicoes = [{ ciap: ciap.trim() || undefined, cid10: cid10.trim() || undefined }];
+      }
+      if (tipoConsulta) body.tiposConsultaOdonto = [Number(tipoConsulta)];
+      if (vigilancia.trim()) {
+        const codes = vigilancia
+          .split(/[,;\s]+/)
+          .map((x) => Number(x))
+          .filter((n) => Number.isFinite(n) && n > 0);
+        if (codes.length) body.tiposVigilanciaSaudeBucal = codes;
+      }
     }
 
     if (!Object.keys(body).length) {
@@ -686,6 +750,58 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
     setErrorModalOpen(true);
   }
 
+  async function waitLediJob(jobId: string, mode: LediJobUi['mode']) {
+    setJobUi({ jobId, mode, job: null });
+    const job = await waitForJob(jobId, {
+      timeoutMs: 45 * 60_000,
+      intervalMs: 1200,
+      onProgress: (j) => {
+        setJobUi({ jobId, mode, job: j });
+        setOk(jobProgressLabel(j));
+        const snap = jobChartSummary(j);
+        if (snap) setLiveSummary(snap as LediChartSummary);
+        const bid = (j.result as { batchId?: string } | null)?.batchId;
+        if (bid && mode !== 'import' && batch?.id === bid) {
+          void api<Batch>(`/v1/dental/ledi/batches/${bid}`).then(setBatch).catch(() => undefined);
+        }
+      },
+    });
+    setJobUi({ jobId, mode, job });
+    if (job.status !== 'completed') {
+      throw new Error(job.errorMessage || `Job ${job.status}`);
+    }
+    return job;
+  }
+
+  async function runBatchAutofix(path: 'auto-fix' | 'dry-run', body: Record<string, unknown>) {
+    if (!batch) return null;
+    const res = await api<
+      Batch & {
+        touched?: number;
+        wouldTouch?: number;
+        async?: boolean;
+        jobId?: string;
+        before?: { withBlockers: number; siapsReady: number };
+        after?: { withBlockers: number; siapsReady: number };
+        samples?: Array<{ fileName: string; applied: string[]; codesRemoved: string[] }>;
+        codeDelta?: Array<{ code: string; before: number; after: number; delta: number }>;
+      }
+    >(`/v1/dental/ledi/batches/${batch.id}/${path}`, { method: 'POST', json: body });
+    if (isAsyncJobResponse(res)) {
+      const job = await waitLediJob(res.jobId, path === 'dry-run' ? 'dry-run' : 'apply');
+      const result = (job.result || {}) as Record<string, unknown>;
+      const finalBatch = await api<Batch>(`/v1/dental/ledi/batches/${batch.id}`);
+      setBatch(finalBatch);
+      setLiveSummary(finalBatch.summary);
+      return { job, result, batch: finalBatch };
+    }
+    if (path === 'auto-fix') {
+      setBatch(res);
+      setLiveSummary(res.summary);
+    }
+    return { job: null, result: res as unknown as Record<string, unknown>, batch: res };
+  }
+
   async function runExport(
     action: ExportAction,
     fn: () => Promise<void | string>,
@@ -722,6 +838,16 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             <Link className="btn btn-secondary" href="/faturamento">
               Hub faturamento
             </Link>
+            {expectedTipo === 'FAO' ? (
+              <>
+                <Link className="btn btn-secondary" href={meta.clinicalHref}>
+                  {meta.clinicalLabel}
+                </Link>
+                <Link className="btn btn-secondary" href={meta.queueHref}>
+                  {meta.queueLabel}
+                </Link>
+              </>
+            ) : null}
             {expectedTipo === 'FAI' ? (
               <>
                 <Link className="btn btn-secondary" href={meta.clinicalHref}>
@@ -732,9 +858,15 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                 </Link>
               </>
             ) : null}
-            <Link className="btn btn-secondary" href="/faturamento/lote/fao">
-              Lote FAO
-            </Link>
+            {expectedTipo !== 'FAO' ? (
+              <Link className="btn btn-secondary" href="/faturamento/lote/fao">
+                Lote FAO
+              </Link>
+            ) : (
+              <Link className="btn btn-secondary" href="/faturamento/lote/proc">
+                Lote Procedimentos
+              </Link>
+            )}
             <Link className="btn btn-secondary" href={meta.siblingHref}>
               {meta.siblingLabel}
             </Link>
@@ -756,6 +888,12 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
               (não XML) fica na <Link href="/faturamento/aps">fila APS</Link>
               {' '}
               (<code>?encounterId=</code> / <code>?batchId=</code> após finalizar em /aps/[id]).
+            </>
+          ) : expectedTipo === 'FAO' ? (
+            <>
+              {' '}
+              — FAI vai em <Link href="/faturamento/lote/fai">Lote FAI</Link>. Produção nativa odonto
+              (não XML) fica na <Link href="/faturamento/odonto">fila odonto</Link>.
             </>
           ) : (
             <>
@@ -807,9 +945,13 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             {isAnalyzingProgress(uploadProgress) ? (
               <p className="muted" style={{ margin: '8px 0 0', fontSize: 13 }}>
                 A última fatia devolve 202 — esta tela consulta o job até o lote abrir com o resumo
-                (fichas, blockers, Siaps).
+                (fichas, blockers, Siaps). Os gráficos abaixo atualizam a cada poll.
               </p>
             ) : null}
+            {jobUi?.mode === 'import' && jobUi.job ? (
+              <LediJobProgressPanel job={jobUi.job} mode="import" compact />
+            ) : null}
+            <LediFunnelCharts summary={liveSummary || batch?.summary} live={Boolean(jobUi?.mode === 'import')} />
           </div>
         ) : null}
         {chunkResume && !busy ? (
@@ -880,7 +1022,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             <h3 style={{ marginTop: 0 }}>2. Diagnóstico — {batch.name}</h3>
             <p className="muted" style={{ marginTop: 0 }}>
               Ordem de trabalho: primeiro liberar o envio, depois melhorar a qualidade da informação, por
-              último indicadores. {expectedTipo === 'FAI' ? 'FAI tipo 4 — atendimento individual, não odonto.' : null}
+              último indicadores. {expectedTipo === 'FAI' ? 'FAI tipo 4 — atendimento individual, não odonto.' : expectedTipo === 'FAO' ? 'FAO tipo 5 — saúde bucal / Previne ESB.' : 'Ficha de procedimentos tipo 7.'}
             </p>
 
             <div className="lote-priority">
@@ -906,6 +1048,14 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                 </div>
               </div>
             </div>
+
+            <LediFunnelCharts summary={liveSummary || batch.summary} live={Boolean(jobUi && jobUi.mode !== 'import')} />
+
+            {jobUi && jobUi.mode !== 'import' ? (
+              <div className="card" style={{ margin: '12px 0', padding: 12, background: 'var(--surface-2)' }}>
+                <LediJobProgressPanel job={jobUi.job} mode={jobUi.mode} compact />
+              </div>
+            ) : null}
 
             <TreatmentDashboard
               treatment={batch.summary.treatment}
@@ -1074,68 +1224,46 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
                   disabled={anyBusy}
                   onClick={() => {
                     void runExport('dry-run', async () => {
-                      const dry = await api<{
-                        wouldTouch: number;
-                        before: { withBlockers: number; siapsReady: number };
-                        after: { withBlockers: number; siapsReady: number };
-                        samples?: Array<{ fileName: string; applied: string[]; codesRemoved: string[] }>;
-                        codeDelta?: Array<{
-                          code: string;
-                          before: number;
-                          after: number;
-                          delta: number;
-                        }>;
-                      }>(`/v1/dental/ledi/batches/${batch.id}/dry-run`, {
-                        method: 'POST',
-                        json: { stNaoPossuiCpf: true },
-                      });
-                      const top = (dry.codeDelta || [])
+                      const out = await runBatchAutofix('dry-run', { stNaoPossuiCpf: true });
+                      const dry = out?.result as {
+                        wouldTouch?: number;
+                        before?: { withBlockers: number; siapsReady: number };
+                        after?: { withBlockers: number; siapsReady: number };
+                        samples?: Array<{ fileName: string; applied: string[] }>;
+                        codeDelta?: Array<{ code: string; before: number; after: number }>;
+                      };
+                      const top = (dry?.codeDelta || [])
                         .slice(0, 5)
                         .map((d) => `${d.code}: ${d.before}→${d.after}`)
                         .join(' · ');
-                      const sample = (dry.samples || [])[0];
+                      const sample = (dry?.samples || [])[0];
                       const preview = sample
                         ? ` · ex.: ${sample.fileName} [${(sample.applied || []).join(', ')}]`
                         : '';
-                      return `Dry-run: tocariam ${dry.wouldTouch} fichas · blockers ${dry.before.withBlockers}→${dry.after.withBlockers} · Siaps ${dry.before.siapsReady}→${dry.after.siapsReady}${top ? ` · ${top}` : ''}${preview}`;
+                      setJobUi(null);
+                      return `Dry-run: tocariam ${dry?.wouldTouch ?? 0} fichas · blockers ${dry?.before?.withBlockers}→${dry?.after?.withBlockers} · Siaps ${dry?.before?.siapsReady}→${dry?.after?.siapsReady}${top ? ` · ${top}` : ''}${preview}`;
                     });
                   }}
                 >
                   {exportAction === 'dry-run' ? 'Simulando…' : 'Dry-run (simular auto)'}
                 </button>
-                {expectedTipo === 'FAI' ? (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={anyBusy || totalFichas < 1}
-                    title="Aplica só correções seguras (stNaoPossuiCpf, turno, local, IBGE, UUID, encoding). Não inventa CIAP, conduta nem paciente."
-                    onClick={() => {
-                      void runExport('dry-run', async () => {
-                        const res = await api<Batch & { touched: number; async?: boolean; jobId?: string }>(
-                          `/v1/dental/ledi/batches/${batch.id}/auto-fix`,
-                          { method: 'POST', json: { stNaoPossuiCpf: true } },
-                        );
-                        let touched = res.touched ?? 0;
-                        let finalBatch: Batch = res;
-                        if (isAsyncJobResponse(res)) {
-                          const job = await waitForJob(res.jobId, {
-                            onProgress: (j) => setOk(jobProgressLabel(j)),
-                          });
-                          if (job.status !== 'completed') {
-                            throw new Error(job.errorMessage || `Job ${job.status}`);
-                          }
-                          touched = Number((job.result as { touched?: number } | null)?.touched ?? 0);
-                          finalBatch = await api<Batch>(`/v1/dental/ledi/batches/${batch.id}`);
-                        }
-                        setBatch(finalBatch);
-                        await loadItems(batch.id, codeFilter);
-                        return `Correções seguras FAI: ${touched} ficha(s) alterada(s). Conduta/CIAP/paciente continuam manuais.`;
-                      });
-                    }}
-                  >
-                    Corrigir em lote (ajustes seguros)
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={anyBusy || totalFichas < 1}
+                  title="Aplica só correções seguras (stNaoPossuiCpf, turno, local, IBGE, UUID, encoding). Não inventa CIAP, conduta nem paciente."
+                  onClick={() => {
+                    void runExport('dry-run', async () => {
+                      const out = await runBatchAutofix('auto-fix', { stNaoPossuiCpf: true });
+                      const touched = Number(out?.result?.touched ?? 0);
+                      await loadItems(batch.id, codeFilter);
+                      setJobUi(null);
+                      return `Correções seguras: ${touched} ficha(s) alterada(s). Conduta/CIAP/paciente continuam manuais.`;
+                    });
+                  }}
+                >
+                  Corrigir em lote (ajustes seguros)
+                </button>
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -1168,81 +1296,93 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             </div>
           </div>
 
-          {expectedTipo === 'FAI' ? (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <h3 style={{ marginTop: 0 }}>3. Correções em massa (ajustes seguros)</h3>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Lotes grandes (~8 mil fichas) rodam em job no servidor, em fatias. A barra mostra
+              “processando ficha 1240 de 8149”. Se cair no meio, o próximo clique retoma o mesmo lote.
+              Só o que não inventa dado clínico: <code>stNaoPossuiCpf</code>, turno, local UBS, IBGE
+              Franca, UUID, encoding. CIAP/CID, conduta e paciente continuam manuais na ficha.
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={anyBusy}
+                onClick={() => {
+                  void runExport('dry-run', async () => {
+                    const out = await runBatchAutofix('dry-run', { stNaoPossuiCpf: true });
+                    const dry = out?.result as {
+                      wouldTouch?: number;
+                      before?: { withBlockers: number; siapsReady: number };
+                      after?: { withBlockers: number; siapsReady: number };
+                    };
+                    setJobUi(null);
+                    return `Dry-run: tocariam ${dry?.wouldTouch ?? 0} fichas · blockers ${dry?.before?.withBlockers}→${dry?.after?.withBlockers} · Siaps ${dry?.before?.siapsReady}→${dry?.after?.siapsReady}`;
+                  });
+                }}
+              >
+                {exportAction === 'dry-run' ? 'Simulando…' : 'Dry-run (simular auto)'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={anyBusy || totalFichas < 1}
+                title="Aplica só correções seguras. Não inventa CIAP, conduta nem paciente."
+                onClick={() => {
+                  void runExport('dry-run', async () => {
+                    const out = await runBatchAutofix('auto-fix', { stNaoPossuiCpf: true });
+                    const touched = Number(out?.result?.touched ?? 0);
+                    await loadItems(batch.id, codeFilter);
+                    setJobUi(null);
+                    return `Correções seguras: ${touched} ficha(s) alterada(s). Não é preciso clicar de novo.`;
+                  });
+                }}
+              >
+                Corrigir em lote (ajustes seguros)
+              </button>
+            </div>
+          </div>
+
+          {expectedTipo === 'FAO' && batch.summary.previne ? (
             <div className="card" style={{ marginBottom: 16 }}>
-              <h3 style={{ marginTop: 0 }}>3. Correções em massa (ajustes seguros)</h3>
+              <h3 style={{ marginTop: 0 }}>Raio-x Previne (qualidade / indicadores)</h3>
               <p className="muted" style={{ marginTop: 0 }}>
-                Só o que não inventa dado clínico: <code>stNaoPossuiCpf</code>, turno, local UBS, IBGE
-                Franca, UUID, encoding, dígitos CNS/CPF se o checksum estiver ok. CIAP/CID, conduta e
-                paciente continuam manuais na ficha.
+                Sem R$. B1 1ª consulta · B2 conclusão · B3 extração · B5 prevenção · B6 ART. Clique numa
+                barra de alerta acima para filtrar.
               </p>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  disabled={anyBusy}
-                  onClick={() => {
-                    void runExport('dry-run', async () => {
-                      const dry = await api<{
-                        wouldTouch: number;
-                        before: { withBlockers: number; siapsReady: number };
-                        after: { withBlockers: number; siapsReady: number };
-                        samples?: Array<{ fileName: string; applied: string[]; codesRemoved: string[] }>;
-                        codeDelta?: Array<{
-                          code: string;
-                          before: number;
-                          after: number;
-                          delta: number;
-                        }>;
-                      }>(`/v1/dental/ledi/batches/${batch.id}/dry-run`, {
-                        method: 'POST',
-                        json: { stNaoPossuiCpf: true },
-                      });
-                      const top = (dry.codeDelta || [])
-                        .slice(0, 5)
-                        .map((d) => `${d.code}: ${d.before}→${d.after}`)
-                        .join(' · ');
-                      const sample = (dry.samples || [])[0];
-                      const preview = sample
-                        ? ` · ex.: ${sample.fileName} [${(sample.applied || []).join(', ')}]`
-                        : '';
-                      return `Dry-run: tocariam ${dry.wouldTouch} fichas · blockers ${dry.before.withBlockers}→${dry.after.withBlockers} · Siaps ${dry.before.siapsReady}→${dry.after.siapsReady}${top ? ` · ${top}` : ''}${preview}`;
-                    });
-                  }}
-                >
-                  {exportAction === 'dry-run' ? 'Simulando…' : 'Dry-run (simular auto)'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={anyBusy || totalFichas < 1}
-                  title="Aplica só correções seguras. Não inventa CIAP, conduta nem paciente."
-                  onClick={() => {
-                    void runExport('dry-run', async () => {
-                      const res = await api<Batch & { touched: number; async?: boolean; jobId?: string }>(
-                        `/v1/dental/ledi/batches/${batch.id}/auto-fix`,
-                        { method: 'POST', json: { stNaoPossuiCpf: true } },
-                      );
-                      let touched = res.touched ?? 0;
-                      let finalBatch: Batch = res;
-                      if (isAsyncJobResponse(res)) {
-                        const job = await waitForJob(res.jobId, {
-                          onProgress: (j) => setOk(jobProgressLabel(j)),
-                        });
-                        if (job.status !== 'completed') {
-                          throw new Error(job.errorMessage || `Job ${job.status}`);
-                        }
-                        touched = Number((job.result as { touched?: number } | null)?.touched ?? 0);
-                        finalBatch = await api<Batch>(`/v1/dental/ledi/batches/${batch.id}`);
-                      }
-                      setBatch(finalBatch);
-                      await loadItems(batch.id, codeFilter);
-                      return `Correções seguras FAI: ${touched} ficha(s) alterada(s). Conduta/CIAP/paciente continuam manuais.`;
-                    });
-                  }}
-                >
-                  Corrigir em lote (ajustes seguros)
-                </button>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
+                  gap: 8,
+                  fontSize: 13,
+                }}
+              >
+                <div>
+                  <div className="muted">1ª consulta</div>
+                  <strong>{batch.summary.previne.signalRates.withFirstConsulta}</strong>
+                </div>
+                <div>
+                  <div className="muted">Conclusão</div>
+                  <strong>{batch.summary.previne.signalRates.withConclusao}</strong>
+                </div>
+                <div>
+                  <div className="muted">Preventivo</div>
+                  <strong>{batch.summary.previne.signalRates.withPreventive}</strong>
+                </div>
+                <div>
+                  <div className="muted">ART</div>
+                  <strong>{batch.summary.previne.signalRates.withArt}</strong>
+                </div>
+                <div>
+                  <div className="muted">c/ INE</div>
+                  <strong>{batch.summary.previne.signalRates.withIne}</strong>
+                </div>
+                <div>
+                  <div className="muted">só vig. 99</div>
+                  <strong>{batch.summary.previne.signalRates.vigilancia99}</strong>
+                </div>
               </div>
             </div>
           ) : null}
@@ -1255,7 +1395,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
 
           <div className="card">
             <h3 style={{ marginTop: 0 }}>
-              {expectedTipo === 'FAI' ? '4' : '3'}. Fichas{' '}
+              4. Fichas{' '}
               {codeFilter ? `(${itemsTotal} com este alerta)` : `(${itemsTotal})`}
             </h3>
             <p className="muted" style={{ marginTop: 0 }}>
@@ -1351,6 +1491,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             ibge,
             justificativa,
             justificativaUnexpected,
+            vigilancia,
+            tipoConsulta,
           }}
           onFieldChange={(key, value) => {
             if (key === 'ine') setEditIne(value);
@@ -1364,6 +1506,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             else if (key === 'ibge') setIbge(value);
             else if (key === 'justificativa') setJustificativa(value);
             else if (key === 'justificativaUnexpected') setJustificativaUnexpected(value);
+            else if (key === 'vigilancia') setVigilancia(value);
+            else if (key === 'tipoConsulta') setTipoConsulta(value);
           }}
           onClose={() => setErrorModalOpen(false)}
           onFixAllAffected={() => void applySelectedRepair(codeFilter)}
@@ -1385,8 +1529,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
           cid10,
           editIne,
           editCbo,
-          vigilancia: '',
-          tipoConsulta: '',
+          vigilancia,
+          tipoConsulta,
           turno,
           gestante,
           localAtend,
@@ -1415,6 +1559,16 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
           setFichaModalOpen(false);
         }}
         onFocusField={(field) => setFocusField(field || '')}
+      />
+
+      <LediJobProgressModal
+        open={Boolean(jobUi && jobUi.mode !== 'import')}
+        ui={jobUi}
+        onDismiss={() => {
+          if (jobUi?.job?.status === 'completed' || jobUi?.job?.status === 'failed' || jobUi?.job?.status === 'dead') {
+            setJobUi(null);
+          }
+        }}
       />
     </AppShell>
   );

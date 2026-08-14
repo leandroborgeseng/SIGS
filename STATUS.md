@@ -1,6 +1,6 @@
 # STATUS — SIGS
 
-- **etapa_atual:** Hotfix Safari File API — ZIP fatia a fatia (FileReader+XHR), sem montar na RAM
+- **etapa_atual:** Lote LEDI — gráficos do funil + autofix async em chunks (202 + poll)
 - **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI Onda 1 + fila APS + LEDI P1 + autofix FAI):**
   - Área `/faturamento` (hub · filas `/faturamento/odonto` e `/faturamento/aps` · lotes `/faturamento/lote/{fao,fai,proc}`)
   - Gaps clínicos B–D: lotação, `CodeSearchSelect`, preview FAO, Tela C, fila, condutas LEDI
@@ -29,6 +29,9 @@
 ## Retomar daqui (2026-08-14)
 
 ### Entregue nesta onda
+- **Lote FAO/FAI/PROC — gráficos:** funil (barras) + pizza SVG do summary LEDI (total, Siaps-ready, bloqueio, qualidade, indicadores, ideais). Cores vermelho/laranja/verde; sem R$. Atualizam no poll se o job de import ainda analisa.
+- **Autofix/dry-run async em chunks:** POST devolve 202 + jobId (mesmo padrão do import ZIP). Worker processa 100–200 fichas, persiste avanço; poll `processando ficha 1240 de 8149` no modal e no card. Clique de novo no mesmo lote retoma se o job caiu. Ao terminar, fecha o ciclo e atualiza o summary.
+- **UI compartilhada:** `/faturamento/lote/{fao,fai,proc}` usam `LediTipoLotePage`.
 - **PDF Secretaria (o que falta):** `GET …/pending-report?format=pdf` (pdfkit no servidor, sem Chrome). Capa com município/lote/tipo/totais; fichas com CPF mascarado; BLOCKER vermelho, MONEY_RISK laranja, QUALITY_WARN oliva. Botão **Baixar PDF (secretaria)** nos 3 lotes.
 - **Hotfix Safari File API (“Blob loading failed” ~13 MB / OOM 50–100 MB):** **não** montar o ZIP na RAM. Cada fatia 512 KiB: `FileReader.readAsArrayBuffer(file.slice(start,end))` (3×) → XHR POST imediato → descarta o buffer. Servidor junta em disco até 100 MB e unzipa. Progresso **lendo+enviando parte n/m**. Falha de leitura → **Chrome/Edge** ou Escolher de novo (não arrastar do Finder). `blob.arrayBuffer()` / FileReader no ZIP inteiro ficam proibidos neste caminho.
 - **Relatório do que falta (FAI/FAO/PROC):** após o autofix, `GET /v1/dental/ledi/batches/:id/pending-report` (JSON + `?format=csv|md|pdf` + `?severity=`). UI **Relatório do que falta** — tabela + CSV/MD/**PDF (secretaria)** colorido. CPF mascarado; BLOCKER = Siaps; o resto = qualidade/Previne. Sem R$ pedagógico.
@@ -57,4 +60,4 @@
 - **Hotfix prod:** entrypoint trata `prisma db push` + `--accept-data-loss` após dedupe de `appointment_id` (unique agenda odonto)
 - Colunas novas em `appointment_slots`: `item_type` (default CONSULTA), `care_line` (default GENERAL)
 
-_Atualizado em 2026-08-14 (Safari ZIP: fatia FileReader+XHR, sem Uint8Array do arquivo inteiro)_
+_Atualizado em 2026-08-14 (lote LEDI: gráficos + autofix job em chunks)_

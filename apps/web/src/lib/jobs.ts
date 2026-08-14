@@ -49,3 +49,35 @@ export function jobProgressLabel(job: Pick<JobStatus, 'progressPct' | 'progressM
   const pct = typeof job.progressPct === 'number' ? job.progressPct : null;
   return pct != null && pct > 0 ? `${msg} (${pct}%)` : msg;
 }
+
+/** “processando ficha 1240 de 8149” — barra do autofix / análise. */
+export function parseJobFichaProgress(
+  job?: Pick<JobStatus, 'progressMessage' | 'result'> | null,
+): { processed: number; total: number } | null {
+  if (!job) return null;
+  const msg = job.progressMessage || '';
+  const m = /(processando|simulando|analisando)\s+ficha\s+(\d+)\s+de\s+(\d+)/i.exec(msg);
+  if (m) {
+    const processed = Number(m[2]);
+    const total = Number(m[3]);
+    if (Number.isFinite(processed) && Number.isFinite(total) && total > 0) {
+      return { processed, total };
+    }
+  }
+  const result = job.result as { processed?: unknown; total?: unknown } | null | undefined;
+  const processed = typeof result?.processed === 'number' ? result.processed : null;
+  const total = typeof result?.total === 'number' ? result.total : null;
+  if (processed != null && total != null && total > 0) return { processed, total };
+  return null;
+}
+
+export function jobChartSummary(
+  job?: Pick<JobStatus, 'result'> | null,
+): Record<string, unknown> | null {
+  const result = job?.result;
+  if (!result || typeof result !== 'object') return null;
+  const summary = (result as { summary?: unknown }).summary;
+  if (summary && typeof summary === 'object') return summary as Record<string, unknown>;
+  if (typeof (result as { total?: unknown }).total === 'number') return result;
+  return null;
+}

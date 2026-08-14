@@ -38,6 +38,10 @@ import { StorageService } from '../infra/storage/storage.service';
 import { randomUUID } from 'crypto';
 import { buildPendingReportPdf } from './ledi-pending-report-pdf';
 import {
+  lediAutofixAsyncThreshold,
+  lediAutofixIdempotencyKey,
+} from './ledi-job-progress';
+import {
   CreateDentalEncounterDto,
   CreateHomeCareVisitDto,
   CreateCollectiveActivityDto,
@@ -353,30 +357,56 @@ export class CareExtraController {
     @Query('async') asyncFlag?: string,
     @Res({ passthrough: true }) res?: Response,
   ) {
-    const threshold = Number(process.env.LEDI_AUTOFIX_ASYNC_THRESHOLD || 40);
+    return this.enqueueAutofixOrRun(batchId, dto, { dryRun: false, asyncFlag, res });
+  }
+
+  @Post('dental/ledi/batches/:batchId/dry-run')
+  @HttpCode(200)
+  async dryRunFaoBatch(
+    @Param('batchId') batchId: string,
+    @Body() dto: AutoFixLediFaoBatchDto,
+    @Query('async') asyncFlag?: string,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    return this.enqueueAutofixOrRun(batchId, dto, { dryRun: true, asyncFlag, res });
+  }
+
+  private async enqueueAutofixOrRun(
+    batchId: string,
+    dto: AutoFixLediFaoBatchDto,
+    opts: { dryRun: boolean; asyncFlag?: string; res?: Response },
+  ) {
+    const threshold = lediAutofixAsyncThreshold();
     const itemCount = await this.faoBatches.countItems(batchId, dto.onlyItemIds);
     const wantAsync =
-      asyncFlag === '1' ||
-      asyncFlag === 'true' ||
+      opts.asyncFlag === '1' ||
+      opts.asyncFlag === 'true' ||
       itemCount >= threshold ||
       process.env.LEDI_AUTOFIX_FORCE_ASYNC === '1';
 
     if (wantAsync) {
       const job = await this.jobs.enqueue({
         type: JOB_NAMES.LEDI_AUTO_FIX,
-        payload: { batchId, dto },
+        idempotencyKey: lediAutofixIdempotencyKey(batchId, {
+          dryRun: opts.dryRun,
+          onlyItemIds: dto.onlyItemIds,
+        }),
+        payload: { batchId, dto, dryRun: opts.dryRun },
       });
-      res?.status(202);
+      opts.res?.status(202);
       return {
-        async: true,
+        async: true as const,
         jobId: job.id,
         status: job.status,
         itemCount,
-        message: 'Auto-correção enfileirada. Consulte GET /api/v1/jobs/:id',
+        dryRun: opts.dryRun,
+        message: opts.dryRun
+          ? 'Simulação enfileirada. Consulte GET /api/v1/jobs/:id'
+          : 'Auto-correção enfileirada. Consulte GET /api/v1/jobs/:id',
       };
     }
 
-    return this.faoBatches.autoFix(batchId, dto);
+    return opts.dryRun ? this.faoBatches.dryRun(batchId, dto) : this.faoBatches.autoFix(batchId, dto);
   }
 
   @Post('dental/ledi/batches/:batchId/export')
@@ -395,11 +425,6 @@ export class CareExtraController {
       status: job.status,
       message: 'Export ZIP enfileirado. Consulte GET /api/v1/jobs/:id (resultObjectKey).',
     };
-  }
-
-  @Post('dental/ledi/batches/:batchId/dry-run')
-  dryRunFaoBatch(@Param('batchId') batchId: string, @Body() dto: AutoFixLediFaoBatchDto) {
-    return this.faoBatches.dryRun(batchId, dto);
   }
 
   @Get('dental/ledi/batches/:batchId/closure-report')
