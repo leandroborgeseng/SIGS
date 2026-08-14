@@ -11,7 +11,12 @@ export type IoReadErrorInit = {
   fileType?: string;
   /** path relativo (webkitRelativePath) se houver */
   relativePath?: string;
+  /** Fatia FileReader falhou — sugerir Chrome/Edge (não montar o ZIP na RAM). */
+  hintAltBrowser?: boolean;
 };
+
+/** XMLs soltos / textos. ZIP LEDI NÃO passa por aqui — sobe fatia a fatia. */
+export const READ_WHOLE_FILE_MAX_BYTES = 8 * 1024 * 1024;
 
 function formatBytes(n?: number): string | null {
   if (typeof n !== 'number' || !Number.isFinite(n) || n < 0) return null;
@@ -65,6 +70,10 @@ export class IoReadError extends Error {
     const sizeLabel = formatBytes(init.fileSize);
     const causeDetail = describeCause(init.cause);
     const hintCloud = shouldHintCloudPlaceholder(init);
+    const blobFailed = /Blob loading failed/i.test(causeDetail || '');
+    const large =
+      typeof init.fileSize === 'number' && init.fileSize > READ_WHOLE_FILE_MAX_BYTES;
+    const hintAltBrowser = Boolean(init.hintAltBrowser || blobFailed || large);
 
     const meta: string[] = [];
     if (sizeLabel) meta.push(sizeLabel);
@@ -73,8 +82,13 @@ export class IoReadError extends Error {
 
     let msg = `Não foi possível ler ${who}${metaStr}`;
     if (causeDetail) msg += ` — ${causeDetail}`;
-    msg +=
-      '. O Safari não leu o arquivo; escolha de novo pelo botão, não arraste do Finder se falhar.';
+    if (hintAltBrowser) {
+      msg +=
+        '. O Safari falhou ao ler uma fatia deste arquivo (não carregamos o ZIP inteiro na RAM). Use Chrome ou Edge, ou escolha de novo pelo botão — não arraste do Finder se falhar.';
+    } else {
+      msg +=
+        '. O Safari não leu o arquivo; escolha de novo pelo botão, não arraste do Finder se falhar.';
+    }
     if (hintCloud) {
       msg +=
         ' Se o arquivo estiver só na nuvem (iCloud), copie para uma pasta local (ex.: Desktop) e selecione de lá.';
@@ -99,6 +113,7 @@ export function isIoReadError(err: unknown): boolean {
   const name = err instanceof Error ? err.name : '';
   return (
     /I\/O read operation failed/i.test(msg) ||
+    /Blob loading failed/i.test(msg) ||
     /NotReadableError/i.test(name) ||
     /NotReadableError/i.test(msg) ||
     /NotFoundError/i.test(name) ||
@@ -140,9 +155,9 @@ async function readViaStream(file: Blob): Promise<ArrayBuffer> {
 }
 
 /**
- * Caminho principal no Safari: FileReader no File inteiro.
- * NÃO usar file.slice().arrayBuffer() nem fetch(blobUrl) — o WebKit falha
- * no handle (Downloads, drag-drop, 2ª leitura) com “I/O read operation failed”.
+ * FileReader.readAsArrayBuffer no Blob dado (File inteiro OU file.slice()).
+ * NÃO usar blob.arrayBuffer() / fetch(blobUrl) — o WebKit falha com
+ * “I/O read operation failed” / “Blob loading failed”.
  */
 async function readViaFileReader(file: Blob): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
@@ -193,9 +208,8 @@ function cacheAndReturn(file: NamedBlob, buf: ArrayBuffer): ArrayBuffer {
 }
 
 /**
- * Materializa o arquivo inteiro na RAM.
- * Principal: FileReader.readAsArrayBuffer (3×, backoff). Sem File.slice / blob URL.
- * WeakMap evita 2ª leitura no disco (Safari costuma falhar no mesmo handle).
+ * Só XMLs / arquivos pequenos. ZIP LEDI NÃO usa isto — FileReader no Blob
+ * inteiro (~13 MB) quebra o WebKit com “Blob loading failed” e 50–100 MB OOM.
  */
 export async function readBinaryFile(
   file: NamedBlob,
@@ -209,6 +223,17 @@ export async function readBinaryFile(
     throw new IoReadError(
       toIoInit(file, new Error('Arquivo com 0 bytes (seleção vazia ou placeholder de nuvem)')),
     );
+  }
+  if (typeof file.size === 'number' && file.size > READ_WHOLE_FILE_MAX_BYTES) {
+    throw new IoReadError({
+      ...toIoInit(
+        file,
+        new Error(
+          `Arquivo ${formatBytes(file.size)} — grande demais para ler inteiro no Safari. O ZIP sobe fatia a fatia.`,
+        ),
+      ),
+      hintAltBrowser: true,
+    });
   }
 
   const rounds = Math.max(1, opts?.retries ?? 3);
@@ -242,8 +267,53 @@ export async function readBinaryFile(
 }
 
 /**
- * Fatia em memória (cópia própria para o XHR). Nunca File.slice.
- * `subarray` compartilha o buffer — copiamos para o POST não enviar o ZIP inteiro.
+ * Uma fatia via FileReader.readAsArrayBuffer(file.slice(start,end)).
+ * Nunca blob.arrayBuffer() / fetch. Retry 3×. Não concatena o arquivo.
+ */
+export async function readFileSlice(
+  file: NamedBlob,
+  start: number,
+  end: number,
+  opts?: { retries?: number; onAttempt?: (label: string) => void },
+): Promise<ArrayBuffer> {
+  const size = typeof file.size === 'number' ? file.size : 0;
+  const lo = Math.max(0, start);
+  const hi = Math.min(size || end, end);
+  if (hi <= lo) {
+    throw new IoReadError({
+      ...toIoInit(file, new Error(`Fatia vazia [${lo},${hi})`)),
+      hintAltBrowser: true,
+    });
+  }
+  const expected = hi - lo;
+  const rounds = Math.max(1, opts?.retries ?? 3);
+  const delays = [0, 150, 450];
+  let last: unknown;
+  for (let round = 0; round < rounds; round++) {
+    if (delays[round]) await sleep(delays[round]!);
+    try {
+      opts?.onAttempt?.(
+        `lendo fatia ${lo}-${hi} (tentativa ${round + 1}/${rounds})`,
+      );
+      const slice = file.slice(lo, hi);
+      const buf = await readViaFileReader(slice);
+      if (buf.byteLength !== expected) {
+        last = new Error(`fatia ${buf.byteLength} bytes, esperado ${expected}`);
+        continue;
+      }
+      return buf;
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw new IoReadError({
+    ...toIoInit(file, last),
+    hintAltBrowser: true,
+  });
+}
+
+/**
+ * Fatia de um buffer já na RAM (XMLs). ZIP LEDI não usa — lê file.slice + POST.
  */
 export function subarrayChunk(bytes: Uint8Array, index: number, chunkSize: number): ArrayBuffer {
   const start = index * chunkSize;

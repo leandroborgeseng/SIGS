@@ -16,7 +16,7 @@ export function formatUploadError(err: unknown): string {
     if (isIoReadError(cause)) {
       return cause instanceof Error
         ? cause.message
-        : 'O Safari não leu o arquivo; escolha de novo pelo botão, não arraste do Finder se falhar.';
+        : 'O Safari falhou ao ler uma fatia; use Chrome ou Edge, ou escolha de novo pelo botão.';
     }
     const extra =
       cause instanceof ApiError

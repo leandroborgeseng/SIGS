@@ -746,8 +746,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>1. Enviar XMLs {meta.label}</h3>
         <p className="muted">
-          ZIP até 100 MB. O arquivo sobe em partes (512 KiB) e a análise roda no servidor
-          — o Safari não descompacta o ZIP. Pasta e-SUS ou achatado. Tipo LEDI conferido
+          ZIP até 100 MB. Cada fatia (512 KiB) é lida e enviada na hora — o Safari
+          não monta o ZIP na RAM nem descompacta. Pasta e-SUS ou achatado. Tipo LEDI conferido
           {expectedTipo === 'FAI' ? (
             <>
               {' '}
@@ -785,7 +785,11 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             style={{ marginTop: 12, background: 'var(--surface-2)', border: '1px solid var(--line)' }}
           >
             <strong>
-              {isAnalyzingProgress(uploadProgress) ? 'Analisando no servidor' : 'Enviando ZIP'}
+              {isAnalyzingProgress(uploadProgress)
+                ? 'Analisando no servidor'
+                : /lendo\+enviando/i.test(uploadProgress)
+                  ? 'Lendo e enviando'
+                  : 'Enviando ZIP'}
             </strong>
             <div style={{ marginTop: 6 }}>{uploadProgress}</div>
             {(() => {

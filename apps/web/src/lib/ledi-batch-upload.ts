@@ -1,15 +1,15 @@
 /**
  * Upload de lote LEDI (FAI / FAO / PROC).
  *
- * ZIP (qualquer tamanho): FileReader lê o ZIP inteiro na RAM (3×), depois
- * fatias 512 KiB saem de Uint8Array.subarray — nunca File.slice.
- * POST /upload-zip/chunk via XMLHttpRequest; unzip + análise no Node (job).
- * Se o XHR octet-stream RST, fallback JSON `{ data: base64 }`.
+ * ZIP (até 100 MB): NÃO monta o arquivo na RAM. Para cada fatia 512 KiB:
+ * FileReader.readAsArrayBuffer(file.slice(start,end)) → XHR POST imediato →
+ * descarta o buffer. O servidor junta em disco (/upload-zip/chunk) e unzipa.
+ * Se o XHR octet-stream RST, fallback JSON `{ data: base64 }` só da fatia.
  * XMLs soltos: ainda POST /upload multipart (fatias ≤ 1 MB).
  */
 
 import { api, apiBinary, apiChunkJson, apiUpload, getToken, isNetworkError, NetworkError, ApiError, assertApiReachable } from '@/lib/api';
-import { IoReadError, isIoReadError, formatBytes, readBinaryFile, subarrayChunk } from '@/lib/read-binary-file';
+import { IoReadError, isIoReadError, formatBytes, readBinaryFile, readFileSlice } from '@/lib/read-binary-file';
 import { extractJobId, isAsyncJobResponse, jobProgressLabel, waitForJob } from '@/lib/jobs';
 import {
   assertLediTipoMatch,
@@ -205,33 +205,28 @@ async function uploadZipViaServerChunks<T extends { id: string; summary?: { tota
 }): Promise<LediUploadResult<T>> {
   const zip = opts.zip;
   assertZipSize(zip);
-  const sizeLabel = formatBytes(zip.size) || `${zip.size} B`;
-  opts.onProgress?.(`Lendo ZIP ${zip.name} (${sizeLabel}) na memória…`);
-  const buf = await readBinaryFile(zip, {
-    retries: 3,
-    onAttempt: (label) => opts.onProgress?.(label),
-  });
-  const bytes = new Uint8Array(buf);
-  const totalBytes = bytes.byteLength;
-  if (!totalBytes) {
-    throw new IoReadError({
-      fileName: zip.name,
-      fileSize: zip.size,
-      fileType: zip.type,
-      cause: new Error('ZIP vazio após leitura na memória'),
-    });
-  }
+  const totalBytes = zip.size;
+  const sizeLabel = formatBytes(totalBytes) || `${totalBytes} B`;
   const total = Math.max(1, Math.ceil(totalBytes / ZIP_CHUNK_BYTES));
+  opts.onProgress?.(
+    `ZIP ${zip.name} (${sizeLabel}) — ${total} partes de 512 KiB, sem montar na RAM`,
+  );
   const uploadId = opts.resume?.uploadId || newUploadId();
   const startIndex = Math.max(0, Math.min(opts.resume?.startIndex ?? 0, total - 1));
   let last: unknown;
   for (let i = startIndex; i < total; i++) {
-    const chunk = subarrayChunk(bytes, i, ZIP_CHUNK_BYTES);
-    const label = `parte ${i + 1}/${total}`;
+    const start = i * ZIP_CHUNK_BYTES;
+    const end = Math.min(start + ZIP_CHUNK_BYTES, totalBytes);
+    const label = `lendo+enviando parte ${i + 1}/${total}`;
     opts.onProgress?.(
       i === total - 1 ? `${label} — última fatia; em seguida o servidor analisa` : label,
     );
+    let chunk: ArrayBuffer | undefined;
     try {
+      chunk = await readFileSlice(zip, start, end, {
+        retries: 3,
+        onAttempt: () => opts.onProgress?.(label),
+      });
       last = await postChunkWithRetry(
         chunkQuery({
           uploadId,
@@ -245,6 +240,7 @@ async function uploadZipViaServerChunks<T extends { id: string; summary?: { tota
         chunk,
         { bytesHint: chunk.byteLength, onProgress: opts.onProgress, label },
       );
+      chunk = undefined;
     } catch (e) {
       if (isIoReadError(e)) throw wrapErr(e, zip.name, totalBytes);
       if (i === total - 1) {
@@ -262,6 +258,8 @@ async function uploadZipViaServerChunks<T extends { id: string; summary?: { tota
         fileName: zip.name,
         cause: e,
       });
+    } finally {
+      chunk = undefined;
     }
   }
 
