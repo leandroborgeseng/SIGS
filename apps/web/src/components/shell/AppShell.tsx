@@ -7,8 +7,36 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
 const NAV_STORAGE_KEY = 'sigs.nav.openGroup';
+const NAV_SUB_STORAGE_KEY = 'sigs.nav.openSubgroup';
 
-const NAV = [
+type NavLink = { href: string; label: string };
+type NavSubgroup = { id: string; group: string; items: readonly NavLink[] };
+type NavItem = NavLink | NavSubgroup;
+
+type NavGroupId =
+  | 'inicio'
+  | 'clinico'
+  | 'faturamento'
+  | 'cadastros'
+  | 'operacao'
+  | 'gestao'
+  | 'suporte';
+
+function isNavSubgroup(item: NavItem): item is NavSubgroup {
+  return 'items' in item;
+}
+
+const LEDI_LOTES_SUBGROUP: NavSubgroup = {
+  id: 'ledi-lotes',
+  group: 'Tratamento de lotes LEDI',
+  items: [
+    { href: '/faturamento/lote/fao', label: 'Lote FAO' },
+    { href: '/faturamento/lote/fai', label: 'Lote FAI' },
+    { href: '/faturamento/lote/proc', label: 'Lote Procedimentos' },
+  ],
+};
+
+const NAV: Array<{ id: NavGroupId; group: string; items: readonly NavItem[] }> = [
   {
     id: 'inicio',
     group: 'Início',
@@ -31,9 +59,7 @@ const NAV = [
       { href: '/faturamento', label: 'Visão geral' },
       { href: '/faturamento/odonto', label: 'Fila odonto' },
       { href: '/faturamento/aps', label: 'Fila APS' },
-      { href: '/faturamento/lote/fao', label: 'Lote LEDI FAO' },
-      { href: '/faturamento/lote/fai', label: 'Lote LEDI FAI' },
-      { href: '/faturamento/lote/proc', label: 'Lote Procedimentos' },
+      LEDI_LOTES_SUBGROUP,
       { href: '/producao', label: 'Produção / BPA' },
     ],
   },
@@ -78,9 +104,7 @@ const NAV = [
     group: 'Suporte',
     items: [{ href: '/ajuda', label: 'Central de Ajuda' }],
   },
-] as const;
-
-type NavGroupId = (typeof NAV)[number]['id'];
+];
 
 function itemMatches(pathname: string, href: string) {
   if (href === '/faturamento') return pathname === '/faturamento';
@@ -101,14 +125,28 @@ function itemMatches(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function navItemMatches(pathname: string, item: NavItem) {
+  if (isNavSubgroup(item)) {
+    return item.items.some((sub) => itemMatches(pathname, sub.href));
+  }
+  return itemMatches(pathname, item.href);
+}
+
 function groupForPath(pathname: string): NavGroupId {
   for (const g of NAV) {
-    if (g.items.some((item) => itemMatches(pathname, item.href))) return g.id;
+    if (g.items.some((item) => navItemMatches(pathname, item))) return g.id;
   }
   if (pathname.startsWith('/faturamento')) return 'faturamento';
   if (pathname.startsWith('/odonto') || pathname.startsWith('/aps')) return 'clinico';
   if (pathname.startsWith('/admin')) return 'gestao';
   return 'inicio';
+}
+
+function subgroupForPath(pathname: string): string | null {
+  if (LEDI_LOTES_SUBGROUP.items.some((item) => itemMatches(pathname, item.href))) {
+    return LEDI_LOTES_SUBGROUP.id;
+  }
+  return null;
 }
 
 function initials(name: string) {
@@ -124,6 +162,9 @@ export function AppShell({ children, helpId }: { children: ReactNode; helpId?: s
   const router = useRouter();
   const [facilityName, setFacilityName] = useState('Unidade');
   const [openGroup, setOpenGroup] = useState<NavGroupId | null>(() => groupForPath(pathname));
+  const [openSubgroup, setOpenSubgroup] = useState<string | null>(
+    () => subgroupForPath(pathname) ?? LEDI_LOTES_SUBGROUP.id,
+  );
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -159,8 +200,11 @@ export function AppShell({ children, helpId }: { children: ReactNode; helpId?: s
   useEffect(() => {
     const fromRoute = groupForPath(pathname);
     setOpenGroup(fromRoute);
+    const fromSub = subgroupForPath(pathname);
+    if (fromSub) setOpenSubgroup(fromSub);
     try {
       localStorage.setItem(NAV_STORAGE_KEY, fromRoute);
+      if (fromSub) localStorage.setItem(NAV_SUB_STORAGE_KEY, fromSub);
     } catch {
       /* ignore */
     }
@@ -172,6 +216,19 @@ export function AppShell({ children, helpId }: { children: ReactNode; helpId?: s
       try {
         if (next) localStorage.setItem(NAV_STORAGE_KEY, next);
         else localStorage.removeItem(NAV_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
+  function toggleSubgroup(id: string) {
+    setOpenSubgroup((prev) => {
+      const next = prev === id ? null : id;
+      try {
+        if (next) localStorage.setItem(NAV_SUB_STORAGE_KEY, next);
+        else localStorage.removeItem(NAV_SUB_STORAGE_KEY);
       } catch {
         /* ignore */
       }
@@ -215,6 +272,47 @@ export function AppShell({ children, helpId }: { children: ReactNode; helpId?: s
                 {expanded ? (
                   <div id={panelId} className="nav-group-items" role="region" aria-label={g.group}>
                     {g.items.map((item) => {
+                      if (isNavSubgroup(item)) {
+                        const subExpanded = openSubgroup === item.id;
+                        const subPanelId = `nav-sub-${item.id}`;
+                        return (
+                          <div key={item.id} className="nav-subgroup">
+                            <button
+                              type="button"
+                              className="nav-subgroup-btn"
+                              aria-expanded={subExpanded}
+                              aria-controls={subPanelId}
+                              onClick={() => toggleSubgroup(item.id)}
+                            >
+                              <span>{item.group}</span>
+                              <span className="nav-chevron" aria-hidden>
+                                ▸
+                              </span>
+                            </button>
+                            {subExpanded ? (
+                              <div
+                                id={subPanelId}
+                                className="nav-subgroup-items"
+                                role="region"
+                                aria-label={item.group}
+                              >
+                                {item.items.map((sub) => {
+                                  const active = itemMatches(pathname, sub.href);
+                                  return (
+                                    <Link
+                                      key={sub.href}
+                                      href={sub.href}
+                                      className={`nav-item${active ? ' active' : ''}`}
+                                    >
+                                      {sub.label}
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      }
                       const active = itemMatches(pathname, item.href);
                       return (
                         <Link

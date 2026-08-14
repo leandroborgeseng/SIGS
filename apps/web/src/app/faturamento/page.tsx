@@ -22,13 +22,13 @@ const FILAS = [
 const LOTES = [
   {
     href: '/faturamento/lote/fao',
-    title: 'Lote LEDI FAO',
+    title: 'Lote FAO',
     badge: 'Tipo 5 · odonto',
     desc: 'Upload, correção e export ZIP de fichas odontológicas.',
   },
   {
     href: '/faturamento/lote/fai',
-    title: 'Lote LEDI FAI',
+    title: 'Lote FAI',
     badge: 'Tipo 4 · individual',
     desc: 'Mesmo fluxo: validar, corrigir e baixar ZIP de atendimento individual.',
   },
@@ -51,7 +51,7 @@ export default function FaturamentoHubPage() {
     <AppShell helpId="faturamento.hub">
       <PageHeader
         title="Faturamento & Validação"
-        description="Filas odonto/APS e os três lotes LEDI (FAO · FAI · Procedimentos) — separado do atendimento clínico."
+        description="Filas odonto/APS e tratamento de lotes LEDI (FAO · FAI · Procedimentos) — separado do atendimento clínico."
         actions={<HelpLink id="faturamento.hub" />}
       />
 
@@ -76,11 +76,12 @@ export default function FaturamentoHubPage() {
 
       <section style={{ marginBottom: 20, maxWidth: 720 }}>
         <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>
-          Lotes LEDI (XML)
+          Tratamento de lotes LEDI
         </h3>
         <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
           Escolha o tipo da ficha. Os três usam o mesmo painel: upload → alertas → export ZIP / dry-run /
-          relatório.
+          relatório. Vacina, AD e coletivo geram lote na origem (Operação) — não há tela de ZIP XML nesta
+          fase.
         </p>
         <div className="stack" style={{ gap: 10 }}>
           {LOTES.map((item) => (

@@ -4,7 +4,8 @@
 **Data:** 2026-08-14  
 **Fonte:** instrução do usuário — fluxo de trabalho otimizado para upload de lotes  
 **Telas:** `/faturamento/lote/fai` · `/faturamento/lote/fao` · `/faturamento/lote/proc`  
-**Shell compartilhado:** `LediTipoLotePage`
+**Shell compartilhado:** `LediTipoLotePage`  
+**Nav / hub:** Faturamento & Validação → sanfona **Tratamento de lotes LEDI** (Lote FAO · Lote FAI · Lote Procedimentos). Aliases: `/odonto/lote`, `/aps/lote`, `/procedimentos/lote`.
 
 Documento irmão: [plano-ledi-validacao-correcao-100.md](plano-ledi-validacao-correcao-100.md) (pipeline de códigos e repair). Este arquivo trata **só da jornada de interface**.
 
@@ -184,12 +185,43 @@ Fora desta tarefa: **não** implementar o wizard. Copy na tela de upload só se 
 
 ---
 
+## Tipos AB / LEDI (`tipoDadoSerializado`)
+
+Lista da Atenção Básica no transporte CDS (não copiar o e-SUS; códigos de envelope). Dump Franca 5974691 só trouxe **4, 5 e 7** — são os únicos com tela de lote XML nesta fase. Vacina (P5) e AD/coletivo (P6) têm **origem nativa** (mapper + `/producao`), sem ZIP.
+
+**Não poluir o menu** com itens “em breve”: tipos sem rota de lote ficam nesta tabela e no `STATUS.md`.
+
+| Código | Tipo | Tela lote XML | Origem nativa SIGS | Status fase 1 |
+|---|---|---|---|---|
+| 2 | Cadastro individual | — | `/pacientes` (cadastro, não lote) | cadastro P2; **sem lote XML** |
+| 3 | Cadastro domiciliar | — | `/territorio` (parcial) | **sem lote XML** |
+| **4** | **FAI** — atendimento individual | `/faturamento/lote/fai` (alias `/aps/lote`) | `/aps` + fila `/faturamento/aps` | **lote XML + origem** |
+| **5** | **FAO** — atendimento odontológico | `/faturamento/lote/fao` (alias `/odonto/lote`) | `/odonto` + fila `/faturamento/odonto` | **lote XML + origem** |
+| 6 | Atividade coletiva | — | `/coletivo` (`ledi-collective-v2`) | P6 origem; **sem lote XML** |
+| **7** | **Procedimentos** | `/faturamento/lote/proc` (alias `/procedimentos/lote`) | sem ficha clínica dedicada | **lote XML** (dump Franca) |
+| 8 | Visita domiciliar (ACS) | — | — | **adiado** (≠ AD tipo 10) |
+| 9 | PEC Atendimento | — | — | não é ficha CDS clássica; **fora** |
+| 10 | Atendimento domiciliar (AD) | — | `/ad` (`ledi-homecare-v2`) | P6 origem; **sem lote XML** |
+| 11 | Avaliação de elegibilidade (AD) | — | — | **adiado** |
+| 12 | Consumo alimentar | — | — | **adiado** |
+| 13 | Complementar Zika / microcefalia | — | — | **adiado** |
+| 14 | Vacinação | — | `/vacinacao` (`ledi-vaccination-v2`) | P5 origem; **sem lote XML** |
+| 15 | Vinculação cidadão–equipe | — | cadastro/lotação | vínculo; **não é lote** |
+| 16 | Cuidado compartilhado | — | `/regulacao` (parcial) | **adiado** lote XML |
+
+Wizard (P0–P3 neste documento) **só** nas três rotas de lote. Não criar `/faturamento/lote/vacina` etc. nesta entrega.
+
+Nota de detector: `ledi-ficha-tipo.ts` mapeia o código **2** para VACINA pela tag `fichaVacinacaoMasterTransport`; o código CDS de vacina é **14** (2 = cadastro individual). Não corrigir nesta entrega (só nav/hub/docs).
+
+---
+
 ## Fora de escopo deste documento
 
 - Implementar o wizard (código).  
 - Inventar CIAP/CID/conduta no autofix.  
 - Mudar LEDI/validadores além do **fail-closed** do gate.  
-- UI final Claude Design (`docs/design/`).
+- UI final Claude Design (`docs/design/`).  
+- Telas de lote XML para vacina, AD, coletivo, cadastros, visita ACS, consumo alimentar.
 
 ---
 

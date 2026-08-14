@@ -175,10 +175,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'faturamento.hub',
     title: 'Faturamento & Validação',
     module: 'Faturamento',
-    version: '0.4.0',
-    updatedAt: '2026-08-13',
-    summary: 'Hub: filas odonto/APS + lotes FAO, FAI e Procedimentos.',
-    body: `Em /faturamento use os atalhos: (1) Fila odonto — produção FAO do mês e cores LEDI; (2) Fila APS — atendimento individual FAI tipo 4; (3) Lote FAO — XMLs odonto tipo 5; (4) Lote FAI — tipo 4; (5) Lote Procedimentos — tipo 7; (6) Produção/BPA. Os três lotes compartilham export ZIP, dry-run e relatório. Nav: grupo Faturamento & Validação.`,
+    version: '0.5.0',
+    updatedAt: '2026-08-14',
+    summary: 'Hub: filas odonto/APS + sanfona Tratamento de lotes LEDI (FAO, FAI, Procedimentos).',
+    body: `Em /faturamento: (1) Fila odonto — produção FAO do mês; (2) Fila APS — FAI tipo 4; (3) Tratamento de lotes LEDI — Lote FAO (tipo 5), Lote FAI (tipo 4), Lote Procedimentos (tipo 7); (4) Produção/BPA. Os três lotes compartilham export ZIP, dry-run e relatório. Nav: Faturamento & Validação → sanfona Tratamento de lotes LEDI. Vacina/AD/coletivo ficam em Operação (origem nativa), sem tela de ZIP nesta fase.`,
   },
   {
     id: 'faturamento.fila-aps',
@@ -196,7 +196,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '1.2.0',
     updatedAt: '2026-08-12',
     summary: 'Upload de XMLs odonto, inconsistências, auto-correção e download ZIP.',
-    body: `Em Faturamento → Lote LEDI FAO (/faturamento/lote/fao): (1) envie XMLs ou ZIP; (2) veja o funil Siaps/Previne; (3) corrija alertas (lote ou ficha); (4) quando houver prontas Siaps, use Exportar / baixar ZIP — preferir “só conformes”; dry-run simula auto-correção; relatório .md fecha a análise. Alias antigo: /odonto/lote. Irmãos: FAI (/faturamento/lote/fai) e Procedimentos (/faturamento/lote/proc).`,
+    body: `Em Faturamento → Tratamento de lotes LEDI → Lote FAO (/faturamento/lote/fao): (1) envie XMLs ou ZIP; (2) veja o funil Siaps/Previne; (3) corrija alertas (lote ou ficha); (4) quando houver prontas Siaps, use Exportar / baixar ZIP — preferir “só conformes”; dry-run simula auto-correção; relatório .md fecha a análise. Alias antigo: /odonto/lote. Irmãos: FAI (/faturamento/lote/fai) e Procedimentos (/faturamento/lote/proc).`,
   },
   {
     id: 'faturamento.lote-fai',
