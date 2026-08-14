@@ -8,9 +8,18 @@ import {
   LediTipoMismatchError,
   sliceEntryRanges,
   uniqueBaseName,
+  BROWSER_UNZIP_MAX_BYTES,
+  shouldUnzipZipInBrowser,
 } from '../../../web/src/lib/ledi-xml-batch';
 
 describe('ledi-xml-batch (cliente)', () => {
+  it('ZIP pequeno não unzipa no browser (POST /upload ~0.2 MB Load-failed no Safari)', () => {
+    expect(shouldUnzipZipInBrowser(200 * 1024)).toBe(false);
+    expect(shouldUnzipZipInBrowser(4 * 1024 * 1024)).toBe(false);
+    expect(shouldUnzipZipInBrowser(13 * 1024 * 1024)).toBe(false);
+    expect(BROWSER_UNZIP_MAX_BYTES).toBe(0);
+  });
+
   it('ignora __MACOSX / AppleDouble e aceita *.esus.xml em pasta e-SUS', () => {
     expect(isJunkZipEntry('__MACOSX/sistemas/._a.xml')).toBe(true);
     expect(isLediXmlZipEntry('sistemas/5974691/cadastroatendimentoindividual-1.esus.xml')).toBe(true);

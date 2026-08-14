@@ -1,17 +1,21 @@
 /**
  * Upload de lote LEDI (FAI / FAO / PROC).
  *
- * ZIP ≤ ~5 MB: descompacta no browser (fflate) e envia XMLs em fatias
- * (Arquivo.zip / amostra). ZIP maior: NÃO unzipa no Safari — fatias
- * octet-stream 512 KiB em POST /upload-zip/chunk; unzip + análise no Node.
+ * ZIP (qualquer tamanho): NÃO unzipa no Safari — fatias octet-stream 512 KiB
+ * em POST /upload-zip/chunk; unzip + análise no Node (job). O caminho antigo
+ * (unzip no browser + POST /upload de XMLs ≈ 0.2 MB) gerava “Load failed”
+ * sem HTTP — não era limite de tamanho.
+ * XMLs soltos: ainda POST /upload multipart (fatias ≤ 1 MB).
  */
 
-import { api, apiBinary, apiUpload, getToken, isNetworkError, NetworkError, ApiError } from '@/lib/api';
+import { api, apiBinary, apiUpload, getToken, isNetworkError, NetworkError, ApiError, assertApiReachable } from '@/lib/api';
 import { IoReadError, isIoReadError, formatBytes, readBinaryFile } from '@/lib/read-binary-file';
 import { extractJobId, isAsyncJobResponse, jobProgressLabel, waitForJob } from '@/lib/jobs';
 import {
   assertLediTipoMatch,
   isMemoryError,
+  shouldUnzipZipInBrowser,
+  BROWSER_UNZIP_MAX_BYTES,
   sliceEntryRanges,
   unzipFallbackMessage,
   type LediLoteTipo,
@@ -95,8 +99,7 @@ async function recoverJobAfterLastChunk(
 
 /** Alinhado ao FileInterceptor ZIP na API (100 MB). */
 export const MAX_ZIP_BYTES = 100 * 1024 * 1024;
-/** Acima disto o Safari não unzipa — sobe o ZIP em chunks para o Node. */
-export const BROWSER_UNZIP_MAX_BYTES = 5 * 1024 * 1024;
+export { BROWSER_UNZIP_MAX_BYTES, shouldUnzipZipInBrowser };
 export const ZIP_CHUNK_BYTES = 512 * 1024;
 /** Limite prático por XML no multipart da API. */
 export const MAX_XML_BYTES = 5 * 1024 * 1024;
@@ -118,10 +121,6 @@ function newUploadId(): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
-export function shouldUnzipZipInBrowser(size: number): boolean {
-  return size > 0 && size <= BROWSER_UNZIP_MAX_BYTES;
-}
-
 async function postChunkWithRetry<T>(
   path: string,
   body: Blob,
@@ -138,6 +137,7 @@ async function postChunkWithRetry<T>(
       return await apiBinary<T>(path, body, { bytesHint: opts.bytesHint });
     } catch (e) {
       last = e;
+      if (e instanceof NetworkError && e.apiDown) throw e;
       if (!isNetworkError(e) && !(e instanceof NetworkError)) throw e;
       if (e instanceof ApiError) throw e;
     }
@@ -311,17 +311,18 @@ async function postFormWithRetry<T>(
   buildForm: () => FormData,
   opts: { bytesHint: number; onProgress?: (msg: string) => void; label: string },
 ): Promise<T> {
-  const attempts = 2;
+  const attempts = 3;
   let last: unknown;
   for (let i = 0; i < attempts; i++) {
     if (i > 0) {
       opts.onProgress?.(`Reenviando ${opts.label} (tentativa ${i + 1}/${attempts})…`);
-      await sleep(600);
+      await sleep(600 * i);
     }
     try {
       return await apiUpload<T>(path, buildForm(), { bytesHint: opts.bytesHint });
     } catch (e) {
       last = e;
+      if (e instanceof NetworkError && e.apiDown) throw e;
       if (!isNetworkError(e) && !(e instanceof NetworkError)) throw e;
       if (e instanceof ApiError) throw e;
     }
@@ -459,6 +460,7 @@ export async function uploadLediBatchMultipart<
 }): Promise<LediUploadResult<T>> {
   if (!opts.files.length) throw new Error('Selecione arquivos .xml ou um .zip');
   if (!getToken()) throw new Error('Sessão expirada — faça login de novo.');
+  await assertApiReachable();
 
   const zips = opts.files.filter((f) => /\.zip$/i.test(f.name));
   const xmls = opts.files.filter((f) => /\.xml$/i.test(f.name));

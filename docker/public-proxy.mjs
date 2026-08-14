@@ -93,6 +93,23 @@ export function createPublicProxy(opts = {}) {
       if (req.socket) req.socket.setTimeout(0);
     }
 
+    let settled = false;
+    const fail = (status, message) => {
+      if (settled) return;
+      settled = true;
+      try {
+        proxyReq.destroy();
+      } catch {
+        /* already closed */
+      }
+      if (!res.headersSent && !res.writableEnded) {
+        res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ statusCode: status, message }));
+        return;
+      }
+      if (!res.writableEnded) res.destroy();
+    };
+
     const proxyReq = http.request(
       {
         protocol: 'http:',
@@ -105,9 +122,13 @@ export function createPublicProxy(opts = {}) {
         timeout: streamBody ? 0 : requestTimeoutMs,
       },
       (proxyRes) => {
+        settled = true;
         const resHeaders = { ...proxyRes.headers };
         for (const h of HOP) delete resHeaders[h];
         res.writeHead(proxyRes.statusCode || 502, resHeaders);
+        proxyRes.on('error', (err) => {
+          if (!res.writableEnded) res.destroy(err);
+        });
         proxyRes.pipe(res);
       },
     );
@@ -117,30 +138,31 @@ export function createPublicProxy(opts = {}) {
     }
 
     proxyReq.on('timeout', () => {
-      proxyReq.destroy(new Error('timeout'));
+      fail(504, `Proxy público: timeout ao falar com ${dest.label}.`);
     });
 
     proxyReq.on('error', (err) => {
       const msg = err instanceof Error ? err.message : String(err);
-      if (!res.headersSent) {
-        res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' });
-        res.end(
-          JSON.stringify({
-            statusCode: 502,
-            message: `Proxy público: ${dest.label} indisponível (${msg}).`,
-          }),
-        );
-        return;
-      }
-      res.destroy(err);
+      fail(502, `Proxy público: ${dest.label} indisponível (${msg}).`);
     });
 
-    req.on('aborted', () => proxyReq.destroy());
+    // Erro no pipe do body (Safari “Load failed” se o socket cair sem HTTP).
+    req.on('error', (err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      fail(502, `Proxy público: falha no pipe (${msg}).`);
+    });
+
+    // Cliente abortou. Não RST a resposta se headers já foram; senão encerra o upstream.
+    req.on('aborted', () => {
+      if (!res.headersSent) proxyReq.destroy();
+    });
+
     req.pipe(proxyReq);
   });
 
   server.timeout = 0;
-  server.headersTimeout = 0;
+  // headersTimeout=0 em alguns Node fecha na hora. Manter > keepAliveTimeout.
+  server.headersTimeout = Math.max(requestTimeoutMs, 125_000);
   server.requestTimeout = requestTimeoutMs;
   server.keepAliveTimeout = 120_000;
   return server;

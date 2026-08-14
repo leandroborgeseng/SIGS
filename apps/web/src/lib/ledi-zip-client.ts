@@ -1,6 +1,6 @@
 /**
- * Unzip LEDI no browser (fflate) — só ZIP ≤ ~5 MB (Arquivo.zip / amostra).
- * ZIP maior sobe em /upload-zip/chunk; o Node descompacta com yauzl.
+ * Unzip LEDI no browser (fflate) — só XMLs soltos / fallback.
+ * ZIP (qualquer tamanho) sobe em /upload-zip/chunk; o Node descompacta com yauzl.
  */
 
 import { unzip } from 'fflate';

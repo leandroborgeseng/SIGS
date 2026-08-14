@@ -744,9 +744,8 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>1. Enviar XMLs {meta.label}</h3>
         <p className="muted">
-          ZIP até 100 MB. Até ~5 MB o navegador abre o arquivo; acima disso o ZIP sobe em partes
-          (512 KiB) e a análise roda no servidor — o Safari não descompacta 13 MB+. Pasta e-SUS
-          ou achatado. Tipo LEDI conferido
+          ZIP até 100 MB. O arquivo sobe em partes (512 KiB) e a análise roda no servidor
+          — o Safari não descompacta o ZIP. Pasta e-SUS ou achatado. Tipo LEDI conferido
           {expectedTipo === 'FAI' ? (
             <>
               {' '}

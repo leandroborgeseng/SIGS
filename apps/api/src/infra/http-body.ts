@@ -9,6 +9,7 @@ import {
   type Response,
 } from 'express';
 
+/** JSON/urlencoded — POST /batches (XMLs em JSON) e from-zip base64. Teto ≥ 2mb. */
 export const HTTP_JSON_BODY_LIMIT = process.env.HTTP_BODY_LIMIT || '50mb';
 /**
  * Raw parser só na rota de chunk ZIP (UI envia 512 KiB).

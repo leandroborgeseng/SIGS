@@ -23,15 +23,20 @@ export class ApiError extends Error {
   }
 }
 
+export const API_DOWN_MESSAGE =
+  'API fora do ar (GET /api/health falhou). O servidor não está respondendo — tente de novo em instantes; se persistir, o processo Nest ou o proxy caiu.';
+
 /** fetch sem Response (Safari: "Load failed"; Chrome: "Failed to fetch"). */
 export class NetworkError extends Error {
   readonly code = 'NETWORK' as const;
   readonly bytesHint?: number;
+  readonly apiDown?: boolean;
 
-  constructor(message: string, opts?: { cause?: unknown; bytesHint?: number }) {
+  constructor(message: string, opts?: { cause?: unknown; bytesHint?: number; apiDown?: boolean }) {
     super(message);
     this.name = 'NetworkError';
     this.bytesHint = opts?.bytesHint;
+    this.apiDown = opts?.apiDown;
     if (opts?.cause !== undefined) {
       (this as Error & { cause?: unknown }).cause = opts.cause;
     }
@@ -81,16 +86,49 @@ function formatMb(bytes?: number): string | null {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function networkMessage(cause: unknown, bytesHint?: number): string {
+function networkMessage(cause: unknown, bytesHint?: number, apiDown?: boolean): string {
+  if (apiDown) return API_DOWN_MESSAGE;
   const raw = cause instanceof Error ? cause.message : String(cause || '');
   const size = formatMb(bytesHint);
-  const sizeBit = size ? ` Payload ≈ ${size}.` : '';
+  const small = typeof bytesHint === 'number' && bytesHint < 1024 * 1024;
+  const sizeBit = size
+    ? small
+      ? ` O corpo era pequeno (${size}) — não é limite de tamanho.`
+      : ` Payload ≈ ${size}.`
+    : '';
   return (
     `Falha de rede no envio (sem resposta HTTP — típico Safari “Load failed” / Chrome “Failed to fetch”).` +
     sizeBit +
-    ` A conexão caiu antes de uma resposta HTTP (timeout do gateway, rede ou processo derrubado).` +
+    (small
+      ? ` A conexão foi fechada pelo proxy/API (socket, CORS ou processo).`
+      : ` A conexão caiu antes de uma resposta HTTP (timeout do gateway, rede ou processo derrubado).`) +
     (raw ? ` Detalhe: ${raw}.` : '')
   );
+}
+
+/** GET /api/health — não usa doFetch (evita recursão). */
+export async function probeApiHealth(): Promise<'ok' | 'down'> {
+  try {
+    const res = await fetch(`${apiBase()}/health`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return 'down';
+    const body = (await res.json().catch(() => null)) as { status?: string } | null;
+    if (body && body.status && body.status !== 'ok') return 'down';
+    return 'ok';
+  } catch {
+    return 'down';
+  }
+}
+
+export async function assertApiReachable(): Promise<void> {
+  const status = await probeApiHealth();
+  if (status === 'down') {
+    throw new NetworkError(API_DOWN_MESSAGE, { apiDown: true });
+  }
 }
 
 function authHeaders(): Record<string, string> {
@@ -135,12 +173,17 @@ async function doFetch(
   try {
     return await fetch(input, {
       ...init,
-      credentials: 'include',
+      credentials: 'same-origin',
       signal: init.signal ?? ctrl.signal,
     });
   } catch (e) {
     if (isNetworkError(e) || e instanceof TypeError) {
-      throw new NetworkError(networkMessage(e, bytesHint), { cause: e, bytesHint });
+      const down = (await probeApiHealth()) === 'down';
+      throw new NetworkError(networkMessage(e, bytesHint, down), {
+        cause: e,
+        bytesHint,
+        apiDown: down,
+      });
     }
     throw e;
   } finally {

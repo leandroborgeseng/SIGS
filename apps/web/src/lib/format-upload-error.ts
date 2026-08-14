@@ -26,11 +26,19 @@ export function formatUploadError(err: unknown): string {
   }
   if (err instanceof NetworkError || isNetworkError(err)) {
     if (err instanceof NetworkError) return err.message;
-    const size = formatMb((err as { bytesHint?: number }).bytesHint);
+    const bytes = (err as { bytesHint?: number }).bytesHint;
+    const size = formatMb(bytes);
+    const small = typeof bytes === 'number' && bytes < 1024 * 1024;
     return (
       `Falha de rede no envio (sem resposta HTTP — “Load failed” / “Failed to fetch”).` +
-      (size ? ` Payload ≈ ${size}.` : '') +
-      ` A conexão caiu antes de uma resposta HTTP (timeout do gateway, rede ou processo derrubado). Tente de novo; se persistir, verifique a rede ou envie um ZIP menor.`
+      (size
+        ? small
+          ? ` O corpo era pequeno (${size}) — não é limite de tamanho.`
+          : ` Payload ≈ ${size}.`
+        : '') +
+      (small
+        ? ` A conexão foi fechada pelo proxy/API. Recarregue e envie de novo; se persistir, a API pode estar fora do ar.`
+        : ` A conexão caiu antes de uma resposta HTTP (timeout do gateway, rede ou processo derrubado). Tente de novo; se persistir, verifique a rede ou envie um ZIP menor.`)
     );
   }
 

@@ -4,6 +4,7 @@ import { type Request, type Response, type NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import { AppModule } from './app.module';
 import { assertBootEnv } from './infra/boot-env';
+import { corsOriginOption } from './infra/cors-origin';
 import { applyHttpBodyParsers } from './infra/http-body';
 import { requestContext } from './infra/request-context';
 import { RequestContextUserInterceptor } from './infra/request-context.interceptor';
@@ -43,7 +44,7 @@ async function bootstrap() {
     }),
   );
   app.enableCors({
-    origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    origin: corsOriginOption(process.env.CORS_ORIGIN),
     credentials: true,
   });
   const port = Number(process.env.PORT ?? 3001);

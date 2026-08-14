@@ -6,6 +6,16 @@
 export const XML_SLICE_MAX_FILES = 80;
 /** Teto por POST multipart — o caminho que já funciona (Arquivo.zip / XMLs soltos). */
 export const XML_SLICE_MAX_BYTES = 1024 * 1024;
+/**
+ * Unzip no browser desligado: ZIP ≤5 MB ia para POST /upload de XMLs (~0.2 MB)
+ * e o Safari falhava com “Load failed” (proxy/socket, não tamanho).
+ * ZIP (qualquer tamanho) sobe em /upload-zip/chunk.
+ */
+export const BROWSER_UNZIP_MAX_BYTES = 0;
+
+export function shouldUnzipZipInBrowser(_size: number): boolean {
+  return false;
+}
 
 export type LediLoteTipo = 'FAO' | 'FAI' | 'PROCEDIMENTOS';
 

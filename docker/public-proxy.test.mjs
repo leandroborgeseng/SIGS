@@ -177,6 +177,45 @@ test('POST /upload-zip/chunk octet-stream chega na API (idle no meio do body)', 
   }
 });
 
+test('upstream RST em POST pequeno devolve 502 JSON (não fecha o cliente sem HTTP)', async () => {
+  const bodySize = 200 * 1024;
+  const payload = Buffer.alloc(bodySize, 0x63);
+
+  const api = http.createServer((req) => {
+    req.resume();
+    req.on('end', () => {
+      req.socket.destroy();
+    });
+  });
+  await listen(api, 0);
+  const web = http.createServer((_req, res) => {
+    res.writeHead(500);
+    res.end('web');
+  });
+  await listen(web, 0);
+  const proxy = createPublicProxy({
+    apiPort: api.address().port,
+    webPort: web.address().port,
+    requestTimeoutMs: 10_000,
+  });
+  await listen(proxy, 0);
+
+  try {
+    const result = await postBuffer(
+      proxy.address().port,
+      '/api/v1/dental/ledi/batches/upload',
+      payload,
+      'multipart/form-data; boundary=----TestBoundary',
+    );
+    assert.equal(result.status, 502);
+    assert.match(String(result.json.message), /indisponível|Proxy/);
+  } finally {
+    await close(proxy);
+    await close(api);
+    await close(web);
+  }
+});
+
 function listen(server, port) {
   return new Promise((resolve, reject) => {
     server.listen(port, '127.0.0.1', () => resolve());

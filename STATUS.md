@@ -1,6 +1,6 @@
 # STATUS — SIGS
 
-- **etapa_atual:** FAI lote fechamento (ZIP sistemas.zip → partes + poll do job + autofix visível)
+- **etapa_atual:** Hotfix Safari Load failed no upload LEDI FAI (~0.2 MB) — ZIP sempre em chunks + health
 - **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI Onda 1 + fila APS + LEDI P1 + autofix FAI):**
   - Área `/faturamento` (hub · filas `/faturamento/odonto` e `/faturamento/aps` · lotes `/faturamento/lote/{fao,fai,proc}`)
   - Gaps clínicos B–D: lotação, `CodeSearchSelect`, preview FAO, Tela C, fila, condutas LEDI
@@ -26,21 +26,22 @@
 - **deploy:** hardening Railway — fail-fast env, health `/api/health`+`/api/ready`, Redis/Bull opcional; **hotfix 2026-08-13:** `nest build` emite `apps/api/dist/main.js` (não `dist/api/src/main.js`); imagem Docker falha se o bootstrap faltar
 - **próximo:** ver **Retomar daqui**
 
-## Retomar daqui (2026-08-13)
+## Retomar daqui (2026-08-14)
 
 ### Entregue nesta onda
+- **Hotfix Safari “Load failed” ~0.2 MB no lote FAI:** health/ready de prod estavam **ok** (API no ar ~17 h). O 0.2 MB **não era tamanho** — ZIP ≤5 MB unzipava no browser e POSTava XMLs em `/upload` (multipart). Safari via “Load failed” sem HTTP (proxy RST / CORS `*`+credentials). **ZIP agora sempre sobe em `/upload-zip/chunk`** (1 fatia se o ZIP for pequeno). Proxy devolve **502 JSON** se o Nest RST; CORS `*` reflecte Origin; fetch `same-origin`; health antes do envio (“API fora do ar”).
 - **FAI lote fechamento:** `/faturamento/lote/fai` mostra **parte x/y**, depois **analisando no servidor** com poll `GET /v1/jobs/:id` (a última fatia devolve 202). Se o 202 se perder, `GET /v1/jobs/by-key/ledi-import-zip:{uploadId}`. Fatia falha no meio → **Retomar** (mesmo uploadId) ou **Recomeçar**. Autofix visível no detalhe: Dry-run + Corrigir em lote (só ajustes seguros; **não** inventa CIAP/CID/conduta).
 - **Autofix FAI (lote XML):** catálogo de reparo + `POST /v1/dental/ledi/batches/:id/dry-run|auto-fix` no XML persistido. Seguros: stNaoPossuiCpf, turno=2, local UBS, IBGE Franca, tpCdsOrigem=3, UUID, encoding, dígitos CNS/CPF se checksum ok, qtd proc=1. **Não** inventa CIAP/CID, conduta, profissional, paciente (só sugere na ficha). UI `/faturamento/lote/fai`: Dry-run com preview + **Corrigir em lote (ajustes seguros)**.
 - **Agenda TR restante (MVP fechável):** grade do dia (horários × profissional, faixa 07:00–19:00 ou dia inteiro) + tipos CONSULTA (tipoAtendimento=2) e ENCAIXE (tipo 5). Modelo `AppointmentSlot` genérico: `/odonto/agenda` abre FAO; `/aps/agenda` abre FAI. Sem mexer no upload ZIP/LEDI.
 - **LEDI P1:** finish/patch da ficha APS (FAI tipo 4) e odonto (FAO) gravam `ProductionRecord` `source=native` com Encounter + Condition (CIAP/CID) + Procedure (SIGTAP). `ProductionBatch`/XML LEDI inalterados; se o motor falhar, o finish segue.
 - **Fila UI `/faturamento/aps`:** espelho de `/faturamento/odonto` (competência, unidade, buckets LEDI, deep-link, sync/refresh). API `GET/POST /v1/encounters/faturamento-queue`.
 - **Ficha APS origem FAI tipo 4:** abrir/listar com paciente + profissional + lotação/INE; `care` mínimo (CIAP/CID, SIGTAP, condutas FAI); preview Siaps-ready; finish atualiza `ProductionBatch` `individual_encounter`; UI `/aps` no grupo clínico (não mistura `/odonto`)
-- **Hotfix ZIP LEDI (chunk 100 MB):** ZIP **≤ ~5 MB** ainda descompacta no browser (`fflate`) e manda XMLs em fatias. ZIP **maior** (ex. `sistemas.zip` 13 MB, até **100 MB**) sobe em `POST /upload-zip/chunk` (512 KiB octet-stream, retry por parte, progresso `parte 12/40`); unzip **yauzl no Node** (pastas e-SUS, ignora `__MACOSX`); última fatia **enfileira** `ledi.import-zip` (não analisa 8k–20k XML no HTTP). Tmp em `/data/ledi-chunks` se `PROCESS_ROLE=all`. Amostra achatada pequena: `node tools/make-sistemas-fai-amostra.cjs`.
+- **Hotfix ZIP LEDI (chunk 100 MB):** ZIP (qualquer tamanho, até **100 MB**) sobe em `POST /upload-zip/chunk` (512 KiB octet-stream, retry por parte). Unzip **yauzl no Node**; última fatia **enfileira** `ledi.import-zip`. Tmp em `/data/ledi-chunks` se `PROCESS_ROLE=all`.
 - **Hotfix Railway `dist/main.js`:** spec da API importava `apps/web` → `nest build` limpo emitia `dist/api/src/main.js`. `tsconfig.build.json` exclui specs e trava `rootDir=src`. Docker falha se `apps/api/dist/main.js` faltar.
 
 ### Pendente
 1. Smoke visual browser: `/aps/agenda` → abrir FAI; `/aps` → ficha → CIAP/CID + SIGTAP + conduta → finalizar → **fila `/faturamento/aps`**; `/odonto/agenda` grade → abrir → ficha → odontograma Q/S + histórico + catálogo SIGTAP concluir → finalizar → fila → ZIP FAI/FAO
-2. Railway: confirmar `JWT_SECRET` ok; `SEED_ADMIN_PASSWORD` ≥12 chars; smoke ZIP FAI em `/faturamento/lote/fai` com `sistemas.zip` (~13 MB → chunks + “analisando no servidor”) ou `sistemas-fai-amostra.zip` no Desktop (≤5 MB → unzip no browser); FAO com `Arquivo.zip` em `/faturamento/lote/fao`; `prisma db push` para colunas `item_type` / `care_line`
+2. Railway: confirmar `JWT_SECRET` ok; `SEED_ADMIN_PASSWORD` ≥12 chars; smoke ZIP FAI em `/faturamento/lote/fai` (qualquer ZIP → chunks + “analisando no servidor”); FAO com `Arquivo.zip` em `/faturamento/lote/fao`
 3. Redis/Bull (opcional em prod — hoje opcional no boot)
 4. Fase 2 UI (Claude Design) — **não** nesta fase backend-first
 5. Agenda TR além do MVP: cadastro livre de tipos de item, salas, grade municipal compartilhada

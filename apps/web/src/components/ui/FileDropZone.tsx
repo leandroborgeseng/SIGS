@@ -76,8 +76,8 @@ export function FileDropZone({
       </p>
       <p className="muted" style={{ fontSize: 13 }}>
         Se a leitura falhar: use “Escolher de novo”, confira se o arquivo não está vazio.
-        ZIP até ~5 MB abre no navegador; ZIP maior (ex. sistemas.zip) sobe em partes e
-        analisa no servidor. Em macOS, arquivos só na nuvem (Downloads/iCloud) às vezes
+        ZIP até 100 MB sobe em partes (512 KiB) e analisa no servidor (o Safari não
+        descompacta o ZIP). Em macOS, arquivos só na nuvem (Downloads/iCloud) às vezes
         falham — copie para pasta local (Desktop).
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>

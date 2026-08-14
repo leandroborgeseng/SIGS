@@ -3,6 +3,7 @@ import {
   isMultipartRequest,
   isLediZipChunkRequest,
   isRawOctetStream,
+  HTTP_JSON_BODY_LIMIT,
   HTTP_OCTET_CHUNK_LIMIT,
 } from './http-body';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
@@ -12,6 +13,11 @@ describe('http-body multipart skip', () => {
     const n = Number.parseInt(String(HTTP_OCTET_CHUNK_LIMIT), 10);
     expect(n).toBeGreaterThanOrEqual(1);
     expect(String(HTTP_OCTET_CHUNK_LIMIT).toLowerCase()).toMatch(/mb$/);
+  });
+
+  it('JSON body parser ≥ 2mb (POST /batches com XMLs / from-zip)', () => {
+    expect(String(HTTP_JSON_BODY_LIMIT).toLowerCase()).toMatch(/mb$/);
+    expect(Number.parseInt(String(HTTP_JSON_BODY_LIMIT), 10)).toBeGreaterThanOrEqual(2);
   });
 
   it('detecta Content-Type multipart', () => {

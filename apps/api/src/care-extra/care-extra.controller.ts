@@ -151,14 +151,14 @@ export class CareExtraController {
   }
 
   @Post('dental/ledi/batches')
-  createFaoBatch(@Body() dto: CreateLediFaoBatchDto) {
+  async createFaoBatch(@Body() dto: CreateLediFaoBatchDto) {
     return this.faoBatches.create(dto);
   }
 
   /** Upload multipart — o browser envia os File sem ler o conteúdo em JS (evita I/O read failed). */
   @Post('dental/ledi/batches/upload')
   @UseInterceptors(XML_UPLOAD)
-  createFaoBatchUpload(
+  async createFaoBatchUpload(
     @UploadedFiles() files: Express.Multer.File[],
     @Body('name') name?: string,
     @Body('expectedTipo') expectedTipo?: string,
@@ -219,7 +219,7 @@ export class CareExtraController {
   }
 
   /**
-   * Fatia raw do ZIP (UI: ZIP > ~5 MB; CLI). Junta em disco; a última fatia
+   * Fatia raw do ZIP (UI: qualquer ZIP; CLI). Junta em disco; a última fatia
    * enfileira análise (não extrai 8k–20k XML neste request HTTP).
    */
   @Post('dental/ledi/batches/upload-zip/chunk')
@@ -275,7 +275,7 @@ export class CareExtraController {
 
   @Post('dental/ledi/batches/:batchId/upload')
   @UseInterceptors(XML_UPLOAD)
-  appendFaoBatchUpload(
+  async appendFaoBatchUpload(
     @Param('batchId') batchId: string,
     @UploadedFiles() files: Express.Multer.File[],
     @Query('summarize') summarize?: string,
