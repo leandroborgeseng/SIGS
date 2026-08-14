@@ -34,6 +34,7 @@ import {
   lookupRepair as lookupFaoRepair,
 } from '@/app/faturamento/lote/fao/repair-catalog';
 import { faiBodyForRepairUi, lookupFaiRepair } from '@/app/faturamento/lote/fai/repair-catalog';
+import { PendingReportPanel } from '@/app/ledi/_components/PendingReportPanel';
 
 type LoteTipo = 'FAI' | 'PROCEDIMENTOS';
 type ExportAction = 'zip-current' | 'zip-conformant' | 'dry-run' | 'closure';
@@ -1245,6 +1246,12 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
               </div>
             </div>
           ) : null}
+
+          <PendingReportPanel
+            batchId={batch.id}
+            fileSlug={meta.fileSlug}
+            disabled={anyBusy}
+          />
 
           <div className="card">
             <h3 style={{ marginTop: 0 }}>

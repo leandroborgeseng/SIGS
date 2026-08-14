@@ -32,9 +32,9 @@ Hub com atalhos (separado do clínico `/odonto`):
 |---|---|
 | `/faturamento/odonto` | Fila mensal odonto (cores LEDI; Atualizar / Revalidar) |
 | `/faturamento/aps` | Fila mensal APS / FAI tipo 4 (mesmo padrão) |
-| `/faturamento/lote/fao` | Lote XML FAO (tipo 5) — export ZIP |
-| `/faturamento/lote/fai` | Lote FAI (tipo 4) — export ZIP |
-| `/faturamento/lote/proc` | Lote Procedimentos (tipo 7) — export ZIP |
+| `/faturamento/lote/fao` | Lote XML FAO (tipo 5) — export ZIP · relatório do que falta |
+| `/faturamento/lote/fai` | Lote FAI (tipo 4) — export ZIP · relatório do que falta |
+| `/faturamento/lote/proc` | Lote Procedimentos (tipo 7) — export ZIP · relatório do que falta |
 | `/producao` | Produção / BPA |
 
 Nav lateral: grupo **Faturamento & Validação** (sanfona). Aliases antigos (`/odonto/lote`, `/aps/lote`, `/procedimentos/lote`) redirecionam.

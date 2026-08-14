@@ -35,6 +35,7 @@ Ficha FAO (XML ou Thrift LEDI)
 | `POST` | `/v1/dental/ledi/batches/:id/auto-fix` | aplica correções e revalida |
 | `POST` | `/v1/dental/ledi/batches/:id/dry-run` | **simula** auto-fix (não grava) — impacto de códigos |
 | `GET` | `/v1/dental/ledi/batches/:id/closure-report` | relatório de fechamento (JSON + `markdown`) |
+| `GET` | `/v1/dental/ledi/batches/:id/pending-report` | o que ainda falta (JSON). `?format=csv\|md` · `?severity=BLOCKER\|MONEY_RISK\|QUALITY_WARN` — sem R$; CPF mascarado |
 | `GET` | `/v1/dental/ledi/batches/:id/export.zip` | ZIP dos XMLs (`?mode=current\|conformant`) |
 | `GET` | `/v1/catalog/dental` | catálogo vigilância / condutas / tipoAtendimento |
 | `POST` | `/v1/dental-encounters/:id/finish` | exige `vigilanciaSaudeBucal[]` + `problemasCondicoes[]`; `enforceFaoConformity` (default true) |

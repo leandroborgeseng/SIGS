@@ -65,6 +65,12 @@ import {
   mergeTreatmentProgress,
   type TreatmentProgress,
 } from './ledi-treatment-metrics';
+import {
+  buildPendingReport,
+  itemIsPending,
+  parseSeverityFilter,
+  type PendingReportItemInput,
+} from './ledi-pending-report';
 
 type ItemSummary = {
   id: string;
@@ -897,6 +903,79 @@ export class LediFaoBatchService {
       markdown,
       defaults: FRANCA_LEDI_DEFAULTS,
     };
+  }
+
+  /**
+   * Fichas ainda não ideais após tratamento: BLOCKER / MONEY_RISK / QUALITY_WARN.
+   * JSON + CSV + Markdown. Sem XML clínico; CPF/CNS mascarados.
+   */
+  async pendingReport(batchId: string, opts: { severity?: string } = {}) {
+    let severityFilter;
+    try {
+      severityFilter = parseSeverityFilter(opts.severity);
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
+
+    const batch = await this.get(batchId);
+    const rows = await this.prisma.lediFaoBatchItem.findMany({
+      where: { batchId },
+      select: {
+        id: true,
+        fileName: true,
+        findingsJson: true,
+        previneJson: true,
+        currentXml: true,
+        currentObjectKey: true,
+        fichaTipo: true,
+      },
+      orderBy: { fileName: 'asc' },
+    });
+
+    const items: PendingReportItemInput[] = [];
+    for (const row of rows) {
+      const findings = JSON.parse(row.findingsJson || '[]') as FaoFinding[];
+      let previne: PrevineXray | null = null;
+      try {
+        previne = row.previneJson ? (JSON.parse(row.previneJson) as PrevineXray) : null;
+      } catch {
+        previne = null;
+      }
+      if (!itemIsPending(findings, previne, severityFilter)) continue;
+
+      let xml = '';
+      try {
+        xml = await this.resolveCurrentXml(row);
+      } catch {
+        xml = '';
+      }
+      items.push({
+        itemId: row.id,
+        fileName: row.fileName,
+        xml,
+        findings,
+        previne,
+        fichaTipo: row.fichaTipo,
+      });
+    }
+
+    const expectedTipo =
+      (batch.summary as { expectedTipo?: string }).expectedTipo || 'FAO';
+    const report = buildPendingReport({
+      batchId: batch.id,
+      name: batch.name,
+      expectedTipo,
+      totalFichas: batch.summary.total ?? rows.length,
+      items,
+      severityFilter,
+    });
+
+    void this.prisma.audit('ledi_fao_batch_pending_report', 'ledi_fao_batch', batchId, [RF.ODONTO.id], {
+      pendingCount: report.pendingCount,
+      severity: opts.severity || null,
+    });
+
+    return report;
   }
 
   async patchItem(batchId: string, itemId: string, dto: PatchLediFaoBatchItemDto) {

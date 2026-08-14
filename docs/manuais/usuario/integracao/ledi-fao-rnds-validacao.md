@@ -23,4 +23,5 @@
 4. **Opcional:** clique **Dry-run** para simular a auto-correção sem gravar (mostra quantos alertas somem).
 5. Clique numa barra de erro → **guia** → corrigir em lote ou abrir ficha a ficha.
 6. Baixe o **ZIP** (atuais ou só conformes) e o **Relatório fechamento (.md)** para arquivar.
-7. Não envie CNS reais para repositório Git.
+7. Depois do tratamento, **Relatório do que falta**: tabela (arquivo, UUID, CPF/CNS mascarados, data, profissional, códigos LEDI) + CSV/Markdown. Só o que ainda impede faturar a contento.
+8. Não envie CNS reais para repositório Git.

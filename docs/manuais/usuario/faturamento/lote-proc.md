@@ -25,5 +25,6 @@ authors: [SIGS]
 2. Priorize CPF/CNS, turno e CNES; ABPG/SIGTAP na edição da ficha.
 3. Clique no alerta → guia → corrija em lote ou ficha a ficha.
 4. Export: ZIP só conformes / ZIP atuais · dry-run · relatório `.md` (iguais ao FAO/FAI).
+5. **Relatório do que falta** (após o tratamento): tabela + CSV/Markdown das fichas ainda não ideais (CPF mascarado `***.***.***-xx`). `GET …/pending-report`.
 
-Hub: `/faturamento`. API: mesmos endpoints `dental/ledi/batches/:id/export.zip` etc.
+Hub: `/faturamento`. API: mesmos endpoints `dental/ledi/batches/:id/export.zip`, `pending-report`, etc.

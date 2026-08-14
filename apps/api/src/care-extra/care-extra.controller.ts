@@ -13,6 +13,7 @@ import {
   Query,
   Req,
   Res,
+  StreamableFile,
   UploadedFiles,
   UploadedFile,
   UseInterceptors,
@@ -403,6 +404,34 @@ export class CareExtraController {
   @Get('dental/ledi/batches/:batchId/closure-report')
   closureReportFaoBatch(@Param('batchId') batchId: string) {
     return this.faoBatches.closureReport(batchId);
+  }
+
+  @Get('dental/ledi/batches/:batchId/pending-report')
+  async pendingReportFaoBatch(
+    @Param('batchId') batchId: string,
+    @Query('severity') severity: string | undefined,
+    @Query('format') format: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const report = await this.faoBatches.pendingReport(batchId, { severity });
+    const fmt = (format || 'json').toLowerCase();
+    if (fmt === 'csv') {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="ledi-pendencias-${batchId.slice(0, 8)}.csv"`,
+      );
+      return new StreamableFile(Buffer.from(`\uFEFF${report.csv}`, 'utf8'));
+    }
+    if (fmt === 'md' || fmt === 'markdown') {
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="ledi-pendencias-${batchId.slice(0, 8)}.md"`,
+      );
+      return new StreamableFile(Buffer.from(report.markdown, 'utf8'));
+    }
+    return report;
   }
 
   @Get('dental/ledi/batches/:batchId/export.zip')

@@ -25,6 +25,7 @@ import { LoteQualityPanel } from './LoteQualityPanel';
 import { baselineFromTreatment } from './ModalQualityMiniDash';
 import { isLediCondutaOdontoId } from './condutas-odonto';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
+import { PendingReportPanel } from '@/app/ledi/_components/PendingReportPanel';
 
 type BatchSummary = {
   total: number;
@@ -1462,6 +1463,8 @@ export default function OdontoLotePage() {
               Aplicar no lote inteiro e revalidar
             </button>
           </form>
+
+          <PendingReportPanel batchId={batch.id} fileSlug="fao" disabled={anyBusy} />
 
           <div className="card" style={{ marginBottom: 16 }}>
             <h3 style={{ marginTop: 0 }}>4. Fichas do lote</h3>
