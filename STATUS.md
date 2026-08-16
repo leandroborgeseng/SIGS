@@ -1,6 +1,6 @@
 # STATUS — SIGS
 
-- **etapa_atual:** Domingo APS — estoque/cadeia de frio vacinal MVP (RF-14.3–6 / 15–19 parciais)
+- **etapa_atual:** Domingo APS — ondas 16/08/2026 fechadas; próximo gap técnico abaixo
 - **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI + fila APS + LEDI P1 + wizard lote + Ondas domingo 2026-08-16):**
   - Área `/faturamento` (hub · filas `/faturamento/odonto` e `/faturamento/aps` · sanfona **Tratamento de lotes LEDI**: FAO / FAI / Procedimentos)
   - **APS FAI Onda A:** `/aps/[id]` com SOAP + antropometria → mapper · RF-3.24/3.55 parciais
@@ -19,28 +19,35 @@
 - **API:** vacinação + estoque · patients CDS · households · `GET/POST /v1/home-care-visits` · `POST/DELETE …/children` · `POST …/finish` · `GET /v1/catalog/home-care`
 - **params:** `REQUIRE_INE_APS_OPEN` · `APS_DEFAULT_TIPO_ATENDIMENTO=5` · `MUNICIPIO_IBGE` · `MUNICIPIO_NOME` · `SKIP_VACCINATION_CATALOG_SEED`
 - **limite documentado:** sem IoT/monitoramento contínuo geladeira; sem equipamentos frios/caixa térmica/almoxarifado; faixa etária seed ≠ dump TB e-SUS; GIS/lat-long domicílio não; lote XML cadastro domiciliar/AD não; agenda TR completa; CIAP/CID AD só via API/finish avançado na UI
-- **próximo:** ver **Retomar daqui**
+- **próximo:** ver **Retomar daqui — domingo 16/08/2026**
 
-## Retomar daqui (2026-08-16)
+## Retomar daqui — domingo 16/08/2026
 
-### Entregue nesta onda
-- Prisma `vaccination_stock_lots` + `vaccination_stock_movements`
-- Entrada estoque; baixa no `POST /vaccinations` se lote existir; void restaura qty
-- UI `/vacinacao` aba **Estoque / frio** + stub explícito do que não é
-- IDs LEDI estáveis (BCG=15 etc.) preservados para lotes de produção
+### Commits / ondas do dia (confirmados `git log`)
 
-### Pendente / próximo gap (APS principal saturando)
+| Commit | Onda |
+|--------|------|
+| `6d3087d` | FAI SOAP/medições · vacina LEDI numérica/PDF · coletivo · AD |
+| `7699d72` | Vacina catálogo/faixa/void · cadastro individual RF-2.30 |
+| `a4ba05c` | Domicílio/família CDS territorial (RF-2.29) |
+| `a938f16` | AD multi-child LEDI (RF-3.54) · condições · qty BPA |
+| `00e180f` | Catálogo 99 imunobiológicos LEDI v3 + faixas Prisma |
+| `3a44631` | Estoque/frio vacinal MVP (baixa na aplicação · estorno no void) |
+
+### Já fechado (não reabrir nesta fase)
+- Wizard lote LEDI FAI / FAO / PROC (Safari upload, autofix chunked, PDF secretaria) — reutilizar shell na Fase 2 UI
+
+### Pendente / próximos gaps
 1. Import dump real `TB_FAIXA_ETARIA_VACINACAO` (lookup imuno+estratégia+dose) quando disponível
-2. Equipamentos frios / caixa térmica / IoT (RF-14.17–19 além da faixa declarada)
-3. Almoxarifado + insumos (RF-14.4/14.6)
-4. GIS/visita ACS lat-long; lote XML cadastro domiciliar e AD
-5. Fase 2 UI Claude Design — **não** nesta fase
-6. Fora APS P0: SAMU stream · Farmácia estoque · Hospitalar — ver estratégia fase 1
+2. Almoxarifado + insumos (RF-14.4/14.6) e IoT/equipamentos frios / caixa térmica (RF-14.17–19 além da faixa declarada)
+3. GIS / visita ACS lat-long; lote XML cadastro domiciliar e AD
+4. Fase 2 UI Claude Design — **não** nesta fase (backend-first)
+5. Fora APS P0: SAMU stream · Farmácia estoque · Hospitalar — ver estratégia fase 1
 
 ### Notas handoff
 - Working tree: não commitar `data/esus`, `data/sigtap`, `sus_intelligence`, `tools/*-home`, `contexts/`
 - Sem dados reais de pacientes
-- Não quebrar wizard lote FAI/FAO/PROC (Safari upload, autofix 8k, PDF secretaria)
-- Após pull: `cd apps/api && npx prisma db push` (tabelas estoque vacinal)
+- Não quebrar wizard lote FAI/FAO/PROC
+- Após pull: `cd apps/api && npx prisma db push` (tabelas estoque vacinal + catálogo)
 
-_Atualizado em 2026-08-16 (onda estoque/frio vacinal MVP)_
+_Atualizado em 2026-08-16 (handoff Retomar daqui — domingo)_
