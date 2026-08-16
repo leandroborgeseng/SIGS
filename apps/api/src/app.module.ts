@@ -13,6 +13,7 @@ import { ProductionModule } from './production/production.module';
 import { ReportsModule } from './reports/reports.module';
 import { CareExtraModule } from './care-extra/care-extra.module';
 import { SigtapModule } from './sigtap/sigtap.module';
+import { FaturamentoModule } from './faturamento/faturamento.module';
 import { QueueModule } from './queue/queue.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { RegulationModule } from './regulation/regulation.module';
@@ -36,6 +37,7 @@ import { JobsModule } from './infra/jobs/jobs.module';
     EncountersModule,
     VaccinationsModule,
     ProductionModule,
+    FaturamentoModule,
     ReportsModule,
     CareExtraModule,
     SigtapModule,

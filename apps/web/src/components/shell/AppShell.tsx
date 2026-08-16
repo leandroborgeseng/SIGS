@@ -60,6 +60,7 @@ const NAV: Array<{ id: NavGroupId; group: string; items: readonly NavItem[] }> =
       { href: '/faturamento/odonto', label: 'Fila odonto' },
       { href: '/faturamento/aps', label: 'Fila APS' },
       LEDI_LOTES_SUBGROUP,
+      { href: '/faturamento/auditoria', label: 'Auditoria faturamento' },
       { href: '/producao', label: 'Produção / BPA' },
     ],
   },

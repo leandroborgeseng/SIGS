@@ -40,11 +40,18 @@ const LOTES = [
   },
 ];
 
-const EXTRA = {
-  href: '/producao',
-  title: 'Produção / BPA',
-  desc: 'Lotes de produção e pré-voo de faturamento (fora do XML LEDI por tipo).',
-};
+const EXTRA = [
+  {
+    href: '/faturamento/auditoria',
+    title: 'Auditoria de faturamento',
+    desc: 'Cruza fichas da competência com CNES/INE, lotação CNS/CBO e SIGTAP (bloqueia envio vs qualidade).',
+  },
+  {
+    href: '/producao',
+    title: 'Produção / BPA',
+    desc: 'Lotes de produção e pré-voo de faturamento (fora do XML LEDI por tipo).',
+  },
+];
 
 export default function FaturamentoHubPage() {
   return (
@@ -111,13 +118,17 @@ export default function FaturamentoHubPage() {
         <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>
           Outros
         </h3>
-        <Link href={EXTRA.href} className="unit-card" style={{ textAlign: 'left' }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 600 }}>{EXTRA.title}</div>
-            <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>{EXTRA.desc}</div>
-          </div>
-          <span style={{ color: 'var(--ink-4)' }}>›</span>
-        </Link>
+        <div className="stack" style={{ gap: 10 }}>
+          {EXTRA.map((item) => (
+            <Link key={item.href} href={item.href} className="unit-card" style={{ textAlign: 'left' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 600 }}>{item.title}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>{item.desc}</div>
+              </div>
+              <span style={{ color: 'var(--ink-4)' }}>›</span>
+            </Link>
+          ))}
+        </div>
       </section>
     </AppShell>
   );

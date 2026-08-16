@@ -254,6 +254,13 @@ export const RF = {
     teste_faturamento: 'previsto',
     nota: 'Auditoria de consistência cadastro × base CNES (Franca IBGE 3516200)',
   },
+  FATURAMENTO_AUDIT: {
+    id: 'RF-10.21',
+    tipo: 'Desejável',
+    fonte: 'ambos',
+    teste_faturamento: 'automatizado',
+    nota: 'Auditoria de faturamento: ficha × CNES/INE/CNS/CBO/SIGTAP por competência',
+  },
 } as const;
 
 export const APPOINTMENT_STATUS = [

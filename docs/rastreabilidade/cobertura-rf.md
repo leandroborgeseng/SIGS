@@ -41,6 +41,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` · finish FAI/FAO → motor `clinical-core` (`source=native`) · **wizard lote** `/faturamento/lote/{fai,fao,proc}` (gate de tipo + 2 ZIPs) |
 | RF-10.2 | Obr | parcial | n/a | sync CNES Franca `POST /v1/cnes/sync` · snapshot `data/cnes/franca-3516200.json` · `npm run sync:cnes` · UI `/unidades` |
 | RF-9.6 | Des | parcial | previsto | auditoria CNES `GET /v1/cnes/audit` · UI `/cadastros/cnes-auditoria` · export CSV |
+| RF-10.21 | Des | parcial | automatizado | auditoria faturamento `GET /v1/faturamento/audit` · UI `/faturamento/auditoria` (ficha×CNES/INE/CNS/SIGTAP) |
 | RF-10.20 | Obr | parcial | automatizado | preflight + `POST /production/send` + UI `/producao` |
 | RF-14.1 | Obr | parcial | automatizado | `vaccination_immunobiologicals` + seed LEDI v3 (99) doses `lediId` |
 | RF-14.2 | Obr | parcial | automatizado | catálogo completo LEDI + Prisma + `POST …/catalog/vaccination/sync` overlay |
