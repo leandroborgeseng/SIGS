@@ -35,7 +35,7 @@
 | `760a436` | Visita ACS lat/long MVP (RF-17.11/17.12) · OSM externo |
 | `8b3de08` | AD CIAP/CID UI + preview/preflight · CIAP/CID `/atendimento` |
 | `d1736e4` | CNES sync Franca + auditoria cadastro (RF-10.2 / RF-9.6) |
-| *(este)* | Auditoria de faturamento ficha×cadastros (RF-10.21) |
+|  | Auditoria de faturamento ficha×cadastros (RF-10.21) |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC — reutilizar shell na Fase 2 UI
