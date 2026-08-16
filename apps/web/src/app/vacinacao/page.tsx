@@ -24,6 +24,7 @@ type Professional = { id: string; civilName: string };
 type VacRow = {
   id: string;
   appliedAt: string;
+  status?: string;
   patient: Patient;
   applicationsJson?: string;
 };
@@ -61,6 +62,7 @@ function VaccinationInner() {
   const [doseId, setDose] = useState('DU');
   const [attendanceGroupId, setGroup] = useState('GERAL');
   const [lot, setLot] = useState('');
+  const [lotExpiry, setLotExpiry] = useState('');
   const [manufacturer, setManufacturer] = useState('');
   const [routeId, setRoute] = useState('ID');
   const [siteId, setSite] = useState('LD');
@@ -141,6 +143,7 @@ function VaccinationInner() {
               manufacturer,
               routeId,
               siteId,
+              ...(lotExpiry ? { lotExpiry } : {}),
               ...(isSpecial ? { prescriberCbo, indicationCid10 } : {}),
               ...(isBcg ? { leprosyContact } : {}),
             },
@@ -148,6 +151,7 @@ function VaccinationInner() {
         },
       });
       setLot('');
+      setLotExpiry('');
       setOk(
         res.productionBatch?.id
           ? `Aplicação registrada — lote ${res.productionBatch.id.slice(0, 8)}… em Produção.`
@@ -268,6 +272,10 @@ function VaccinationInner() {
             <div className="field">
               <label>Lote *</label>
               <input className="mono" required value={lot} onChange={(e) => setLot(e.target.value)} maxLength={30} />
+            </div>
+            <div className="field">
+              <label>Validade do lote</label>
+              <input type="date" value={lotExpiry} onChange={(e) => setLotExpiry(e.target.value)} />
             </div>
             <div className="field">
               <label>Fabricante *</label>
@@ -406,6 +414,8 @@ function VaccinationInner() {
               <tr>
                 <th>Quando</th>
                 <th>Paciente</th>
+                <th>Status</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -413,11 +423,42 @@ function VaccinationInner() {
                 <tr key={r.id}>
                   <td className="mono">{formatDateTime(r.appliedAt)}</td>
                   <td>{displayPatientName(r.patient)}</td>
+                  <td>{r.status || '—'}</td>
+                  <td>
+                    {r.status !== 'VOID' ? (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        disabled={busy}
+                        onClick={() => {
+                          void (async () => {
+                            if (!window.confirm('Anular aplicação localmente (sem recall Siaps)?')) return;
+                            setBusy(true);
+                            setError(null);
+                            try {
+                              await api(`/v1/vaccinations/${r.id}/void`, {
+                                method: 'POST',
+                                json: { acknowledgeLocalOnly: true, reason: 'Anulação pela lista do dia' },
+                              });
+                              setOk('Aplicação anulada (VOID local).');
+                              await load();
+                            } catch (e) {
+                              setError(e instanceof Error ? e.message : 'Falha ao anular');
+                            } finally {
+                              setBusy(false);
+                            }
+                          })();
+                        }}
+                      >
+                        Anular
+                      </button>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
               {!todayRows.length ? (
                 <TableStateRow
-                  colSpan={2}
+                  colSpan={4}
                   empty={facilityId ? 'Nenhuma aplicação hoje nesta unidade.' : 'Selecione uma unidade.'}
                 />
               ) : null}

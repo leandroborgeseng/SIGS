@@ -1,18 +1,27 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
 import {
   ATTENDANCE_GROUPS,
   DOSES,
-  IMMUNOBIOLOGICALS,
   ROUTES,
   SITES,
+  STOCK_STUB,
   STRATEGIES,
   VaccineApplicationInput,
+  getAgeRanges,
+  getImmunobiologicals,
+  syncCatalog,
+  validateAgeForApplications,
   validateVaccineApplications,
+  type CatalogSyncInput,
 } from './catalog';
-import { CreateVaccinationDto } from './dto';
+import { CreateVaccinationDto, VoidVaccinationDto } from './dto';
 import { buildVaccinationLediPayload } from './ledi-vaccination.mapper';
 import { resolveLotacaoHeader } from '../ledi/lotacao.resolver';
 import { ClinicalCoreService } from '../clinical-core/clinical-core.service';
@@ -27,16 +36,24 @@ export class VaccinationsService {
 
   catalog() {
     return {
-      immunobiologicals: IMMUNOBIOLOGICALS,
+      immunobiologicals: getImmunobiologicals(),
       strategies: STRATEGIES,
       doses: DOSES,
       routes: ROUTES,
       sites: SITES,
       attendanceGroups: ATTENDANCE_GROUPS,
+      ageRanges: getAgeRanges(),
+      stock: STOCK_STUB,
       mapperVersion: 'ledi-vaccination-v2',
+      catalogVersion: 'ledi-dictionary-seed-v2',
       notes:
-        'IDs LEDI (lediId) alinhados à documentação oficial de regras de vacinação e EstrategiaVacinacaoDbEnum.',
+        'IDs LEDI (dicionário oficial). Faixa etária seed (RF-14.7/14.8). Estoque/frio stub (RF-14.3–6, 15–19).',
     };
+  }
+
+  syncCatalog(input: CatalogSyncInput = {}) {
+    const result = syncCatalog(input);
+    return { ...result, catalog: this.catalog() };
   }
 
   private parseApps(json: string): VaccineApplicationInput[] {
@@ -67,7 +84,10 @@ export class VaccinationsService {
     const patient = await this.prisma.patient.findUnique({ where: { id: patientId } });
     if (!patient) throw new NotFoundException('Paciente não encontrado');
     const records = await this.prisma.vaccinationRecord.findMany({
-      where: { patientId, status: { in: ['READY', 'SENT', 'DRAFT'] } },
+      where: {
+        patientId,
+        status: { in: ['READY', 'SENT', 'DRAFT'] },
+      },
       orderBy: { appliedAt: 'desc' },
     });
     const doses = records.flatMap((r) => {
@@ -107,6 +127,100 @@ export class VaccinationsService {
     });
   }
 
+  /**
+   * Anula registro de vacinação → VOID (local).
+   * READY/SENT/DRAFT: exige acknowledgeLocalOnly (sem recall Ministério/Siaps).
+   */
+  async void(id: string, dto: VoidVaccinationDto = {}) {
+    const row = await this.prisma.vaccinationRecord.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Registro de vacinação não encontrado');
+    if (row.status === 'VOID') {
+      return {
+        ...(await this.get(id)),
+        voidMeta: {
+          alreadyVoid: true,
+          localOnly: true,
+          ministryRecall: false,
+          warning: null as string | null,
+        },
+      };
+    }
+    if (!['DRAFT', 'READY', 'SENT'].includes(row.status)) {
+      throw new BadRequestException(`Status ${row.status} não permite anulação`);
+    }
+    if (!dto.acknowledgeLocalOnly) {
+      throw new BadRequestException(
+        'Anulação exige acknowledgeLocalOnly=true (anulação local no SIGS; sem recall no Ministério/Siaps).',
+      );
+    }
+
+    let batchStatusBefore: string | null = null;
+    let batchPayload: Record<string, unknown> = {};
+    if (row.productionBatchId) {
+      const batch = await this.prisma.productionBatch.findUnique({
+        where: { id: row.productionBatchId },
+      });
+      batchStatusBefore = batch?.status ?? null;
+      try {
+        batchPayload = JSON.parse(batch?.payloadJson || '{}') as Record<string, unknown>;
+      } catch {
+        batchPayload = {};
+      }
+    }
+
+    const updated = await this.prisma.vaccinationRecord.update({
+      where: { id },
+      data: {
+        status: 'VOID',
+        voidReason: dto.reason || null,
+        voidedAt: new Date(),
+      },
+      include: { patient: true, facility: true, professional: true },
+    });
+
+    if (row.productionBatchId) {
+      const voidMeta = {
+        ...batchPayload,
+        voided: true,
+        voidAt: new Date().toISOString(),
+        voidReason: dto.reason || null,
+        ministryRecall: false,
+        bucket: 'incomplete',
+      };
+      await this.prisma.productionBatch.update({
+        where: { id: row.productionBatchId },
+        data: {
+          status: 'error',
+          errorMessage: 'VOID local vacinação — sem recall Ministério/Siaps',
+          payloadJson: JSON.stringify(voidMeta),
+          statusChangedAt: new Date(),
+        },
+      });
+    }
+
+    await this.prisma.audit('void', 'vaccination', id, [RF.VACCINATION.id, RF.PROD.id], {
+      reason: dto.reason || null,
+      productionBatchId: row.productionBatchId,
+      previousStatus: row.status,
+      acknowledgeLocalOnly: true,
+      batchStatusBefore,
+      ministryRecall: false,
+    });
+
+    return {
+      ...updated,
+      applications: this.parseApps(updated.applicationsJson),
+      voidMeta: {
+        alreadyVoid: false,
+        localOnly: true,
+        ministryRecall: false,
+        batchStatusBefore,
+        warning:
+          'Anulação local no SIGS. Não há estorno/XML de exclusão no Ministério; se o XML já foi enviado, trate o recall pelos canais oficiais.',
+      },
+    };
+  }
+
   async create(dto: CreateVaccinationDto) {
     const errors = validateVaccineApplications(dto.applications);
     if (errors.length) throw new BadRequestException({ errors });
@@ -121,9 +235,8 @@ export class VaccinationsService {
     }
 
     const appliedAt = dto.appliedAt ? new Date(dto.appliedAt) : new Date();
-    if (patient.birthDate > appliedAt) {
-      throw new BadRequestException('data de nascimento não pode ser após a aplicação');
-    }
+    const ageErrors = validateAgeForApplications(dto.applications, patient.birthDate, appliedAt);
+    if (ageErrors.length) throw new BadRequestException({ errors: ageErrors });
 
     const uuidFicha = randomUUID();
     let teamIne: string | null = null;
@@ -208,7 +321,6 @@ export class VaccinationsService {
       uuidFicha,
     });
 
-    // LEDI P1: ProductionRecord nativo (falha não derruba o lote)
     await this.clinicalCore
       .persistNativeEncounter({
         fichaTipo: 'VAC',

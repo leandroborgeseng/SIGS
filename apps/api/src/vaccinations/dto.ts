@@ -27,6 +27,30 @@ export class VaccineApplicationDto {
   @IsOptional() @IsString() anvisaProtocolVersion?: string;
   @IsOptional() @IsString() anvisaRegistrationNumber?: string;
   @IsOptional() @IsBoolean() appliedAbroad?: boolean;
+  /** Validade do lote (ISO date) — RF-14.14 parcial */
+  @IsOptional() @IsDateString() lotExpiry?: string;
+}
+
+export class VoidVaccinationDto {
+  @IsOptional() @IsString() reason?: string;
+  /** Obrigatório: anulação só local (sem recall Ministério/Siaps). */
+  @IsOptional() @IsBoolean() acknowledgeLocalOnly?: boolean;
+}
+
+export class SyncVaccinationCatalogDto {
+  @IsOptional() @IsBoolean() reset?: boolean;
+  @IsOptional()
+  @IsArray()
+  immunobiologicals?: Array<{ id: string; label: string; code?: string; lediId: number }>;
+  @IsOptional()
+  @IsArray()
+  ageRanges?: Array<{
+    immunobiologicalId: string;
+    strategyId?: string;
+    minDays: number;
+    maxDays: number | null;
+    label: string;
+  }>;
 }
 
 export class CreateVaccinationDto {

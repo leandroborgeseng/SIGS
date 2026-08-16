@@ -13,6 +13,8 @@ describe('TerritoryService', () => {
       patientTeamLink: {
         create: jest.fn().mockResolvedValue({ id: 'l1', patientId: 'p1', teamId: 't1' }),
         findMany: jest.fn(),
+        findUnique: jest.fn().mockResolvedValue({ id: 'l1', teamId: 't1', active: true }),
+        update: jest.fn().mockResolvedValue({ id: 'l1', active: false }),
       },
       audit: jest.fn(),
       ...overrides,
@@ -33,5 +35,20 @@ describe('TerritoryService', () => {
     await service.createLink({ patientId: 'p1', teamId: 't1', microAreaId: 'm1' });
     expect(prisma.patientTeamLink.create).toHaveBeenCalled();
     expect(prisma.audit).toHaveBeenCalled();
+  });
+
+  it('desativa vínculo via PATCH', async () => {
+    const { service, prisma } = make({
+      patientTeamLink: {
+        create: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn().mockResolvedValue({ id: 'l1', teamId: 't1', active: true }),
+        update: jest.fn().mockResolvedValue({ id: 'l1', active: false }),
+      },
+    });
+    await service.updateLink('l1', { active: false });
+    expect(prisma.patientTeamLink.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { active: false } }),
+    );
   });
 });

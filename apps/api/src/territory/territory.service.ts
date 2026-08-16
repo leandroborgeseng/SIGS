@@ -1,7 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
-import { CreateMicroAreaDto, CreatePatientTeamLinkDto } from './dto';
+import { CreateMicroAreaDto, CreatePatientTeamLinkDto, UpdatePatientTeamLinkDto } from './dto';
 
 @Injectable()
 export class TerritoryService {
@@ -75,7 +75,44 @@ export class TerritoryService {
         microArea: true,
       },
     });
-    await this.prisma.audit('create', 'patient_team_link', row.id, [RF.TERRITORY.id]);
+    await this.prisma.audit('create', 'patient_team_link', row.id, [
+      RF.TERRITORY.id,
+      RF.PATIENT_CDS.id,
+    ]);
+    return row;
+  }
+
+  async updateLink(id: string, dto: UpdatePatientTeamLinkDto) {
+    const current = await this.prisma.patientTeamLink.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException('Vínculo não encontrado');
+
+    if (dto.microAreaId) {
+      const ma = await this.prisma.microArea.findUnique({ where: { id: dto.microAreaId } });
+      if (!ma) throw new BadRequestException('microAreaId inválido');
+      if (ma.teamId !== current.teamId) {
+        throw new BadRequestException('microárea não pertence à equipe do vínculo');
+      }
+    }
+
+    const row = await this.prisma.patientTeamLink.update({
+      where: { id },
+      data: {
+        ...(dto.active !== undefined ? { active: dto.active } : {}),
+        ...(dto.microAreaId !== undefined ? { microAreaId: dto.microAreaId || null } : {}),
+      },
+      include: {
+        patient: true,
+        team: { include: { facility: true } },
+        microArea: true,
+      },
+    });
+    await this.prisma.audit(
+      'update',
+      'patient_team_link',
+      id,
+      [RF.TERRITORY.id, RF.PATIENT_CDS.id],
+      { active: row.active },
+    );
     return row;
   }
 }

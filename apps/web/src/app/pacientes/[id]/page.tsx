@@ -8,6 +8,13 @@ import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api } from '@/lib/api';
 import { displayPatientName } from '@/lib/labels';
 
+type TeamLink = {
+  id: string;
+  active: boolean;
+  team?: { name: string; facility?: { name: string } | null } | null;
+  microArea?: { code: string; name: string } | null;
+};
+
 type Patient = {
   id: string;
   civilName: string;
@@ -16,6 +23,7 @@ type Patient = {
   cns?: string | null;
   birthDate: string;
   sex: string;
+  raceColor?: string | null;
   motherName?: string | null;
   motherNameUnknown?: boolean;
   fatherName?: string | null;
@@ -31,6 +39,15 @@ type Patient = {
   addressCity?: string | null;
   addressState?: string | null;
   addressZip?: string | null;
+  nationality?: string | null;
+  birthMunicipalityIbge?: string | null;
+  ethnicity?: string | null;
+  hasDisability?: boolean;
+  disabilityCodes?: string[];
+  email?: string | null;
+  nis?: string | null;
+  educationLevel?: string | null;
+  links?: TeamLink[];
 };
 
 function toDateInput(iso?: string | null) {
@@ -66,6 +83,16 @@ export default function PatientDetailPage() {
   const [city, setCity] = useState('');
   const [stateUf, setStateUf] = useState('SP');
   const [zip, setZip] = useState('');
+  const [raceColor, setRaceColor] = useState('');
+  const [nationality, setNationality] = useState('');
+  const [birthMunicipalityIbge, setBirthMunicipalityIbge] = useState('');
+  const [ethnicity, setEthnicity] = useState('');
+  const [hasDisability, setHasDisability] = useState(false);
+  const [disabilityCodes, setDisabilityCodes] = useState('');
+  const [email, setEmail] = useState('');
+  const [nis, setNis] = useState('');
+  const [educationLevel, setEducationLevel] = useState('');
+  const [links, setLinks] = useState<TeamLink[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -92,6 +119,16 @@ export default function PatientDetailPage() {
         setCity(row.addressCity || '');
         setStateUf(row.addressState || 'SP');
         setZip(row.addressZip || '');
+        setRaceColor(row.raceColor || '');
+        setNationality(row.nationality || '');
+        setBirthMunicipalityIbge(row.birthMunicipalityIbge || '');
+        setEthnicity(row.ethnicity || '');
+        setHasDisability(!!row.hasDisability);
+        setDisabilityCodes((row.disabilityCodes || []).join(', '));
+        setEmail(row.email || '');
+        setNis(row.nis || '');
+        setEducationLevel(row.educationLevel || '');
+        setLinks(row.links || []);
         setLoaded(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Falha ao carregar');
@@ -122,6 +159,20 @@ export default function PatientDetailPage() {
           deathDate: isDeceased ? deathDate || undefined : undefined,
           deathCertificate: isDeceased ? deathCertificate || undefined : undefined,
           phone: phone || undefined,
+          raceColor: raceColor || undefined,
+          nationality: nationality || undefined,
+          birthMunicipalityIbge: birthMunicipalityIbge || undefined,
+          ethnicity: ethnicity || undefined,
+          hasDisability,
+          disabilityCodes: hasDisability
+            ? disabilityCodes
+                .split(/[,;]/)
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : [],
+          email: email || undefined,
+          nis: nis || undefined,
+          educationLevel: educationLevel || undefined,
           addressStreet: street || undefined,
           addressNumber: number || undefined,
           addressComplement: complement || undefined,
@@ -227,6 +278,89 @@ export default function PatientDetailPage() {
               <input value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
           </div>
+
+          <div className="section-label" style={{ marginTop: 8 }}>
+            Cadastro individual APS (RF-2.30)
+          </div>
+          <div className="grid-2">
+            <div className="field">
+              <label>Nacionalidade</label>
+              <select value={nationality} onChange={(e) => setNationality(e.target.value)}>
+                <option value="">— não informado —</option>
+                <option value="BRASILEIRA">Brasileira</option>
+                <option value="NATURALIZADA">Naturalizada</option>
+                <option value="ESTRANGEIRA">Estrangeira</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Município nascimento (IBGE)</label>
+              <input
+                className="mono"
+                value={birthMunicipalityIbge}
+                onChange={(e) => setBirthMunicipalityIbge(e.target.value)}
+                maxLength={7}
+                placeholder="ex.: 351620"
+              />
+            </div>
+            <div className="field">
+              <label>Raça / cor</label>
+              <input value={raceColor} onChange={(e) => setRaceColor(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Etnia</label>
+              <input value={ethnicity} onChange={(e) => setEthnicity(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>E-mail</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>NIS / PIS / PASEP</label>
+              <input className="mono" value={nis} onChange={(e) => setNis(e.target.value)} maxLength={11} />
+            </div>
+            <div className="field">
+              <label>Escolaridade</label>
+              <input value={educationLevel} onChange={(e) => setEducationLevel(e.target.value)} />
+            </div>
+            <div className="field">
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={hasDisability}
+                  onChange={(e) => setHasDisability(e.target.checked)}
+                />
+                Possui deficiência
+              </label>
+              {hasDisability ? (
+                <input
+                  placeholder="Códigos CDS (vírgula)"
+                  value={disabilityCodes}
+                  onChange={(e) => setDisabilityCodes(e.target.value)}
+                  style={{ marginTop: 8 }}
+                />
+              ) : null}
+            </div>
+          </div>
+
+          {links.length ? (
+            <div className="alert" style={{ marginTop: 12 }}>
+              <strong>Vínculos ativos</strong>
+              <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                {links.map((l) => (
+                  <li key={l.id}>
+                    {l.team?.name || 'Equipe'}
+                    {l.microArea ? ` · microárea ${l.microArea.code}` : ''}
+                    {l.team?.facility?.name ? ` · ${l.team.facility.name}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p style={{ color: 'var(--ink-3)', marginTop: 12 }}>
+              Sem vínculo ativo com equipe —{' '}
+              <Link href={`/territorio?paciente=${params.id}`}>gerenciar no Território</Link>.
+            </p>
+          )}
 
           <div className="section-label" style={{ marginTop: 8 }}>
             Endereço

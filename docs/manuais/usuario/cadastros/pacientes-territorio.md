@@ -3,19 +3,21 @@
 | Campo | Valor |
 |---|---|
 | id | cadastros.pacientes-territorio |
-| version | 1.1.0 |
+| version | 1.2.0 |
 | status | draft |
-| atualizado | 2026-08-10 |
+| atualizado | 2026-08-16 |
 
-## Pacientes
+## Pacientes (RF-2.27 / RF-2.30)
 
 Cadastre/edite com nome social sempre visível; “Desconhece” para mãe/pai; óbito revela data e certidão.
 
-## Território (B7)
+Campos CDS essenciais (cadastro individual APS): nacionalidade (+ IBGE nascimento se brasileira), raça/cor, etnia, deficiência, e-mail, NIS, escolaridade. A ficha mostra vínculos ativos com equipe/microárea.
+
+## Território (RF-2.29)
 
 1. Menu **Território**
 2. Aba **Equipes / Microáreas**: criar equipe na unidade atual e microáreas
-3. Aba **Vínculos paciente**: ligar paciente ↔ equipe (+ microárea opcional)
+3. Aba **Vínculos paciente**: ligar paciente ↔ equipe (+ microárea opcional); **Desativar** vínculo antigo
 4. Na ficha do paciente, veja o resumo e use **Território** / **Gerenciar**
 
 O seed demo já traz `eSF Demonstração 01`, microárea `01` e vínculos de Maria/João Exemplo.

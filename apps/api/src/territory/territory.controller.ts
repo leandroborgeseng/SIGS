@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { TerritoryService } from './territory.service';
-import { CreateMicroAreaDto, CreatePatientTeamLinkDto } from './dto';
+import { CreateMicroAreaDto, CreatePatientTeamLinkDto, UpdatePatientTeamLinkDto } from './dto';
 
 @Controller('v1')
 export class TerritoryController {
@@ -24,5 +24,10 @@ export class TerritoryController {
   @Post('patient-team-links')
   createLink(@Body() dto: CreatePatientTeamLinkDto) {
     return this.service.createLink(dto);
+  }
+
+  @Patch('patient-team-links/:id')
+  updateLink(@Param('id') id: string, @Body() dto: UpdatePatientTeamLinkDto) {
+    return this.service.updateLink(id, dto);
   }
 }

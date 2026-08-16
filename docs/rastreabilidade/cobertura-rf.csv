@@ -75,8 +75,8 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 2,Módulo de Cadastros,26,RF-2.26,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de scripts de resultado de exames.
 2,Módulo de Cadastros,27,RF-2.27,Obrigatório,ambos,parcial,P0-P6,apps/api/.../patients.py,n/a,"Cadastro de pacientes: nome, mãe, data de nascimento, CPF, CNS, endereço completo, contatos, raça/cor, deficiência, naturalidade, nacionalidade, vínculo com uni"
 2,Módulo de Cadastros,28,RF-2.28,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro das equipes de saúde conforme exigências do SUS.
-2,Módulo de Cadastros,29,RF-2.29,Obrigatório,ambos,parcial,P0-P6,apps/api/.../territory.py,n/a,Cadastro domiciliar e territorial conforme regras da APS.
-2,Módulo de Cadastros,30,RF-2.30,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro individual conforme regras da APS.
+2,Módulo de Cadastros,29,RF-2.29,Obrigatório,ambos,parcial,P0-P6,territory + PATCH links + /territorio,n/a,Cadastro domiciliar e territorial conforme regras da APS.
+2,Módulo de Cadastros,30,RF-2.30,Obrigatório,ambos,parcial,P0-P6,patients CDS + territory links + /pacientes/[id],n/a,Cadastro individual conforme regras da APS.
 2,Módulo de Cadastros,31,RF-2.31,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de protocolos de acesso por grupo, subgrupo, forma de organização ou procedimento, apoiando decisão da regulação."
 2,Módulo de Cadastros,32,RF-2.32,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de etapas do atendimento.
 2,Módulo de Cadastros,33,RF-2.33,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro e listagem dos tipos de atendimento.
@@ -484,24 +484,24 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 13,Módulo de Regulação,22,RF-13.22,Obrigatório,TR,não iniciado,depois,,n/a,Reimpressão de solicitações de procedimentos.
 13,Módulo de Regulação,23,RF-13.23,Desejável,TR,não iniciado,depois,,n/a,Integração com WhatsApp para envio de mensagens automáticas.
 14,Módulo de Vacinação,1,RF-14.1,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations#catalog lediId doses,automatizado,Cadastro das dosagens de vacina.
-14,Módulo de Vacinação,2,RF-14.2,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations#catalog immuno LEDI,automatizado,Cadastro de vacinas.
-14,Módulo de Vacinação,3,RF-14.3,Desejável,ambos,não iniciado,P0-P6,,previsto,Cadastro de equipamentos frios.
+14,Módulo de Vacinação,2,RF-14.2,Obrigatório,ambos,parcial,P0-P6,catalog LEDI expandido + POST sync overlay,automatizado,Cadastro de vacinas.
+14,Módulo de Vacinação,3,RF-14.3,Desejável,ambos,parcial,P0-P6,catalog.stock deferred stub,previsto,Cadastro de equipamentos frios.
 14,Módulo de Vacinação,4,RF-14.4,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Vinculação de vacinas com insumos do almoxarifado.
 14,Módulo de Vacinação,5,RF-14.5,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Determinar número de doses no cadastro da vacina.
 14,Módulo de Vacinação,6,RF-14.6,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Utilização de outros insumos para aplicação da vacina.
-14,Módulo de Vacinação,7,RF-14.7,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Definição de faixa etária para aplicação.
-14,Módulo de Vacinação,8,RF-14.8,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Bloquear vacinação fora da faixa etária permitida.
+14,Módulo de Vacinação,7,RF-14.7,Obrigatório,ambos,parcial,P0-P6,ageRanges seed + catalog,automatizado,Definição de faixa etária para aplicação.
+14,Módulo de Vacinação,8,RF-14.8,Obrigatório,ambos,parcial,P0-P6,validateAgeForApplications no create,automatizado,Bloquear vacinação fora da faixa etária permitida.
 14,Módulo de Vacinação,9,RF-14.9,Desejável,ambos,não iniciado,P0-P6,,previsto,Registro retroativo de doses de vacinas.
 14,Módulo de Vacinação,10,RF-14.10,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Informar equivalências no cadastro de vacinas.
-14,Módulo de Vacinação,11,RF-14.11,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations + clinical-core VAC + /vacinacao,automatizado,Aplicação de vacina por paciente.
+14,Módulo de Vacinação,11,RF-14.11,Obrigatório,ambos,parcial,P0-P6,vaccinations + void local + /vacinacao,automatizado,Aplicação de vacina por paciente.
 14,Módulo de Vacinação,12,RF-14.12,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Agendamento de vacinação com controle de vacinas atrasadas.
 14,Módulo de Vacinação,13,RF-14.13,Obrigatório,ambos,parcial,P0-P6,GET /v1/patients/:id/vaccination-card.pdf + /vacinacao,previsto,Geração do cartão de vacina.
-14,Módulo de Vacinação,14,RF-14.14,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations#lot validade + LEDI row,automatizado,Lançamento de vacina por lote e validade.
-14,Módulo de Vacinação,15,RF-14.15,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Entrada de estoque de vacinas em salas criadas pela gestão.
-14,Módulo de Vacinação,16,RF-14.16,Desejável,ambos,não iniciado,P0-P6,,previsto,Controle de estoques de vacinas.
-14,Módulo de Vacinação,17,RF-14.17,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Controle de equipamentos frios.
-14,Módulo de Vacinação,18,RF-14.18,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Controle de caixa térmica.
-14,Módulo de Vacinação,19,RF-14.19,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Controle de temperatura.
+14,Módulo de Vacinação,14,RF-14.14,Obrigatório,ambos,parcial,P0-P6,lot + lotExpiry opcional + LEDI row,automatizado,Lançamento de vacina por lote e validade.
+14,Módulo de Vacinação,15,RF-14.15,Obrigatório,ambos,parcial,P0-P6,catalog.stock deferred stub,previsto,Entrada de estoque de vacinas em salas criadas pela gestão.
+14,Módulo de Vacinação,16,RF-14.16,Desejável,ambos,parcial,P0-P6,catalog.stock deferred stub,previsto,Controle de estoques de vacinas.
+14,Módulo de Vacinação,17,RF-14.17,Obrigatório,ambos,parcial,P0-P6,catalog.stock deferred stub,previsto,Controle de equipamentos frios.
+14,Módulo de Vacinação,18,RF-14.18,Obrigatório,ambos,parcial,P0-P6,catalog.stock deferred stub,previsto,Controle de caixa térmica.
+14,Módulo de Vacinação,19,RF-14.19,Obrigatório,ambos,parcial,P0-P6,catalog.stock deferred stub,previsto,Controle de temperatura.
 15,Módulo de Transporte,1,RF-15.1,Desejável,TR,adiado,adiado,,adiado,Programação de tempo em TFD.
 15,Módulo de Transporte,2,RF-15.2,Obrigatório,TR,adiado,adiado,,adiado,Solicitação de atendimento TFD.
 15,Módulo de Transporte,3,RF-15.3,Obrigatório,TR,adiado,adiado,,adiado,Parecer de comissão médica para TFD.

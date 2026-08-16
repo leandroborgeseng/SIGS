@@ -120,6 +120,19 @@ model Patient {
   addressCity        String?   @map("address_city")
   addressState       String?   @map("address_state")
   addressZip         String?   @map("address_zip")
+  /// BRASILEIRA | NATURALIZADA | ESTRANGEIRA — RF-2.30 CDS
+  nationality        String?   @map("nationality")
+  /// IBGE município de nascimento (brasileiro)
+  birthMunicipalityIbge String? @map("birth_municipality_ibge")
+  /// Etnia (quando raça/cor indígena)
+  ethnicity          String?   @map("ethnicity")
+  hasDisability      Boolean   @default(false) @map("has_disability")
+  /// JSON array de códigos de deficiência CDS
+  disabilityCodesJson String  @default("[]") @map("disability_codes_json")
+  email              String?
+  /// NIS/PIS/PASEP 11 dígitos
+  nis                String?
+  educationLevel     String?   @map("education_level")
   /** false = unificado em outro Paciente Mestre */
   active             Boolean   @default(true)
   mergedIntoId       String?   @map("merged_into_id")
@@ -278,11 +291,13 @@ model VaccinationRecord {
   professionalId    String?  @map("professional_id")
   shift             String
   careLocation      String   @map("care_location")
-  status            String   @default("DRAFT") // DRAFT | READY | SENT
+  status            String   @default("DRAFT") // DRAFT | READY | SENT | VOID
   appliedAt         DateTime @default(now()) @map("applied_at")
   /// JSON array de aplicações (imuno, estratégia, dose, lote, flags…)
   applicationsJson  String   @map("applications_json")
   productionBatchId String?  @map("production_batch_id")
+  voidReason        String?  @map("void_reason")
+  voidedAt          DateTime? @map("voided_at")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 

@@ -1,4 +1,4 @@
-import { IsBoolean, IsDateString, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreatePatientDto {
   @IsString() civilName!: string;
@@ -24,6 +24,15 @@ export class CreatePatientDto {
   @IsOptional() @IsString() addressCity?: string;
   @IsOptional() @IsString() @MaxLength(2) addressState?: string;
   @IsOptional() @IsString() @MaxLength(8) addressZip?: string;
+  /** BRASILEIRA | NATURALIZADA | ESTRANGEIRA */
+  @IsOptional() @IsString() nationality?: string;
+  @IsOptional() @IsString() @MaxLength(7) birthMunicipalityIbge?: string;
+  @IsOptional() @IsString() ethnicity?: string;
+  @IsOptional() @IsBoolean() hasDisability?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) disabilityCodes?: string[];
+  @IsOptional() @IsString() email?: string;
+  @IsOptional() @IsString() @MaxLength(11) nis?: string;
+  @IsOptional() @IsString() educationLevel?: string;
 }
 
 export class UpdatePatientDto {
@@ -50,4 +59,12 @@ export class UpdatePatientDto {
   @IsOptional() @IsString() addressCity?: string;
   @IsOptional() @IsString() @MaxLength(2) addressState?: string;
   @IsOptional() @IsString() @MaxLength(8) addressZip?: string;
+  @IsOptional() @IsString() nationality?: string;
+  @IsOptional() @IsString() @MaxLength(7) birthMunicipalityIbge?: string;
+  @IsOptional() @IsString() ethnicity?: string;
+  @IsOptional() @IsBoolean() hasDisability?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) disabilityCodes?: string[];
+  @IsOptional() @IsString() email?: string;
+  @IsOptional() @IsString() @MaxLength(11) nis?: string;
+  @IsOptional() @IsString() educationLevel?: string;
 }

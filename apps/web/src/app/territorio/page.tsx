@@ -360,7 +360,31 @@ function TerritoryInner() {
                     <td>{l.team?.facility?.name || '—'}</td>
                     <td>{l.active ? 'Sim' : 'Não'}</td>
                     <td>
-                      <Link href={`/territorio?paciente=${l.patientId}`}>Filtrar</Link>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Link href={`/territorio?paciente=${l.patientId}`}>Filtrar</Link>
+                        {l.active ? (
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => {
+                              void (async () => {
+                                try {
+                                  await api(`/v1/patient-team-links/${l.id}`, {
+                                    method: 'PATCH',
+                                    json: { active: false },
+                                  });
+                                  setOk('Vínculo desativado.');
+                                  await load();
+                                } catch (e) {
+                                  setError(e instanceof Error ? e.message : 'Falha ao desativar');
+                                }
+                              })();
+                            }}
+                          >
+                            Desativar
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))}

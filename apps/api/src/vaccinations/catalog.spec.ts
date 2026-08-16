@@ -1,4 +1,9 @@
-import { validateVaccineApplications } from './catalog';
+import {
+  IMMUNOBIOLOGICALS_SEED,
+  syncCatalog,
+  validateAgeForApplications,
+  validateVaccineApplications,
+} from './catalog';
 import { buildVaccinationLediPayload } from './ledi-vaccination.mapper';
 
 describe('vaccination rules', () => {
@@ -102,13 +107,58 @@ describe('buildVaccinationLediPayload', () => {
 
 describe('catalog LEDI ids', () => {
   it('BCG=15 e estratégias alinhadas ao DbEnum', () => {
-    const { IMMUNOBIOLOGICALS, STRATEGIES, resolveImmunoLediId, resolveStrategyLediId } = require('./catalog');
+    const { getImmunobiologicals, STRATEGIES, resolveImmunoLediId, resolveStrategyLediId } = require('./catalog');
     expect(resolveImmunoLediId('BCG')).toBe(15);
     expect(resolveImmunoLediId('HB')).toBe(9);
     expect(resolveImmunoLediId('PENTA')).toBe(42);
+    expect(resolveImmunoLediId('ROTA')).toBe(45);
+    expect(resolveImmunoLediId('HPV4')).toBe(67);
     expect(resolveStrategyLediId('ROUTINE')).toBe(1);
     expect(resolveStrategyLediId('SPECIAL')).toBe(2);
-    expect(IMMUNOBIOLOGICALS.length).toBeGreaterThanOrEqual(6);
+    expect(getImmunobiologicals().length).toBeGreaterThanOrEqual(IMMUNOBIOLOGICALS_SEED.length);
     expect(STRATEGIES.length).toBe(15);
+  });
+
+  it('sync overlay adiciona imunobiológico sem perder seed', () => {
+    syncCatalog({ reset: true });
+    const before = require('./catalog').getImmunobiologicals().length;
+    syncCatalog({
+      immunobiologicals: [{ id: 'CUSTOM_X', label: 'Custom municipal', lediId: 999 }],
+    });
+    const { getImmunobiologicals, resolveImmunoLediId } = require('./catalog');
+    expect(resolveImmunoLediId('CUSTOM_X')).toBe(999);
+    expect(getImmunobiologicals().length).toBe(before + 1);
+    syncCatalog({ reset: true });
+  });
+});
+
+describe('faixa etária RF-14.7/14.8', () => {
+  const baseApp = {
+    immunobiologicalId: 'ROTA',
+    strategyId: 'ROUTINE',
+    doseId: 'D1',
+    attendanceGroupId: 'GERAL',
+    lot: 'R1',
+    manufacturer: 'Bio',
+    routeId: 'ORAL',
+    siteId: 'ORAL',
+  };
+
+  it('bloqueia rotavírus acima do máximo seed', () => {
+    const birth = new Date('2020-01-01');
+    const applied = new Date('2021-01-01'); // ~1 ano > 245d
+    const errors = validateAgeForApplications([baseApp], birth, applied);
+    expect(errors.some((e) => e.includes('acima do máximo'))).toBe(true);
+  });
+
+  it('aceita BCG em RN', () => {
+    const birth = new Date('2026-08-01');
+    const applied = new Date('2026-08-10');
+    const errors = validateAgeForApplications(
+      [{ ...baseApp, immunobiologicalId: 'BCG', doseId: 'DU', routeId: 'ID', siteId: 'RD', leprosyContact: false }],
+      birth,
+      applied,
+    );
+    expect(errors).toEqual([]);
   });
 });

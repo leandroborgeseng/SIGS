@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
 import { CreatePatientDto, UpdatePatientDto } from './dto';
 
+const NATIONALITIES = new Set(['BRASILEIRA', 'NATURALIZADA', 'ESTRANGEIRA']);
+
 type PatientValidation = {
   civilName?: string;
   socialName?: string;
@@ -17,6 +19,14 @@ type PatientValidation = {
   isDeceased?: boolean;
   deathDate?: string;
   deathCertificate?: string;
+  nationality?: string | null;
+  birthMunicipalityIbge?: string | null;
+  raceColor?: string | null;
+  ethnicity?: string | null;
+  hasDisability?: boolean;
+  disabilityCodes?: string[];
+  email?: string | null;
+  nis?: string | null;
 };
 
 @Injectable()
@@ -51,15 +61,48 @@ export class PatientsService {
     if (dto.cpf && dto.cpf.length !== 11) errors.push('cpf deve ter 11 dígitos');
     if (dto.cns && (dto.cns.length < 15 || dto.cns.length > 16)) errors.push('cns 15–16 dígitos');
 
+    // RF-2.30 — campos CDS essenciais
+    if (dto.nationality) {
+      const nat = dto.nationality.toUpperCase();
+      if (!NATIONALITIES.has(nat)) {
+        errors.push('nationality deve ser BRASILEIRA, NATURALIZADA ou ESTRANGEIRA');
+      } else if (nat === 'BRASILEIRA') {
+        const ibge = dto.birthMunicipalityIbge?.trim();
+        if (!ibge || !/^\d{6,7}$/.test(ibge)) {
+          errors.push('birthMunicipalityIbge (6–7 dígitos) obrigatório para nacionalidade BRASILEIRA');
+        }
+      }
+    }
+    const race = (dto.raceColor || '').toUpperCase();
+    if ((race.includes('INDIGEN') || race === '5' || race === 'INDIGENA') && !dto.ethnicity?.trim()) {
+      errors.push('ethnicity obrigatória quando raça/cor é indígena');
+    }
+    if (dto.hasDisability && !(dto.disabilityCodes?.length)) {
+      errors.push('disabilityCodes obrigatório quando hasDisability=true');
+    }
+    if (dto.nis && !/^\d{11}$/.test(dto.nis)) errors.push('nis deve ter 11 dígitos');
+    if (dto.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dto.email)) errors.push('email inválido');
+
     if (errors.length) throw new BadRequestException({ errors });
   }
 
   private map(row: {
     civilName: string;
     socialName: string | null;
+    disabilityCodesJson?: string;
     [k: string]: unknown;
   }) {
-    return { ...row, displayName: row.socialName || row.civilName };
+    let disabilityCodes: string[] = [];
+    try {
+      disabilityCodes = JSON.parse(row.disabilityCodesJson || '[]') as string[];
+    } catch {
+      disabilityCodes = [];
+    }
+    return {
+      ...row,
+      displayName: row.socialName || row.civilName,
+      disabilityCodes,
+    };
   }
 
   async search(q?: string, birthDate?: string) {
@@ -101,8 +144,51 @@ export class PatientsService {
     }
   }
 
+  private cdsData(dto: CreatePatientDto | UpdatePatientDto, current?: {
+    nationality: string | null;
+    birthMunicipalityIbge: string | null;
+    ethnicity: string | null;
+    hasDisability: boolean;
+    disabilityCodesJson: string;
+    email: string | null;
+    nis: string | null;
+    educationLevel: string | null;
+  }) {
+    const disabilityCodes =
+      'disabilityCodes' in dto && dto.disabilityCodes !== undefined
+        ? dto.disabilityCodes
+        : current
+          ? (JSON.parse(current.disabilityCodesJson || '[]') as string[])
+          : [];
+    return {
+      nationality:
+        dto.nationality !== undefined
+          ? dto.nationality?.toUpperCase() || null
+          : current?.nationality ?? null,
+      birthMunicipalityIbge:
+        dto.birthMunicipalityIbge !== undefined
+          ? dto.birthMunicipalityIbge || null
+          : current?.birthMunicipalityIbge ?? null,
+      ethnicity:
+        dto.ethnicity !== undefined ? dto.ethnicity || null : current?.ethnicity ?? null,
+      hasDisability:
+        dto.hasDisability !== undefined ? dto.hasDisability : current?.hasDisability ?? false,
+      disabilityCodesJson: JSON.stringify(disabilityCodes),
+      email: dto.email !== undefined ? dto.email || null : current?.email ?? null,
+      nis: dto.nis !== undefined ? dto.nis || null : current?.nis ?? null,
+      educationLevel:
+        dto.educationLevel !== undefined
+          ? dto.educationLevel || null
+          : current?.educationLevel ?? null,
+    };
+  }
+
   async create(dto: CreatePatientDto) {
-    this.validate(dto);
+    this.validate({
+      ...dto,
+      disabilityCodes: dto.disabilityCodes,
+    });
+    const cds = this.cdsData(dto);
     const row = await this.prisma.patient.create({
       data: {
         civilName: dto.civilName,
@@ -128,15 +214,32 @@ export class PatientsService {
         addressCity: dto.addressCity,
         addressState: dto.addressState?.toUpperCase(),
         addressZip: dto.addressZip,
+        ...cds,
       },
     });
     await this.syncIdentifiers(row.id, row.cpf, row.cns);
-    await this.prisma.audit('create', 'patient', row.id, [RF.PATIENT.id, RF.PATIENT_LIST.id]);
+    await this.prisma.audit('create', 'patient', row.id, [
+      RF.PATIENT.id,
+      RF.PATIENT_LIST.id,
+      RF.PATIENT_CDS.id,
+    ]);
     return this.map(row);
   }
 
   async get(id: string) {
-    const row = await this.prisma.patient.findUnique({ where: { id } });
+    const row = await this.prisma.patient.findUnique({
+      where: { id },
+      include: {
+        links: {
+          where: { active: true },
+          include: {
+            team: { include: { facility: true } },
+            microArea: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
     if (!row) throw new NotFoundException('Paciente não encontrado');
     return this.map(row);
   }
@@ -144,6 +247,14 @@ export class PatientsService {
   async update(id: string, dto: UpdatePatientDto) {
     const current = await this.prisma.patient.findUnique({ where: { id } });
     if (!current) throw new NotFoundException('Paciente não encontrado');
+
+    const cds = this.cdsData(dto, current);
+    let disabilityCodes: string[] = [];
+    try {
+      disabilityCodes = JSON.parse(cds.disabilityCodesJson || '[]') as string[];
+    } catch {
+      disabilityCodes = [];
+    }
 
     const merged: PatientValidation = {
       civilName: dto.civilName ?? current.civilName,
@@ -167,9 +278,16 @@ export class PatientsService {
         dto.deathCertificate !== undefined
           ? dto.deathCertificate
           : current.deathCertificate || undefined,
+      nationality: cds.nationality,
+      birthMunicipalityIbge: cds.birthMunicipalityIbge,
+      raceColor: dto.raceColor !== undefined ? dto.raceColor : current.raceColor,
+      ethnicity: cds.ethnicity,
+      hasDisability: cds.hasDisability,
+      disabilityCodes,
+      email: cds.email,
+      nis: cds.nis,
     };
 
-    // limpar óbito se desmarcado
     if (merged.isDeceased === false) {
       merged.deathDate = undefined;
       merged.deathCertificate = undefined;
@@ -203,15 +321,18 @@ export class PatientsService {
         addressComplement:
           dto.addressComplement !== undefined ? dto.addressComplement : current.addressComplement,
         addressNeighborhood:
-          dto.addressNeighborhood !== undefined ? dto.addressNeighborhood : current.addressNeighborhood,
+          dto.addressNeighborhood !== undefined
+            ? dto.addressNeighborhood
+            : current.addressNeighborhood,
         addressCity: dto.addressCity !== undefined ? dto.addressCity : current.addressCity,
         addressState:
           dto.addressState !== undefined ? dto.addressState.toUpperCase() : current.addressState,
         addressZip: dto.addressZip !== undefined ? dto.addressZip : current.addressZip,
+        ...cds,
       },
     });
     await this.syncIdentifiers(row.id, row.cpf, row.cns);
-    await this.prisma.audit('update', 'patient', row.id, [RF.PATIENT.id]);
+    await this.prisma.audit('update', 'patient', row.id, [RF.PATIENT.id, RF.PATIENT_CDS.id]);
     return this.map(row);
   }
 }

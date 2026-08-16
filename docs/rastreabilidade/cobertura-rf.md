@@ -29,7 +29,8 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-2.17 | Obr | parcial | n/a | `GET/POST /v1/appointments` · `day-grid` · `itemType` CONSULTA/ENCAIXE · `careLine` APS/ODONTO |
 | RF-2.19 | Obr | parcial | n/a | `apps/api/src/organization#teams` |
 | RF-2.27 | Obr | parcial | n/a | `apps/api/src/patients` (+ PATCH + UI) |
-| RF-2.29 | Obr | parcial | n/a | `apps/api/src/territory` + UI `/territorio` |
+| RF-2.29 | Obr | parcial | n/a | `apps/api/src/territory` + UI `/territorio` + PATCH desativar vínculo |
+| RF-2.30 | Obr | parcial | n/a | cadastro individual CDS: nacionalidade/IBGE nasc./etnia/deficiência/NIS/e-mail + `links` no GET paciente · UI `/pacientes/[id]` |
 | RF-2.47 | Obr | parcial | n/a | `facilities` + IBGE + UI `/unidades` |
 | RF-2.56 | Obr | parcial | n/a | `apps/api/src/patients#search` + UI |
 | RF-3.1 | Obr | parcial | automatizado | `POST /v1/encounters` fila SOAP + origem FAI `/aps` (paciente+lotação) |
@@ -38,10 +39,13 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` · finish FAI/FAO → motor `clinical-core` (`source=native`) · **wizard lote** `/faturamento/lote/{fai,fao,proc}` (gate de tipo + 2 ZIPs) |
 | RF-10.20 | Obr | parcial | automatizado | preflight + `POST /production/send` + UI `/producao` |
 | RF-14.1 | Obr | parcial | automatizado | `apps/api/src/vaccinations#catalog` doses com `lediId` |
-| RF-14.2 | Obr | parcial | automatizado | catálogo imunobiológicos seed LEDI (BCG=15…) |
-| RF-14.11 | Obr | parcial | automatizado | aplicação + batch + `clinical-core` VAC + UI `/vacinacao` |
+| RF-14.2 | Obr | parcial | automatizado | catálogo imunobiológicos LEDI expandido (dicionário) + `POST …/catalog/vaccination/sync` overlay |
+| RF-14.7 | Obr | parcial | automatizado | `ageRanges` seed + catalog · calendário básico PNI |
+| RF-14.8 | Obr | parcial | automatizado | bloqueio idade em `create` via `validateAgeForApplications` |
+| RF-14.11 | Obr | parcial | automatizado | aplicação + batch + `clinical-core` VAC + UI `/vacinacao` + `POST …/void` local |
 | RF-14.13 | Obr | parcial | previsto | `GET …/vaccination-card.pdf` + botão imprimir em `/vacinacao` |
-| RF-14.14 | Obr | parcial | automatizado | lote/fabricante na aplicação LEDI |
+| RF-14.14 | Obr | parcial | automatizado | lote/fabricante + `lotExpiry` opcional na aplicação |
+| RF-14.3–6 / 15–19 | — | stub | n/a | `catalog.stock` deferred (sem almoxarifado/frio completo) |
 | RF-12.2 | Obr | coberto | automatizado | lotação/`assignmentId` na abertura `/odonto` + header LEDI |
 | RF-12.3 | Obr | coberto | automatizado | paciente na abertura + identificação na ficha |
 | RF-12.5 | Obr | coberto | automatizado | `tipoAtendimento` (default 5) + UI select |

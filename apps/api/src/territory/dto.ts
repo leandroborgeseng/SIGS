@@ -13,3 +13,8 @@ export class CreatePatientTeamLinkDto {
   @IsOptional() @IsString() microAreaId?: string;
   @IsOptional() @IsBoolean() active?: boolean;
 }
+
+export class UpdatePatientTeamLinkDto {
+  @IsOptional() @IsBoolean() active?: boolean;
+  @IsOptional() @IsString() microAreaId?: string | null;
+}

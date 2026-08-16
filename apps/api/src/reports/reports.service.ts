@@ -54,6 +54,7 @@ export class ReportsService {
     const dateFilter = this.range(from, to);
     const rows = await this.prisma.vaccinationRecord.findMany({
       where: {
+        status: { not: 'VOID' },
         ...(facilityId ? { facilityId } : {}),
         ...(Object.keys(dateFilter).length ? { appliedAt: dateFilter } : {}),
       },

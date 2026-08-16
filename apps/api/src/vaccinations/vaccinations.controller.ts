@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Header, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { VaccinationsService } from './vaccinations.service';
-import { CreateVaccinationDto } from './dto';
+import { CreateVaccinationDto, SyncVaccinationCatalogDto, VoidVaccinationDto } from './dto';
 
 @Controller('v1')
 export class VaccinationsController {
@@ -10,6 +10,11 @@ export class VaccinationsController {
   @Get('catalog/vaccination')
   catalog() {
     return this.service.catalog();
+  }
+
+  @Post('catalog/vaccination/sync')
+  syncCatalog(@Body() dto: SyncVaccinationCatalogDto) {
+    return this.service.syncCatalog(dto);
   }
 
   @Get('vaccinations')
@@ -25,6 +30,11 @@ export class VaccinationsController {
   @Post('vaccinations')
   create(@Body() dto: CreateVaccinationDto) {
     return this.service.create(dto);
+  }
+
+  @Post('vaccinations/:id/void')
+  voidRecord(@Param('id') id: string, @Body() dto: VoidVaccinationDto) {
+    return this.service.void(id, dto);
   }
 
   @Get('patients/:patientId/vaccination-card')

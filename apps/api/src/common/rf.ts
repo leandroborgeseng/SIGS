@@ -5,6 +5,13 @@ export const RF = {
   TEAM: { id: 'RF-2.19', tipo: 'Obrigatório', fonte: 'ambos', teste_faturamento: 'n/a' },
   PATIENT: { id: 'RF-2.27', tipo: 'Obrigatório', fonte: 'ambos', teste_faturamento: 'n/a' },
   PATIENT_LIST: { id: 'RF-2.56', tipo: 'Obrigatório', fonte: 'ambos', teste_faturamento: 'n/a' },
+  PATIENT_CDS: {
+    id: 'RF-2.30',
+    tipo: 'Obrigatório',
+    fonte: 'ambos',
+    teste_faturamento: 'n/a',
+    nota: 'Cadastro individual APS (campos CDS essenciais + vínculo equipe)',
+  },
   TERRITORY: { id: 'RF-2.29', tipo: 'Obrigatório', fonte: 'ambos', teste_faturamento: 'n/a' },
   AGENDA: { id: 'RF-2.17', tipo: 'Obrigatório', fonte: 'ambos', teste_faturamento: 'n/a', nota: 'Agenda / slots' },
   ENCOUNTER_ENTRY: {
