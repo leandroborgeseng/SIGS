@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
+import { FieldToneLegend, LabeledField } from '@/components/ui/FieldHint';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -250,8 +251,15 @@ export default function HomeCarePage() {
         </div>
       ) : null}
       <form className="card grid-2" onSubmit={open} style={{ marginBottom: 16 }}>
-        <div className="field" style={{ gridColumn: '1 / -1' }}>
-          <label>Cidadãos na ficha ({patientIds.length})</label>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <FieldToneLegend />
+        </div>
+        <div className="field field--tone-siaps" style={{ gridColumn: '1 / -1' }}>
+          <div className="field-label-row">
+            <span className="field-label">Cidadãos na ficha ({patientIds.length})</span>
+            <span className="field-badge field-badge--siaps">Siaps</span>
+          </div>
+          <p className="field-hint field-hint--siaps">AD_CHILD_MISSING — ≥1 cidadão; máx. 99 (BLOCKER).</p>
           <div style={{ maxHeight: 160, overflow: 'auto', display: 'grid', gap: 4 }}>
             {patients.slice(0, 60).map((p) => (
               <label key={p.id} className="check" style={{ display: 'flex', gap: 8 }}>
@@ -277,8 +285,11 @@ export default function HomeCarePage() {
             ))}
           </select>
         </div>
-        <div className="field">
-          <label>Modalidade</label>
+        <LabeledField
+          label="Modalidade"
+          tone="siaps"
+          hint="AD_MODALITY_MISSING — MONEY_RISK/BLOCKER se AD1/AD2/AD3 ausente."
+        >
           <select value={careType} onChange={(e) => setCareType(e.target.value)}>
             {(catalog?.careTypes || [
               { id: 'AD1', label: 'AD1' },
@@ -290,9 +301,8 @@ export default function HomeCarePage() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="field">
-          <label>Turno</label>
+        </LabeledField>
+        <LabeledField label="Turno" tone="previne" badgeLabel="Indicador" hint="QUALITY_WARN se ausente no child.">
           <select value={shift} onChange={(e) => setShift(e.target.value)}>
             {(catalog?.shifts || [
               { id: 'MANHA', label: 'Manhã' },
@@ -304,9 +314,8 @@ export default function HomeCarePage() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="field">
-          <label>Tipo de atendimento (LEDI)</label>
+        </LabeledField>
+        <LabeledField label="Tipo de atendimento (LEDI)" tone="previne" badgeLabel="Indicador">
           <select value={encounterType} onChange={(e) => setEncounterType(e.target.value)}>
             {(catalog?.encounterTypes || [
               { id: 'ATENDIMENTO_PROGRAMADO', label: 'Programado' },
@@ -318,7 +327,7 @@ export default function HomeCarePage() {
               </option>
             ))}
           </select>
-        </div>
+        </LabeledField>
         <div className="field">
           <label>Local</label>
           <select value={careLocation} onChange={(e) => setCareLocation(e.target.value)}>
@@ -329,8 +338,7 @@ export default function HomeCarePage() {
             ))}
           </select>
         </div>
-        <div className="field">
-          <label>Procedimento (SIGTAP / stub)</label>
+        <LabeledField label="Procedimento (SIGTAP / stub)" tone="siaps">
           <select value={procCode} onChange={(e) => setProcCode(e.target.value)}>
             {(catalog?.procedureHints || [{ id: '0101040024', label: 'Visita domiciliar' }]).map((p) => (
               <option key={p.id} value={p.id}>
@@ -338,9 +346,13 @@ export default function HomeCarePage() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="field">
-          <label>Desfecho (ao finalizar)</label>
+        </LabeledField>
+        <LabeledField
+          label="Desfecho (ao finalizar)"
+          tone="previne"
+          badgeLabel="Indicador"
+          hint="AD_DESFECHO_MISSING — QUALITY_WARN."
+        >
           <select value={desfecho} onChange={(e) => setDesfecho(e.target.value)}>
             {(catalog?.desfechos || [
               { id: 'PERMANENCIA', label: 'Permanência' },
@@ -351,7 +363,7 @@ export default function HomeCarePage() {
               </option>
             ))}
           </select>
-        </div>
+        </LabeledField>
         <div className="field">
           <CodeSearchSelect
             kind="ciap"
@@ -360,6 +372,8 @@ export default function HomeCarePage() {
             value={ciap}
             onChange={setCiap}
             placeholder="Buscar CIAP…"
+            tone="previne"
+            badgeLabel="Indicador"
           />
         </div>
         <div className="field">
@@ -370,6 +384,8 @@ export default function HomeCarePage() {
             value={cid10}
             onChange={setCid10}
             placeholder="Buscar CID-10…"
+            tone="previne"
+            badgeLabel="Indicador"
           />
         </div>
         <div className="field" style={{ gridColumn: '1 / -1' }}>

@@ -4,20 +4,21 @@ title: Atendimento APS — ficha FAI (Onda 1)
 type: user
 module: ambulatorial
 feature: aps-fai-encounter
-version: 0.1.0
+version: 0.2.0
 product_min: 0.2.0
 status: stub
 audience: [profissional, gestor]
 related_rf: [RF-3.1, RF-3.5, RF-3.24, RF-2.60, RF-10.3, RF-10.20]
 related_screens: [/aps, /aps/agenda, /aps/[id], /faturamento/aps, /faturamento/lote/fai]
-updated_at: 2026-08-13
+updated_at: 2026-08-16
 authors: [SIGS]
 ---
 
 # Atendimento APS — ficha FAI (stub usuário)
 
 **Telas:** `/aps` · `/aps/agenda` · `/aps/[id]` · pós-fechamento → `/faturamento/aps`  
-**API:** `POST /v1/encounters` (`faiOrigin: true`) · `POST /v1/appointments/:id/open-aps` · `PUT …/clinical` · `GET …/preview-fai` · `POST …/finish` · `GET /v1/catalog/aps`
+**API:** `POST /v1/encounters` (`faiOrigin: true`) · `POST /v1/appointments/:id/open-aps` · `PUT …/clinical` · `GET …/preview-fai` · `POST …/finish` · `GET /v1/catalog/aps`  
+**Convenção:** `docs/manuais/campos-siaps-previne.md` · ajuda: `aps.atendimento`
 
 UI de produto (Claude Design) fica para a fase 2. Este stub descreve o shell técnico da Onda 1.
 
@@ -31,6 +32,21 @@ UI de produto (Claude Design) fica para a fase 2. Este stub descreve o shell té
 6. Lote XML legado: `/faturamento/lote/fai`.
 
 A fila SOAP (`/atendimento`) continua no grupo Operação e não mistura com `/odonto`.
+
+## Campos Siaps × Previne (UI)
+
+| Campo na tela | Tom | Motivo |
+|---|---|---|
+| `stNaoPossuiCpf` + justificativa | **Siaps** | BLOCKER identificação LEDI |
+| Tipo de atendimento / local | **Siaps** | Aceite FAI; tipo também alimenta C1 |
+| Turno | **Indicador** | QUALITY_WARN se ausente |
+| Gestante | **Previne** | Denominadores clínicos (ex. C3) — doc 15 |
+| Antropometria (peso/altura/PC) | **Previne** | C2–C6 no mesmo registro |
+| CIAP / CID | **Siaps** | `problemasCondicoes` obrigatório |
+| Condutas FAI | **Siaps** | `OUTCOMES_MISSING` BLOCKER |
+| SOAP / anamnese textual | Neutro | Clínico local |
+
+Na tela: vermelho = envio; laranja = indicador. Finalizar exige zero BLOCKER Siaps.
 
 ## Campos LEDI na ficha (Onda A 2026-08-16)
 

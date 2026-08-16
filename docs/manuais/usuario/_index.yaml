@@ -9,15 +9,31 @@ articles:
     status: draft
   - id: odonto.atendimento
     path: odonto/atendimento-onda1.md
-    version: 1.6.0
+    version: 1.7.0
     status: draft
   - id: odonto.agenda
     path: odonto/agenda.md
     version: 0.2.0
     status: draft
+  - id: aps.atendimento
+    path: ambulatorial/atendimento-aps-fai-onda1.md
+    version: 0.2.0
+    status: stub
   - id: aps.agenda
     path: ambulatorial/agenda-aps.md
     version: 0.1.0
+    status: stub
+  - id: vacinacao.aplicacao
+    path: vacinacao/aplicacao.md
+    version: 1.3.0
+    status: stub
+  - id: ad.stub
+    path: ambulatorial/atencao-domiciliar.md
+    version: 0.4.0
+    status: stub
+  - id: coletivo.stub
+    path: ambulatorial/atividade-coletiva.md
+    version: 0.4.0
     status: stub
   - id: faturamento.hub
     path: faturamento/hub.md

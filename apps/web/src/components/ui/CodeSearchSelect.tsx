@@ -97,6 +97,8 @@ function pickPreferred(options: CodeOption[], preferred: string[]): CodeOption[]
   return [...head, ...rest].slice(0, 80);
 }
 
+type FieldTone = 'siaps' | 'previne' | 'neutral';
+
 type Props = {
   kind: CatalogKind;
   label: string;
@@ -107,6 +109,9 @@ type Props = {
   disabled?: boolean;
   /** Sugestões iniciais: odonto (boca) ou APS (HAS/DM/IRA). Default odonto. */
   domain?: CatalogDomain;
+  /** Destaque Siaps (vermelho) ou Previne (laranja). */
+  tone?: FieldTone;
+  badgeLabel?: string;
 };
 
 export function CodeSearchSelect({
@@ -118,6 +123,8 @@ export function CodeSearchSelect({
   allowEmpty = true,
   disabled = false,
   domain = 'odonto',
+  tone = 'neutral',
+  badgeLabel,
 }: Props) {
   const id = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -174,9 +181,23 @@ export function CodeSearchSelect({
 
   const inputValue = open ? query : selected ? `${selected.code} — ${selected.display}` : value;
 
+  const toneClass = tone === 'neutral' ? '' : `field--tone-${tone}`;
+
   return (
-    <div className="field code-search" ref={rootRef}>
-      <label htmlFor={id}>{label}</label>
+    <div className={`field code-search ${toneClass}`.trim()} ref={rootRef} data-field-tone={tone}>
+      <div className="field-label-row">
+        <label htmlFor={id} className="field-label" style={{ margin: 0 }}>
+          {label}
+        </label>
+        {tone !== 'neutral' ? (
+          <span
+            className={`field-badge field-badge--${tone}`}
+            title={tone === 'siaps' ? 'Obrigatório para envio Siaps/LEDI' : 'Impacta indicador Previne / qualidade'}
+          >
+            {badgeLabel || (tone === 'siaps' ? 'Siaps' : 'Previne')}
+          </span>
+        ) : null}
+      </div>
       <input
         id={id}
         role="combobox"

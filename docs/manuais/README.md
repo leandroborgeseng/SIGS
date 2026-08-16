@@ -67,6 +67,7 @@ authors: [SIGS]
 ```text
 docs/manuais/
   README.md                 ← esta política
+  campos-siaps-previne.md   ← convenção visual vermelho (Siaps) × laranja (Previne)
   templates/
     manual-usuario.md
     manual-tecnico.md
@@ -84,6 +85,15 @@ docs/manuais/
   releases/
     0.1.0-mvp.md            ← o que mudou nos manuais nesta release
 ```
+
+### Campos Siaps × Previne (UI operacional)
+
+Nas fichas de produção (APS, odonto, vacina, AD, coletivo e lotes LEDI quando couber):
+
+- **Vermelho + badge “Siaps”** — obrigatório para envio legal (BLOCKER LEDI).
+- **Laranja + badge “Previne”** — indicador / qualidade (não bloqueia finish se Siaps ok).
+
+Detalhe e checklist: [`campos-siaps-previne.md`](./campos-siaps-previne.md). Componente: `FieldHint` / `LabeledField` (`apps/web/src/components/ui/FieldHint.tsx`).
 
 No software (futuro):
 

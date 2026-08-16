@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
+import { FieldToneLegend, LabeledField } from '@/components/ui/FieldHint';
 import { ErrorBox, HelpLink, OkBox, PageHeader, TableStateRow } from '@/components/ui/PageHeader';
 import { api, getToken } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -499,9 +500,9 @@ function VaccinationInner() {
 
       {tab === 'aplicar' ? (
         <form className="card" onSubmit={onSubmit} style={{ marginBottom: 16 }}>
+          <FieldToneLegend />
           <div className="grid-2">
-            <div className="field">
-              <label>Paciente *</label>
+            <LabeledField label="Paciente *" tone="siaps">
               <select required value={patientId} onChange={(e) => setPatientId(e.target.value)}>
                 <option value="">Selecionar…</option>
                 {patients.map((p) => (
@@ -510,7 +511,7 @@ function VaccinationInner() {
                   </option>
                 ))}
               </select>
-            </div>
+            </LabeledField>
             <div className="field">
               <label>Profissional</label>
               <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)}>
@@ -522,8 +523,11 @@ function VaccinationInner() {
                 ))}
               </select>
             </div>
-            <div className="field">
-              <label>Imunobiológico *</label>
+            <LabeledField
+              label="Imunobiológico *"
+              tone="siaps"
+              hint="VAC_IMUNO_MISSING — BLOCKER no pré-envio."
+            >
               <select value={immunobiologicalId} onChange={(e) => setImm(e.target.value)}>
                 {(catalog?.immunobiologicals || []).map((i) => (
                   <option key={i.id} value={i.id}>
@@ -531,9 +535,8 @@ function VaccinationInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Estratégia *</label>
+            </LabeledField>
+            <LabeledField label="Estratégia *" tone="siaps">
               <select value={strategyId} onChange={(e) => setStrategy(e.target.value)}>
                 {(catalog?.strategies || []).map((i) => (
                   <option key={i.id} value={i.id}>
@@ -541,9 +544,8 @@ function VaccinationInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Dose *</label>
+            </LabeledField>
+            <LabeledField label="Dose *" tone="siaps">
               <select value={doseId} onChange={(e) => setDose(e.target.value)}>
                 {(catalog?.doses || []).map((i) => (
                   <option key={i.id} value={i.id}>
@@ -551,7 +553,7 @@ function VaccinationInner() {
                   </option>
                 ))}
               </select>
-            </div>
+            </LabeledField>
             <div className="field">
               <label>Grupo de atendimento *</label>
               <select value={attendanceGroupId} onChange={(e) => setGroup(e.target.value)}>
@@ -562,20 +564,21 @@ function VaccinationInner() {
                 ))}
               </select>
             </div>
-            <div className="field">
-              <label>Lote *</label>
+            <LabeledField
+              label="Lote *"
+              tone="siaps"
+              hint="VAC_LOT_MISSING — MONEY_RISK / risco de rejeição se ausente."
+            >
               <input className="mono" required value={lot} onChange={(e) => setLot(e.target.value)} maxLength={30} />
-            </div>
+            </LabeledField>
             <div className="field">
               <label>Validade do lote</label>
               <input type="date" value={lotExpiry} onChange={(e) => setLotExpiry(e.target.value)} />
             </div>
-            <div className="field">
-              <label>Fabricante *</label>
+            <LabeledField label="Fabricante *" tone="siaps">
               <input required value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>Via *</label>
+            </LabeledField>
+            <LabeledField label="Via *" tone="siaps">
               <select value={routeId} onChange={(e) => setRoute(e.target.value)}>
                 {(catalog?.routes || []).map((i) => (
                   <option key={i.id} value={i.id}>
@@ -583,9 +586,8 @@ function VaccinationInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Local de aplicação *</label>
+            </LabeledField>
+            <LabeledField label="Local de aplicação *" tone="siaps">
               <select value={siteId} onChange={(e) => setSite(e.target.value)}>
                 {(catalog?.sites || []).map((i) => (
                   <option key={i.id} value={i.id}>
@@ -593,21 +595,19 @@ function VaccinationInner() {
                   </option>
                 ))}
               </select>
-            </div>
+            </LabeledField>
           </div>
 
           {isSpecial ? (
             <div className="alert">
               <strong>Estratégia Especial</strong> — CBO e CID-10 obrigatórios.
               <div className="grid-2" style={{ marginTop: 8 }}>
-                <div className="field">
-                  <label>CBO do solicitante *</label>
+                <LabeledField label="CBO do solicitante *" tone="siaps">
                   <input className="mono" required value={prescriberCbo} onChange={(e) => setCbo(e.target.value)} />
-                </div>
-                <div className="field">
-                  <label>CID-10 da indicação *</label>
+                </LabeledField>
+                <LabeledField label="CID-10 da indicação *" tone="siaps">
                   <input className="mono" required value={indicationCid10} onChange={(e) => setCid(e.target.value)} />
-                </div>
+                </LabeledField>
               </div>
             </div>
           ) : null}

@@ -29,6 +29,14 @@
   --muted-bg: #edf1f6;
   --off: #8a97a8;
 
+  /* Campos Siaps (envio legal) × Previne (indicadores) — docs/manuais/campos-siaps-previne.md */
+  --field-siaps: #c62828;
+  --field-siaps-bg: #fdecea;
+  --field-siaps-bd: #e57373;
+  --field-previne: #e65100;
+  --field-previne-bg: #fff3e0;
+  --field-previne-bd: #ffb74d;
+
   --r-card: 14px;
   --r-md: 10px;
   --r-sm: 8px;
@@ -500,6 +508,141 @@ textarea {
   font-size: 12px;
   color: var(--ink-4);
   font-weight: 400;
+}
+
+.field-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.field-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  line-height: 1.2;
+}
+
+.field-badge--siaps {
+  color: var(--field-siaps);
+  background: var(--field-siaps-bg);
+  border-color: var(--field-siaps-bd);
+}
+
+.field-badge--previne {
+  color: var(--field-previne);
+  background: var(--field-previne-bg);
+  border-color: var(--field-previne-bd);
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--ink-4);
+  margin: 0 0 6px;
+  font-weight: 400;
+}
+
+.field-hint--siaps {
+  color: var(--field-siaps);
+}
+
+.field-hint--previne {
+  color: var(--field-previne);
+}
+
+.field--tone-siaps {
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--field-siaps-bd);
+  background: var(--field-siaps-bg);
+  margin-bottom: 12px;
+}
+
+.field--tone-siaps input,
+.field--tone-siaps select,
+.field--tone-siaps textarea {
+  border-color: var(--field-siaps-bd);
+  background: var(--surface);
+}
+
+.field--tone-siaps input:focus,
+.field--tone-siaps select:focus,
+.field--tone-siaps textarea:focus {
+  border-color: var(--field-siaps);
+  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.15);
+}
+
+.field--tone-previne {
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--field-previne-bd);
+  background: var(--field-previne-bg);
+  margin-bottom: 12px;
+}
+
+.field--tone-previne input,
+.field--tone-previne select,
+.field--tone-previne textarea {
+  border-color: var(--field-previne-bd);
+  background: var(--surface);
+}
+
+.field--tone-previne input:focus,
+.field--tone-previne select:focus,
+.field--tone-previne textarea:focus {
+  border-color: var(--field-previne);
+  box-shadow: 0 0 0 3px rgba(230, 81, 0, 0.15);
+}
+
+.field-section {
+  margin: 16px 0 12px;
+}
+
+.field-section__title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.field-section__head {
+  margin-bottom: 8px;
+}
+
+.field-section--tone-siaps {
+  padding: 12px;
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--field-siaps-bd);
+  background: var(--field-siaps-bg);
+}
+
+.field-section--tone-previne {
+  padding: 12px;
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--field-previne-bd);
+  background: var(--field-previne-bg);
+}
+
+.field-tone-legend {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin: 0 0 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
 .btn {

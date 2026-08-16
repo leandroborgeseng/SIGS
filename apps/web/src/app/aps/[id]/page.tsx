@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
+import { FieldSection, FieldToneLegend, LabeledField } from '@/components/ui/FieldHint';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError } from '@/lib/api';
 import { displayPatientName, formatDateTime } from '@/lib/labels';
@@ -331,6 +332,7 @@ export default function ApsAtendimentoPage() {
 
       <div className="split-clinical">
         <form className="card stack" onSubmit={onSave}>
+          <FieldToneLegend />
           <p className="muted" style={{ marginTop: 0 }}>
             Aberto em {formatDateTime(enc.startedAt)}
             {enc.professional ? ` · ${enc.professional.civilName}` : ''}
@@ -338,18 +340,23 @@ export default function ApsAtendimentoPage() {
             {enc.facility.name} (CNES {enc.facility.cnes})
           </p>
 
-          <label className="check">
-            <input
-              type="checkbox"
-              disabled={readonly}
-              checked={care.stNaoPossuiCpf}
-              onChange={(e) => setCare({ ...care, stNaoPossuiCpf: e.target.checked })}
-            />
-            Não possui CPF (`stNaoPossuiCpf`)
-          </label>
+          <LabeledField
+            label="Não possui CPF (`stNaoPossuiCpf`)"
+            tone="siaps"
+            hint="BLOCKER LEDI — identificação do cidadão no envio."
+          >
+            <label className="check" style={{ margin: 0 }}>
+              <input
+                type="checkbox"
+                disabled={readonly}
+                checked={care.stNaoPossuiCpf}
+                onChange={(e) => setCare({ ...care, stNaoPossuiCpf: e.target.checked })}
+              />
+              Marcar quando o cidadão não tem CPF
+            </label>
+          </LabeledField>
           {care.stNaoPossuiCpf && (
-            <label>
-              Justificativa
+            <LabeledField label="Justificativa" tone="siaps">
               <select
                 disabled={readonly}
                 value={care.justificativaNaoPossuiCpf ?? ''}
@@ -367,12 +374,15 @@ export default function ApsAtendimentoPage() {
                   </option>
                 ))}
               </select>
-            </label>
+            </LabeledField>
           )}
 
           <h2>Tipo e contexto</h2>
-          <label>
-            Tipo de atendimento
+          <LabeledField
+            label="Tipo de atendimento"
+            tone="siaps"
+            hint="Também influencia Previne C1 (programada × espontânea) — finish exige tipo LEDI válido."
+          >
             <select
               disabled={readonly}
               value={care.tipoAtendimento}
@@ -384,9 +394,8 @@ export default function ApsAtendimentoPage() {
                 </option>
               ))}
             </select>
-          </label>
-          <label>
-            Local
+          </LabeledField>
+          <LabeledField label="Local" tone="siaps">
             <select
               disabled={readonly}
               value={care.localAtendimento}
@@ -398,9 +407,13 @@ export default function ApsAtendimentoPage() {
                 </option>
               ))}
             </select>
-          </label>
-          <label>
-            Turno
+          </LabeledField>
+          <LabeledField
+            label="Turno"
+            tone="previne"
+            badgeLabel="Indicador"
+            hint="QUALITY_WARN no pré-envio se ausente."
+          >
             <select
               disabled={readonly}
               value={care.turno}
@@ -412,71 +425,82 @@ export default function ApsAtendimentoPage() {
                 </option>
               ))}
             </select>
-          </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              disabled={readonly}
-              checked={!!care.gestante}
-              onChange={(e) => setCare({ ...care, gestante: e.target.checked })}
-            />
-            Gestante
-          </label>
+          </LabeledField>
+          <LabeledField
+            label="Gestante"
+            tone="previne"
+            hint="Abre denominadores clínicos Previne (ex. C3) quando marcado com coerência de sexo."
+          >
+            <label className="check" style={{ margin: 0 }}>
+              <input
+                type="checkbox"
+                disabled={readonly}
+                checked={!!care.gestante}
+                onChange={(e) => setCare({ ...care, gestante: e.target.checked })}
+              />
+              Gestante
+            </label>
+          </LabeledField>
 
-          <h2>Antropometria (LEDI medições)</h2>
-          <div className="row-2">
+          <FieldSection
+            title="Antropometria (LEDI medições)"
+            tone="previne"
+            hint="Peso/altura no mesmo registro alimentam indicadores C2–C6 (doc 15). Não são BLOCKER FAI sozinhos."
+          >
+            <div className="row-2">
+              <label>
+                Peso (kg)
+                <input
+                  type="number"
+                  step="0.1"
+                  min={0.5}
+                  max={500}
+                  disabled={readonly}
+                  value={care.weightKg ?? ''}
+                  onChange={(e) =>
+                    setCare({
+                      ...care,
+                      weightKg: e.target.value ? Number(e.target.value) : undefined,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Altura (cm)
+                <input
+                  type="number"
+                  step="0.1"
+                  min={20}
+                  max={250}
+                  disabled={readonly}
+                  value={care.heightCm ?? ''}
+                  onChange={(e) =>
+                    setCare({
+                      ...care,
+                      heightCm: e.target.value ? Number(e.target.value) : undefined,
+                    })
+                  }
+                />
+              </label>
+            </div>
             <label>
-              Peso (kg)
+              Perímetro cefálico (cm)
               <input
                 type="number"
                 step="0.1"
-                min={0.5}
-                max={500}
+                min={10}
+                max={200}
                 disabled={readonly}
-                value={care.weightKg ?? ''}
+                value={care.headCircumferenceCm ?? ''}
                 onChange={(e) =>
                   setCare({
                     ...care,
-                    weightKg: e.target.value ? Number(e.target.value) : undefined,
+                    headCircumferenceCm: e.target.value ? Number(e.target.value) : undefined,
                   })
                 }
               />
             </label>
-            <label>
-              Altura (cm)
-              <input
-                type="number"
-                step="0.1"
-                min={20}
-                max={250}
-                disabled={readonly}
-                value={care.heightCm ?? ''}
-                onChange={(e) =>
-                  setCare({
-                    ...care,
-                    heightCm: e.target.value ? Number(e.target.value) : undefined,
-                  })
-                }
-              />
-            </label>
-          </div>
-          <label>
-            Perímetro cefálico (cm)
-            <input
-              type="number"
-              step="0.1"
-              min={10}
-              max={200}
-              disabled={readonly}
-              value={care.headCircumferenceCm ?? ''}
-              onChange={(e) =>
-                setCare({
-                  ...care,
-                  headCircumferenceCm: e.target.value ? Number(e.target.value) : undefined,
-                })
-              }
-            />
-          </label>
+          </FieldSection>
 
           <h2>SOAP</h2>
           <label>
@@ -520,27 +544,34 @@ export default function ApsAtendimentoPage() {
             />
           </label>
 
-          <h2>Problemas (CIAP/CID) *</h2>
-          <div className="row-2">
-            <CodeSearchSelect
-              kind="ciap"
-              domain="aps"
-              label="CIAP"
-              value={ciap}
-              onChange={setCiap}
-              disabled={readonly}
-              placeholder="Buscar CIAP…"
-            />
-            <CodeSearchSelect
-              kind="cid10"
-              domain="aps"
-              label="CID-10"
-              value={cid10}
-              onChange={setCid10}
-              disabled={readonly}
-              placeholder="Buscar CID-10…"
-            />
-          </div>
+          <FieldSection
+            title="Problemas (CIAP/CID) *"
+            tone="siaps"
+            hint="Obrigatório para FAI Siaps-ready (problemasCondicoes)."
+          >
+            <div className="row-2">
+              <CodeSearchSelect
+                kind="ciap"
+                domain="aps"
+                label="CIAP"
+                value={ciap}
+                onChange={setCiap}
+                disabled={readonly}
+                placeholder="Buscar CIAP…"
+                tone="siaps"
+              />
+              <CodeSearchSelect
+                kind="cid10"
+                domain="aps"
+                label="CID-10"
+                value={cid10}
+                onChange={setCid10}
+                disabled={readonly}
+                placeholder="Buscar CID-10…"
+                tone="siaps"
+              />
+            </div>
+          </FieldSection>
 
           <h2>Procedimentos SIGTAP</h2>
           <label>
@@ -622,21 +653,26 @@ export default function ApsAtendimentoPage() {
             <p className="muted">Nenhum procedimento — escolha no catálogo APS ou busque SIGTAP.</p>
           )}
 
-          <h2>Condutas / encaminhamentos FAI *</h2>
-          <p className="muted" style={{ marginTop: 0 }}>
-            Catálogo TipoEncaminhamentoIndividual — não usar condutas odonto.
-          </p>
-          {catalog.condutas.map((c) => (
-            <label key={c.id} className="check">
-              <input
-                type="checkbox"
-                disabled={readonly}
-                checked={care.outcomes.includes(c.id)}
-                onChange={() => setCare({ ...care, outcomes: toggleStr(care.outcomes, c.id) })}
-              />
-              {c.lediId} — {c.label}
-            </label>
-          ))}
+          <FieldSection
+            title="Condutas / encaminhamentos FAI *"
+            tone="siaps"
+            hint="OUTCOMES_MISSING — BLOCKER. Catálogo TipoEncaminhamentoIndividual (não odonto)."
+          >
+            <p className="muted" style={{ marginTop: 0 }}>
+              Catálogo TipoEncaminhamentoIndividual — não usar condutas odonto.
+            </p>
+            {catalog.condutas.map((c) => (
+              <label key={c.id} className="check">
+                <input
+                  type="checkbox"
+                  disabled={readonly}
+                  checked={care.outcomes.includes(c.id)}
+                  onChange={() => setCare({ ...care, outcomes: toggleStr(care.outcomes, c.id) })}
+                />
+                {c.lediId} — {c.label}
+              </label>
+            ))}
+          </FieldSection>
 
           {!readonly && (
             <div className="actions" style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>

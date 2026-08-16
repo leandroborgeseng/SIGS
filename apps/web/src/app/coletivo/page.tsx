@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
+import { FieldToneLegend, LabeledField } from '@/components/ui/FieldHint';
 import { ErrorBox, HelpLink, OkBox, PageHeader, TableStateRow } from '@/components/ui/PageHeader';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -157,6 +158,9 @@ export default function CollectivePage() {
       <OkBox message={ok} />
 
       <form className="card grid-2" onSubmit={open} style={{ marginBottom: 16 }}>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <FieldToneLegend />
+        </div>
         <div className="field">
           <label>Profissional (lotação)</label>
           <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)}>
@@ -168,8 +172,7 @@ export default function CollectivePage() {
             ))}
           </select>
         </div>
-        <div className="field">
-          <label>Tipo de atividade</label>
+        <LabeledField label="Tipo de atividade" tone="siaps">
           <select value={activityType} onChange={(e) => setActivityType(e.target.value)}>
             {(catalog?.activityTypes || []).map((t) => (
               <option key={t.id} value={t.id}>
@@ -177,9 +180,8 @@ export default function CollectivePage() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="field">
-          <label>Tema / prática</label>
+        </LabeledField>
+        <LabeledField label="Tema / prática" tone="siaps">
           <select value={theme} onChange={(e) => setTheme(e.target.value)}>
             {themeOptions.map((t) => (
               <option key={t.id} value={t.id}>
@@ -187,9 +189,8 @@ export default function CollectivePage() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="field">
-          <label>Público-alvo</label>
+        </LabeledField>
+        <LabeledField label="Público-alvo" tone="siaps">
           <select value={audience} onChange={(e) => setAudience(e.target.value)}>
             {(catalog?.audiences || []).map((t) => (
               <option key={t.id} value={t.id}>
@@ -197,9 +198,8 @@ export default function CollectivePage() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="field">
-          <label>Turno</label>
+        </LabeledField>
+        <LabeledField label="Turno" tone="previne" badgeLabel="Indicador">
           <select value={shift} onChange={(e) => setShift(e.target.value)}>
             {(catalog?.shifts || [
               { id: 'MANHA', label: 'Manhã' },
@@ -211,9 +211,12 @@ export default function CollectivePage() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="field">
-          <label>Procedimento (SIGTAP)</label>
+        </LabeledField>
+        <LabeledField
+          label="Procedimento (SIGTAP)"
+          tone="previne"
+          hint="Ex.: 01.01.05.001-1 escovação supervisionada — Previne B4 (fora da FAO individual)."
+        >
           <select value={procedureCode} onChange={(e) => setProcedureCode(e.target.value)}>
             {(catalog?.procedureHints || [{ id: '0101050011', label: 'Escovação' }]).map((p) => (
               <option key={p.id} value={p.id}>
@@ -221,9 +224,12 @@ export default function CollectivePage() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="field">
-          <label>Nº de participantes</label>
+        </LabeledField>
+        <LabeledField
+          label="Nº de participantes"
+          tone="siaps"
+          hint="COLLECTIVE_QTY — BLOCKER se participantes < 1."
+        >
           <input
             className="mono"
             type="number"
@@ -231,7 +237,7 @@ export default function CollectivePage() {
             value={participantCount}
             onChange={(e) => setParticipantCount(Number(e.target.value))}
           />
-        </div>
+        </LabeledField>
         <div className="field" style={{ gridColumn: '1 / -1' }}>
           <label>Participantes nominais (opcional)</label>
           <div style={{ maxHeight: 140, overflow: 'auto', display: 'grid', gap: 4 }}>

@@ -4,13 +4,13 @@ title: Atendimento odontológico — Onda 1
 type: user
 module: odontologia
 feature: dental-encounter
-version: 1.6.0
+version: 1.7.0
 product_min: 0.2.0
 status: draft
 audience: [profissional, gestor]
 related_rf: [RF-12.1, RF-12.2, RF-12.3, RF-12.5, RF-12.6, RF-12.7, RF-12.8, RF-12.9, RF-12.11, RF-12.12, RF-12.13]
 related_screens: [/odonto, /odonto/agenda, /odonto/[id], /faturamento/odonto]
-updated_at: 2026-08-13
+updated_at: 2026-08-16
 authors: [SIGS]
 ---
 
@@ -18,7 +18,8 @@ authors: [SIGS]
 
 **Telas:** `/odonto` · `/odonto/agenda` · `/odonto/[id]` · pós-fechamento (Tela C) → `/faturamento/odonto`  
 **API:** `POST/PATCH/GET /v1/dental-encounters` · `GET …/odontogram-history` · `PATCH …/odontogram-history/:sourceId` · `POST /v1/appointments/:id/open-dental` · `GET …/preview-fao` · `POST …/finish` · `POST …/void`  
-**Desenho:** `docs/planejamento/desenho-atendimento-odontologico.md`
+**Desenho:** `docs/planejamento/desenho-atendimento-odontologico.md`  
+**Convenção de campos:** `docs/manuais/campos-siaps-previne.md` · ajuda in-app: `odonto.atendimento`
 
 ## Como usar
 
@@ -32,6 +33,21 @@ authors: [SIGS]
 8. Tela C: atalho para fila com `encounterId`/`batchId`.
 9. Fila e lote: `/faturamento/odonto` · `/faturamento/lote/fao`.
 10. **Anular:** rascunho (`IN_PROGRESS`) ou pós-finalização (`COMPLETED`) com confirmação. Pós-COMPLETED é **anulação local** (sai da fila); não há recall no Ministério.
+
+## Campos Siaps × Previne (UI)
+
+| Campo na tela | Tom | Motivo (registry / doc 15) |
+|---|---|---|
+| `stNaoPossuiCpf` + justificativa | **Siaps** (vermelho) | BLOCKER `ST_NAO_POSSUI_CPF` / `JUSTIFICATIVA_CPF_*` |
+| Tipo de atendimento / tipo consulta (se tipo=2) | **Siaps** | `TIPO_ATENDIMENTO` |
+| Local | **Siaps** | `LOCAL_ATENDIMENTO` |
+| Turno | **Previne / Indicador** (laranja) | QUALITY_WARN no pré-envio |
+| CIAP / CID | **Siaps** | `PROBLEMAS_MISSING` (+ sinal Previne problemas) |
+| Vigilância saúde bucal | **Siaps** | ≥1 obrigatório; só `99` → `PREVINE_VIGILANCIA_99` |
+| Condutas / desfecho | **Siaps** | `CONDUTAS_MISSING`; conduta **15** também **Previne B2** |
+| Catálogo SIGTAP (015-3, preventivos, ART, exodontia) | **Previne** | Raio-x B1–B6 — não inventar regras além do catálogo |
+
+Na tela: fundo/borda vermelha + badge **Siaps**; laranja + badge **Previne** / **Indicador**.
 
 ## Parametrização
 

@@ -12,6 +12,7 @@ import {
   type OdontogramScopes,
 } from '@/components/odonto/OdontogramGrid';
 import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
+import { FieldSection, FieldToneLegend, LabeledField } from '@/components/ui/FieldHint';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api, ApiError } from '@/lib/api';
 import { displayPatientName, formatDateTime } from '@/lib/labels';
@@ -816,6 +817,7 @@ export default function OdontoAtendimentoPage() {
         }}
       >
         <form className="card" onSubmit={(e) => void save(e)}>
+          <FieldToneLegend />
           <h2 style={{ marginTop: 0 }}>Identificação</h2>
           <p className="muted">
             CPF: {enc.patient.cpf || '—'} · CNS: {enc.patient.cns || '—'} · Sexo:{' '}
@@ -831,18 +833,23 @@ export default function OdontoAtendimentoPage() {
               </>
             )}
           </p>
-          <label className="check">
-            <input
-              type="checkbox"
-              disabled={readonly}
-              checked={care.stNaoPossuiCpf}
-              onChange={(e) => setCare({ ...care, stNaoPossuiCpf: e.target.checked })}
-            />
-            Não possui CPF (`stNaoPossuiCpf`)
-          </label>
+          <LabeledField
+            label="Não possui CPF (`stNaoPossuiCpf`)"
+            tone="siaps"
+            hint="BLOCKER LEDI se ausente/inconsistente com CPF/CNS (error-registry ST_NAO_POSSUI_CPF)."
+          >
+            <label className="check" style={{ margin: 0 }}>
+              <input
+                type="checkbox"
+                disabled={readonly}
+                checked={care.stNaoPossuiCpf}
+                onChange={(e) => setCare({ ...care, stNaoPossuiCpf: e.target.checked })}
+              />
+              Marcar quando o cidadão não tem CPF
+            </label>
+          </LabeledField>
           {care.stNaoPossuiCpf && (
-            <label>
-              Justificativa
+            <LabeledField label="Justificativa" tone="siaps">
               <select
                 disabled={readonly}
                 value={care.justificativaNaoPossuiCpf ?? ''}
@@ -860,12 +867,15 @@ export default function OdontoAtendimentoPage() {
                   </option>
                 ))}
               </select>
-            </label>
+            </LabeledField>
           )}
 
           <h2>Tipo e contexto</h2>
-          <label>
-            Tipo de atendimento
+          <LabeledField
+            label="Tipo de atendimento"
+            tone="siaps"
+            hint="TIPO_ATENDIMENTO — BLOCKER se inválido/ausente."
+          >
             <select
               disabled={readonly}
               value={care.tipoAtendimento}
@@ -877,10 +887,13 @@ export default function OdontoAtendimentoPage() {
                 </option>
               ))}
             </select>
-          </label>
+          </LabeledField>
           {care.tipoAtendimento === 2 && (
-            <fieldset>
-              <legend>Tipo de consulta odonto</legend>
+            <FieldSection
+              title="Tipo de consulta odonto"
+              tone="siaps"
+              hint="Obrigatório quando tipoAtendimento=2 (consulta)."
+            >
               {catalog.tiposConsultaOdonto.map((t) => (
                 <label key={t.id} className="check">
                   <input
@@ -897,10 +910,9 @@ export default function OdontoAtendimentoPage() {
                   {t.id} — {t.label}
                 </label>
               ))}
-            </fieldset>
+            </FieldSection>
           )}
-          <label>
-            Local
+          <LabeledField label="Local" tone="siaps" hint="LOCAL_ATENDIMENTO — BLOCKER LEDI.">
             <select
               disabled={readonly}
               value={care.localAtendimento}
@@ -912,9 +924,13 @@ export default function OdontoAtendimentoPage() {
                 </option>
               ))}
             </select>
-          </label>
-          <label>
-            Turno
+          </LabeledField>
+          <LabeledField
+            label="Turno"
+            tone="previne"
+            badgeLabel="Indicador"
+            hint="QUALITY_WARN no pré-envio se ausente — não bloqueia Siaps sozinho."
+          >
             <select
               disabled={readonly}
               value={care.turno}
@@ -926,7 +942,7 @@ export default function OdontoAtendimentoPage() {
                 </option>
               ))}
             </select>
-          </label>
+          </LabeledField>
           <label className="check">
             <input
               type="checkbox"
@@ -1202,8 +1218,11 @@ export default function OdontoAtendimentoPage() {
                 placeholder="FDI, Q1–Q4, S1–S6 ou BOCA"
               />
             </label>
-            <label>
-              Catálogo SIGTAP (RF-12.13)
+            <LabeledField
+              label="Catálogo SIGTAP (RF-12.13)"
+              tone="previne"
+              hint="Códigos B1–B6 (015-3, preventivos, ART, exodontia) — raio-x Previne ESB; não inventar regras além do catálogo/registry."
+            >
               <select
                 disabled={readonly}
                 value={catalogCode}
@@ -1219,7 +1238,7 @@ export default function OdontoAtendimentoPage() {
                     </option>
                   ))}
               </select>
-            </label>
+            </LabeledField>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <button
                 type="button"
@@ -1325,63 +1344,85 @@ export default function OdontoAtendimentoPage() {
             <p className="muted">Nenhum procedimento no odontograma — escolha no catálogo.</p>
           )}
 
-          <h2>Problemas (CIAP/CID) *</h2>
-          <div className="row-2">
-            <CodeSearchSelect
-              kind="ciap"
-              label="CIAP"
-              value={ciap}
-              onChange={setCiap}
-              disabled={readonly}
-              placeholder="Buscar CIAP…"
-            />
-            <CodeSearchSelect
-              kind="cid10"
-              label="CID-10"
-              value={cid10}
-              onChange={setCid10}
-              disabled={readonly}
-              placeholder="Buscar CID-10…"
-            />
-          </div>
-
-          <h2>Vigilância saúde bucal *</h2>
-          {(vigilanciaOnly99Live || preview?.vigilanciaOnly99) && (
-            <p className="muted" style={{ color: 'var(--warn, #a15c00)' }}>
-              Qualidade Previne: vigilância só com <code>99</code> (não se aplica) mascara produção.
-              Prefira códigos específicos quando houver condição observada. Não bloqueia o envio
-              Siaps.
-            </p>
-          )}
-          {catalog.vigilanciaSaudeBucal.map((v) => (
-            <label key={v.id} className="check">
-              <input
-                type="checkbox"
+          <FieldSection
+            title="Problemas (CIAP/CID) *"
+            tone="siaps"
+            hint="PROBLEMAS_MISSING — BLOCKER FAO. Também PREVINE_PROBLEMAS_MISSING no raio-x."
+          >
+            <div className="row-2">
+              <CodeSearchSelect
+                kind="ciap"
+                label="CIAP"
+                value={ciap}
+                onChange={setCiap}
                 disabled={readonly}
-                checked={care.vigilanciaSaudeBucal.includes(v.id)}
-                onChange={() =>
-                  setCare({
-                    ...care,
-                    vigilanciaSaudeBucal: toggleNum(care.vigilanciaSaudeBucal, v.id),
-                  })
-                }
+                placeholder="Buscar CIAP…"
+                tone="siaps"
               />
-              {v.id} — {v.label}
-            </label>
-          ))}
-
-          <h2>Condutas / desfecho *</h2>
-          {catalog.condutas.map((c) => (
-            <label key={c.id} className="check">
-              <input
-                type="checkbox"
+              <CodeSearchSelect
+                kind="cid10"
+                label="CID-10"
+                value={cid10}
+                onChange={setCid10}
                 disabled={readonly}
-                checked={care.outcomes.includes(c.id)}
-                onChange={() => setCare({ ...care, outcomes: toggleStr(care.outcomes, c.id) })}
+                placeholder="Buscar CID-10…"
+                tone="siaps"
               />
-              {c.lediId} — {c.label}
-            </label>
-          ))}
+            </div>
+          </FieldSection>
+
+          <FieldSection
+            title="Vigilância saúde bucal *"
+            tone="siaps"
+            hint="≥1 código. Só 99 em massa → PREVINE_VIGILANCIA_99 (qualidade; não bloqueia Siaps)."
+          >
+            {(vigilanciaOnly99Live || preview?.vigilanciaOnly99) && (
+              <p className="field-hint field-hint--previne">
+                Qualidade Previne: vigilância só com <code>99</code> (não se aplica) mascara produção.
+                Prefira códigos específicos quando houver condição observada. Não bloqueia o envio
+                Siaps.
+              </p>
+            )}
+            {catalog.vigilanciaSaudeBucal.map((v) => (
+              <label key={v.id} className="check">
+                <input
+                  type="checkbox"
+                  disabled={readonly}
+                  checked={care.vigilanciaSaudeBucal.includes(v.id)}
+                  onChange={() =>
+                    setCare({
+                      ...care,
+                      vigilanciaSaudeBucal: toggleNum(care.vigilanciaSaudeBucal, v.id),
+                    })
+                  }
+                />
+                {v.id} — {v.label}
+              </label>
+            ))}
+          </FieldSection>
+
+          <FieldSection
+            title="Condutas / desfecho *"
+            tone="siaps"
+            hint="CONDUTAS_MISSING — BLOCKER. Conduta 15 (tratamento concluído) também alimenta Previne B2."
+          >
+            {catalog.condutas.map((c) => (
+              <label key={c.id} className="check">
+                <input
+                  type="checkbox"
+                  disabled={readonly}
+                  checked={care.outcomes.includes(c.id)}
+                  onChange={() => setCare({ ...care, outcomes: toggleStr(care.outcomes, c.id) })}
+                />
+                {c.lediId} — {c.label}
+                {c.lediId === 15 ? (
+                  <span className="field-badge field-badge--previne" style={{ marginLeft: 6 }}>
+                    Previne B2
+                  </span>
+                ) : null}
+              </label>
+            ))}
+          </FieldSection>
 
           <h2>Encaminhamento (MVP)</h2>
           <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
