@@ -37,9 +37,37 @@ articles:
     status: stub
   - id: faturamento.hub
     path: faturamento/hub.md
-    version: 0.2.0
+    version: 0.3.0
     status: draft
   - id: faturamento.fila-aps
     path: faturamento/fila-aps.md
+    version: 0.1.0
+    status: stub
+  - id: faturamento.lote-fai
+    path: faturamento/lote-fai.md
+    version: 0.3.0
+    status: draft
+  - id: faturamento.lote-fao
+    path: faturamento/lote-fao.md
+    version: 0.2.0
+    status: draft
+  - id: faturamento.lote-proc
+    path: faturamento/lote-proc.md
+    version: 0.1.0
+    status: draft
+  - id: faturamento.lote-cds-stub
+    path: faturamento/lote-cds-stubs.md
+    version: 0.1.0
+    status: stub
+  - id: faturamento.auditoria
+    path: faturamento/auditoria.md
+    version: 0.1.0
+    status: stub
+  - id: cadastros.cnes-pf
+    path: cadastros/cnes-pf.md
+    version: 0.1.0
+    status: stub
+  - id: cadastros.pacientes-territorio
+    path: cadastros/pacientes-territorio.md
     version: 0.1.0
     status: stub

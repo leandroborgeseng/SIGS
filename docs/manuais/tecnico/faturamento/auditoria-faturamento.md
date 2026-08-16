@@ -1,3 +1,19 @@
+---
+id: faturamento.auditoria
+title: Auditoria de faturamento
+type: technical
+module: faturamento
+feature: auditoria
+version: 0.1.0
+product_min: 0.2.0
+status: draft
+audience: [ti, desenvolvedor]
+related_rf: [RF-10.21, RF-10.20, RF-9.5, RF-9.6]
+related_screens: [/faturamento/auditoria]
+updated_at: 2026-08-16
+authors: [SIGS]
+---
+
 # Manual técnico — Auditoria de faturamento
 
 **Versão:** 0.1.0-dev  
@@ -7,7 +23,7 @@
 ## API
 
 ```
-GET /v1/faturamento/audit?competencia=2026-08&ibge=3516200
+GET /v1/faturamento/audit?competencia=2026-08&ibge=3516200&gestao=municipal
 ```
 
 Permissão: `production.manage`.
@@ -42,3 +58,9 @@ Permissão: `production.manage`.
 `/faturamento/auditoria` — menu **Faturamento & Validação** · filtros · CSV.
 
 Não altera o wizard LEDI (`/faturamento/lote/*`).
+
+## Regressão
+
+```bash
+npm run smoke:cnes-pf-ledi
+```

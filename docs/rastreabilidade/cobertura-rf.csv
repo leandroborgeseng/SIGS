@@ -410,10 +410,10 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 9,Módulo de Faturamento,3,RF-9.3,Obrigatório,ambos,não iniciado,depois,,previsto,Faturar procedimentos realizados no hospital.
 9,Módulo de Faturamento,4,RF-9.4,Obrigatório,ambos,não iniciado,depois,,previsto,Faturar procedimentos realizados em CAPS.
 9,Módulo de Faturamento,5,RF-9.5,Obrigatório,ambos,não iniciado,depois,,previsto,Validação de procedimentos conforme tabela SIGTAP.
-9,Módulo de Faturamento,6,RF-9.6,Desejável,ambos,parcial,P0-P6,apps/api/src/cnes + /cadastros/cnes-auditoria,previsto,Consistência do cadastro de unidade/profissionais vinculados com base do CNES.
+9,Módulo de Faturamento,6,RF-9.6,Desejável,ambos,parcial,P0-P6,apps/api/src/cnes + /cadastros/cnes-auditoria + PF lotados,automatizado,Consistência do cadastro de unidade/profissionais vinculados com base do CNES (gestao=municipal).
 9,Módulo de Faturamento,7,RF-9.7,Obrigatório,ambos,não iniciado,depois,,previsto,Divisão física e financeira dos laboratórios terceirizados para atender ao TAC.
 10,Módulo de Integração com o e-SUS,1,RF-10.1,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,SIGTAP.
-10,Módulo de Integração com o e-SUS,2,RF-10.2,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/cnes + data/cnes/franca-3516200.json,n/a,CNES.
+10,Módulo de Integração com o e-SUS,2,RF-10.2,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/cnes + data/cnes/franca-3516200.json + PF sync-professionals,automatizado,CNES sync municipal (1244) + profissionais lotados.
 10,Módulo de Integração com o e-SUS,3,RF-10.3,Obrigatório,e-SUS,parcial,P0-P6,apps/api/src/ledi + encounters/vaccinations finish + clinical-core persistNative,automatizado,e-SUS.
 10,Módulo de Integração com o e-SUS,4,RF-10.4,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,BPA.
 10,Módulo de Integração com o e-SUS,5,RF-10.5,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,RAAS.
@@ -432,6 +432,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 10,Módulo de Integração com o e-SUS,18,RF-10.18,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,"Resultados de ECG, EEG."
 10,Módulo de Integração com o e-SUS,19,RF-10.19,Obrigatório,e-SUS,não iniciado,P0-P6,,previsto,"Programas PET Saúde Digital (totem, vacina, chatbot)."
 10,Módulo de Integração com o e-SUS,20,RF-10.20,Obrigatório,e-SUS,parcial,P0-P6,apps/api/.../production + finish,automatizado,Envio diário e automático dos dados gerados às bases nacionais.
+10,Módulo de Integração com o e-SUS,21,RF-10.21,Desejável,ambos,parcial,P0-P6,apps/api/src/faturamento/faturamento-audit + /faturamento/auditoria,automatizado,Auditoria ficha×CNES/INE/CNS municipal/SIGTAP por competência (gestao=municipal).
 11,Módulo de PPI (Programação Pactuada Integrada),1,RF-11.1,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro de regiões de saúde.
 11,Módulo de PPI (Programação Pactuada Integrada),2,RF-11.2,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro de microrregiões de saúde.
 11,Módulo de PPI (Programação Pactuada Integrada),3,RF-11.3,Obrigatório,TR,não iniciado,depois,,n/a,Definição das cotas de PPI.
