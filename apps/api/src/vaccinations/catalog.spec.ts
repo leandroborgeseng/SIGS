@@ -1,5 +1,4 @@
 import {
-  IMMUNOBIOLOGICALS_SEED,
   syncCatalog,
   validateAgeForApplications,
   validateVaccineApplications,
@@ -107,15 +106,19 @@ describe('buildVaccinationLediPayload', () => {
 
 describe('catalog LEDI ids', () => {
   it('BCG=15 e estratégias alinhadas ao DbEnum', () => {
-    const { getImmunobiologicals, STRATEGIES, resolveImmunoLediId, resolveStrategyLediId } = require('./catalog');
+    const { getImmunobiologicals, STRATEGIES, resolveImmunoLediId, resolveStrategyLediId, IMMUNOBIOLOGICALS_SEED } =
+      require('./catalog');
     expect(resolveImmunoLediId('BCG')).toBe(15);
     expect(resolveImmunoLediId('HB')).toBe(9);
     expect(resolveImmunoLediId('PENTA')).toBe(42);
     expect(resolveImmunoLediId('ROTA')).toBe(45);
     expect(resolveImmunoLediId('HPV4')).toBe(67);
+    expect(resolveImmunoLediId('DT_INF')).toBe(5);
+    expect(resolveImmunoLediId('DT')).toBe(25);
     expect(resolveStrategyLediId('ROUTINE')).toBe(1);
     expect(resolveStrategyLediId('SPECIAL')).toBe(2);
-    expect(getImmunobiologicals().length).toBeGreaterThanOrEqual(IMMUNOBIOLOGICALS_SEED.length);
+    expect(IMMUNOBIOLOGICALS_SEED.length).toBe(99);
+    expect(getImmunobiologicals().length).toBeGreaterThanOrEqual(99);
     expect(STRATEGIES.length).toBe(15);
   });
 
@@ -160,5 +163,11 @@ describe('faixa etária RF-14.7/14.8', () => {
       applied,
     );
     expect(errors).toEqual([]);
+  });
+
+  it('cobre ≥50 faixas no seed PNI', () => {
+    const { AGE_RANGES_SEED, getAgeRanges } = require('./catalog');
+    expect(AGE_RANGES_SEED.length).toBeGreaterThanOrEqual(50);
+    expect(getAgeRanges().length).toBeGreaterThanOrEqual(AGE_RANGES_SEED.length);
   });
 });

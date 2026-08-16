@@ -17,6 +17,11 @@ export class VaccinationsController {
     return this.service.syncCatalog(dto);
   }
 
+  @Post('catalog/vaccination/seed')
+  seedCatalog() {
+    return this.service.ensureSeeded({ force: true });
+  }
+
   @Get('vaccinations')
   list(@Query('patientId') patientId?: string, @Query('facilityId') facilityId?: string) {
     return this.service.list(patientId, facilityId);

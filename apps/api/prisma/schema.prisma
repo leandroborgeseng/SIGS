@@ -396,6 +396,42 @@ model VaccinationRecord {
   @@map("vaccination_records")
 }
 
+/// Catálogo TB_IMUNOBIOLOGICO (seed LEDI + overlay municipal) — RF-14.1/14.2
+model VaccinationImmunobiological {
+  id        String   @id /// código estável SIGS (ex.: BCG)
+  lediId    Int      @unique @map("ledi_id")
+  code      String /// sigla LEDI
+  label     String
+  active    Boolean  @default(true)
+  /// seed | overlay
+  source    String   @default("seed")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([source])
+  @@index([label])
+  @@map("vaccination_immunobiologicals")
+}
+
+/// Faixas etárias (seed PNI aproximado + overlay) — RF-14.7/14.8
+/// Dump TB_FAIXA_ETARIA_VACINACAO e-SUS não está no repo.
+model VaccinationAgeRange {
+  id                 String   @id @default(uuid())
+  immunobiologicalId String   @map("immunobiological_id")
+  strategyId         String?  @map("strategy_id")
+  minDays            Int      @map("min_days")
+  maxDays            Int?     @map("max_days")
+  label              String
+  /// seed | overlay
+  source             String   @default("seed")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([immunobiologicalId])
+  @@index([source])
+  @@map("vaccination_age_ranges")
+}
+
 model ProductionBatch {
   id              String    @id @default(uuid())
   kind            String

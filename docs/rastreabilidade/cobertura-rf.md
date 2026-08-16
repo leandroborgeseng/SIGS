@@ -38,9 +38,9 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-3.55 | Obr | parcial | automatizado | campos FAI financiamento mínimos (tipos 1/2/4/5/6, medições, SOAP, condutas, CIAP/CID, SIGTAP) |
 | RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` · finish FAI/FAO → motor `clinical-core` (`source=native`) · **wizard lote** `/faturamento/lote/{fai,fao,proc}` (gate de tipo + 2 ZIPs) |
 | RF-10.20 | Obr | parcial | automatizado | preflight + `POST /production/send` + UI `/producao` |
-| RF-14.1 | Obr | parcial | automatizado | `apps/api/src/vaccinations#catalog` doses com `lediId` |
-| RF-14.2 | Obr | parcial | automatizado | catálogo imunobiológicos LEDI expandido (dicionário) + `POST …/catalog/vaccination/sync` overlay |
-| RF-14.7 | Obr | parcial | automatizado | `ageRanges` seed + catalog · calendário básico PNI |
+| RF-14.1 | Obr | parcial | automatizado | `vaccination_immunobiologicals` + seed LEDI v3 (99) doses `lediId` |
+| RF-14.2 | Obr | parcial | automatizado | catálogo completo LEDI + Prisma + `POST …/catalog/vaccination/sync` overlay |
+| RF-14.7 | Obr | parcial | automatizado | 54 faixas seed PNI + Prisma `vaccination_age_ranges` |
 | RF-14.8 | Obr | parcial | automatizado | bloqueio idade em `create` via `validateAgeForApplications` |
 | RF-14.11 | Obr | parcial | automatizado | aplicação + batch + `clinical-core` VAC + UI `/vacinacao` + `POST …/void` local |
 | RF-14.13 | Obr | parcial | previsto | `GET …/vaccination-card.pdf` + botão imprimir em `/vacinacao` |

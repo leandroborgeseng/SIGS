@@ -1,14 +1,21 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
 import {
+  AGE_RANGES_SEED,
+  AGE_SEED_META,
   ATTENDANCE_GROUPS,
+  CATALOG_VERSION,
   DOSES,
+  IMMUNOBIOLOGICALS_SEED,
+  IMMUNO_SEED_META,
   ROUTES,
   SITES,
   STOCK_STUB,
@@ -16,7 +23,7 @@ import {
   VaccineApplicationInput,
   getAgeRanges,
   getImmunobiologicals,
-  syncCatalog,
+  replaceOverlays,
   validateAgeForApplications,
   validateVaccineApplications,
   type CatalogSyncInput,
@@ -28,13 +35,157 @@ import { ClinicalCoreService } from '../clinical-core/clinical-core.service';
 import { buildVaccinationCardPdf } from './vaccination-card-pdf';
 
 @Injectable()
-export class VaccinationsService {
+export class VaccinationsService implements OnModuleInit {
+  private readonly log = new Logger(VaccinationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly clinicalCore: ClinicalCoreService,
   ) {}
 
-  catalog() {
+  async onModuleInit() {
+    if (process.env.SKIP_VACCINATION_CATALOG_SEED === '1') return;
+    await this.ensureSeeded();
+    await this.hydrateOverlaysFromDb();
+  }
+
+  /**
+   * Persiste seed LEDI + faixas no Prisma (idempotente).
+   * Overlays municipais (source=overlay) não são sobrescritos.
+   */
+  async ensureSeeded(opts?: { force?: boolean }) {
+    let immunoCreated = 0;
+    let immunoUpdated = 0;
+    let immunoSkipped = 0;
+
+    for (const item of IMMUNOBIOLOGICALS_SEED) {
+      const existing = await this.prisma.vaccinationImmunobiological.findUnique({
+        where: { id: item.id },
+      });
+      if (!existing) {
+        await this.prisma.vaccinationImmunobiological.create({
+          data: {
+            id: item.id,
+            lediId: item.lediId,
+            code: item.code || item.id,
+            label: item.label,
+            active: true,
+            source: 'seed',
+          },
+        });
+        immunoCreated += 1;
+        continue;
+      }
+      if (existing.source !== 'seed') {
+        immunoSkipped += 1;
+        continue;
+      }
+      if (
+        opts?.force ||
+        existing.lediId !== item.lediId ||
+        existing.label !== item.label ||
+        existing.code !== (item.code || item.id)
+      ) {
+        await this.prisma.vaccinationImmunobiological.update({
+          where: { id: item.id },
+          data: {
+            lediId: item.lediId,
+            code: item.code || item.id,
+            label: item.label,
+            active: true,
+            source: 'seed',
+          },
+        });
+        immunoUpdated += 1;
+      } else {
+        immunoSkipped += 1;
+      }
+    }
+
+    const seedAgeCount = await this.prisma.vaccinationAgeRange.count({
+      where: { source: 'seed' },
+    });
+    let ageCreated = 0;
+    if (seedAgeCount < AGE_RANGES_SEED.length || opts?.force) {
+      await this.prisma.vaccinationAgeRange.deleteMany({ where: { source: 'seed' } });
+      for (const r of AGE_RANGES_SEED) {
+        await this.prisma.vaccinationAgeRange.create({
+          data: {
+            immunobiologicalId: r.immunobiologicalId,
+            strategyId: r.strategyId ?? null,
+            minDays: r.minDays,
+            maxDays: r.maxDays,
+            label: r.label,
+            source: 'seed',
+          },
+        });
+        ageCreated += 1;
+      }
+    }
+
+    const immunoCount = await this.prisma.vaccinationImmunobiological.count();
+    const ageCount = await this.prisma.vaccinationAgeRange.count();
+    if (immunoCreated || immunoUpdated || ageCreated) {
+      this.log.log(
+        `Vacinação catalog seed: imuno +${immunoCreated}/~${immunoUpdated} (skip ${immunoSkipped}), ` +
+          `faixas +${ageCreated} (total imuno=${immunoCount} faixas=${ageCount})`,
+      );
+    }
+    return {
+      immunobiologicals: {
+        created: immunoCreated,
+        updated: immunoUpdated,
+        skipped: immunoSkipped,
+        count: immunoCount,
+        seedSize: IMMUNOBIOLOGICALS_SEED.length,
+      },
+      ageRanges: {
+        created: ageCreated,
+        count: ageCount,
+        seedSize: AGE_RANGES_SEED.length,
+      },
+      catalogVersion: CATALOG_VERSION,
+    };
+  }
+
+  async hydrateOverlaysFromDb() {
+    const [immunos, ages] = await Promise.all([
+      this.prisma.vaccinationImmunobiological.findMany({
+        where: { source: 'overlay', active: true },
+        orderBy: { lediId: 'asc' },
+      }),
+      this.prisma.vaccinationAgeRange.findMany({
+        where: { source: 'overlay' },
+        orderBy: { immunobiologicalId: 'asc' },
+      }),
+    ]);
+    replaceOverlays({
+      immunobiologicals: immunos.map((r) => ({
+        id: r.id,
+        label: r.label,
+        code: r.code,
+        lediId: r.lediId,
+      })),
+      ageRanges: ages.map((r) => ({
+        immunobiologicalId: r.immunobiologicalId,
+        strategyId: r.strategyId ?? undefined,
+        minDays: r.minDays,
+        maxDays: r.maxDays,
+        label: r.label,
+      })),
+    });
+  }
+
+  async catalog() {
+    await this.ensureSeeded();
+    await this.hydrateOverlaysFromDb();
+    const persisted = {
+      immunobiologicals: await this.prisma.vaccinationImmunobiological.count(),
+      ageRanges: await this.prisma.vaccinationAgeRange.count(),
+      overlays: await this.prisma.vaccinationImmunobiological.count({
+        where: { source: 'overlay' },
+      }),
+    };
     return {
       immunobiologicals: getImmunobiologicals(),
       strategies: STRATEGIES,
@@ -45,15 +196,74 @@ export class VaccinationsService {
       ageRanges: getAgeRanges(),
       stock: STOCK_STUB,
       mapperVersion: 'ledi-vaccination-v2',
-      catalogVersion: 'ledi-dictionary-seed-v2',
+      catalogVersion: CATALOG_VERSION,
+      seedMeta: { immuno: IMMUNO_SEED_META, age: AGE_SEED_META },
+      persisted,
       notes:
-        'IDs LEDI (dicionário oficial). Faixa etária seed (RF-14.7/14.8). Estoque/frio stub (RF-14.3–6, 15–19).',
+        'Catálogo LEDI completo (seed v3) + Prisma. Faixa etária seed PNI (≠ TB e-SUS). Estoque/frio stub.',
     };
   }
 
-  syncCatalog(input: CatalogSyncInput = {}) {
-    const result = syncCatalog(input);
-    return { ...result, catalog: this.catalog() };
+  async syncCatalog(input: CatalogSyncInput = {}) {
+    if (input.reset) {
+      await this.prisma.vaccinationImmunobiological.deleteMany({ where: { source: 'overlay' } });
+      await this.prisma.vaccinationAgeRange.deleteMany({ where: { source: 'overlay' } });
+    }
+
+    if (input.immunobiologicals?.length) {
+      for (const row of input.immunobiologicals) {
+        if (!row.id || typeof row.lediId !== 'number') continue;
+        await this.prisma.vaccinationImmunobiological.upsert({
+          where: { id: row.id },
+          create: {
+            id: row.id,
+            lediId: row.lediId,
+            code: row.code || row.id,
+            label: row.label || row.id,
+            active: true,
+            source: 'overlay',
+          },
+          update: {
+            lediId: row.lediId,
+            code: row.code || row.id,
+            label: row.label || row.id,
+            active: true,
+            source: 'overlay',
+          },
+        });
+      }
+    }
+
+    if (input.ageRanges?.length) {
+      for (const r of input.ageRanges) {
+        await this.prisma.vaccinationAgeRange.create({
+          data: {
+            immunobiologicalId: r.immunobiologicalId,
+            strategyId: r.strategyId ?? null,
+            minDays: r.minDays,
+            maxDays: r.maxDays,
+            label: r.label,
+            source: 'overlay',
+          },
+        });
+      }
+    }
+
+    await this.hydrateOverlaysFromDb();
+    const overlayImmuno = await this.prisma.vaccinationImmunobiological.count({
+      where: { source: 'overlay' },
+    });
+    const overlayAge = await this.prisma.vaccinationAgeRange.count({
+      where: { source: 'overlay' },
+    });
+    return {
+      immunobiologicals: getImmunobiologicals().length,
+      ageRanges: getAgeRanges().length,
+      source: overlayImmuno || overlayAge ? 'seed+overlay' : 'ledi-dictionary-seed',
+      catalogVersion: CATALOG_VERSION,
+      persisted: true,
+      catalog: await this.catalog(),
+    };
   }
 
   private parseApps(json: string): VaccineApplicationInput[] {

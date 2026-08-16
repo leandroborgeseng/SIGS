@@ -16,4 +16,4 @@
 
 ## Fora desta fatia
 
-Estoque em salas, rede de frio completa, agendamento de atrasos, sync DB `TB_FAIXA_ETARIA_VACINACAO` (RF-14.12 e aprofundamento 14.3–6 / 15–19).
+Estoque em salas, rede de frio completa, agendamento de atrasos, dump real `TB_FAIXA_ETARIA_VACINACAO` com lookup imuno+estratégia+dose (RF-14.12 e aprofundamento 14.3–6 / 15–19).

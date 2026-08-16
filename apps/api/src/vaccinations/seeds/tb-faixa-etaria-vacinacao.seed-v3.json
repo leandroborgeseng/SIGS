@@ -1,0 +1,333 @@
+{
+  "version": "faixa-etaria-seed-v3",
+  "source": "calendario-basico-PNI + aproximação municipal (≠ dump TB_FAIXA_ETARIA_VACINACAO e-SUS)",
+  "table": "TB_FAIXA_ETARIA_VACINACAO",
+  "note": "TB real não está no repo; faixas em dias de vida para RF-14.7/14.8. Sync overlay pode complementar.",
+  "count": 54,
+  "items": [
+    {
+      "immunobiologicalId": "BCG",
+      "minDays": 0,
+      "maxDays": 1825,
+      "label": "BCG: 0–5 anos (catch-up básico)"
+    },
+    {
+      "immunobiologicalId": "HB",
+      "minDays": 0,
+      "maxDays": null,
+      "label": "Hepatite B: desde o nascimento"
+    },
+    {
+      "immunobiologicalId": "ROTA",
+      "minDays": 42,
+      "maxDays": 245,
+      "label": "Rotavírus: ~6 sem–8 meses"
+    },
+    {
+      "immunobiologicalId": "ROTA5",
+      "minDays": 42,
+      "maxDays": 245,
+      "label": "Rotavírus penta: ~6 sem–8 meses"
+    },
+    {
+      "immunobiologicalId": "PENTA",
+      "minDays": 60,
+      "maxDays": 2555,
+      "label": "Penta: ~2 meses–7 anos"
+    },
+    {
+      "immunobiologicalId": "HEXA",
+      "minDays": 60,
+      "maxDays": 2555,
+      "label": "Hexa: ~2 meses–7 anos"
+    },
+    {
+      "immunobiologicalId": "PENTA_ACELULAR",
+      "minDays": 60,
+      "maxDays": 2555,
+      "label": "Penta acelular: ~2 meses–7 anos"
+    },
+    {
+      "immunobiologicalId": "VIP",
+      "minDays": 60,
+      "maxDays": null,
+      "label": "VIP: a partir de ~2 meses"
+    },
+    {
+      "immunobiologicalId": "VOPB",
+      "minDays": 60,
+      "maxDays": 1825,
+      "label": "VOPb: ~2 meses–5 anos"
+    },
+    {
+      "immunobiologicalId": "VPC10",
+      "minDays": 60,
+      "maxDays": 1825,
+      "label": "Pneumo 10: ~2 meses–5 anos"
+    },
+    {
+      "immunobiologicalId": "VPC13",
+      "minDays": 60,
+      "maxDays": 1825,
+      "label": "Pneumo 13: ~2 meses–5 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "VPC15",
+      "minDays": 60,
+      "maxDays": null,
+      "label": "Pneumo 15: a partir de ~2 meses (seed)"
+    },
+    {
+      "immunobiologicalId": "VPC20",
+      "minDays": 60,
+      "maxDays": null,
+      "label": "Pneumo 20: a partir de ~2 meses (seed)"
+    },
+    {
+      "immunobiologicalId": "MENC",
+      "minDays": 90,
+      "maxDays": null,
+      "label": "Meningo C: a partir de ~3 meses"
+    },
+    {
+      "immunobiologicalId": "MENB",
+      "minDays": 60,
+      "maxDays": null,
+      "label": "Meningo B: a partir de ~2 meses (seed)"
+    },
+    {
+      "immunobiologicalId": "MENACWY",
+      "minDays": 4015,
+      "maxDays": 5110,
+      "label": "MenACWY: 11–14 anos (rotina seed)"
+    },
+    {
+      "immunobiologicalId": "SCR",
+      "minDays": 365,
+      "maxDays": null,
+      "label": "SCR: a partir de 12 meses"
+    },
+    {
+      "immunobiologicalId": "SCRV",
+      "minDays": 365,
+      "maxDays": null,
+      "label": "SCRV: a partir de 12 meses"
+    },
+    {
+      "immunobiologicalId": "SR",
+      "minDays": 365,
+      "maxDays": null,
+      "label": "Dupla viral: a partir de 12 meses"
+    },
+    {
+      "immunobiologicalId": "VZ",
+      "minDays": 365,
+      "maxDays": null,
+      "label": "Varicela: a partir de 12 meses"
+    },
+    {
+      "immunobiologicalId": "HA",
+      "minDays": 365,
+      "maxDays": null,
+      "label": "Hepatite A: a partir de 12 meses"
+    },
+    {
+      "immunobiologicalId": "HAINF",
+      "minDays": 365,
+      "maxDays": 6570,
+      "label": "Hepatite A infantil: 12 meses–17 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "HAAD",
+      "minDays": 6570,
+      "maxDays": null,
+      "label": "Hepatite A adulto: ≥18 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "FA",
+      "minDays": 274,
+      "maxDays": null,
+      "label": "Febre amarela: a partir de ~9 meses"
+    },
+    {
+      "immunobiologicalId": "VFA_F",
+      "minDays": 274,
+      "maxDays": null,
+      "label": "Febre amarela fracionada: a partir de ~9 meses"
+    },
+    {
+      "immunobiologicalId": "DT_INF",
+      "minDays": 60,
+      "maxDays": 2554,
+      "label": "DT infantil: ~2 meses–<7 anos"
+    },
+    {
+      "immunobiologicalId": "DT",
+      "minDays": 2555,
+      "maxDays": null,
+      "label": "dT: a partir de 7 anos"
+    },
+    {
+      "immunobiologicalId": "DTPA",
+      "minDays": 2555,
+      "maxDays": null,
+      "label": "dTpa: a partir de 7 anos"
+    },
+    {
+      "immunobiologicalId": "DTP",
+      "minDays": 60,
+      "maxDays": 2555,
+      "label": "DTP: ~2 meses–7 anos"
+    },
+    {
+      "immunobiologicalId": "DTPA",
+      "minDays": 60,
+      "maxDays": 2555,
+      "label": "DTPa infantil: ~2 meses–7 anos"
+    },
+    {
+      "immunobiologicalId": "HIB",
+      "minDays": 60,
+      "maxDays": 1825,
+      "label": "Hib: ~2 meses–5 anos"
+    },
+    {
+      "immunobiologicalId": "TETRA",
+      "minDays": 60,
+      "maxDays": 2555,
+      "label": "Tetra DTP/Hib: ~2 meses–7 anos"
+    },
+    {
+      "immunobiologicalId": "HPV2",
+      "minDays": 3285,
+      "maxDays": 16425,
+      "label": "HPV2: 9–45 anos (seed ampliado)"
+    },
+    {
+      "immunobiologicalId": "HPV4",
+      "minDays": 3285,
+      "maxDays": 5475,
+      "label": "HPV4: 9–14 anos (rotina seed)"
+    },
+    {
+      "immunobiologicalId": "HPV9",
+      "minDays": 3285,
+      "maxDays": 16425,
+      "label": "HPV9: 9–45 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "PNEUMO23",
+      "minDays": 21900,
+      "maxDays": null,
+      "label": "Pneumo 23: ≥60 anos (rotina seed)"
+    },
+    {
+      "immunobiologicalId": "INF3",
+      "minDays": 180,
+      "maxDays": null,
+      "label": "Influenza: a partir de 6 meses"
+    },
+    {
+      "immunobiologicalId": "INF4",
+      "minDays": 180,
+      "maxDays": null,
+      "label": "Influenza tetra: a partir de 6 meses"
+    },
+    {
+      "immunobiologicalId": "INF3_ID",
+      "minDays": 6570,
+      "maxDays": null,
+      "label": "Influenza ID: ≥18 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "INF4_ALTA_DOSAGEM",
+      "minDays": 21900,
+      "maxDays": null,
+      "label": "Influenza alta dose: ≥60 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "COVID",
+      "minDays": 1825,
+      "maxDays": null,
+      "label": "COVID Pfizer: ≥5 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "COVID_PED",
+      "minDays": 180,
+      "maxDays": 1824,
+      "label": "COVID pediátrica: 6 meses–<5 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "COVID_CORONAVAC",
+      "minDays": 1095,
+      "maxDays": null,
+      "label": "Coronavac: ≥3 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "COVID_19_PFIZER_COMIRNATY_PEDIATRICA_MENOR_DE_5_ANOS",
+      "minDays": 180,
+      "maxDays": 1824,
+      "label": "COVID Pfizer <5 anos: 6 meses–<5 anos"
+    },
+    {
+      "immunobiologicalId": "DENGUE",
+      "minDays": 1460,
+      "maxDays": 21900,
+      "label": "Dengue atenuada: 4–59 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "DENGUE_REC",
+      "minDays": 1460,
+      "maxDays": 21900,
+      "label": "Dengue recombinante: 4–59 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "VHZ",
+      "minDays": 18250,
+      "maxDays": null,
+      "label": "Herpes-zóster atenuada: ≥50 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "VHZR",
+      "minDays": 18250,
+      "maxDays": null,
+      "label": "Herpes-zóster recombinante: ≥50 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "TT",
+      "minDays": 2555,
+      "maxDays": null,
+      "label": "Toxóide tetânico: ≥7 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "VERO",
+      "minDays": 0,
+      "maxDays": null,
+      "label": "Raiva Vero: qualquer idade (pós-exposição seed)"
+    },
+    {
+      "immunobiologicalId": "VR",
+      "minDays": 0,
+      "maxDays": null,
+      "label": "Raiva embrião: qualquer idade (seed)"
+    },
+    {
+      "immunobiologicalId": "CHIK_A",
+      "minDays": 6570,
+      "maxDays": 21900,
+      "label": "Chikungunya: 18–60 anos (seed)"
+    },
+    {
+      "immunobiologicalId": "NIRSEVIMABE_0_5ML",
+      "minDays": 0,
+      "maxDays": 365,
+      "label": "Nirsevimabe 0,5ml: <12 meses (seed)"
+    },
+    {
+      "immunobiologicalId": "NIRSEVIMABE_1_0ML",
+      "minDays": 0,
+      "maxDays": 365,
+      "label": "Nirsevimabe 1,0ml: <12 meses (seed)"
+    }
+  ]
+}

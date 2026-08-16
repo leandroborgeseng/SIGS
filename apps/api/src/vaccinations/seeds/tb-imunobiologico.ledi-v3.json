@@ -1,0 +1,603 @@
+{
+  "version": "ledi-dictionary-v3",
+  "source": "https://integracao.esusab.ufsc.br/ledi/documentacao/referencias/dicionario.html#Imunobiologico",
+  "table": "TB_IMUNOBIOLOGICO",
+  "note": "Dump oficial LEDI (códigos+siglas). Sem dados de pacientes. IDs estáveis SIGS preservados via alias.",
+  "count": 99,
+  "items": [
+    {
+      "id": "IGHAT",
+      "code": "IGHAT",
+      "label": "Imunoglobulina humana antitétano",
+      "lediId": 1
+    },
+    {
+      "id": "SAT",
+      "code": "SAT",
+      "label": "Soro antitetânico",
+      "lediId": 2
+    },
+    {
+      "id": "SAAR",
+      "code": "SAAR",
+      "label": "Soro antiaracnídico (Loxosceles, Phoneutria, Tityus)",
+      "lediId": 3
+    },
+    {
+      "id": "SAESC",
+      "code": "SAESC",
+      "label": "Soro antiescorpiônico",
+      "lediId": 4
+    },
+    {
+      "id": "DT_INF",
+      "code": "DT",
+      "label": "Vacina difteria e tétano infantil",
+      "lediId": 5
+    },
+    {
+      "id": "SAELA",
+      "code": "SAELA",
+      "label": "Soro antielapídico",
+      "lediId": 6
+    },
+    {
+      "id": "SAR",
+      "code": "SAR",
+      "label": "Soro antirrábico",
+      "lediId": 7
+    },
+    {
+      "id": "SABR",
+      "code": "SABR",
+      "label": "Soro antibotrópico (pentavalente)",
+      "lediId": 8
+    },
+    {
+      "id": "HB",
+      "code": "HB",
+      "label": "Vacina hepatite B",
+      "lediId": 9
+    },
+    {
+      "id": "SAD",
+      "code": "SAD",
+      "label": "Soro antidiftérico",
+      "lediId": 10
+    },
+    {
+      "id": "SABC",
+      "code": "SABC",
+      "label": "Soro antibotrópico (pentavalente) e anticrotálico",
+      "lediId": 11
+    },
+    {
+      "id": "SABL",
+      "code": "SABL",
+      "label": "Soro antibotrópico (pentavalente) e antilaquético",
+      "lediId": 12
+    },
+    {
+      "id": "MENINGO_AC",
+      "code": "Meningo AC",
+      "label": "Vacina meningocócica AC",
+      "lediId": 13
+    },
+    {
+      "id": "FA",
+      "code": "VFA",
+      "label": "Vacina febre amarela",
+      "lediId": 14
+    },
+    {
+      "id": "BCG",
+      "code": "BCG",
+      "label": "Vacina BCG",
+      "lediId": 15
+    },
+    {
+      "id": "SAC",
+      "code": "SAC",
+      "label": "Soro anticrotálico",
+      "lediId": 16
+    },
+    {
+      "id": "HIB",
+      "code": "Hib",
+      "label": "Vacina Hib",
+      "lediId": 17
+    },
+    {
+      "id": "VR",
+      "code": "VR",
+      "label": "Vacina raiva embrião de galinha",
+      "lediId": 18
+    },
+    {
+      "id": "IGHAVZ",
+      "code": "IGHAVZ",
+      "label": "Imunoglobulina humana antivaricela",
+      "lediId": 19
+    },
+    {
+      "id": "IGHAHB",
+      "code": "IGHAHB",
+      "label": "Imunoglobulina humana anti-hepatite B",
+      "lediId": 20
+    },
+    {
+      "id": "PNEUMO23",
+      "code": "VPP23",
+      "label": "Vacina pneumo 23",
+      "lediId": 21
+    },
+    {
+      "id": "VIP",
+      "code": "VIP",
+      "label": "Vacina polio injetável",
+      "lediId": 22
+    },
+    {
+      "id": "IGHAR",
+      "code": "IGHAR",
+      "label": "Imunoglobulina humana antirrábica",
+      "lediId": 23
+    },
+    {
+      "id": "SCR",
+      "code": "SCR",
+      "label": "Vacina sarampo, caxumba, rubéola",
+      "lediId": 24
+    },
+    {
+      "id": "DT",
+      "code": "dT",
+      "label": "Vacina difteria e tétano adulto",
+      "lediId": 25
+    },
+    {
+      "id": "VPC10",
+      "code": "VPC10",
+      "label": "Vacina pneumo 10",
+      "lediId": 26
+    },
+    {
+      "id": "VOPB",
+      "code": "VOPb",
+      "label": "vacina oral poliomielite bivalente",
+      "lediId": 28
+    },
+    {
+      "id": "PENTA_ACELULAR",
+      "code": "PENTA acelular",
+      "label": "Vacina penta acelular (DTPa/VIP/Hib)",
+      "lediId": 29
+    },
+    {
+      "id": "FTP",
+      "code": "FTp",
+      "label": "Vacina febre tifóide",
+      "lediId": 30
+    },
+    {
+      "id": "SALOX",
+      "code": "SALOX",
+      "label": "Soro antiloxoscélico (trivalente)",
+      "lediId": 31
+    },
+    {
+      "id": "SALON",
+      "code": "SALON",
+      "label": "Soro antilonômico",
+      "lediId": 32
+    },
+    {
+      "id": "INF3",
+      "code": "INF3",
+      "label": "Vacina influenza trivalente",
+      "lediId": 33
+    },
+    {
+      "id": "VZ",
+      "code": "VZ",
+      "label": "Vacina varicela",
+      "lediId": 34
+    },
+    {
+      "id": "HA",
+      "code": "HA",
+      "label": "Vacina hepatite A",
+      "lediId": 35
+    },
+    {
+      "id": "SR",
+      "code": "SR",
+      "label": "Vacina Dupla Viral",
+      "lediId": 36
+    },
+    {
+      "id": "VERO",
+      "code": "Vero",
+      "label": "Vacina raiva",
+      "lediId": 37
+    },
+    {
+      "id": "SBOTULTRI",
+      "code": "SBOTULTRI",
+      "label": "Soro antibotulínico (trivalente)",
+      "lediId": 38
+    },
+    {
+      "id": "TETRA",
+      "code": "Tetra",
+      "label": "Vacina DTP/Hib",
+      "lediId": 39
+    },
+    {
+      "id": "PNCC7V",
+      "code": "Pncc7V",
+      "label": "Vacina pneumocócica 7V",
+      "lediId": 40
+    },
+    {
+      "id": "MENC",
+      "code": "MenC",
+      "label": "Vacina meningo C",
+      "lediId": 41
+    },
+    {
+      "id": "PENTA",
+      "code": "PENTA",
+      "label": "Vacina penta (DTP/HepB/Hib)",
+      "lediId": 42
+    },
+    {
+      "id": "HEXA",
+      "code": "Hexa acelular",
+      "label": "Vacina hexa (DTPa/HepB/VIP/Hib)",
+      "lediId": 43
+    },
+    {
+      "id": "INFH1N1_2009",
+      "code": "INFH1N1-2009",
+      "label": "Vacina influenza A (H1N1) (inativada, fragmentada)",
+      "lediId": 44
+    },
+    {
+      "id": "ROTA",
+      "code": "ROTA",
+      "label": "Vacina rotavírus",
+      "lediId": 45
+    },
+    {
+      "id": "DTP",
+      "code": "DTP",
+      "label": "Vacina DTP",
+      "lediId": 46
+    },
+    {
+      "id": "DTPA",
+      "code": "DTPa",
+      "label": "Vacina DTPa infantil",
+      "lediId": 47
+    },
+    {
+      "id": "FTA",
+      "code": "Fta",
+      "label": "Vacina febre tifóide (atenuada)",
+      "lediId": 51
+    },
+    {
+      "id": "HAINF",
+      "code": "HAinf",
+      "label": "Vacina hepatite A infantil",
+      "lediId": 55
+    },
+    {
+      "id": "SCRV",
+      "code": "SCRV",
+      "label": "Vacina sarampo, caxumba, rubéola e varicela",
+      "lediId": 56
+    },
+    {
+      "id": "DTPA_57",
+      "code": "dTpa",
+      "label": "Vacina dTpa adulto",
+      "lediId": 57
+    },
+    {
+      "id": "DTPA_VIP",
+      "code": "DTPa/VIP",
+      "label": "Vacina tetra acelular DTPa/VIP",
+      "lediId": 58
+    },
+    {
+      "id": "VPC13",
+      "code": "VPC13",
+      "label": "Vacina pneumo 13",
+      "lediId": 59
+    },
+    {
+      "id": "HPV2",
+      "code": "HPV2",
+      "label": "Vacina HPV bivalente",
+      "lediId": 60
+    },
+    {
+      "id": "TT",
+      "code": "TT",
+      "label": "Vacina toxóide tetânico",
+      "lediId": 61
+    },
+    {
+      "id": "HA_HBINF",
+      "code": "HA-HBinf",
+      "label": "Vacina hepatite A e B infantil",
+      "lediId": 62
+    },
+    {
+      "id": "HA_HBAD",
+      "code": "HA-HBad",
+      "label": "Vacina hepatite A e B adulto",
+      "lediId": 63
+    },
+    {
+      "id": "INF3_ID",
+      "code": "INF3-ID",
+      "label": "Vacina influenza trivalente ID",
+      "lediId": 64
+    },
+    {
+      "id": "ROTA5",
+      "code": "ROTA5",
+      "label": "Vacina rotavírus pentavalente",
+      "lediId": 65
+    },
+    {
+      "id": "MEN_BC",
+      "code": "MEN BC",
+      "label": "Vacina meningocócica B/C",
+      "lediId": 66
+    },
+    {
+      "id": "HPV4",
+      "code": "HPV4",
+      "label": "Vacina HPV quadrivalente",
+      "lediId": 67
+    },
+    {
+      "id": "SAB",
+      "code": "SAB",
+      "label": "Soro antibotulínico AB (bivalente)",
+      "lediId": 69
+    },
+    {
+      "id": "SARAMPO",
+      "code": "Sarampo",
+      "label": "Vacina sarampo",
+      "lediId": 70
+    },
+    {
+      "id": "RUBEOLA",
+      "code": "Rubeola",
+      "label": "Vacina rubéola",
+      "lediId": 71
+    },
+    {
+      "id": "GRIPE_SAZONAL",
+      "code": "Gripe Sazonal",
+      "label": "Vacina gripe",
+      "lediId": 72
+    },
+    {
+      "id": "QUADRUPLA_VIRAL",
+      "code": "Quadrupla Viral",
+      "label": "Vacina quádrupla viral",
+      "lediId": 73
+    },
+    {
+      "id": "MENACWY",
+      "code": "MenACWY",
+      "label": "Vacina meningo ACWY",
+      "lediId": 74
+    },
+    {
+      "id": "VCO",
+      "code": "VCO",
+      "label": "Vacina cólera oral",
+      "lediId": 75
+    },
+    {
+      "id": "VHZ",
+      "code": "VHZ",
+      "label": "Vacina herpes-zóster (atenuada)",
+      "lediId": 76
+    },
+    {
+      "id": "INF4",
+      "code": "INF4",
+      "label": "Vacina influenza tetravalente",
+      "lediId": 77
+    },
+    {
+      "id": "MENB",
+      "code": "MenB",
+      "label": "Vacina meningo B",
+      "lediId": 78
+    },
+    {
+      "id": "DENGUE_REC",
+      "code": "Dengue",
+      "label": "Vacina dengue (recombinante e atenuada)",
+      "lediId": 82
+    },
+    {
+      "id": "HAAD",
+      "code": "HAad",
+      "label": "Vacina hepatite A adulto",
+      "lediId": 83
+    },
+    {
+      "id": "VFA_F",
+      "code": "VFA-F",
+      "label": "Vacina febre amarela fracionada",
+      "lediId": 84
+    },
+    {
+      "id": "COVID_19_ASTRAZENECA_FIOCRUZ_COVISHIELD",
+      "code": "COVID-19 ASTRAZENECA/FIOCRUZ - COVISHIELD",
+      "label": "Vacina COVID-19-recombinante, AstraZeneca/Fiocruz (Covishield)",
+      "lediId": 85
+    },
+    {
+      "id": "COVID_CORONAVAC",
+      "code": "COVID-19 SINOVAC/BUTANTAN - CORONAVAC",
+      "label": "Vacina COVID-19-inativada, Sinovac/Butantan (Coronavac)",
+      "lediId": 86
+    },
+    {
+      "id": "COVID",
+      "code": "COVID-19 PFIZER - COMIRNATY",
+      "label": "Vacina COVID-19-RNAm, Pfizer (Comirnaty)",
+      "lediId": 87
+    },
+    {
+      "id": "COVID_19_JANSSEN_AD26_COV2_S",
+      "code": "COVID-19 JANSSEN - Ad26.COV2.S",
+      "label": "Vacina COVID-19-recombinante, Janssen (Ad26.COV2.S)",
+      "lediId": 88
+    },
+    {
+      "id": "COVID_19_ASTRAZENECA_CHADOX1_S",
+      "code": "COVID-19 ASTRAZENECA - ChAdOx1-S",
+      "label": "Vacina COVID-19-recombinante, AstraZeneca/Covax (ChAdOx1-S)",
+      "lediId": 89
+    },
+    {
+      "id": "HPV9",
+      "code": "HPV9",
+      "label": "Vacina HPV nonavalente",
+      "lediId": 93
+    },
+    {
+      "id": "COVID_19_MODERNA_SPIKEVAX",
+      "code": "COVID-19 MODERNA - SPIKEVAX",
+      "label": "vacina COVID-19-RNAm, Moderna (Spikevax)",
+      "lediId": 97
+    },
+    {
+      "id": "COVID_19_SINOVAC_CORONAVAC",
+      "code": "COVID-19 SINOVAC - CORONAVAC",
+      "label": "Vacina COVID-19-inativada, Sinovac (Coronavac)",
+      "lediId": 98
+    },
+    {
+      "id": "COVID_PED",
+      "code": "COVID-19 PFIZER - COMIRNATY PEDIÁTRICA",
+      "label": "Vacina COVID-19-RNAm, Pfizer (Comirnaty) pediátrica",
+      "lediId": 99
+    },
+    {
+      "id": "VVS",
+      "code": "VVS",
+      "label": "Vacina varíola símia (atenuada)",
+      "lediId": 100
+    },
+    {
+      "id": "VHZR",
+      "code": "VHZR",
+      "label": "Vacina Herpes-Zoster (recombinante)",
+      "lediId": 101
+    },
+    {
+      "id": "COVID_19_PFIZER_COMIRNATY_PEDIATRICA_MENOR_DE_5_ANOS",
+      "code": "COVID-19 PFIZER - COMIRNATY PEDIÁTRICA MENOR DE 5 ANOS",
+      "label": "Vacina COVID-19-RNAm, Pfizer (Comirnaty) pediátrica menor de 5 anos",
+      "lediId": 102
+    },
+    {
+      "id": "COVID_19_PFIZER_COMIRNATY_BIVALENTE",
+      "code": "COVID-19 PFIZER - COMIRNATY BIVALENTE",
+      "label": "Vacina COVID-19-RNAm, Pfizer (Comirnaty) bivalente",
+      "lediId": 103
+    },
+    {
+      "id": "DENGUE",
+      "code": "DNG",
+      "label": "Vacina dengue (atenuada)",
+      "lediId": 104
+    },
+    {
+      "id": "COVID_19_MODERNA_SPIKEVAX_BIVALENTE",
+      "code": "COVID-19 MODERNA - SPIKEVAX BIVALENTE",
+      "label": "Vacina Covid-19-RNAm, Moderna (Spikevax) bivalente",
+      "lediId": 105
+    },
+    {
+      "id": "VPC15",
+      "code": "VPC15",
+      "label": "Vacina pneumo 15",
+      "lediId": 106
+    },
+    {
+      "id": "VPC20",
+      "code": "VPC20",
+      "label": "Vacina Pneumo 20",
+      "lediId": 107
+    },
+    {
+      "id": "VVSR_REC",
+      "code": "VVSR-Rec",
+      "label": "Vacina Vírus Sincicial Respiratório A e B (recombinante)",
+      "lediId": 108
+    },
+    {
+      "id": "VVSR_RECADJ",
+      "code": "VVSR-RecAdj",
+      "label": "Vacina vírus sincicial respiratório (recombinante, adjuvada)",
+      "lediId": 109
+    },
+    {
+      "id": "INF4_ALTA_DOSAGEM",
+      "code": "INF4-alta dosagem",
+      "label": "Vacina Influenza Tetravalente - Alta Dosagem",
+      "lediId": 110
+    },
+    {
+      "id": "DTPA_VIP_111",
+      "code": "dTpa/VIP",
+      "label": "Vacina Tetra Acelular dTpa/VIP",
+      "lediId": 111
+    },
+    {
+      "id": "COVID_19_SERUM_ZALIKA",
+      "code": "COVID-19 SERUM/ZALIKA",
+      "label": "Vacina Covid-19-recombinante, Serum/Zalika",
+      "lediId": 112
+    },
+    {
+      "id": "CHIK_A",
+      "code": "CHIK-A",
+      "label": "Vacina chikungunya (recombinante e atenuada)",
+      "lediId": 113
+    },
+    {
+      "id": "COVID_19_SINOPHARM",
+      "code": "COVID-19 SINOPHARM",
+      "label": "Vacina Covid-19-inativada, Sinopharm",
+      "lediId": 114
+    },
+    {
+      "id": "NIRSEVIMABE_0_5ML",
+      "code": "NIRSEVIMABE 0,5ml",
+      "label": "Nirsevimabe 0,5ml",
+      "lediId": 115
+    },
+    {
+      "id": "NIRSEVIMABE_1_0ML",
+      "code": "NIRSEVIMABE 1,0ml",
+      "label": "Nirsevimabe 1,0ml",
+      "lediId": 116
+    }
+  ]
+}

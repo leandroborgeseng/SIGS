@@ -1,58 +1,46 @@
 /**
- * Catálogo vacinação — IDs LEDI do dicionário oficial (integracao.esusab / regras vacinação).
- * Seed expandido + overlays de sync municipal (POST /v1/catalog/vaccination/sync).
- * Faixa etária: seed municipal aproximado (calendário básico); sync completo = TB_FAIXA_ETARIA_VACINACAO.
+ * Catálogo vacinação — IDs LEDI do dicionário oficial (integracao.esusab).
+ * Seed versionado (99 imunobiológicos) + overlays de sync municipal
+ * (POST /v1/catalog/vaccination/sync → Prisma + memória).
+ * Faixa etária: seed PNI aproximado; dump TB_FAIXA_ETARIA_VACINACAO não está no repo.
  */
 
-export type CatalogOpt = {
-  id: string;
-  label: string;
-  code?: string;
-  /** id numérico LEDI / CDS (i64 Thrift) */
-  lediId: number;
-};
+export type { AgeRange, CatalogOpt } from './catalog.types';
+export {
+  AGE_RANGES_SEED,
+  AGE_SEED_META,
+  CATALOG_VERSION,
+  IMMUNOBIOLOGICALS_SEED,
+  IMMUNO_SEED_META,
+} from './catalog.seed';
 
-/** Faixa etária em dias de vida (RF-14.7/14.8). null = sem limite. */
-export type AgeRange = {
+import type { AgeRange, CatalogOpt } from './catalog.types';
+import {
+  AGE_RANGES_SEED,
+  CATALOG_VERSION,
+  IMMUNOBIOLOGICALS_SEED,
+} from './catalog.seed';
+
+export type VaccineApplicationInput = {
   immunobiologicalId: string;
-  /** Estratégia; omitida = qualquer */
-  strategyId?: string;
-  minDays: number;
-  maxDays: number | null;
-  label: string;
+  strategyId: string;
+  doseId: string;
+  attendanceGroupId: string;
+  lot: string;
+  manufacturer: string;
+  routeId: string;
+  siteId: string;
+  /** Validade do lote (ISO date) — RF-14.14 parcial */
+  lotExpiry?: string;
+  prescriberCbo?: string;
+  indicationCid10?: string;
+  leprosyContact?: boolean;
+  isClinicalResearch?: boolean;
+  anvisaStudyProtocol?: string;
+  anvisaProtocolVersion?: string;
+  anvisaRegistrationNumber?: string;
+  appliedAbroad?: boolean;
 };
-
-/** Imunobiológicos APS frequentes — códigos LEDI do dicionário de dados. */
-export const IMMUNOBIOLOGICALS_SEED: CatalogOpt[] = [
-  { id: 'HB', code: 'HB', label: 'Hepatite B', lediId: 9 },
-  { id: 'FA', code: 'VFA', label: 'Febre amarela', lediId: 14 },
-  { id: 'BCG', code: 'BCG', label: 'BCG', lediId: 15 },
-  { id: 'HIB', code: 'Hib', label: 'Hib', lediId: 17 },
-  { id: 'PNEUMO23', code: 'VPP23', label: 'Pneumo 23', lediId: 21 },
-  { id: 'VIP', code: 'VIP', label: 'Poliomielite VIP (injetável)', lediId: 22 },
-  { id: 'SCR', code: 'SCR', label: 'Tríplice viral (SCR)', lediId: 24 },
-  { id: 'DT', code: 'dT', label: 'dT (adulto)', lediId: 25 },
-  { id: 'VPC10', code: 'VPC10', label: 'Pneumo 10', lediId: 26 },
-  { id: 'VOPB', code: 'VOPb', label: 'Polio oral bivalente (VOPb)', lediId: 28 },
-  { id: 'INF3', code: 'INF3', label: 'Influenza trivalente', lediId: 33 },
-  { id: 'VZ', code: 'VZ', label: 'Varicela', lediId: 34 },
-  { id: 'HA', code: 'HA', label: 'Hepatite A', lediId: 35 },
-  { id: 'MENC', code: 'MenC', label: 'Meningo C', lediId: 41 },
-  { id: 'PENTA', code: 'PENTA', label: 'Penta (DTP/HepB/Hib)', lediId: 42 },
-  { id: 'HEXA', code: 'Hexa', label: 'Hexa acelular', lediId: 43 },
-  { id: 'ROTA', code: 'ROTA', label: 'Rotavírus', lediId: 45 },
-  { id: 'DTP', code: 'DTP', label: 'DTP', lediId: 46 },
-  { id: 'SCRV', code: 'SCRV', label: 'Tetra viral (SCRV)', lediId: 56 },
-  { id: 'DTPA', code: 'dTpa', label: 'dTpa adulto', lediId: 57 },
-  { id: 'VPC13', code: 'VPC13', label: 'Pneumo 13', lediId: 59 },
-  { id: 'HPV4', code: 'HPV4', label: 'HPV quadrivalente', lediId: 67 },
-  { id: 'INF4', code: 'INF4', label: 'Influenza tetravalente', lediId: 77 },
-  { id: 'MENACWY', code: 'MenACWY', label: 'Meningo ACWY', lediId: 74 },
-  { id: 'COVID_CORONAVAC', code: 'COVID-19 CORONAVAC', label: 'COVID-19 Coronavac', lediId: 86 },
-  { id: 'COVID', code: 'COVID-19 PFIZER', label: 'COVID-19 RNAm Pfizer (Comirnaty)', lediId: 87 },
-  { id: 'COVID_PED', code: 'COVID-19 PFIZER PED', label: 'COVID-19 Pfizer pediátrica', lediId: 99 },
-  { id: 'DENGUE', code: 'DNG', label: 'Dengue (atenuada)', lediId: 104 },
-];
 
 /** @deprecated use getImmunobiologicals() — mantido para imports existentes */
 export let IMMUNOBIOLOGICALS: CatalogOpt[] = [...IMMUNOBIOLOGICALS_SEED];
@@ -60,37 +48,6 @@ export let IMMUNOBIOLOGICALS: CatalogOpt[] = [...IMMUNOBIOLOGICALS_SEED];
 /** Overlay municipal (sync). */
 let immunoOverlay: CatalogOpt[] = [];
 let ageRangeOverlay: AgeRange[] = [];
-
-/**
- * Faixas seed (dias de vida) — calendário básico PNI / RF-14.7.
- * Não substitui lookupFaixaEtaria(imuno, estratégia, dose) do e-SUS; sync DB depois.
- */
-export const AGE_RANGES_SEED: AgeRange[] = [
-  { immunobiologicalId: 'BCG', minDays: 0, maxDays: 365 * 5, label: 'BCG: 0–5 anos (catch-up básico)' },
-  { immunobiologicalId: 'HB', minDays: 0, maxDays: null, label: 'Hepatite B: desde o nascimento' },
-  { immunobiologicalId: 'ROTA', minDays: 42, maxDays: 245, label: 'Rotavírus: ~6 sem–8 meses' },
-  { immunobiologicalId: 'PENTA', minDays: 60, maxDays: 365 * 7, label: 'Penta: ~2 meses–7 anos' },
-  { immunobiologicalId: 'HEXA', minDays: 60, maxDays: 365 * 7, label: 'Hexa: ~2 meses–7 anos' },
-  { immunobiologicalId: 'VIP', minDays: 60, maxDays: null, label: 'VIP: a partir de ~2 meses' },
-  { immunobiologicalId: 'VOPB', minDays: 60, maxDays: 365 * 5, label: 'VOPb: ~2 meses–5 anos' },
-  { immunobiologicalId: 'VPC10', minDays: 60, maxDays: 365 * 5, label: 'Pneumo 10: ~2 meses–5 anos' },
-  { immunobiologicalId: 'MENC', minDays: 90, maxDays: null, label: 'Meningo C: a partir de ~3 meses' },
-  { immunobiologicalId: 'SCR', minDays: 365, maxDays: null, label: 'SCR: a partir de 12 meses' },
-  { immunobiologicalId: 'SCRV', minDays: 365, maxDays: null, label: 'SCRV: a partir de 12 meses' },
-  { immunobiologicalId: 'VZ', minDays: 365, maxDays: null, label: 'Varicela: a partir de 12 meses' },
-  { immunobiologicalId: 'HA', minDays: 365, maxDays: null, label: 'Hepatite A: a partir de 12 meses' },
-  { immunobiologicalId: 'FA', minDays: 274, maxDays: null, label: 'Febre amarela: a partir de ~9 meses' },
-  { immunobiologicalId: 'DT', minDays: 365 * 7, maxDays: null, label: 'dT: a partir de 7 anos' },
-  { immunobiologicalId: 'DTPA', minDays: 365 * 7, maxDays: null, label: 'dTpa: a partir de 7 anos' },
-  { immunobiologicalId: 'HPV4', minDays: 365 * 9, maxDays: 365 * 15, label: 'HPV4: 9–14 anos (rotina seed)' },
-  { immunobiologicalId: 'PNEUMO23', minDays: 365 * 60, maxDays: null, label: 'Pneumo 23: ≥60 anos (rotina seed)' },
-  { immunobiologicalId: 'INF3', minDays: 180, maxDays: null, label: 'Influenza: a partir de 6 meses' },
-  { immunobiologicalId: 'INF4', minDays: 180, maxDays: null, label: 'Influenza tetra: a partir de 6 meses' },
-  { immunobiologicalId: 'COVID', minDays: 365 * 5, maxDays: null, label: 'COVID Pfizer: ≥5 anos (seed)' },
-  { immunobiologicalId: 'COVID_PED', minDays: 180, maxDays: 365 * 5 - 1, label: 'COVID pediátrica: 6 meses–<5 anos (seed)' },
-  { immunobiologicalId: 'COVID_CORONAVAC', minDays: 365 * 3, maxDays: null, label: 'Coronavac: ≥3 anos (seed)' },
-  { immunobiologicalId: 'DENGUE', minDays: 365 * 4, maxDays: 365 * 60, label: 'Dengue: 4–59 anos (seed)' },
-];
 
 /** EstrategiaVacinacaoDbEnum (model-5.5.24) */
 export const STRATEGIES: CatalogOpt[] = [
@@ -111,17 +68,28 @@ export const STRATEGIES: CatalogOpt[] = [
   { id: 'SCHOOL', label: 'Vacinação escolar', lediId: 15 },
 ];
 
-/** Doses — IDs da documentação LEDI (regras vacinação). */
+/**
+ * Doses — dicionário LEDI (subconjunto APS + profilaxia frequente).
+ * IDs amigáveis estáveis; lediId = código oficial.
+ */
 export const DOSES: CatalogOpt[] = [
   { id: 'D1', label: '1ª dose', lediId: 1 },
   { id: 'D2', label: '2ª dose', lediId: 2 },
   { id: 'D3', label: '3ª dose', lediId: 3 },
+  { id: 'D4', label: '4ª dose', lediId: 4 },
+  { id: 'D5', label: '5ª dose', lediId: 5 },
   { id: 'R1', label: '1º reforço', lediId: 6 },
   { id: 'R2', label: '2º reforço', lediId: 7 },
   { id: 'D', label: 'Dose', lediId: 8 },
   { id: 'DU', label: 'Dose única', lediId: 9 },
   { id: 'REV', label: 'Revacinação', lediId: 10 },
+  { id: 'DI', label: 'Dose inicial', lediId: 36 },
+  { id: 'DA', label: 'Dose adicional', lediId: 37 },
   { id: 'REF', label: 'Reforço', lediId: 38 },
+  { id: 'R3', label: '3º reforço', lediId: 39 },
+  { id: 'D0', label: 'Dose zero', lediId: 57 },
+  { id: 'PT1', label: 'Profilaxia/Tratamento 1 unidade', lediId: 59 },
+  { id: 'PT2', label: 'Profilaxia/Tratamento 2 unidades', lediId: 60 },
 ];
 
 /**
@@ -153,27 +121,6 @@ export const ATTENDANCE_GROUPS: CatalogOpt[] = [
   { id: 'PUERPERA', label: 'Puérpera', lediId: 3 },
 ];
 
-export type VaccineApplicationInput = {
-  immunobiologicalId: string;
-  strategyId: string;
-  doseId: string;
-  attendanceGroupId: string;
-  lot: string;
-  manufacturer: string;
-  routeId: string;
-  siteId: string;
-  /** Validade do lote (ISO date) — RF-14.14 parcial */
-  lotExpiry?: string;
-  prescriberCbo?: string;
-  indicationCid10?: string;
-  leprosyContact?: boolean;
-  isClinicalResearch?: boolean;
-  anvisaStudyProtocol?: string;
-  anvisaProtocolVersion?: string;
-  anvisaRegistrationNumber?: string;
-  appliedAbroad?: boolean;
-};
-
 const LOT_CHARSET = /^[A-Za-z0-9.\-\/ ]{1,30}$/;
 
 function byId<T extends { id: string }>(list: readonly T[], id: string): T | undefined {
@@ -197,6 +144,14 @@ export function getAgeRanges(): AgeRange[] {
   return [...AGE_RANGES_SEED, ...ageRangeOverlay];
 }
 
+export function getImmunoOverlay(): CatalogOpt[] {
+  return [...immunoOverlay];
+}
+
+export function getAgeRangeOverlay(): AgeRange[] {
+  return [...ageRangeOverlay];
+}
+
 export type CatalogSyncInput = {
   immunobiologicals?: CatalogOpt[];
   ageRanges?: AgeRange[];
@@ -208,6 +163,7 @@ export function syncCatalog(input: CatalogSyncInput = {}): {
   immunobiologicals: number;
   ageRanges: number;
   source: string;
+  catalogVersion: string;
 } {
   if (input.reset) {
     immunoOverlay = [];
@@ -233,7 +189,18 @@ export function syncCatalog(input: CatalogSyncInput = {}): {
     immunobiologicals: getImmunobiologicals().length,
     ageRanges: getAgeRanges().length,
     source: immunoOverlay.length || ageRangeOverlay.length ? 'seed+overlay' : 'ledi-dictionary-seed',
+    catalogVersion: CATALOG_VERSION,
   };
+}
+
+/** Substitui overlays em memória (ex.: hidratação a partir do Prisma). */
+export function replaceOverlays(input: {
+  immunobiologicals?: CatalogOpt[];
+  ageRanges?: AgeRange[];
+}): void {
+  immunoOverlay = input.immunobiologicals ? [...input.immunobiologicals] : [];
+  ageRangeOverlay = input.ageRanges ? [...input.ageRanges] : [];
+  getImmunobiologicals();
 }
 
 /** Estoque/frio adiado — stub RF-14.3–6 / 15–19 */
