@@ -28,6 +28,7 @@ export class CnesController {
       defaultGestao: 'municipal',
       sync: 'POST /v1/cnes/sync?ibge=3516200&source=snapshot&gestao=municipal',
       syncTodos: 'POST /v1/cnes/sync?ibge=3516200&source=snapshot&gestao=todos',
+      syncProfessionals: 'POST /v1/cnes/sync-professionals?ibge=3516200',
       audit: 'GET /v1/cnes/audit?ibge=3516200&gestao=municipal',
     };
   }
@@ -69,6 +70,13 @@ export class CnesController {
       gestao,
       somentePrefeitura,
     });
+  }
+
+  /** Profissionais lotados (PF) — snapshot municipal; exige sync de unidades/equipes antes. */
+  @Post('sync-professionals')
+  @RequirePermissions(PERMISSIONS.ORG)
+  syncProfessionals(@Query('ibge') ibge?: string) {
+    return this.cnes.syncProfessionals({ ibge });
   }
 
   @Get('audit')

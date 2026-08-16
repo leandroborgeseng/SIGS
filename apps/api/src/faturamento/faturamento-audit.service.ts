@@ -10,6 +10,7 @@ import {
   normalizeIne,
 } from '../cnes/cnes.snapshot';
 import { applyGestaoFilter, CNES_GESTAO_CRITERION } from '../cnes/cnes.filter';
+import { loadProfessionalsSnapshot } from '../cnes/cnes.professionals.snapshot';
 import type { CnesSyncGestao } from '../cnes/cnes.types';
 
 export type FatAuditSeverity = 'blocker' | 'quality';
@@ -24,6 +25,7 @@ export type FatAuditCode =
   | 'INE_CNES_MISMATCH'
   | 'CNS_MISSING'
   | 'CNS_NOT_LINKED'
+  | 'CNS_NOT_IN_MUNICIPAL_CNES'
   | 'CBO_MISMATCH'
   | 'SIGTAP_UNKNOWN'
   | 'SIGTAP_INACTIVE'
@@ -75,6 +77,8 @@ type CadastroIndex = {
     string,
     Array<{ facilityCnes: string; ine: string | null; cbo: string; facilityId: string; teamId: string | null }>
   >;
+  /** CNS presentes no snapshot PF municipal (CnesWeb) */
+  municipalCnsFromPf: Set<string>;
 };
 
 type ProdUnit = {
@@ -600,7 +604,18 @@ export class FaturamentoAuditService {
       assignmentsByCns.set(cns, list);
     }
 
-    return { facilityByCnes, teamByIne, assignmentsByCns, scope };
+    const municipalCnsFromPf = new Set<string>();
+    try {
+      const { snapshot: pf } = loadProfessionalsSnapshot(ibgeCode);
+      for (const p of pf.professionals) {
+        const cns = String(p.cns || '').replace(/\D/g, '');
+        if (cns.length === 15) municipalCnsFromPf.add(cns);
+      }
+    } catch {
+      // snapshot PF opcional até a 1ª coleta
+    }
+
+    return { facilityByCnes, teamByIne, assignmentsByCns, municipalCnsFromPf, scope };
   }
 
   private auditUnit(
@@ -694,43 +709,52 @@ export class FaturamentoAuditService {
         severity: 'blocker',
         message: 'CNS do profissional ausente na ficha/lote',
       });
-    } else if (cadastro.assignmentsByCns.size > 0) {
-      const lots = cadastro.assignmentsByCns.get(cnsDigits);
-      if (!lots || !lots.length) {
-        // só alerta qualidade se o município já tem alguma lotação cadastrada
+    } else {
+      if (cadastro.municipalCnsFromPf.size > 0 && !cadastro.municipalCnsFromPf.has(cnsDigits)) {
         findings.push({
           ...base,
-          code: 'CNS_NOT_LINKED',
+          code: 'CNS_NOT_IN_MUNICIPAL_CNES',
           severity: 'quality',
-          message: `CNS ${cnsDigits} sem lotação ativa no SIGS (cadastro incompleto / PF pendente)`,
+          message: `CNS ${cnsDigits} não aparece no snapshot PF da rede municipal (CnesWeb)`,
         });
-      } else {
-        const matchCnes = lots.some((l) => !cnesNorm || l.facilityCnes === cnesNorm);
-        const matchIne = !ineNorm || lots.some((l) => l.ine === ineNorm);
-        if (!matchCnes || !matchIne) {
+      }
+      if (cadastro.assignmentsByCns.size > 0) {
+        const lots = cadastro.assignmentsByCns.get(cnsDigits);
+        if (!lots || !lots.length) {
           findings.push({
             ...base,
             code: 'CNS_NOT_LINKED',
             severity: 'quality',
-            message: `CNS ${cnsDigits} sem lotação ativa na unidade/equipe da ficha`,
-            details: { lots: lots.map((l) => ({ cnes: l.facilityCnes, ine: l.ine, cbo: l.cbo })) },
+            message: `CNS ${cnsDigits} sem lotação ativa no SIGS (rode sync-professionals se ainda não importou PF)`,
           });
-        }
-        if (u.cbo) {
-          const cboOk = lots.some(
-            (l) =>
-              (!cnesNorm || l.facilityCnes === cnesNorm) &&
-              (!ineNorm || !l.ine || l.ine === ineNorm) &&
-              l.cbo.replace(/\D/g, '') === u.cbo.replace(/\D/g, ''),
-          );
-          if (!cboOk) {
+        } else {
+          const matchCnes = lots.some((l) => !cnesNorm || l.facilityCnes === cnesNorm);
+          const matchIne = !ineNorm || lots.some((l) => l.ine === ineNorm);
+          if (!matchCnes || !matchIne) {
             findings.push({
               ...base,
-              code: 'CBO_MISMATCH',
+              code: 'CNS_NOT_LINKED',
               severity: 'quality',
-              message: `CBO ${u.cbo} não bate com lotação ativa do CNS ${cnsDigits}`,
-              procedureCode: null,
+              message: `CNS ${cnsDigits} sem lotação ativa na unidade/equipe da ficha`,
+              details: { lots: lots.map((l) => ({ cnes: l.facilityCnes, ine: l.ine, cbo: l.cbo })) },
             });
+          }
+          if (u.cbo) {
+            const cboOk = lots.some(
+              (l) =>
+                (!cnesNorm || l.facilityCnes === cnesNorm) &&
+                (!ineNorm || !l.ine || l.ine === ineNorm) &&
+                l.cbo.replace(/\D/g, '') === u.cbo.replace(/\D/g, ''),
+            );
+            if (!cboOk) {
+              findings.push({
+                ...base,
+                code: 'CBO_MISMATCH',
+                severity: 'quality',
+                message: `CBO ${u.cbo} não bate com lotação ativa do CNS ${cnsDigits}`,
+                procedureCode: null,
+              });
+            }
           }
         }
       }

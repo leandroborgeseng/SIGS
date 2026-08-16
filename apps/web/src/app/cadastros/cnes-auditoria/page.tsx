@@ -90,6 +90,7 @@ export default function CnesAuditoriaPage() {
   const [ok, setOk] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncingPf, setSyncingPf] = useState(false);
   const [severity, setSeverity] = useState<'' | Severity>('');
   const [code, setCode] = useState('');
   const [q, setQ] = useState('');
@@ -135,6 +136,31 @@ export default function CnesAuditoriaPage() {
       setError(e instanceof Error ? e.message : 'Falha no sync CNES');
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function runSyncProfessionals() {
+    setSyncingPf(true);
+    setError(null);
+    setOk(null);
+    try {
+      const res = await api<{
+        professionals: { created: number; updated: number; skipped: number };
+        assignments: { created: number; updated: number; skipped: number };
+        totals: { professionals: number; assignments: number };
+      }>('/v1/cnes/sync-professionals?ibge=3516200', { method: 'POST' });
+      setOk(
+        `Profissionais lotados (PF): +${res.professionals.created}/~${res.professionals.updated} profissionais · +${res.assignments.created}/~${res.assignments.updated} lotações (snapshot ${res.totals.professionals} / ${res.totals.assignments}).`,
+      );
+      await load();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Falha no sync de profissionais (sincronize a rede municipal antes)',
+      );
+    } finally {
+      setSyncingPf(false);
     }
   }
 
@@ -194,6 +220,15 @@ export default function CnesAuditoriaPage() {
             </button>
             <button type="button" className="btn btn-primary" onClick={() => void runSync()} disabled={syncing}>
               {syncing ? 'Sincronizando…' : 'Sincronizar rede municipal'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => void runSyncProfessionals()}
+              disabled={syncingPf || emptyCadastro}
+              title={emptyCadastro ? 'Sincronize unidades/equipes antes' : 'Importa CNS+CBO+CNES+INE do CnesWeb'}
+            >
+              {syncingPf ? 'Importando PF…' : 'Importar profissionais lotados'}
             </button>
             <button type="button" className="btn" onClick={exportCsv} disabled={!report?.findings.length}>
               Export CSV

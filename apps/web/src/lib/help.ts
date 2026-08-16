@@ -52,7 +52,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '0.3.0',
     updatedAt: '2026-08-16',
     summary: 'Checks Facility/Team vs snapshot CNES — escopo rede municipal (Prefeitura).',
-    body: `Em /cadastros/cnes-auditoria: «Sincronizar rede municipal» (POST /v1/cnes/sync?gestao=municipal) se o escopo estiver 0/0. Critério: natureza jurídica 1244 (Município). Contagens cidade vs filtrado no painel. Cobertura: equipe sem CNES, estabelecimento sem equipe, INE duplicado, tipo equipe vs unidade, inativo no snapshot, CNES ≠7 dígitos, IBGE ≠3516200, vínculo órfão, lotação com INE inexistente. Export CSV. Sem PHI. Railway: CNES_SYNC_ON_BOOT=1 ou sync pela UI.`,
+    body: `Em /cadastros/cnes-auditoria: «Sincronizar rede municipal» (POST /v1/cnes/sync?gestao=municipal) se o escopo estiver 0/0; depois «Importar profissionais lotados» (POST /v1/cnes/sync-professionals). Critério unidades: natureza jurídica 1244. PF: nome+CNS+CBO+INE (público CNES). Contagens cidade vs filtrado no painel. Export CSV. Sem PHI. Railway: CNES_SYNC_ON_BOOT=1 (+ CNES_SYNC_PROFESSIONALS_ON_BOOT=1 opcional).`,
   },
   {
     id: 'cadastros.lotacao',

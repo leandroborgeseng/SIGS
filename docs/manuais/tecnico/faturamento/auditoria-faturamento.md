@@ -30,7 +30,8 @@ Permissão: `production.manage`.
 | `INE_MISSING` / `INE_NOT_FOUND` | blocker | INE ausente ou inexistente |
 | `INE_CNES_MISMATCH` | blocker | INE aponta para outro CNES |
 | `CNS_MISSING` | blocker | CNS profissional ausente |
-| `CNS_NOT_LINKED` / `CBO_MISMATCH` | quality | lotação SIGS incompleta (PF ainda pendente no import CNES) |
+| `CNS_NOT_IN_MUNICIPAL_CNES` | quality | CNS fora do snapshot PF da rede municipal (CnesWeb) |
+| `CNS_NOT_LINKED` / `CBO_MISMATCH` | quality | lotação SIGS incompleta / CBO divergente (rode `sync-professionals`) |
 | `SIGTAP_UNKNOWN` / `SIGTAP_INACTIVE` | blocker | procedimento fora do catálogo local |
 | `SIGTAP_COMPETENCIA` | quality | competência do catálogo ≠ pedida |
 | `CIAP_FORMAT` | quality | CIAP ≠ letra+2 dígitos |

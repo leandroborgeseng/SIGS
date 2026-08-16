@@ -1,5 +1,6 @@
 /**
  * CLI: npx ts-node --transpile-only src/cnes/cli-sync.ts --ibge=3516200 --source=snapshot --gestao=municipal
+ *      npx ts-node --transpile-only src/cnes/cli-sync.ts --professionals --ibge=3516200
  */
 import { PrismaClient } from '@prisma/client';
 import { assertIbgeCode } from '../ledi/ibge';
@@ -7,6 +8,8 @@ import { fetchLiveCnesSnapshot } from './cnes.fetch';
 import { loadCnesSnapshot } from './cnes.loader';
 import { parseGestaoMode } from './cnes.filter';
 import { loadBundledSnapshot } from './cnes.snapshot';
+import { loadCnesProfessionalsSnapshot } from './cnes.professionals.loader';
+import { loadProfessionalsSnapshot } from './cnes.professionals.snapshot';
 
 function arg(name: string): string | undefined {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -19,19 +22,29 @@ function flag(name: string): boolean {
 
 async function main() {
   const ibge = assertIbgeCode(arg('ibge') || process.env.MUNICIPIO_IBGE || '3516200') || '3516200';
-  const source = (arg('source') || 'auto') as 'live' | 'snapshot' | 'auto';
-  const activeOnly = flag('activeOnly') || arg('activeOnly') === '1';
-  const gestao = parseGestaoMode(
-    arg('gestao'),
-    flag('somentePrefeitura') || arg('somentePrefeitura') === '1'
-      ? true
-      : flag('todos')
-        ? false
-        : arg('somentePrefeitura'),
-  );
-
   const prisma = new PrismaClient();
   try {
+    if (flag('professionals')) {
+      const { snapshot, path } = loadProfessionalsSnapshot(ibge);
+      const result = await loadCnesProfessionalsSnapshot(prisma, snapshot, {
+        source: 'snapshot',
+        snapshotPath: path,
+      });
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    const source = (arg('source') || 'auto') as 'live' | 'snapshot' | 'auto';
+    const activeOnly = flag('activeOnly') || arg('activeOnly') === '1';
+    const gestao = parseGestaoMode(
+      arg('gestao'),
+      flag('somentePrefeitura') || arg('somentePrefeitura') === '1'
+        ? true
+        : flag('todos')
+          ? false
+          : arg('somentePrefeitura'),
+    );
+
     let result;
     if (source === 'snapshot') {
       const { snapshot, path } = loadBundledSnapshot(ibge);

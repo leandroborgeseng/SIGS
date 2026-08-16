@@ -2,7 +2,7 @@
 
 **Versão:** 0.4.0-dev  
 **RF:** RF-10.2 (CNES), RF-9.6 (consistência Desejável), RF-2.47 (unidades), RF-2.19 (equipes), RF-10.21 (auditoria faturamento)  
-**Escopo default:** **rede municipal (gestão Prefeitura de Franca)** — estabelecimentos + equipes + auditoria. **Sem** profissionais lotados (PF) e sem dados de pacientes.
+**Escopo default:** **rede municipal (gestão Prefeitura de Franca)** — estabelecimentos + equipes + **profissionais lotados (PF)** + auditoria. Sem CPF e sem dados de pacientes.
 
 ## Critério de filtro (oficial)
 
@@ -45,10 +45,21 @@ npm run sync:cnes -- --ibge=3516200 --source=auto
 
 # HTTP
 curl -X POST 'http://localhost:3001/v1/cnes/sync?ibge=3516200&source=snapshot&gestao=municipal'
-curl -X POST 'http://localhost:3001/v1/cnes/sync?ibge=3516200&source=snapshot&gestao=todos'
+curl -X POST 'http://localhost:3001/v1/cnes/sync-professionals?ibge=3516200'
 curl 'http://localhost:3001/v1/cnes/audit?ibge=3516200&gestao=municipal'
 curl 'http://localhost:3001/v1/faturamento/audit?competencia=2026-08&ibge=3516200&gestao=municipal'
 ```
+
+### Profissionais lotados (PF)
+
+Snapshot `data/cnes/franca-3516200-professionals.json` (503 profissionais / 742 lotações — CnesWeb por equipe municipal). Campos: nome + CNS + CBO + CNES + INE (cadastro público CNES).
+
+```bash
+# após sync de unidades/equipes
+npm run sync:cnes -- --professionals --ibge=3516200
+```
+
+UI: **Importar profissionais lotados** em `/cadastros/cnes-auditoria`.
 
 Variáveis: `CNES_SYNC_ON_BOOT=1` · `CNES_SYNC_GESTAO=municipal|todos` · `CNES_SNAPSHOT_PATH` · `CNES_DATA_DIR` · `MUNICIPIO_IBGE=3516200`.
 
@@ -87,4 +98,4 @@ Default `gestao=municipal`: índice CNES/INE só da rede Prefeitura (produção 
 
 ## Próximo passo
 
-Import de **profissionais lotados** (arquivo CNES `PF` / lotação CNS+CBO+CNES+INE) — fora deste MVP.
+Agenda municipal salas stub / inventário Claude Design — opcional. PF (profissionais) já disponível via `POST /v1/cnes/sync-professionals`.

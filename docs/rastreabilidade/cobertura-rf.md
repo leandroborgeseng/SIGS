@@ -25,7 +25,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-1.2 | Obr | parcial | n/a | `apps/api/src/auth` |
 | RF-1.4 | Obr | parcial | n/a | `apps/api/src/auth#users` |
 | RF-1.14 | Obr | parcial | n/a | `apps/api/.../audit + auth` |
-| RF-2.2 | Obr | parcial | n/a | `apps/api/src/organization#professionals` |
+| RF-2.2 | Obr | parcial | n/a | `apps/api/src/organization#professionals` + **import PF CNES** (`POST /v1/cnes/sync-professionals`, snapshot `franca-*-professionals.json`) |
 | RF-2.17 | Obr | parcial | n/a | `GET/POST /v1/appointments` · `day-grid` · `itemType` CONSULTA/ENCAIXE · `careLine` APS/ODONTO |
 | RF-2.19 | Obr | parcial | n/a | `apps/api/src/organization#teams` + **import CNES** (`POST /v1/cnes/sync`, INE unique) |
 | RF-2.27 | Obr | parcial | n/a | `apps/api/src/patients` (+ PATCH + UI) |
@@ -39,7 +39,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-3.24 | Obr | parcial | automatizado | ficha APS `/aps/[id]` SOAP+antropometria · preview-fai · finish → batch · fila `/faturamento/aps` |
 | RF-3.55 | Obr | parcial | automatizado | campos FAI financiamento mínimos (tipos 1/2/4/5/6, medições, SOAP, condutas, CIAP/CID, SIGTAP) |
 | RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` · finish FAI/FAO → motor `clinical-core` (`source=native`) · **wizard lote** `/faturamento/lote/{fai,fao,proc}` (gate de tipo + 2 ZIPs) |
-| RF-10.2 | Obr | parcial | n/a | sync CNES Franca `POST /v1/cnes/sync?gestao=municipal` (default Prefeitura · natureza 1244) · `gestao=todos` · snapshot `data/cnes/franca-3516200.json` · `npm run sync:cnes` · UI `/unidades` |
+| RF-10.2 | Obr | parcial | n/a | sync CNES Franca `POST /v1/cnes/sync?gestao=municipal` (default Prefeitura · natureza 1244) · `gestao=todos` · snapshot `data/cnes/franca-3516200.json` · **PF** `POST /v1/cnes/sync-professionals` · `npm run sync:cnes` · UI `/unidades` + `/cadastros/cnes-auditoria` |
 | RF-9.6 | Des | parcial | previsto | auditoria CNES `GET /v1/cnes/audit?gestao=municipal` · UI `/cadastros/cnes-auditoria` · export CSV |
 | RF-10.21 | Des | parcial | automatizado | auditoria faturamento `GET /v1/faturamento/audit?gestao=municipal` · UI `/faturamento/auditoria` (ficha×rede municipal CNES/INE/CNS/SIGTAP) |
 | RF-10.20 | Obr | parcial | automatizado | preflight + `POST /production/send` + UI `/producao` |
@@ -94,7 +94,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-13.2 | Obr | parcial | n/a | `RegulationProcedure` seed |
 | RF-13.4 | Obr | parcial | n/a | fila `/regulacao` |
 | RF-13.8 | Obr | parcial | n/a | authorize/deny/return/close |
-| RF-2.60 | Obr | parcial | n/a | `assignments` + UI `/lotacoes` + header LEDI + escolha na abertura `/odonto` |
+| RF-2.60 | Obr | parcial | n/a | `assignments` + UI `/lotacoes` + header LEDI + **sync PF** CNS+CBO+CNES+INE |
 | RF-5.* | Obr/Des | não iniciado | n/a | backlog SAMU — `Samu/` · doc 12 |
 | RF-16.1 | Obr | parcial | n/a | `apps/api/src/reports` |
 | RF-16.7 | Obr | parcial | n/a | `apps/api/src/reports#vaccinations` |
