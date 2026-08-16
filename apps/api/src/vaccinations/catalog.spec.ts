@@ -170,4 +170,10 @@ describe('faixa etária RF-14.7/14.8', () => {
     expect(AGE_RANGES_SEED.length).toBeGreaterThanOrEqual(50);
     expect(getAgeRanges().length).toBeGreaterThanOrEqual(AGE_RANGES_SEED.length);
   });
+
+  it('documenta ausência do dump oficial TB_FAIXA_ETARIA_VACINACAO', () => {
+    const { AGE_SEED_META } = require('./catalog');
+    expect(AGE_SEED_META.officialDumpPresent).toBe(false);
+    expect(AGE_SEED_META.table).toBe('TB_FAIXA_ETARIA_VACINACAO');
+  });
 });

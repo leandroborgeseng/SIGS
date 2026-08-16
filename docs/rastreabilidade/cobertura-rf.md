@@ -29,10 +29,10 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-2.17 | Obr | parcial | n/a | `GET/POST /v1/appointments` · `day-grid` · `itemType` CONSULTA/ENCAIXE · `careLine` APS/ODONTO |
 | RF-2.19 | Obr | parcial | n/a | `apps/api/src/organization#teams` + **import CNES** (`POST /v1/cnes/sync`, INE unique) |
 | RF-2.27 | Obr | parcial | n/a | `apps/api/src/patients` (+ PATCH + UI) |
-| RF-2.29 | Obr | parcial | n/a | território + microáreas/vínculos + **Household/Family CDS** (`/v1/households`, catálogo LEDI, UI `/territorio`) — sem GIS/lote XML |
-| RF-17.11 | Obr | parcial | n/a | visita ACS `AcsHomeVisit` · `GET/POST /v1/acs-home-visits` · catálogo motivos/desfecho LEDI · UI `/territorio` aba Visitas ACS — sem lote XML tipo 8 |
-| RF-17.12 | Obr | parcial | n/a | lat/long opcional na visita + `mapUrl` OpenStreetMap externo (sem Leaflet/Mapbox) |
-| RF-2.30 | Obr | parcial | n/a | cadastro individual CDS: nacionalidade/IBGE nasc./etnia/deficiência/NIS/e-mail + `links` no GET paciente · UI `/pacientes/[id]` |
+| RF-2.29 | Obr | parcial | n/a | território + microáreas/vínculos + **Household/Family CDS** (`/v1/households`, catálogo LEDI, UI `/territorio` com FieldHint Siaps/Previne) — sem GIS/lote XML |
+| RF-17.11 | Obr | parcial | n/a | visita ACS `AcsHomeVisit` · `GET/POST /v1/acs-home-visits` · catálogo motivos/desfecho LEDI · UI `/territorio` aba Visitas ACS (FieldHint) — sem lote XML tipo 8 |
+| RF-17.12 | Obr | parcial | n/a | lat/long opcional na visita + `mapUrl` OpenStreetMap externo (sem Leaflet/Mapbox) · badge Previne na UI |
+| RF-2.30 | Obr | parcial | n/a | cadastro individual CDS: nacionalidade/IBGE nasc./etnia/deficiência/NIS/e-mail + `links` no GET paciente · UI `/pacientes/[id]` FieldHint Siaps (ID) / Previne (CDS) |
 | RF-2.47 | Obr | parcial | n/a | `facilities` + IBGE + UI `/unidades` + **sync CNES** (`data/cnes/franca-3516200.json`) |
 | RF-2.56 | Obr | parcial | n/a | `apps/api/src/patients#search` + UI |
 | RF-3.1 | Obr | parcial | automatizado | `POST /v1/encounters` fila SOAP + origem FAI `/aps` (paciente+lotação) · CIAP/CID `CodeSearchSelect` em `/atendimento/[id]` |
@@ -45,7 +45,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-10.20 | Obr | parcial | automatizado | preflight + `POST /production/send` + UI `/producao` |
 | RF-14.1 | Obr | parcial | automatizado | `vaccination_immunobiologicals` + seed LEDI v3 (99) doses `lediId` |
 | RF-14.2 | Obr | parcial | automatizado | catálogo completo LEDI + Prisma + `POST …/catalog/vaccination/sync` overlay |
-| RF-14.7 | Obr | parcial | automatizado | 54 faixas seed PNI + Prisma `vaccination_age_ranges` |
+| RF-14.7 | Obr | parcial | automatizado | 54 faixas seed PNI + Prisma `vaccination_age_ranges` · **gap:** dump real `TB_FAIXA_ETARIA_VACINACAO` ausente (`officialDumpPresent=false`) |
 | RF-14.8 | Obr | parcial | automatizado | bloqueio idade em `create` via `validateAgeForApplications` |
 | RF-14.11 | Obr | parcial | automatizado | aplicação + batch + `clinical-core` VAC + UI `/vacinacao` + `POST …/void` local |
 | RF-14.13 | Obr | parcial | previsto | `GET …/vaccination-card.pdf` + botão imprimir em `/vacinacao` |

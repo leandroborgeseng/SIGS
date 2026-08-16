@@ -2,7 +2,8 @@
   "version": "faixa-etaria-seed-v3",
   "source": "calendario-basico-PNI + aproximação municipal (≠ dump TB_FAIXA_ETARIA_VACINACAO e-SUS)",
   "table": "TB_FAIXA_ETARIA_VACINACAO",
-  "note": "TB real não está no repo; faixas em dias de vida para RF-14.7/14.8. Sync overlay pode complementar.",
+  "note": "TB real (dump SQL/CSV e-SUS) NÃO está no repo. officialDumpPresent=false. Faixas em dias de vida para RF-14.7/14.8 (PNI aproximado). Overlay via POST /v1/catalog/vaccination/sync quando houver dump municipal. Sem inventar norma além do seed.",
+  "officialDumpPresent": false,
   "count": 54,
   "items": [
     {

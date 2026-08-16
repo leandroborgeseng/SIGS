@@ -18,6 +18,8 @@ export const AGE_SEED_META = {
   source: "calendario-basico-PNI + aproximação municipal (≠ dump TB_FAIXA_ETARIA_VACINACAO e-SUS)",
   table: 'TB_FAIXA_ETARIA_VACINACAO',
   count: 54,
+  /** Dump SQL/CSV oficial e-SUS ausente no monorepo — não inventar faixas além do seed PNI. */
+  officialDumpPresent: false,
 } as const;
 
 export const IMMUNOBIOLOGICALS_SEED: CatalogOpt[] = [

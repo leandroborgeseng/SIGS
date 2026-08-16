@@ -7,7 +7,9 @@
 
 **Fonte imuno:** https://integracao.esusab.ufsc.br/ledi/documentacao/referencias/dicionario.html#Imunobiologico  
 
-**Não há dump SQL `TB_FAIXA_ETARIA_VACINACAO` no repo** — faixas são seed municipal versionado + overlay via `POST /v1/catalog/vaccination/sync`.
+**Não há dump SQL `TB_FAIXA_ETARIA_VACINACAO` no repo** (`AGE_SEED_META.officialDumpPresent=false`).  
+Faixas = seed municipal PNI aproximado + overlay via `POST /v1/catalog/vaccination/sync` quando o dump existir.  
+Não inventar calendário/norma além do seed versionado.
 
 Runtime: `catalog.seed.ts` (gerado a partir destes JSON). Regenerar:
 

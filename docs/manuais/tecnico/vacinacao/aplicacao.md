@@ -52,7 +52,7 @@
 ## Catálogo
 
 - Seed: `apps/api/src/vaccinations/seeds/tb-imunobiologico.ledi-v3.json` (99)
-- Faixas: `…/tb-faixa-etaria-vacinacao.seed-v3.json` (54)
+- Faixas: `…/tb-faixa-etaria-vacinacao.seed-v3.json` (54) — `AGE_SEED_META.officialDumpPresent=false` (dump `TB_FAIXA_ETARIA_VACINACAO` ausente; overlay via sync quando disponível)
 - Tabelas: `vaccination_immunobiologicals`, `vaccination_age_ranges`, `vaccination_stock_lots`, `vaccination_stock_movements`, `vaccination_cold_equipments`, `vaccination_thermal_boxes`, `vaccination_temp_readings`, `vaccination_supplies`, `vaccination_supply_links`, `vaccination_supply_movements`
 
 ## Faturamento

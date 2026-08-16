@@ -29,6 +29,36 @@ describe('PatientsService validation rules', () => {
     ).rejects.toMatchObject({ response: { errors: expect.arrayContaining([expect.stringContaining('motherName')]) } });
   });
 
+  it('exige IBGE de nascimento quando nacionalidade BRASILEIRA', async () => {
+    const { service } = make();
+    await expect(
+      service.create({
+        civilName: 'Ana',
+        birthDate: '1990-01-01',
+        sex: 'F',
+        motherName: 'Maria',
+        nationality: 'BRASILEIRA',
+      } as never),
+    ).rejects.toMatchObject({
+      response: { errors: expect.arrayContaining([expect.stringContaining('birthMunicipalityIbge')]) },
+    });
+  });
+
+  it('exige etnia quando raça/cor indígena', async () => {
+    const { service } = make();
+    await expect(
+      service.create({
+        civilName: 'Ana',
+        birthDate: '1990-01-01',
+        sex: 'F',
+        motherName: 'Maria',
+        raceColor: 'INDIGENA',
+      } as never),
+    ).rejects.toMatchObject({
+      response: { errors: expect.arrayContaining([expect.stringContaining('ethnicity')]) },
+    });
+  });
+
   it('atualiza paciente mesclando regras de óbito', async () => {
     const { service, prisma } = make();
     prisma.patient.findUnique.mockResolvedValue({
