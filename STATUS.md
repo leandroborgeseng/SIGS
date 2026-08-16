@@ -35,7 +35,7 @@
 | `00e180f` | Catálogo 99 imunobiológicos LEDI v3 + faixas Prisma |
 | `3a44631` | Estoque/frio vacinal MVP (baixa na aplicação · estorno no void) |
 | `b2928ca` | Frio/almox beyond-MVP: equipamentos · caixa térmica · leitura manual · insumos |
-| _(este)_ | Visita ACS lat/long MVP (RF-17.11/17.12) · OSM externo |
+| `760a436` | Visita ACS lat/long MVP (RF-17.11/17.12) · OSM externo |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC (Safari upload, autofix chunked, PDF secretaria) — reutilizar shell na Fase 2 UI
