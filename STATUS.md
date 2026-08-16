@@ -33,7 +33,7 @@
 | `a938f16` | AD multi-child LEDI (RF-3.54) · condições · qty BPA |
 | `00e180f` | Catálogo 99 imunobiológicos LEDI v3 + faixas Prisma |
 | `3a44631` | Estoque/frio vacinal MVP (baixa na aplicação · estorno no void) |
-| *(HEAD)* | Frio/almox beyond-MVP: equipamentos · caixa térmica · leitura manual · insumos |
+| `b2928ca` | Frio/almox beyond-MVP: equipamentos · caixa térmica · leitura manual · insumos |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC (Safari upload, autofix chunked, PDF secretaria) — reutilizar shell na Fase 2 UI
