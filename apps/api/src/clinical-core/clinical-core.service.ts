@@ -70,6 +70,25 @@ export class ClinicalCoreService {
       await tx.vaccinationRecord.updateMany({ where: { patientId: loserId }, data: { patientId: winnerId } });
       await tx.dentalEncounter.updateMany({ where: { patientId: loserId }, data: { patientId: winnerId } });
       await tx.homeCareVisit.updateMany({ where: { patientId: loserId }, data: { patientId: winnerId } });
+      const adWithLoserChild = await tx.homeCareVisit.findMany({
+        where: { childrenJson: { contains: loserId } },
+        select: { id: true, childrenJson: true },
+      });
+      for (const visit of adWithLoserChild) {
+        try {
+          const children = JSON.parse(visit.childrenJson || '[]') as Array<{ patientId?: string }>;
+          if (!Array.isArray(children) || !children.some((c) => c.patientId === loserId)) continue;
+          const next = children.map((c) =>
+            c.patientId === loserId ? { ...c, patientId: winnerId } : c,
+          );
+          await tx.homeCareVisit.update({
+            where: { id: visit.id },
+            data: { childrenJson: JSON.stringify(next) },
+          });
+        } catch {
+          /* childrenJson inválido — ignore */
+        }
+      }
       await tx.queueTicket.updateMany({ where: { patientId: loserId }, data: { patientId: winnerId } });
       await tx.prescription.updateMany({ where: { patientId: loserId }, data: { patientId: winnerId } });
       await tx.regulationRequest.updateMany({ where: { patientId: loserId }, data: { patientId: winnerId } });

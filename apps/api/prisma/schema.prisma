@@ -451,9 +451,10 @@ model DentalEncounter {
   @@map("dental_encounters")
 }
 
-/// Atenção domiciliar APS — stub MVP (RF-3.54)
+/// Atenção domiciliar APS — ficha LEDI master/child 1–99 (RF-3.54)
 model HomeCareVisit {
   id                String    @id @default(uuid())
+  /// Paciente âncora (primeiro child); demais em childrenJson
   patientId         String    @map("patient_id")
   facilityId        String    @map("facility_id")
   professionalId    String?   @map("professional_id")
@@ -462,6 +463,8 @@ model HomeCareVisit {
   status            String    @default("SCHEDULED")
   notes             String?
   proceduresJson    String    @default("[]") @map("procedures_json")
+  /// JSON array de children LEDI (patientId + overrides por atendimento); máx. 99
+  childrenJson      String    @default("[]") @map("children_json")
   visitedAt         DateTime  @default(now()) @map("visited_at")
   finishedAt        DateTime? @map("finished_at")
   productionBatchId String?   @map("production_batch_id")

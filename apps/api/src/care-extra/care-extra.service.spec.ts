@@ -232,6 +232,69 @@ describe('CareExtraService', () => {
     ).rejects.toThrow(/careType/);
     expect(prisma.homeCareVisit.create).not.toHaveBeenCalled();
   });
+
+  it('abre AD multi-child com patientIds', async () => {
+    const prisma = {
+      patient: {
+        findUnique: jest.fn().mockImplementation(({ where }: { where: { id: string } }) =>
+          Promise.resolve({ id: where.id }),
+        ),
+      },
+      facility: { findUnique: jest.fn().mockResolvedValue({ id: 'f1' }) },
+      homeCareVisit: {
+        create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({
+            id: 'ad1',
+            ...data,
+            patient: { id: data.patientId, civilName: 'A' },
+            facility: { id: 'f1' },
+            professional: null,
+          }),
+        ),
+      },
+      audit: jest.fn(),
+    };
+    const service = new CareExtraService(prisma as never);
+    const row = await service.openHomeCare({
+      patientIds: ['p1', 'p2'],
+      facilityId: 'f1',
+      careType: 'AD2',
+    });
+    expect(prisma.homeCareVisit.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          patientId: 'p1',
+          childrenJson: expect.stringContaining('p2'),
+        }),
+      }),
+    );
+    expect(row.childCount).toBe(2);
+  });
+
+  it('bloqueia 3º child duplicado na AD', async () => {
+    const prisma = {
+      homeCareVisit: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'ad1',
+          status: 'IN_PROGRESS',
+          patientId: 'p1',
+          careType: 'AD1',
+          shift: 'MANHA',
+          notes: null,
+          proceduresJson: '["0101040024"]',
+          childrenJson: JSON.stringify([
+            { patientId: 'p1', careType: 'AD1' },
+            { patientId: 'p2', careType: 'AD1' },
+          ]),
+        }),
+      },
+      patient: { findUnique: jest.fn().mockResolvedValue({ id: 'p2' }) },
+    };
+    const service = new CareExtraService(prisma as never);
+    await expect(
+      service.addHomeCareChild('ad1', { patientId: 'p2' }),
+    ).rejects.toThrow(/já está/);
+  });
 });
 
 describe('RF-12.11 histórico de odontograma', () => {

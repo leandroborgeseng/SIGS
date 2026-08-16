@@ -9,9 +9,17 @@ import {
   resolveTurno,
 } from '../ledi/db-enums';
 
+export const AD_MAX_CHILDREN = 99;
+
+export type LediHomeCareProblema = {
+  ciap?: string | null;
+  cid?: string | null;
+};
+
 export type LediHomeCareChild = {
   cpfCidadao?: string | null;
   cnsCidadao?: string | null;
+  stCidadaoNaoPossuiCpf: boolean;
   dataNascimento: string;
   sexo: number;
   sexoLabel?: string;
@@ -20,6 +28,10 @@ export type LediHomeCareChild = {
   atencaoDomiciliarModalidade: number;
   atencaoDomiciliarModalidadeLabel?: string;
   tipoAtendimento?: number | null;
+  condicoesAvaliadas?: number[];
+  problemasCondicoes?: LediHomeCareProblema[];
+  cid?: string | null;
+  ciap?: string | null;
   procedimentos: string[];
   condutaDesfecho?: number | null;
   condutaDesfechoLabel?: string | null;
@@ -45,6 +57,7 @@ export type LediHomeCareMaster = {
     };
   };
   atendimentosDomiciliares: LediHomeCareChild[];
+  /** Compat BPA/preflight — espelho do 1º child */
   fichaAdTransport: LediHomeCareChild & {
     modalidade: string;
     careType: string;
@@ -53,11 +66,7 @@ export type LediHomeCareMaster = {
   facilityCnes: string;
 };
 
-export function buildHomeCareLediPayload(input: {
-  uuidFicha: string;
-  lotacao: LotacaoHeader;
-  codigoIbgeMunicipio?: string | null;
-  visitedAt: Date;
+export type HomeCareChildInput = {
   patient: {
     cpf?: string | null;
     cns?: string | null;
@@ -71,7 +80,11 @@ export function buildHomeCareLediPayload(input: {
   procedures: string[];
   desfecho?: string | null;
   notes?: string | null;
-}): LediHomeCareMaster {
+  condicoesAvaliadas?: number[] | null;
+  problemasCondicoes?: LediHomeCareProblema[] | null;
+};
+
+function buildChild(input: HomeCareChildInput): LediHomeCareChild {
   const modalidade = resolveAdModalidade(input.careType);
   if (!modalidade) throw new Error(`modalidade AD inválida: "${input.careType}"`);
   const sexo = resolveSexo(input.patient.sex);
@@ -80,17 +93,16 @@ export function buildHomeCareLediPayload(input: {
   const local = resolveLocalAtendimento(input.careLocation ?? 'DOMICILIO');
   const tipo = resolveTipoAtendimento(input.encounterType ?? 'ATENDIMENTO_PROGRAMADO');
   const desfecho = resolveAdDesfecho(input.desfecho ?? 'PERMANENCIA');
+  const problemas = (input.problemasCondicoes || []).filter((p) => p.ciap || p.cid);
+  const firstCiap = problemas.find((p) => p.ciap)?.ciap ?? null;
+  const firstCid = problemas.find((p) => p.cid)?.cid ?? null;
+  const hasCpf = Boolean(input.patient.cpf?.trim());
+  const hasCns = Boolean(input.patient.cns?.trim());
 
-  const lotacaoFormPrincipal = {
-    profissionalCNS: input.lotacao.profissionalCNS,
-    cboCodigo_2002: input.lotacao.cboCodigo_2002,
-    cnes: input.lotacao.cnes,
-    ine: input.lotacao.ine ?? null,
-  };
-
-  const child: LediHomeCareChild = {
-    cpfCidadao: input.patient.cpf,
-    cnsCidadao: input.patient.cns,
+  return {
+    cpfCidadao: hasCpf ? input.patient.cpf : null,
+    cnsCidadao: hasCns ? input.patient.cns : null,
+    stCidadaoNaoPossuiCpf: !hasCpf,
     dataNascimento: input.patient.birthDate.toISOString().slice(0, 10),
     sexo: sexo.id,
     sexoLabel: sexo.label,
@@ -99,11 +111,76 @@ export function buildHomeCareLediPayload(input: {
     atencaoDomiciliarModalidade: modalidade.id,
     atencaoDomiciliarModalidadeLabel: modalidade.label,
     tipoAtendimento: tipo?.id ?? null,
+    condicoesAvaliadas: input.condicoesAvaliadas?.length
+      ? [...input.condicoesAvaliadas]
+      : undefined,
+    problemasCondicoes: problemas.length ? problemas : undefined,
+    cid: firstCid,
+    ciap: firstCiap,
     procedimentos: input.procedures,
     condutaDesfecho: desfecho?.id ?? null,
     condutaDesfechoLabel: desfecho?.label ?? null,
     notas: input.notes ?? null,
   };
+}
+
+/** Aceita 1 child (legado) ou lista 1–99 (multi-child LEDI). */
+export function buildHomeCareLediPayload(input: {
+  uuidFicha: string;
+  lotacao: LotacaoHeader;
+  codigoIbgeMunicipio?: string | null;
+  visitedAt: Date;
+  /** @deprecated use `children` — mantido para callers/tests de 1 paciente */
+  patient?: HomeCareChildInput['patient'];
+  careType?: string;
+  shift?: string | null;
+  careLocation?: string | null;
+  encounterType?: string | null;
+  procedures?: string[];
+  desfecho?: string | null;
+  notes?: string | null;
+  condicoesAvaliadas?: number[] | null;
+  problemasCondicoes?: LediHomeCareProblema[] | null;
+  children?: HomeCareChildInput[];
+}): LediHomeCareMaster {
+  const childrenInput: HomeCareChildInput[] =
+    input.children?.length
+      ? input.children
+      : input.patient
+        ? [
+            {
+              patient: input.patient,
+              careType: input.careType || 'AD1',
+              shift: input.shift,
+              careLocation: input.careLocation,
+              encounterType: input.encounterType,
+              procedures: input.procedures || [],
+              desfecho: input.desfecho,
+              notes: input.notes,
+              condicoesAvaliadas: input.condicoesAvaliadas,
+              problemasCondicoes: input.problemasCondicoes,
+            },
+          ]
+        : [];
+
+  if (!childrenInput.length) {
+    throw new Error('atendimentosDomiciliares exige ao menos 1 cidadão');
+  }
+  if (childrenInput.length > AD_MAX_CHILDREN) {
+    throw new Error(`atendimentosDomiciliares máximo ${AD_MAX_CHILDREN} por ficha`);
+  }
+
+  const lotacaoFormPrincipal = {
+    profissionalCNS: input.lotacao.profissionalCNS,
+    cboCodigo_2002: input.lotacao.cboCodigo_2002,
+    cnes: input.lotacao.cnes,
+    ine: input.lotacao.ine ?? null,
+  };
+
+  const children = childrenInput.map(buildChild);
+  const first = children[0]!;
+  const firstModalidade = resolveAdModalidade(childrenInput[0]!.careType)!;
+  const firstTurno = resolveTurno(childrenInput[0]!.shift);
 
   return {
     uuidFicha: input.uuidFicha,
@@ -115,12 +192,12 @@ export function buildHomeCareLediPayload(input: {
       codigoIbgeMunicipio: resolveCodigoIbgeMunicipio(input.codigoIbgeMunicipio),
       lotacaoFormPrincipal,
     },
-    atendimentosDomiciliares: [child],
+    atendimentosDomiciliares: children,
     fichaAdTransport: {
-      ...child,
-      modalidade: modalidade.code,
-      careType: modalidade.code,
-      turnoLabel: turno?.label ?? null,
+      ...first,
+      modalidade: firstModalidade.code,
+      careType: firstModalidade.code,
+      turnoLabel: firstTurno?.label ?? null,
     },
     facilityCnes: input.lotacao.cnes,
   };

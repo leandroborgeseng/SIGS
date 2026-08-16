@@ -161,7 +161,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 3,Módulo Ambulatorial,51,RF-3.51,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Checagem de prescrições (CID, dados do paciente, medicamentos) com lançamento de evolução de enfermagem."
 3,Módulo Ambulatorial,52,RF-3.52,Obrigatório,ambos,parcial,P0-P6,,previsto,"Solicitação de procedimentos gerando demanda na central de regulação, com protocolos da gestão."
 3,Módulo Ambulatorial,53,RF-3.53,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-collective-v2 + /coletivo enums+nominais,automatizado,"Atendimentos por fichas de atendimento coletivo, conforme regras da APS."
-3,Módulo Ambulatorial,54,RF-3.54,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-homecare-v2 + /ad desfecho UI,automatizado,Atendimentos domiciliares conforme regras da APS.
+3,Módulo Ambulatorial,54,RF-3.54,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-homecare-v2 multi-child + /ad,automatizado,Atendimentos domiciliares conforme regras da APS (1–99 children LEDI).
 3,Módulo Ambulatorial,55,RF-3.55,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters#aps-care + /aps/[id] SOAP/medições/tipos FAI,automatizado,Registro de atendimentos da APS por fichas contemplando todos os campos exigidos pelo modelo de financiamento vigente.
 3,Módulo Ambulatorial,56,RF-3.56,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Atendimentos odontológicos com odontograma e próteses.
 3,Módulo Ambulatorial,57,RF-3.57,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Informações de patologias odontológicas no atendimento.

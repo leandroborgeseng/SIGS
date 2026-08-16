@@ -58,6 +58,7 @@ import {
   PatchDentalEncounterDto,
   VoidDentalEncounterDto,
   SyncDentalFaturamentoQueueDto,
+  AddHomeCareChildDto,
 } from './dto';
 
 const XML_UPLOAD = FilesInterceptor('files', 200, {
@@ -584,6 +585,16 @@ export class CareExtraController {
   @Get('home-care-visits/:id')
   getHomeCare(@Param('id') id: string) {
     return this.service.getHomeCare(id);
+  }
+
+  @Post('home-care-visits/:id/children')
+  addHomeCareChild(@Param('id') id: string, @Body() dto: AddHomeCareChildDto) {
+    return this.service.addHomeCareChild(id, dto);
+  }
+
+  @Delete('home-care-visits/:id/children/:patientId')
+  removeHomeCareChild(@Param('id') id: string, @Param('patientId') patientId: string) {
+    return this.service.removeHomeCareChild(id, patientId);
   }
 
   @Post('home-care-visits/:id/finish')

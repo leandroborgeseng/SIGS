@@ -64,13 +64,68 @@ export const LEDI_TIPO_ATENDIMENTO: LediEnumEntry[] = [
     label: 'Atendimento de urgência',
     aliases: ['URGENCIA', 'ATENDIMENTO_DE_URGENCIA'],
   },
-  { id: 7, code: 'ATENDIMENTO_PROGRAMADO', label: 'Atendimento programado' },
-  { id: 8, code: 'ATENDIMENTO_NAO_PROGRAMADO', label: 'Atendimento não programado' },
+  {
+    id: 7,
+    code: 'ATENDIMENTO_PROGRAMADO',
+    label: 'Atendimento programado',
+    aliases: ['PROGRAMADO', 'AD_PROGRAMADO'],
+  },
+  {
+    id: 8,
+    code: 'ATENDIMENTO_NAO_PROGRAMADO',
+    label: 'Atendimento não programado',
+    aliases: ['NAO_PROGRAMADO', 'AD_NAO_PROGRAMADO'],
+  },
   {
     id: 9,
     code: 'VISITA_DOMICILIAR_POS_OBITO',
     label: 'Visita domiciliar pós-óbito',
+    aliases: ['POS_OBITO', 'VISITA_POS_OBITO'],
   },
+];
+
+/** SituacaoPresenteDbEnum — condições avaliadas na ficha AD (ids LEDI) */
+export const LEDI_AD_CONDICAO: LediEnumEntry[] = [
+  { id: 1, code: 'ACAMADO', label: 'Acamado' },
+  { id: 2, code: 'DOMICILIADO', label: 'Domiciliado / Isolado' },
+  { id: 3, code: 'ULCERAS_FERIDAS', label: 'Úlceras / Feridas' },
+  { id: 4, code: 'ACOMPANHAMENTO_NUTRICIONAL', label: 'Acompanhamento nutricional' },
+  { id: 5, code: 'USO_SNG', label: 'Uso de sonda nasogástrica (SNG)' },
+  { id: 6, code: 'USO_SNE', label: 'Uso de sonda nasoenteral (SNE)' },
+  { id: 7, code: 'USO_GASTROSTOMIA', label: 'Uso de gastrostomia', aliases: ['USO_GASTRONOMIA'] },
+  { id: 8, code: 'USO_COLOSTOMIA', label: 'Uso de colostomia' },
+  { id: 9, code: 'USO_CISTOSTOMIA', label: 'Uso de cistostomia' },
+  { id: 10, code: 'USO_SVD', label: 'Uso de SVD', aliases: ['USO_SONDA_VESICAL'] },
+  { id: 11, code: 'ACOMPANHAMENTO_PRE_OPERATORIO', label: 'Acompanhamento pré-operatório' },
+  { id: 12, code: 'ACOMPANHAMENTO_POS_OPERATORIO', label: 'Acompanhamento pós-operatório' },
+  {
+    id: 13,
+    code: 'ADAPTACAO_USO_ORTESE_PROTESE',
+    label: 'Adaptação ao uso de órtese / prótese',
+  },
+  { id: 14, code: 'REABILITACAO_DOMICILIAR', label: 'Reabilitação domiciliar' },
+  {
+    id: 15,
+    code: 'CUIDADOS_PALIATIVOS_ONCOLOGICOS',
+    label: 'Cuidados paliativos oncológicos',
+  },
+  {
+    id: 16,
+    code: 'CUIDADOS_PALIATIVOS_NAO_ONCOLOGICOS',
+    label: 'Cuidados paliativos não oncológicos',
+  },
+  { id: 17, code: 'OXIGENOTERAPIA_DOMICILIAR', label: 'Oxigenoterapia domiciliar' },
+  { id: 18, code: 'USO_TRAQUEOSTOMIA', label: 'Uso de traqueostomia' },
+  {
+    id: 19,
+    code: 'USO_ASPIRADOR_VIAS_AEREAS',
+    label: 'Uso de aspirador de vias aéreas',
+  },
+  { id: 20, code: 'SUPORTE_VENTILATORIO_CPAP', label: 'Suporte ventilatório CPAP' },
+  { id: 21, code: 'SUPORTE_VENTILATORIO_BIPAP', label: 'Suporte ventilatório BiPAP' },
+  { id: 22, code: 'DIALISE_PERITONIAL', label: 'Diálise peritoneal' },
+  { id: 23, code: 'PARACENTESE', label: 'Paracentese' },
+  { id: 24, code: 'MEDICACAO_PARENTERAL', label: 'Medicação parenteral' },
 ];
 
 /** TipoEncaminhamentoIndividualDbEnum — condutas/encaminhamentos da ficha AI */
@@ -359,6 +414,7 @@ const IDX_EXTRA = {
   tipoConsultaOdonto: index(LEDI_TIPO_CONSULTA_ODONTO),
   adModalidade: index(LEDI_AD_MODALIDADE),
   adDesfecho: index(LEDI_AD_DESFECHO),
+  adCondicao: index(LEDI_AD_CONDICAO),
   atividadeColetiva: index(LEDI_ATIVIDADE_COLETIVA),
   publicoAlvo: index(LEDI_PUBLICO_ALVO),
   temaSaude: index(LEDI_TEMA_SAUDE),
@@ -381,6 +437,10 @@ export function resolveTipoConsultaOdonto(raw?: string | number | null): Resolve
 
 export function resolveAdModalidade(raw?: string | number | null): ResolvedLediEnum | null {
   return resolveOne(IDX_EXTRA.adModalidade, raw, 'atencaoDomiciliarModalidade');
+}
+
+export function resolveAdCondicao(raw?: string | number | null): ResolvedLediEnum | null {
+  return resolveOne(IDX_EXTRA.adCondicao, raw, 'condicoesAvaliadas');
 }
 
 export function resolveAdDesfecho(raw?: string | number | null): ResolvedLediEnum | null {
@@ -415,6 +475,7 @@ export function lediEnumCatalog() {
     tipoConsultaOdonto: LEDI_TIPO_CONSULTA_ODONTO,
     adModalidade: LEDI_AD_MODALIDADE,
     adDesfecho: LEDI_AD_DESFECHO,
+    adCondicao: LEDI_AD_CONDICAO,
     atividadeColetiva: LEDI_ATIVIDADE_COLETIVA,
     publicoAlvo: LEDI_PUBLICO_ALVO,
     temaSaude: LEDI_TEMA_SAUDE,

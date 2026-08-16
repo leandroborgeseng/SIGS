@@ -102,7 +102,12 @@ export function buildBpaStub(
     const qty =
       b.kind === 'collective_activity'
         ? Math.max(1, Number(child.numParticipantes || p.participantCount || 1))
-        : 1;
+        : b.kind === 'home_care'
+          ? Math.max(
+              1,
+              Array.isArray(p.atendimentosDomiciliares) ? p.atendimentosDomiciliares.length : 1,
+            )
+          : 1;
 
     lines.push({
       competencia: comp,

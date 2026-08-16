@@ -14,6 +14,10 @@ type Catalog = {
   careTypes: Array<{ id: string; label: string }>;
   shifts: Array<{ id: string; label: string }>;
   desfechos?: Array<{ id: string; label: string }>;
+  encounterTypes?: Array<{ id: string; label: string }>;
+  careLocations?: Array<{ id: string; label: string }>;
+  condicoesAvaliadas?: Array<{ id: string; label: string; lediId: number }>;
+  maxChildren?: number;
   defaultProcedure: string;
   procedureHints: Array<{ id: string; label: string }>;
 };
@@ -23,6 +27,7 @@ type Row = {
   careType: string;
   shift?: string;
   visitedAt: string;
+  childCount?: number;
   patient: Patient;
   productionBatchId?: string | null;
 };
@@ -33,13 +38,17 @@ export default function HomeCarePage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
-  const [patientId, setPatientId] = useState('');
+  const [patientIds, setPatientIds] = useState<string[]>([]);
   const [professionalId, setProfessionalId] = useState('');
   const [careType, setCareType] = useState('AD1');
   const [shift, setShift] = useState('MANHA');
+  const [encounterType, setEncounterType] = useState('ATENDIMENTO_PROGRAMADO');
+  const [careLocation, setCareLocation] = useState('DOMICILIO');
   const [procCode, setProcCode] = useState('0101040024');
   const [notes, setNotes] = useState('');
   const [desfecho, setDesfecho] = useState('PERMANENCIA');
+  const [condicoes, setCondicoes] = useState<number[]>([]);
+  const [addPatientId, setAddPatientId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
@@ -63,29 +72,68 @@ export default function HomeCarePage() {
     void load().catch((e) => setError(e instanceof Error ? e.message : 'Falha'));
   }, [facilityId]);
 
+  function togglePatient(id: string) {
+    setPatientIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function toggleCondicao(lediId: number) {
+    setCondicoes((prev) =>
+      prev.includes(lediId) ? prev.filter((x) => x !== lediId) : [...prev, lediId],
+    );
+  }
+
   async function open(e: FormEvent) {
     e.preventDefault();
     if (!facilityId) return setError('Selecione uma unidade.');
+    if (!patientIds.length) return setError('Selecione ao menos um cidadão.');
     setError(null);
     setOk(null);
     try {
-      const row = await api<{ id: string; careType: string }>('/v1/home-care-visits', {
-        method: 'POST',
-        json: {
-          patientId,
-          facilityId,
-          professionalId: professionalId || undefined,
-          careType,
-          shift,
-          notes,
-          procedures: [procCode, 'VISITA'].filter(Boolean),
+      const row = await api<{ id: string; careType: string; childCount?: number }>(
+        '/v1/home-care-visits',
+        {
+          method: 'POST',
+          json: {
+            patientIds,
+            facilityId,
+            professionalId: professionalId || undefined,
+            careType,
+            shift,
+            encounterType,
+            careLocation,
+            notes,
+            procedures: [procCode, 'VISITA'].filter(Boolean),
+            condicoesAvaliadas: condicoes.length ? condicoes : undefined,
+          },
         },
-      });
+      );
       setNotes('');
-      setOk(`Visita ${row.careType} aberta (${row.id.slice(0, 8)}…). Finalize para gerar lote BPA.`);
+      setOk(
+        `Ficha ${row.careType} aberta com ${row.childCount ?? patientIds.length} atendimento(s) (${row.id.slice(0, 8)}…). Finalize para gerar lote.`,
+      );
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao abrir');
+    }
+  }
+
+  async function addChild(visitId: string) {
+    if (!addPatientId) return setError('Selecione o paciente a incluir.');
+    setError(null);
+    setOk(null);
+    try {
+      const res = await api<{ childCount?: number; children?: unknown[] }>(
+        `/v1/home-care-visits/${visitId}/children`,
+        {
+          method: 'POST',
+          json: { patientId: addPatientId, careType, shift },
+        },
+      );
+      setAddPatientId('');
+      setOk(`Cidadão incluído — ficha com ${res.childCount ?? res.children?.length ?? '?'} atendimentos.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao incluir');
     }
   }
 
@@ -93,13 +141,26 @@ export default function HomeCarePage() {
     setError(null);
     setOk(null);
     try {
-      const res = await api<{ productionBatch?: { id: string } }>(`/v1/home-care-visits/${id}/finish`, {
+      const res = await api<{
+        productionBatch?: { id: string; payload?: { atendimentosDomiciliares?: unknown[] } };
+        visit?: { childCount?: number };
+      }>(`/v1/home-care-visits/${id}/finish`, {
         method: 'POST',
-        json: { procedures: [procCode, 'VISITA', 'ORIENTACAO'], desfecho },
+        json: {
+          procedures: [procCode, 'VISITA', 'ORIENTACAO'],
+          desfecho,
+          encounterType,
+          careLocation,
+          condicoesAvaliadas: condicoes.length ? condicoes : undefined,
+        },
       });
+      const n =
+        res.productionBatch?.payload?.atendimentosDomiciliares?.length ??
+        res.visit?.childCount ??
+        1;
       setOk(
         res.productionBatch?.id
-          ? `Finalizada — lote ${res.productionBatch.id.slice(0, 8)}… em Produção (SIGTAP 0101040024).`
+          ? `Finalizada — lote ${res.productionBatch.id.slice(0, 8)}… com ${n} atendimento(s) LEDI (SIGTAP 0101040024 × ${n}).`
           : 'Visita domiciliar finalizada.',
       );
       await load();
@@ -113,7 +174,7 @@ export default function HomeCarePage() {
       <PageHeader
         title="Atenção domiciliar"
         eyebrow="Operação"
-        description="Visita AD1/AD2/AD3 → lote home_care (LEDI/BPA stub · RF-3.54)."
+        description="Ficha AD multi-cidadão (1–99) → lote home_care LEDI/BPA · RF-3.54."
         actions={
           <>
             <HelpLink id="ad.stub" />
@@ -130,16 +191,21 @@ export default function HomeCarePage() {
         </div>
       ) : null}
       <form className="card grid-2" onSubmit={open} style={{ marginBottom: 16 }}>
-        <div className="field">
-          <label>Paciente</label>
-          <select required value={patientId} onChange={(e) => setPatientId(e.target.value)}>
-            <option value="">Selecionar…</option>
-            {patients.map((p) => (
-              <option key={p.id} value={p.id}>
+        <div className="field" style={{ gridColumn: '1 / -1' }}>
+          <label>Cidadãos na ficha ({patientIds.length})</label>
+          <div style={{ maxHeight: 160, overflow: 'auto', display: 'grid', gap: 4 }}>
+            {patients.slice(0, 60).map((p) => (
+              <label key={p.id} className="check" style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={patientIds.includes(p.id)}
+                  onChange={() => togglePatient(p.id)}
+                />
                 {displayPatientName(p)}
-              </option>
+              </label>
             ))}
-          </select>
+            {!patients.length ? <span className="muted">Cadastre pacientes para montar a ficha.</span> : null}
+          </div>
         </div>
         <div className="field">
           <label>Profissional</label>
@@ -181,6 +247,30 @@ export default function HomeCarePage() {
           </select>
         </div>
         <div className="field">
+          <label>Tipo de atendimento (LEDI)</label>
+          <select value={encounterType} onChange={(e) => setEncounterType(e.target.value)}>
+            {(catalog?.encounterTypes || [
+              { id: 'ATENDIMENTO_PROGRAMADO', label: 'Programado' },
+              { id: 'ATENDIMENTO_NAO_PROGRAMADO', label: 'Não programado' },
+              { id: 'VISITA_DOMICILIAR_POS_OBITO', label: 'Pós-óbito' },
+            ]).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Local</label>
+          <select value={careLocation} onChange={(e) => setCareLocation(e.target.value)}>
+            {(catalog?.careLocations || [{ id: 'DOMICILIO', label: 'Domicílio' }]).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
           <label>Procedimento (SIGTAP / stub)</label>
           <select value={procCode} onChange={(e) => setProcCode(e.target.value)}>
             {(catalog?.procedureHints || [{ id: '0101040024', label: 'Visita domiciliar' }]).map((p) => (
@@ -204,19 +294,56 @@ export default function HomeCarePage() {
           </select>
         </div>
         <div className="field" style={{ gridColumn: '1 / -1' }}>
+          <label>Condições avaliadas (LEDI)</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 4 }}>
+            {(catalog?.condicoesAvaliadas || []).slice(0, 12).map((c) => (
+              <label key={c.lediId} className="check" style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={condicoes.includes(c.lediId)}
+                  onChange={() => toggleCondicao(c.lediId)}
+                />
+                {c.label}
+              </label>
+            ))}
+            {!catalog?.condicoesAvaliadas?.length ? (
+              <span className="muted">Catálogo carregará com a API.</span>
+            ) : null}
+          </div>
+        </div>
+        <div className="field" style={{ gridColumn: '1 / -1' }}>
           <label>Notas clínicas / orientação</label>
           <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         <button className="btn btn-primary" type="submit">
-          Registrar visita
+          Registrar ficha AD
         </button>
       </form>
+
+      <div className="card" style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
+        <div className="field" style={{ flex: 1, minWidth: 200 }}>
+          <label>Incluir cidadão em ficha aberta</label>
+          <select value={addPatientId} onChange={(e) => setAddPatientId(e.target.value)}>
+            <option value="">Selecionar…</option>
+            {patients.map((p) => (
+              <option key={p.id} value={p.id}>
+                {displayPatientName(p)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <span className="muted" style={{ alignSelf: 'center' }}>
+          Use o botão “+ cidadão” na linha da visita.
+        </span>
+      </div>
+
       <div className="table-wrap">
         <table className="data">
           <thead>
             <tr>
               <th>Quando</th>
-              <th>Paciente</th>
+              <th>Âncora</th>
+              <th>Cidadãos</th>
               <th>Tipo</th>
               <th>Turno</th>
               <th>Status</th>
@@ -228,14 +355,25 @@ export default function HomeCarePage() {
               <tr key={r.id}>
                 <td className="mono">{formatDateTime(r.visitedAt)}</td>
                 <td>{displayPatientName(r.patient)}</td>
+                <td className="mono">{r.childCount ?? 1}</td>
                 <td>{r.careType}</td>
                 <td>{r.shift || '—'}</td>
                 <td>{r.status}</td>
-                <td>
+                <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {r.status !== 'COMPLETED' ? (
-                    <button type="button" className="btn btn-primary" onClick={() => void finish(r.id)}>
-                      Finalizar
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => void addChild(r.id)}
+                        disabled={!addPatientId}
+                      >
+                        + cidadão
+                      </button>
+                      <button type="button" className="btn btn-primary" onClick={() => void finish(r.id)}>
+                        Finalizar
+                      </button>
+                    </>
                   ) : (
                     <span className="mono">{r.productionBatchId?.slice(0, 8)}…</span>
                   )}
@@ -244,7 +382,7 @@ export default function HomeCarePage() {
             ))}
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6}>Nenhuma visita domiciliar nesta unidade.</td>
+                <td colSpan={7}>Nenhuma visita domiciliar nesta unidade.</td>
               </tr>
             ) : null}
           </tbody>

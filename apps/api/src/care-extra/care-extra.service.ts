@@ -11,6 +11,7 @@ import { RF } from '../common/rf';
 import { resolveLotacaoHeader } from '../ledi/lotacao.resolver';
 import {
   LEDI_ATIVIDADE_COLETIVA,
+  LEDI_AD_CONDICAO,
   LEDI_CONDUTA_ODONTO,
   LEDI_LOCAL_ATENDIMENTO,
   LEDI_PUBLICO_ALVO,
@@ -21,17 +22,19 @@ import {
   LEDI_TURNO,
 } from '../ledi/db-enums';
 import {
+  AddHomeCareChildDto,
   CreateDentalEncounterDto,
   CreateHomeCareVisitDto,
   CreateCollectiveActivityDto,
   FinishDentalEncounterDto,
   FinishHomeCareVisitDto,
   FinishCollectiveActivityDto,
+  HomeCareChildDto,
   PatchDentalEncounterDto,
   ValidateDentalFaoDto,
 } from './dto';
 import { buildDentalLediPayload } from './ledi-dental.mapper';
-import { buildHomeCareLediPayload } from './ledi-homecare.mapper';
+import { AD_MAX_CHILDREN, buildHomeCareLediPayload } from './ledi-homecare.mapper';
 import { buildCollectiveLediPayload } from './ledi-collective.mapper';
 import { validateFaoJson, validateFaoXml } from './ledi-fao.validator';
 import { tipoAtendimentoFromItemType } from '../appointments/appointments.constants';
@@ -1345,11 +1348,13 @@ export class CareExtraService {
   }
 
   listHomeCare(facilityId?: string) {
-    return this.prisma.homeCareVisit.findMany({
-      where: facilityId ? { facilityId } : undefined,
-      orderBy: { visitedAt: 'desc' },
-      include: { patient: true, facility: true, professional: true },
-    });
+    return this.prisma.homeCareVisit
+      .findMany({
+        where: facilityId ? { facilityId } : undefined,
+        orderBy: { visitedAt: 'desc' },
+        include: { patient: true, facility: true, professional: true },
+      })
+      .then((rows) => rows.map((row) => this.decorateHomeCare(row)));
   }
 
   async getHomeCare(id: string) {
@@ -1358,30 +1363,38 @@ export class CareExtraService {
       include: { patient: true, facility: true, professional: true },
     });
     if (!row) throw new NotFoundException('Visita domiciliar não encontrada');
-    return {
-      ...row,
-      procedures: JSON.parse(row.proceduresJson || '[]'),
-    };
+    const decorated = this.decorateHomeCare(row);
+    const children = await this.resolveHomeCareChildren(row);
+    return { ...decorated, children };
   }
 
   catalogHomeCare() {
+    const adTipos = LEDI_TIPO_ATENDIMENTO.filter((t) => [7, 8, 9].includes(t.id));
     return {
       careTypes: [
         { id: 'AD1', label: 'AD1 — atenção domiciliar básica', lediId: 1 },
         { id: 'AD2', label: 'AD2 — atenção domiciliar intermediária', lediId: 2 },
         { id: 'AD3', label: 'AD3 — atenção domiciliar intensiva', lediId: 3 },
       ],
-      shifts: [
-        { id: 'MANHA', label: 'Manhã', lediId: 1 },
-        { id: 'TARDE', label: 'Tarde', lediId: 2 },
-        { id: 'NOITE', label: 'Noite', lediId: 3 },
-      ],
+      shifts: LEDI_TURNO.map((t) => ({ id: t.code, label: t.label, lediId: t.id })),
       desfechos: [
         { id: 'PERMANENCIA', label: 'Permanência', lediId: 7 },
         { id: 'ALTA', label: 'Alta clínica', lediId: 1 },
         { id: 'ALTA_ADMINISTRATIVA', label: 'Alta administrativa', lediId: 3 },
         { id: 'URGENCIA', label: 'Urgência/emergência', lediId: 4 },
+        { id: 'INTERNACAO', label: 'Internação hospitalar', lediId: 5 },
+        { id: 'OBITO', label: 'Óbito', lediId: 9 },
       ],
+      encounterTypes: adTipos.map((t) => ({ id: t.code, label: t.label, lediId: t.id })),
+      careLocations: LEDI_LOCAL_ATENDIMENTO.filter((l) =>
+        ['DOMICILIO', 'INSTITUICAO_ABRIGO', 'UBS', 'OUTROS'].includes(l.code),
+      ).map((l) => ({ id: l.code, label: l.label, lediId: l.id })),
+      condicoesAvaliadas: LEDI_AD_CONDICAO.map((c) => ({
+        id: c.code,
+        label: c.label,
+        lediId: c.id,
+      })),
+      maxChildren: AD_MAX_CHILDREN,
       defaultProcedure: '0101040024',
       procedureHints: [
         { id: '0101040024', label: 'Atendimento / visita domiciliar' },
@@ -1392,10 +1405,113 @@ export class CareExtraService {
     };
   }
 
-  async openHomeCare(dto: CreateHomeCareVisitDto) {
-    if (!(await this.prisma.patient.findUnique({ where: { id: dto.patientId } }))) {
-      throw new BadRequestException('patientId inválido');
+  private parseHomeCareChildrenJson(raw: string | null | undefined): HomeCareChildDto[] {
+    try {
+      const parsed = JSON.parse(raw || '[]');
+      return Array.isArray(parsed) ? (parsed as HomeCareChildDto[]) : [];
+    } catch {
+      return [];
     }
+  }
+
+  private decorateHomeCare<
+    T extends {
+      patientId: string;
+      proceduresJson: string;
+      childrenJson?: string | null;
+      patient?: unknown;
+    },
+  >(row: T) {
+    const stored = this.parseHomeCareChildrenJson(row.childrenJson);
+    const childCount = Math.max(1, stored.length || 1);
+    return {
+      ...row,
+      procedures: JSON.parse(row.proceduresJson || '[]'),
+      childCount,
+      childrenDraft: stored.length
+        ? stored
+        : [{ patientId: row.patientId } satisfies HomeCareChildDto],
+    };
+  }
+
+  private normalizeHomeCareChildDrafts(
+    dto: CreateHomeCareVisitDto | { children?: HomeCareChildDto[]; patientIds?: string[]; patientId?: string },
+    defaults: {
+      careType: string;
+      shift: string;
+      careLocation?: string;
+      encounterType?: string;
+      procedures: string[];
+      notes?: string;
+      condicoesAvaliadas?: number[];
+      problemasCondicoes?: HomeCareChildDto['problemasCondicoes'];
+    },
+  ): HomeCareChildDto[] {
+    let drafts: HomeCareChildDto[] = [];
+    if (dto.children?.length) {
+      drafts = dto.children.map((c) => ({ ...c }));
+    } else if (dto.patientIds?.length) {
+      drafts = dto.patientIds.map((patientId) => ({ patientId }));
+    } else if (dto.patientId) {
+      drafts = [{ patientId: dto.patientId }];
+    }
+    if (!drafts.length) {
+      throw new BadRequestException('Informe patientId, patientIds ou children');
+    }
+    if (drafts.length > AD_MAX_CHILDREN) {
+      throw new BadRequestException(`Máximo ${AD_MAX_CHILDREN} atendimentos por ficha AD`);
+    }
+    const seen = new Set<string>();
+    for (const d of drafts) {
+      if (!d.patientId) throw new BadRequestException('child.patientId obrigatório');
+      if (seen.has(d.patientId)) {
+        throw new BadRequestException('Paciente duplicado na ficha AD');
+      }
+      seen.add(d.patientId);
+      d.careType = (d.careType || defaults.careType).toUpperCase();
+      d.shift = (d.shift || defaults.shift).toUpperCase();
+      d.careLocation = d.careLocation || defaults.careLocation || 'DOMICILIO';
+      d.encounterType = d.encounterType || defaults.encounterType || 'ATENDIMENTO_PROGRAMADO';
+      d.procedures = d.procedures?.length ? d.procedures : defaults.procedures;
+      d.notes = d.notes ?? defaults.notes;
+      d.condicoesAvaliadas = d.condicoesAvaliadas ?? defaults.condicoesAvaliadas;
+      d.problemasCondicoes = d.problemasCondicoes ?? defaults.problemasCondicoes;
+    }
+    return drafts;
+  }
+
+  private async resolveHomeCareChildren(row: {
+    patientId: string;
+    careType: string;
+    shift: string;
+    notes: string | null;
+    proceduresJson: string;
+    childrenJson?: string | null;
+  }) {
+    const drafts = this.parseHomeCareChildrenJson(row.childrenJson);
+    const effective =
+      drafts.length > 0
+        ? drafts
+        : [
+            {
+              patientId: row.patientId,
+              careType: row.careType,
+              shift: row.shift,
+              procedures: JSON.parse(row.proceduresJson || '[]') as string[],
+              notes: row.notes ?? undefined,
+            } satisfies HomeCareChildDto,
+          ];
+    const ids = effective.map((c) => c.patientId);
+    const patients = await this.prisma.patient.findMany({ where: { id: { in: ids } } });
+    const byId = new Map(patients.map((p) => [p.id, p]));
+    return effective.map((c) => {
+      const patient = byId.get(c.patientId);
+      if (!patient) throw new BadRequestException(`patientId inválido no child: ${c.patientId}`);
+      return { ...c, patient };
+    });
+  }
+
+  async openHomeCare(dto: CreateHomeCareVisitDto) {
     if (!(await this.prisma.facility.findUnique({ where: { id: dto.facilityId } }))) {
       throw new BadRequestException('facilityId inválido');
     }
@@ -1414,23 +1530,139 @@ export class CareExtraService {
 
     const procedures =
       dto.procedures?.length ? dto.procedures : ['0101040024', 'VISITA'];
+    const children = this.normalizeHomeCareChildDrafts(dto, {
+      careType,
+      shift,
+      careLocation: dto.careLocation,
+      encounterType: dto.encounterType,
+      procedures,
+      notes: dto.notes,
+      condicoesAvaliadas: dto.condicoesAvaliadas,
+      problemasCondicoes: dto.problemasCondicoes,
+    });
 
+    for (const c of children) {
+      if (!(await this.prisma.patient.findUnique({ where: { id: c.patientId } }))) {
+        throw new BadRequestException(`patientId inválido: ${c.patientId}`);
+      }
+      if (!['AD1', 'AD2', 'AD3'].includes((c.careType || careType).toUpperCase())) {
+        throw new BadRequestException(`careType inválido no child ${c.patientId}`);
+      }
+    }
+
+    const anchorId = children[0]!.patientId;
     const row = await this.prisma.homeCareVisit.create({
       data: {
-        patientId: dto.patientId,
+        patientId: anchorId,
         facilityId: dto.facilityId,
         professionalId: dto.professionalId,
         careType,
         shift,
         notes: dto.notes,
         proceduresJson: JSON.stringify(procedures),
+        childrenJson: JSON.stringify(children),
         visitedAt: dto.visitedAt ? new Date(dto.visitedAt) : new Date(),
         status: 'IN_PROGRESS',
       },
       include: { patient: true, facility: true, professional: true },
     });
-    await this.prisma.audit('open', 'home_care_visit', row.id, [RF.HOME_CARE.id], { careType });
-    return row;
+    await this.prisma.audit('open', 'home_care_visit', row.id, [RF.HOME_CARE.id], {
+      careType,
+      childCount: children.length,
+    });
+    return this.decorateHomeCare(row);
+  }
+
+  async addHomeCareChild(id: string, dto: AddHomeCareChildDto) {
+    const row = await this.prisma.homeCareVisit.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Visita domiciliar não encontrada');
+    if (row.status === 'COMPLETED') throw new BadRequestException('Já finalizada');
+
+    if (!(await this.prisma.patient.findUnique({ where: { id: dto.patientId } }))) {
+      throw new BadRequestException('patientId inválido');
+    }
+
+    const existing = this.parseHomeCareChildrenJson(row.childrenJson);
+    const base =
+      existing.length > 0
+        ? existing
+        : [
+            {
+              patientId: row.patientId,
+              careType: row.careType,
+              shift: row.shift,
+              procedures: JSON.parse(row.proceduresJson || '[]') as string[],
+              notes: row.notes ?? undefined,
+            } satisfies HomeCareChildDto,
+          ];
+    if (base.some((c) => c.patientId === dto.patientId)) {
+      throw new BadRequestException('Paciente já está na ficha AD');
+    }
+    if (base.length >= AD_MAX_CHILDREN) {
+      throw new BadRequestException(`Máximo ${AD_MAX_CHILDREN} atendimentos por ficha AD`);
+    }
+
+    const child: HomeCareChildDto = {
+      patientId: dto.patientId,
+      careType: (dto.careType || row.careType).toUpperCase(),
+      shift: (dto.shift || row.shift).toUpperCase(),
+      careLocation: dto.careLocation || 'DOMICILIO',
+      encounterType: dto.encounterType || 'ATENDIMENTO_PROGRAMADO',
+      procedures: dto.procedures?.length
+        ? dto.procedures
+        : (JSON.parse(row.proceduresJson || '[]') as string[]),
+      desfecho: dto.desfecho,
+      notes: dto.notes,
+      condicoesAvaliadas: dto.condicoesAvaliadas,
+      problemasCondicoes: dto.problemasCondicoes,
+    };
+    if (!['AD1', 'AD2', 'AD3'].includes(child.careType!)) {
+      throw new BadRequestException('careType deve ser AD1, AD2 ou AD3');
+    }
+
+    const next = [...base, child];
+    const updated = await this.prisma.homeCareVisit.update({
+      where: { id },
+      data: { childrenJson: JSON.stringify(next) },
+      include: { patient: true, facility: true, professional: true },
+    });
+    await this.prisma.audit('add_child', 'home_care_visit', id, [RF.HOME_CARE.id], {
+      patientId: dto.patientId,
+      childCount: next.length,
+    });
+    return this.getHomeCare(updated.id);
+  }
+
+  async removeHomeCareChild(id: string, patientId: string) {
+    const row = await this.prisma.homeCareVisit.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Visita domiciliar não encontrada');
+    if (row.status === 'COMPLETED') throw new BadRequestException('Já finalizada');
+
+    const existing = this.parseHomeCareChildrenJson(row.childrenJson);
+    const base =
+      existing.length > 0
+        ? existing
+        : [{ patientId: row.patientId } satisfies HomeCareChildDto];
+    if (base.length <= 1) {
+      throw new BadRequestException('Ficha AD precisa de ao menos 1 cidadão');
+    }
+    const next = base.filter((c) => c.patientId !== patientId);
+    if (next.length === base.length) {
+      throw new NotFoundException('Paciente não está nesta ficha AD');
+    }
+    const updated = await this.prisma.homeCareVisit.update({
+      where: { id },
+      data: {
+        childrenJson: JSON.stringify(next),
+        patientId: next[0]!.patientId,
+      },
+      include: { patient: true, facility: true, professional: true },
+    });
+    await this.prisma.audit('remove_child', 'home_care_visit', id, [RF.HOME_CARE.id], {
+      patientId,
+      childCount: next.length,
+    });
+    return this.getHomeCare(updated.id);
   }
 
   async finishHomeCare(id: string, dto: FinishHomeCareVisitDto) {
@@ -1451,6 +1683,63 @@ export class CareExtraService {
       cbo: dto.cbo,
     });
 
+    let drafts: HomeCareChildDto[];
+    if (dto.children?.length) {
+      drafts = this.normalizeHomeCareChildDrafts(
+        { children: dto.children },
+        {
+          careType: row.careType,
+          shift: row.shift,
+          careLocation: dto.careLocation,
+          encounterType: dto.encounterType,
+          procedures,
+          notes: dto.notes || row.notes || undefined,
+          condicoesAvaliadas: dto.condicoesAvaliadas,
+          problemasCondicoes: dto.problemasCondicoes,
+        },
+      );
+    } else {
+      const stored = this.parseHomeCareChildrenJson(row.childrenJson);
+      drafts =
+        stored.length > 0
+          ? stored
+          : [
+              {
+                patientId: row.patientId,
+                careType: row.careType,
+                shift: row.shift,
+                procedures,
+                notes: row.notes ?? undefined,
+              },
+            ];
+      drafts = drafts.map((c) => ({
+        ...c,
+        careType: (c.careType || row.careType).toUpperCase(),
+        shift: (c.shift || row.shift).toUpperCase(),
+        careLocation: c.careLocation || dto.careLocation || 'DOMICILIO',
+        encounterType: c.encounterType || dto.encounterType || 'ATENDIMENTO_PROGRAMADO',
+        procedures: c.procedures?.length ? c.procedures : procedures,
+        desfecho: c.desfecho || dto.desfecho || 'PERMANENCIA',
+        notes: c.notes ?? dto.notes ?? row.notes ?? undefined,
+        condicoesAvaliadas: c.condicoesAvaliadas ?? dto.condicoesAvaliadas,
+        problemasCondicoes: c.problemasCondicoes ?? dto.problemasCondicoes,
+      }));
+    }
+
+    if (!drafts.length || drafts.length > AD_MAX_CHILDREN) {
+      throw new BadRequestException(`Ficha AD exige 1–${AD_MAX_CHILDREN} atendimentos`);
+    }
+
+    const patients = await this.prisma.patient.findMany({
+      where: { id: { in: drafts.map((c) => c.patientId) } },
+    });
+    const byId = new Map(patients.map((p) => [p.id, p]));
+    for (const d of drafts) {
+      if (!byId.has(d.patientId)) {
+        throw new BadRequestException(`patientId inválido: ${d.patientId}`);
+      }
+    }
+
     const uuidFicha = randomUUID();
     let payload;
     try {
@@ -1459,12 +1748,18 @@ export class CareExtraService {
         lotacao,
         codigoIbgeMunicipio: row.facility.ibgeCode,
         visitedAt: row.visitedAt,
-        patient: row.patient,
-        careType: row.careType,
-        shift: row.shift,
-        procedures,
-        desfecho: dto.desfecho || 'PERMANENCIA',
-        notes: dto.notes || row.notes,
+        children: drafts.map((c) => ({
+          patient: byId.get(c.patientId)!,
+          careType: c.careType || row.careType,
+          shift: c.shift || row.shift,
+          careLocation: c.careLocation,
+          encounterType: c.encounterType,
+          procedures: c.procedures || procedures,
+          desfecho: c.desfecho || dto.desfecho || 'PERMANENCIA',
+          notes: c.notes,
+          condicoesAvaliadas: c.condicoesAvaliadas,
+          problemasCondicoes: c.problemasCondicoes,
+        })),
       });
     } catch (e) {
       throw new BadRequestException((e as Error).message);
@@ -1486,14 +1781,20 @@ export class CareExtraService {
         finishedAt: dto.finishedAt ? new Date(dto.finishedAt) : new Date(),
         notes: dto.notes ?? row.notes,
         proceduresJson: JSON.stringify(procedures),
+        childrenJson: JSON.stringify(drafts),
+        patientId: drafts[0]!.patientId,
         productionBatchId: batch.id,
       },
       include: { patient: true, facility: true },
     });
     await this.prisma.audit('finish', 'home_care_visit', id, [RF.HOME_CARE.id, RF.PROD.id], {
       productionBatchId: batch.id,
+      childCount: drafts.length,
     });
-    return { visit: updated, productionBatch: { ...batch, payload } };
+    return {
+      visit: this.decorateHomeCare(updated),
+      productionBatch: { ...batch, payload },
+    };
   }
 
   catalogCollective() {

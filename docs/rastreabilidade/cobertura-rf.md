@@ -62,7 +62,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-12.11 | Obr | coberto | automatizado | `GET …/odontogram-history` (inclui `treatmentId`) · `PATCH …/odontogram-history/:sourceId` · timeline + filtro “só tratamento atual” + “Usar neste atendimento” em `/odonto/[id]` |
 | RF-12.13 | Obr | coberto | automatizado | catálogo predefinido `GET /v1/catalog/dental#predefinedProcedures` · PATCH lista + `done` · FAO só `done !== false` · UI `/odonto/[id]` |
 | RF-12.20 | Obr | parcial | previsto | lista `/odonto` cronológica básica |
-| RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` + UI `/ad` desfecho |
+| RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` multi-child (1–99) · UI `/ad` · desfecho/condições/tipo LEDI |
 | RF-3.53 | Obr | parcial | automatizado | `ledi-collective-v2` + UI `/coletivo` enums LEDI + participantes nominais |
 | RF-9.2 | Obr | parcial | previsto | BPA stub via produção |
 | RF-10.4 | Obr | parcial | automatizado | `bpa-stub.mapper` + `/production/bpa/export` |

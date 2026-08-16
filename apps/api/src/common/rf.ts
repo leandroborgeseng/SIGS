@@ -104,8 +104,8 @@ export const RF = {
     id: 'RF-3.54',
     tipo: 'Obrigatório',
     fonte: 'ambos',
-    teste_faturamento: 'previsto',
-    nota: 'Atendimento domiciliar APS (stub MVP)',
+    teste_faturamento: 'automatizado',
+    nota: 'Atendimento domiciliar APS multi-child LEDI (1–99)',
   },
   COLLECTIVE: {
     id: 'RF-3.53',

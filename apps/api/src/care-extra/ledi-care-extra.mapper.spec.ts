@@ -80,9 +80,68 @@ describe('LEDI care-extra mappers v2', () => {
       desfecho: 'ALTA',
     });
     expect(p.mapperVersion).toBe('ledi-homecare-v2');
+    expect(p.atendimentosDomiciliares).toHaveLength(1);
     expect(p.atendimentosDomiciliares[0].atencaoDomiciliarModalidade).toBe(2);
     expect(p.atendimentosDomiciliares[0].condutaDesfecho).toBe(1);
+    expect(p.atendimentosDomiciliares[0].stCidadaoNaoPossuiCpf).toBe(true);
+    expect(p.atendimentosDomiciliares[0].tipoAtendimento).toBe(7);
     expect(p.fichaAdTransport.modalidade).toBe('AD2');
+  });
+
+  it('AD multi-child emite N atendimentosDomiciliares + condições', () => {
+    const p = buildHomeCareLediPayload({
+      uuidFicha: 'ad-multi',
+      lotacao,
+      visitedAt: new Date('2026-08-16T11:00:00Z'),
+      children: [
+        {
+          patient: {
+            cpf: '52998224725',
+            cns: null,
+            birthDate: new Date('1940-01-01'),
+            sex: 'F',
+          },
+          careType: 'AD1',
+          shift: 'MANHA',
+          procedures: ['0101040024'],
+          desfecho: 'PERMANENCIA',
+          condicoesAvaliadas: [1, 3],
+          problemasCondicoes: [{ ciap: 'A98' }],
+        },
+        {
+          patient: {
+            cpf: null,
+            cns: '898003333333333',
+            birthDate: new Date('1955-06-01'),
+            sex: 'M',
+          },
+          careType: 'AD3',
+          shift: 'TARDE',
+          encounterType: 'ATENDIMENTO_NAO_PROGRAMADO',
+          procedures: ['0101040024', 'CURATIVO'],
+          desfecho: 'ALTA',
+        },
+      ],
+    });
+    expect(p.atendimentosDomiciliares).toHaveLength(2);
+    expect(p.atendimentosDomiciliares[0].atencaoDomiciliarModalidade).toBe(1);
+    expect(p.atendimentosDomiciliares[0].condicoesAvaliadas).toEqual([1, 3]);
+    expect(p.atendimentosDomiciliares[0].ciap).toBe('A98');
+    expect(p.atendimentosDomiciliares[0].stCidadaoNaoPossuiCpf).toBe(false);
+    expect(p.atendimentosDomiciliares[1].atencaoDomiciliarModalidade).toBe(3);
+    expect(p.atendimentosDomiciliares[1].tipoAtendimento).toBe(8);
+    expect(p.fichaAdTransport.atencaoDomiciliarModalidade).toBe(1);
+  });
+
+  it('AD rejeita zero children', () => {
+    expect(() =>
+      buildHomeCareLediPayload({
+        uuidFicha: 'ad-0',
+        lotacao,
+        visitedAt: new Date(),
+        children: [],
+      }),
+    ).toThrow(/ao menos 1/);
   });
 
   it('coletivo mapeia educação + tema saúde', () => {

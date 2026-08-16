@@ -405,12 +405,41 @@ function validateDental(findings: PreflightFinding[], child: Record<string, unkn
   }
 }
 
-function validateHomeCare(findings: PreflightFinding[], child: Record<string, unknown>) {
-  const modalidade = child.atencaoDomiciliarModalidade ?? child.modalidade ?? child.careType;
-  if (modalidade == null || modalidade === '') {
-    push(findings, 'MONEY_RISK', 'AD_MODALITY_MISSING', 'Modalidade AD1/AD2/AD3 ausente.', {
-      moneyImpact: 'Classificação AD incorreta afeta produção.',
+function validateHomeCare(findings: PreflightFinding[], p: Record<string, unknown>, child: Record<string, unknown>) {
+  const list = Array.isArray(p.atendimentosDomiciliares) ? p.atendimentosDomiciliares : null;
+  if (list && list.length > 99) {
+    push(findings, 'BLOCKER', 'AD_CHILD_OVERFLOW', 'Ficha AD com mais de 99 atendimentosDomiciliares.', {
+      field: 'atendimentosDomiciliares',
+      moneyImpact: 'Lote rejeitado no LEDI.',
     });
+  }
+  if (list && list.length === 0) {
+    push(findings, 'BLOCKER', 'AD_CHILD_MISSING', 'Ficha AD sem atendimentosDomiciliares[].', {
+      field: 'atendimentosDomiciliares',
+    });
+  }
+  const targets = list?.length
+    ? list.map((c) => asRecord(c) || {})
+    : [child];
+  for (const [i, c] of targets.entries()) {
+    const modalidade = c.atencaoDomiciliarModalidade ?? c.modalidade ?? c.careType;
+    if (modalidade == null || modalidade === '') {
+      push(findings, 'MONEY_RISK', 'AD_MODALITY_MISSING', `Modalidade AD1/AD2/AD3 ausente (child ${i}).`, {
+        moneyImpact: 'Classificação AD incorreta afeta produção.',
+        field: `atendimentosDomiciliares[${i}].atencaoDomiciliarModalidade`,
+      });
+    }
+    if (c.condutaDesfecho == null && c.desfecho == null) {
+      push(findings, 'QUALITY_WARN', 'AD_DESFECHO_MISSING', `condutaDesfecho ausente (child ${i}).`, {
+        field: `atendimentosDomiciliares[${i}].condutaDesfecho`,
+      });
+    }
+    if (c.tipoAtendimento == null) {
+      push(findings, 'QUALITY_WARN', 'AD_TIPO_MISSING', `tipoAtendimento ausente (child ${i}).`, {
+        field: `atendimentosDomiciliares[${i}].tipoAtendimento`,
+        hint: 'Use 7 programado, 8 não programado ou 9 pós-óbito.',
+      });
+    }
   }
 }
 
@@ -468,7 +497,7 @@ export function validateBatch(
     if (batch.kind === 'individual_encounter') validateIndividual(findings, p, child);
     if (batch.kind === 'vaccination') validateVaccination(findings, p, child);
     if (batch.kind === 'dental_encounter') validateDental(findings, child);
-    if (batch.kind === 'home_care') validateHomeCare(findings, child);
+    if (batch.kind === 'home_care') validateHomeCare(findings, p, child);
     if (batch.kind === 'collective_activity') validateCollective(findings, child, p);
 
     if (kindMap && opts?.sigtapKnown) {

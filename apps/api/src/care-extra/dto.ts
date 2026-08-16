@@ -361,24 +361,83 @@ export class PatchLediFaoBatchItemDto {
   @IsOptional() @IsInt() expectedVersion?: number;
 }
 
-export class CreateHomeCareVisitDto {
+export class HomeCareProblemaDto {
+  @IsOptional() @IsString() ciap?: string;
+  @IsOptional() @IsString() cid?: string;
+}
+
+/** Child LEDI da ficha AD (1 cidadão / atendimento). */
+export class HomeCareChildDto {
   @IsString() patientId!: string;
+  /** AD1 | AD2 | AD3 — herda da visita se omitido */
+  @IsOptional() @IsString() careType?: string;
+  @IsOptional() @IsString() shift?: string;
+  @IsOptional() @IsString() careLocation?: string;
+  /** ATENDIMENTO_PROGRAMADO | ATENDIMENTO_NAO_PROGRAMADO | VISITA_DOMICILIAR_POS_OBITO */
+  @IsOptional() @IsString() encounterType?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) procedures?: string[];
+  @IsOptional() @IsString() desfecho?: string;
+  @IsOptional() @IsString() notes?: string;
+  @IsOptional() @IsArray() @IsInt({ each: true }) condicoesAvaliadas?: number[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => HomeCareProblemaDto)
+  problemasCondicoes?: HomeCareProblemaDto[];
+}
+
+export class CreateHomeCareVisitDto {
+  /** Paciente âncora — obrigatório se patientIds/children vazios */
+  @ValidateIf((o: CreateHomeCareVisitDto) => !o.patientIds?.length && !o.children?.length)
+  @IsString()
+  patientId?: string;
+  /** Atalho multi-child: mesmos defaults da visita para cada paciente */
+  @IsOptional() @IsArray() @IsString({ each: true }) patientIds?: string[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => HomeCareChildDto)
+  children?: HomeCareChildDto[];
   @IsString() facilityId!: string;
   @IsOptional() @IsString() professionalId?: string;
   /** AD1 | AD2 | AD3 */
   @IsOptional() @IsString() careType?: string;
   @IsOptional() @IsString() shift?: string;
+  @IsOptional() @IsString() careLocation?: string;
+  @IsOptional() @IsString() encounterType?: string;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) procedures?: string[];
+  @IsOptional() @IsArray() @IsInt({ each: true }) condicoesAvaliadas?: number[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => HomeCareProblemaDto)
+  problemasCondicoes?: HomeCareProblemaDto[];
   @IsOptional() @IsDateString() visitedAt?: string;
 }
+
+export class AddHomeCareChildDto extends HomeCareChildDto {}
 
 export class FinishHomeCareVisitDto {
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) procedures?: string[];
   @IsOptional() @IsDateString() finishedAt?: string;
-  /** PERMANENCIA | ALTA | … */
+  /** PERMANENCIA | ALTA | … — default dos children sem desfecho próprio */
   @IsOptional() @IsString() desfecho?: string;
+  @IsOptional() @IsString() careLocation?: string;
+  @IsOptional() @IsString() encounterType?: string;
+  @IsOptional() @IsArray() @IsInt({ each: true }) condicoesAvaliadas?: number[];
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => HomeCareProblemaDto)
+  problemasCondicoes?: HomeCareProblemaDto[];
+  /** Substitui children persistidos no finish (opcional) */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => HomeCareChildDto)
+  children?: HomeCareChildDto[];
   @IsOptional() @IsString() assignmentId?: string;
   @IsOptional() @IsString() cbo?: string;
 }

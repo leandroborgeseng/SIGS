@@ -8,7 +8,7 @@
 | Fluxo | Kind lote | Mapper |
 |---|---|---|
 | Odonto | `dental_encounter` | `ledi-dental-v2` + validador FAO |
-| AD | `home_care` | `ledi-homecare-v2` |
+| AD | `home_care` | `ledi-homecare-v2` (1–99 children) |
 | Coletivo | `collective_activity` | `ledi-collective-v2` |
 
 Odonto exige **lotação**, **vigilanciaSaudeBucal[]**, **problemasCondicoes[]** e emite `headerTransport.lotacaoFormPrincipal`.  
