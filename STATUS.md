@@ -49,6 +49,7 @@
 | `38517c1` | STATUS SHA stubs CDS |
 | `6302a33` | Regressão CNES/PF/audit/LEDI + smoke `smoke:cnes-pf-ledi` |
 | `bdf966c` | Manuais stubs CDS/auditoria + RF-10.21 no CSV + handoff STATUS |
+| `f6cfecd` | Lista `/unidades` default **Rede Prefeitura** (~59) + CNPJ mantenedora |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC (**live** — não quebrar)

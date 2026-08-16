@@ -7,7 +7,7 @@
     "sourceTeams": "http://cnes2.datasus.gov.br/Mod_Ind_Equipes_Listar.asp",
     "competenciaHint": "API Dados Abertos + CnesWeb (sem PHI)",
     "generatedAt": "2026-08-16T19:22:24Z",
-    "gestaoCriterion": "naturezaJuridica=1244 (Município) — Prefeitura/Município de Franca; não usar só tipo_gestao=M",
+    "gestaoCriterion": "naturezaJuridica=1244 (Município) — Prefeitura/Município de Franca; CNPJ mantenedora 47970769000104 (enriquecimento; CNES numero_cnpj nulo na rede 1244); não usar só tipo_gestao=M",
     "counts": {
       "establishments": 1346,
       "teams": 124,
