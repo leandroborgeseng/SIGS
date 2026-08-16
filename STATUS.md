@@ -40,7 +40,8 @@
 | `ef138bc` | Import **profissionais lotados** PF + audit CNS municipal |
 | `c74e415` | Stub inventário Claude Design |
 | `65a01d1` | Handoff STATUS CNES/PF |
-| *(este bloco)* | FieldHint paciente/território · gap TB_FAIXA documentado |
+| `551acf2` | FieldHint Siaps/Previne paciente + território |
+| `8f50870` | Gap TB_FAIXA documentado + testes CDS/faixa |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC
