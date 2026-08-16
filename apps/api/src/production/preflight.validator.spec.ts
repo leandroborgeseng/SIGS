@@ -107,4 +107,33 @@ describe('preflight.validator', () => {
     expect(agg.totals.blockers).toBe(0);
     expect(agg.totals.canSend).toBe(true);
   });
+
+  it('AD sem CIAP/CID gera QUALITY_WARN', () => {
+    const report = validateBatch({
+      id: 'ad1',
+      kind: 'home_care',
+      status: 'ready',
+      createdAt: '2026-08-16T12:00:00Z',
+      payload: {
+        uuidFicha: 'u-ad',
+        headerTransport: {
+          cnes: '1234567',
+          profissionalCNS: '898001111111111',
+          cboCodigo_2002: '225142',
+        },
+        atendimentosDomiciliares: [
+          {
+            cpfCidadao: '52998224725',
+            dataNascimento: '1940-01-01',
+            sexo: 1,
+            atencaoDomiciliarModalidade: 1,
+            tipoAtendimento: 7,
+            condutaDesfecho: 1,
+          },
+        ],
+      },
+    });
+    expect(report.blockers).toBe(0);
+    expect(report.findings.some((f) => f.code === 'AD_PROBLEMAS_MISSING')).toBe(true);
+  });
 });

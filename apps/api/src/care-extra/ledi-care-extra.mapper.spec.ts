@@ -133,6 +133,27 @@ describe('LEDI care-extra mappers v2', () => {
     expect(p.fichaAdTransport.atencaoDomiciliarModalidade).toBe(1);
   });
 
+  it('AD normaliza cid10 → cid no problema', () => {
+    const p = buildHomeCareLediPayload({
+      uuidFicha: 'ad-cid10',
+      lotacao,
+      visitedAt: new Date('2026-08-16T11:00:00Z'),
+      patient: {
+        cpf: '52998224725',
+        cns: null,
+        birthDate: new Date('1940-01-01'),
+        sex: 'F',
+      },
+      careType: 'AD1',
+      shift: 'MANHA',
+      procedures: ['0101040024'],
+      problemasCondicoes: [{ ciap: 'T90', cid10: 'I10' }],
+    });
+    expect(p.atendimentosDomiciliares[0].ciap).toBe('T90');
+    expect(p.atendimentosDomiciliares[0].cid).toBe('I10');
+    expect(p.atendimentosDomiciliares[0].problemasCondicoes).toEqual([{ ciap: 'T90', cid: 'I10' }]);
+  });
+
   it('AD rejeita zero children', () => {
     expect(() =>
       buildHomeCareLediPayload({

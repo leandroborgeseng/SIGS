@@ -597,6 +597,11 @@ export class CareExtraController {
     return this.service.removeHomeCareChild(id, patientId);
   }
 
+  @Post('home-care-visits/:id/preview')
+  previewHomeCare(@Param('id') id: string, @Body() dto: FinishHomeCareVisitDto) {
+    return this.service.previewHomeCare(id, dto || {});
+  }
+
   @Post('home-care-visits/:id/finish')
   finishHomeCare(@Param('id') id: string, @Body() dto: FinishHomeCareVisitDto) {
     return this.service.finishHomeCare(id, dto);

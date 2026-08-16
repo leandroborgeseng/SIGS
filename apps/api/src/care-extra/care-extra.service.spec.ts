@@ -295,6 +295,137 @@ describe('CareExtraService', () => {
       service.addHomeCareChild('ad1', { patientId: 'p2' }),
     ).rejects.toThrow(/já está/);
   });
+
+  it('preview AD não grava lote e avisa CIAP/CID ausente', async () => {
+    const patient = {
+      id: 'p1',
+      cpf: '52998224725',
+      cns: null,
+      birthDate: new Date('1940-01-01'),
+      sex: 'F',
+    };
+    const prisma = {
+      homeCareVisit: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'ad1',
+          status: 'IN_PROGRESS',
+          patientId: 'p1',
+          careType: 'AD1',
+          shift: 'MANHA',
+          notes: null,
+          proceduresJson: '["0101040024"]',
+          childrenJson: JSON.stringify([{ patientId: 'p1', careType: 'AD1' }]),
+          visitedAt: new Date('2026-08-16T11:00:00Z'),
+          facilityId: 'f1',
+          professionalId: 'pr1',
+          patient,
+          facility: { id: 'f1', cnes: '1234567', ibgeCode: '3516200' },
+          professional: { id: 'pr1', cns: '898001111111111' },
+        }),
+        update: jest.fn(),
+      },
+      professionalAssignment: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'a1',
+            professionalId: 'pr1',
+            facilityId: 'f1',
+            teamId: null,
+            cbo: '225142',
+            active: true,
+            professional: { cns: '898001111111111' },
+            facility: { cnes: '1234567' },
+            team: null,
+          },
+        ]),
+      },
+      patient: { findMany: jest.fn().mockResolvedValue([patient]) },
+      productionBatch: { create: jest.fn() },
+      audit: jest.fn(),
+    };
+    const service = new CareExtraService(prisma as never);
+    const preview = await service.previewHomeCare('ad1', {
+      desfecho: 'PERMANENCIA',
+      encounterType: 'ATENDIMENTO_PROGRAMADO',
+    });
+    expect(preview.canFinish).toBe(true);
+    expect(preview.childCount).toBe(1);
+    expect(preview.preflight.findings.some((f) => f.code === 'AD_PROBLEMAS_MISSING')).toBe(true);
+    expect(prisma.productionBatch.create).not.toHaveBeenCalled();
+    expect(prisma.homeCareVisit.update).not.toHaveBeenCalled();
+  });
+
+  it('finish AD aplica problemasCondicoes com cid10 alias', async () => {
+    const patient = {
+      id: 'p1',
+      cpf: '52998224725',
+      cns: null,
+      birthDate: new Date('1940-01-01'),
+      sex: 'F',
+    };
+    const prisma = {
+      homeCareVisit: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'ad1',
+          status: 'IN_PROGRESS',
+          patientId: 'p1',
+          careType: 'AD1',
+          shift: 'MANHA',
+          notes: null,
+          proceduresJson: '["0101040024"]',
+          childrenJson: JSON.stringify([{ patientId: 'p1', careType: 'AD1' }]),
+          visitedAt: new Date('2026-08-16T11:00:00Z'),
+          facilityId: 'f1',
+          professionalId: 'pr1',
+          patient,
+          facility: { id: 'f1', cnes: '1234567', ibgeCode: '3516200' },
+          professional: { id: 'pr1', cns: '898001111111111' },
+        }),
+        update: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({
+            id: 'ad1',
+            ...data,
+            patient,
+            facility: { id: 'f1', cnes: '1234567' },
+          }),
+        ),
+      },
+      professionalAssignment: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'a1',
+            professionalId: 'pr1',
+            facilityId: 'f1',
+            teamId: null,
+            cbo: '225142',
+            active: true,
+            professional: { cns: '898001111111111' },
+            facility: { cnes: '1234567' },
+            team: null,
+          },
+        ]),
+      },
+      patient: { findMany: jest.fn().mockResolvedValue([patient]) },
+      productionBatch: {
+        create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: 'batch1', ...data }),
+        ),
+      },
+      audit: jest.fn(),
+    };
+    const service = new CareExtraService(prisma as never);
+    const res = await service.finishHomeCare('ad1', {
+      desfecho: 'PERMANENCIA',
+      problemasCondicoes: [{ ciap: 'T90', cid10: 'I10' }],
+    });
+    expect(res.productionBatch.id).toBe('batch1');
+    const payload = res.productionBatch.payload as {
+      atendimentosDomiciliares: Array<{ ciap?: string; cid?: string }>;
+    };
+    expect(payload.atendimentosDomiciliares[0].ciap).toBe('T90');
+    expect(payload.atendimentosDomiciliares[0].cid).toBe('I10');
+    expect(prisma.audit).toHaveBeenCalled();
+  });
 });
 
 describe('RF-12.11 histórico de odontograma', () => {

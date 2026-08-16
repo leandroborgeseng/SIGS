@@ -364,6 +364,8 @@ export class PatchLediFaoBatchItemDto {
 export class HomeCareProblemaDto {
   @IsOptional() @IsString() ciap?: string;
   @IsOptional() @IsString() cid?: string;
+  /** Alias UI (`CodeSearchSelect` CID-10) — normalizado para `cid` no mapper */
+  @IsOptional() @IsString() cid10?: string;
 }
 
 /** Child LEDI da ficha AD (1 cidadão / atendimento). */

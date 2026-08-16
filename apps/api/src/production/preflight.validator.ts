@@ -440,6 +440,26 @@ function validateHomeCare(findings: PreflightFinding[], p: Record<string, unknow
         hint: 'Use 7 programado, 8 não programado ou 9 pós-óbito.',
       });
     }
+    const problemas = c.problemasCondicoes || c.problemaCondicao;
+    const hasProblema =
+      (Array.isArray(problemas) &&
+        problemas.some((p) => {
+          const r = asRecord(p) || {};
+          return Boolean(r.ciap || r.cid || r.cid10);
+        })) ||
+      Boolean(c.ciap || c.cid || c.cid10);
+    if (!hasProblema) {
+      push(
+        findings,
+        'QUALITY_WARN',
+        'AD_PROBLEMAS_MISSING',
+        `CIAP/CID ausente (child ${i}) — granularidade clínica LEDI incompleta.`,
+        {
+          field: `atendimentosDomiciliares[${i}].problemasCondicoes`,
+          hint: 'Informe CIAP e/ou CID-10 na ficha AD antes do finish.',
+        },
+      );
+    }
   }
 }
 

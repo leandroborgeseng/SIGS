@@ -224,7 +224,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '0.3.0',
     updatedAt: '2026-08-11',
     summary: 'Visita AD1/AD2/AD3 com produção LEDI v2.',
-    body: `Selecione 1–99 cidadãos, modalidade AD1/AD2/AD3, turno, tipo LEDI e condições. Finalize com lotação — lote home_care traz N atendimentosDomiciliares e qty BPA = N.`,
+    body: `Selecione 1–99 cidadãos, modalidade AD1/AD2/AD3, turno, tipo LEDI, condições e CIAP/CID (busca). Use Preflight antes de Finalizar — lote home_care traz N atendimentosDomiciliares e qty BPA = N.`,
   },
   {
     id: 'producao.ledi',

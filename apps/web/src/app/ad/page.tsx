@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
+import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -31,6 +32,22 @@ type Row = {
   patient: Patient;
   productionBatchId?: string | null;
 };
+type PreflightFinding = {
+  code: string;
+  severity: string;
+  message: string;
+  hint?: string;
+};
+type PreviewRes = {
+  canFinish: boolean;
+  childCount?: number;
+  preflight?: {
+    blockers: number;
+    moneyRisks: number;
+    qualityWarns: number;
+    findings: PreflightFinding[];
+  };
+};
 
 export default function HomeCarePage() {
   const { facilityId } = useAuth();
@@ -48,9 +65,28 @@ export default function HomeCarePage() {
   const [notes, setNotes] = useState('');
   const [desfecho, setDesfecho] = useState('PERMANENCIA');
   const [condicoes, setCondicoes] = useState<number[]>([]);
+  const [ciap, setCiap] = useState('');
+  const [cid10, setCid10] = useState('');
   const [addPatientId, setAddPatientId] = useState('');
+  const [preview, setPreview] = useState<{ visitId: string; data: PreviewRes } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+
+  function problemasPayload() {
+    if (!ciap.trim() && !cid10.trim()) return undefined;
+    return [{ ciap: ciap.trim() || undefined, cid10: cid10.trim() || undefined }];
+  }
+
+  function finishBody() {
+    return {
+      procedures: [procCode, 'VISITA', 'ORIENTACAO'],
+      desfecho,
+      encounterType,
+      careLocation,
+      condicoesAvaliadas: condicoes.length ? condicoes : undefined,
+      problemasCondicoes: problemasPayload(),
+    };
+  }
 
   async function load() {
     const qs = facilityId ? `?facilityId=${facilityId}` : '';
@@ -88,6 +124,7 @@ export default function HomeCarePage() {
     if (!patientIds.length) return setError('Selecione ao menos um cidadão.');
     setError(null);
     setOk(null);
+    setPreview(null);
     try {
       const row = await api<{ id: string; careType: string; childCount?: number }>(
         '/v1/home-care-visits',
@@ -104,6 +141,7 @@ export default function HomeCarePage() {
             notes,
             procedures: [procCode, 'VISITA'].filter(Boolean),
             condicoesAvaliadas: condicoes.length ? condicoes : undefined,
+            problemasCondicoes: problemasPayload(),
           },
         },
       );
@@ -126,7 +164,12 @@ export default function HomeCarePage() {
         `/v1/home-care-visits/${visitId}/children`,
         {
           method: 'POST',
-          json: { patientId: addPatientId, careType, shift },
+          json: {
+            patientId: addPatientId,
+            careType,
+            shift,
+            problemasCondicoes: problemasPayload(),
+          },
         },
       );
       setAddPatientId('');
@@ -134,6 +177,27 @@ export default function HomeCarePage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao incluir');
+    }
+  }
+
+  async function runPreview(id: string) {
+    setError(null);
+    setOk(null);
+    try {
+      const data = await api<PreviewRes>(`/v1/home-care-visits/${id}/preview`, {
+        method: 'POST',
+        json: finishBody(),
+      });
+      setPreview({ visitId: id, data });
+      const w = data.preflight?.qualityWarns ?? 0;
+      const m = data.preflight?.moneyRisks ?? 0;
+      setOk(
+        data.canFinish
+          ? `Preflight OK (${data.childCount ?? '?'} children · ${w} aviso(s) · ${m} risco$).`
+          : `Preflight com ${data.preflight?.blockers ?? '?'} blocker(s) — corrija antes de finalizar.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha no preflight');
     }
   }
 
@@ -146,18 +210,13 @@ export default function HomeCarePage() {
         visit?: { childCount?: number };
       }>(`/v1/home-care-visits/${id}/finish`, {
         method: 'POST',
-        json: {
-          procedures: [procCode, 'VISITA', 'ORIENTACAO'],
-          desfecho,
-          encounterType,
-          careLocation,
-          condicoesAvaliadas: condicoes.length ? condicoes : undefined,
-        },
+        json: finishBody(),
       });
       const n =
         res.productionBatch?.payload?.atendimentosDomiciliares?.length ??
         res.visit?.childCount ??
         1;
+      setPreview(null);
       setOk(
         res.productionBatch?.id
           ? `Finalizada — lote ${res.productionBatch.id.slice(0, 8)}… com ${n} atendimento(s) LEDI (SIGTAP 0101040024 × ${n}).`
@@ -174,7 +233,7 @@ export default function HomeCarePage() {
       <PageHeader
         title="Atenção domiciliar"
         eyebrow="Operação"
-        description="Ficha AD multi-cidadão (1–99) → lote home_care LEDI/BPA · RF-3.54."
+        description="Ficha AD multi-cidadão (1–99) → lote home_care LEDI/BPA · RF-3.54 · CIAP/CID + preflight."
         actions={
           <>
             <HelpLink id="ad.stub" />
@@ -293,6 +352,26 @@ export default function HomeCarePage() {
             ))}
           </select>
         </div>
+        <div className="field">
+          <CodeSearchSelect
+            kind="ciap"
+            domain="aps"
+            label="CIAP (problema)"
+            value={ciap}
+            onChange={setCiap}
+            placeholder="Buscar CIAP…"
+          />
+        </div>
+        <div className="field">
+          <CodeSearchSelect
+            kind="cid10"
+            domain="aps"
+            label="CID-10"
+            value={cid10}
+            onChange={setCid10}
+            placeholder="Buscar CID-10…"
+          />
+        </div>
         <div className="field" style={{ gridColumn: '1 / -1' }}>
           <label>Condições avaliadas (LEDI)</label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 4 }}>
@@ -337,6 +416,26 @@ export default function HomeCarePage() {
         </span>
       </div>
 
+      {preview ? (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="section-label">
+            Preflight AD · {preview.visitId.slice(0, 8)}… · blockers {preview.data.preflight?.blockers ?? 0} ·
+            avisos {preview.data.preflight?.qualityWarns ?? 0}
+          </div>
+          <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+            {(preview.data.preflight?.findings || []).slice(0, 12).map((f, i) => (
+              <li key={`${f.code}-${i}`}>
+                <span className="mono">{f.severity}</span> · {f.message}
+                {f.hint ? <span className="muted"> — {f.hint}</span> : null}
+              </li>
+            ))}
+            {!preview.data.preflight?.findings?.length ? (
+              <li className="muted">Sem achados — pode finalizar.</li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="table-wrap">
         <table className="data">
           <thead>
@@ -369,6 +468,13 @@ export default function HomeCarePage() {
                         disabled={!addPatientId}
                       >
                         + cidadão
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => void runPreview(r.id)}
+                      >
+                        Preflight
                       </button>
                       <button type="button" className="btn btn-primary" onClick={() => void finish(r.id)}>
                         Finalizar

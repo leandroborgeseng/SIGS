@@ -14,7 +14,21 @@ export const AD_MAX_CHILDREN = 99;
 export type LediHomeCareProblema = {
   ciap?: string | null;
   cid?: string | null;
+  /** Alias de entrada (UI) — descartado após normalização */
+  cid10?: string | null;
 };
+
+export function normalizeHomeCareProblemas(
+  raw?: Array<{ ciap?: string | null; cid?: string | null; cid10?: string | null }> | null,
+): Array<{ ciap?: string; cid?: string }> {
+  return (raw || [])
+    .map((p) => {
+      const ciap = p.ciap?.trim() || undefined;
+      const cid = (p.cid || p.cid10)?.trim() || undefined;
+      return { ...(ciap ? { ciap } : {}), ...(cid ? { cid } : {}) };
+    })
+    .filter((p) => p.ciap || p.cid);
+}
 
 export type LediHomeCareChild = {
   cpfCidadao?: string | null;
@@ -93,7 +107,7 @@ function buildChild(input: HomeCareChildInput): LediHomeCareChild {
   const local = resolveLocalAtendimento(input.careLocation ?? 'DOMICILIO');
   const tipo = resolveTipoAtendimento(input.encounterType ?? 'ATENDIMENTO_PROGRAMADO');
   const desfecho = resolveAdDesfecho(input.desfecho ?? 'PERMANENCIA');
-  const problemas = (input.problemasCondicoes || []).filter((p) => p.ciap || p.cid);
+  const problemas = normalizeHomeCareProblemas(input.problemasCondicoes);
   const firstCiap = problemas.find((p) => p.ciap)?.ciap ?? null;
   const firstCid = problemas.find((p) => p.cid)?.cid ?? null;
   const hasCpf = Boolean(input.patient.cpf?.trim());

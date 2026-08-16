@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
+import { CodeSearchSelect } from '@/components/ui/CodeSearchSelect';
 import { ErrorBox, HelpLink, OkBox, PageHeader, StatusPill } from '@/components/ui/PageHeader';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -106,8 +107,8 @@ export default function ClinicalPage() {
     setO(c.soapObjective || '');
     setA(c.soapAssessment || '');
     setP(c.soapPlan || '');
-    setCiap((c.ciapCodes || []).join(', '));
-    setCid((c.cidCodes || []).join(', '));
+    setCiap((c.ciapCodes || [])[0] || '');
+    setCid((c.cidCodes || [])[0] || '');
 
     const [catalog, list, regCatalog, regs] = await Promise.all([
       api<Med[]>('/v1/catalog/medications'),
@@ -139,8 +140,8 @@ export default function ClinicalPage() {
           soapObjective: o,
           soapAssessment: a,
           soapPlan: p,
-          ciapCodes: ciap.split(',').map((x) => x.trim()).filter(Boolean),
-          cidCodes: cid.split(',').map((x) => x.trim()).filter(Boolean),
+          ciapCodes: ciap.trim() ? [ciap.trim()] : [],
+          cidCodes: cid.trim() ? [cid.trim()] : [],
         },
       });
       setOk('Rascunho clínico salvo.');
@@ -163,8 +164,8 @@ export default function ClinicalPage() {
           soapObjective: o,
           soapAssessment: a,
           soapPlan: p,
-          ciapCodes: ciap.split(',').map((x) => x.trim()).filter(Boolean),
-          cidCodes: cid.split(',').map((x) => x.trim()).filter(Boolean),
+          ciapCodes: ciap.trim() ? [ciap.trim()] : [],
+          cidCodes: cid.trim() ? [cid.trim()] : [],
         },
       });
       await api(`/v1/encounters/${params.id}/finish`, {
@@ -348,14 +349,22 @@ export default function ClinicalPage() {
                 <textarea rows={3} value={p} onChange={(e) => setP(e.target.value)} />
               </div>
               <div className="grid-2">
-                <div className="field">
-                  <label>CIAP-2 (vírgula)</label>
-                  <input className="mono" value={ciap} onChange={(e) => setCiap(e.target.value)} />
-                </div>
-                <div className="field">
-                  <label>CID-10 (vírgula)</label>
-                  <input className="mono" value={cid} onChange={(e) => setCid(e.target.value)} />
-                </div>
+                <CodeSearchSelect
+                  kind="ciap"
+                  domain="aps"
+                  label="CIAP-2"
+                  value={ciap}
+                  onChange={setCiap}
+                  placeholder="Buscar CIAP…"
+                />
+                <CodeSearchSelect
+                  kind="cid10"
+                  domain="aps"
+                  label="CID-10"
+                  value={cid}
+                  onChange={setCid}
+                  placeholder="Buscar CID-10…"
+                />
               </div>
               <div className="field">
                 <label>Desfecho (ao finalizar)</label>

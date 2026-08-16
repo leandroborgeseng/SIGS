@@ -35,7 +35,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-2.30 | Obr | parcial | n/a | cadastro individual CDS: nacionalidade/IBGE nasc./etnia/deficiência/NIS/e-mail + `links` no GET paciente · UI `/pacientes/[id]` |
 | RF-2.47 | Obr | parcial | n/a | `facilities` + IBGE + UI `/unidades` |
 | RF-2.56 | Obr | parcial | n/a | `apps/api/src/patients#search` + UI |
-| RF-3.1 | Obr | parcial | automatizado | `POST /v1/encounters` fila SOAP + origem FAI `/aps` (paciente+lotação) |
+| RF-3.1 | Obr | parcial | automatizado | `POST /v1/encounters` fila SOAP + origem FAI `/aps` (paciente+lotação) · CIAP/CID `CodeSearchSelect` em `/atendimento/[id]` |
 | RF-3.24 | Obr | parcial | automatizado | ficha APS `/aps/[id]` SOAP+antropometria · preview-fai · finish → batch · fila `/faturamento/aps` |
 | RF-3.55 | Obr | parcial | automatizado | campos FAI financiamento mínimos (tipos 1/2/4/5/6, medições, SOAP, condutas, CIAP/CID, SIGTAP) |
 | RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` · finish FAI/FAO → motor `clinical-core` (`source=native`) · **wizard lote** `/faturamento/lote/{fai,fao,proc}` (gate de tipo + 2 ZIPs) |
@@ -72,7 +72,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-12.11 | Obr | coberto | automatizado | `GET …/odontogram-history` (inclui `treatmentId`) · `PATCH …/odontogram-history/:sourceId` · timeline + filtro “só tratamento atual” + “Usar neste atendimento” em `/odonto/[id]` |
 | RF-12.13 | Obr | coberto | automatizado | catálogo predefinido `GET /v1/catalog/dental#predefinedProcedures` · PATCH lista + `done` · FAO só `done !== false` · UI `/odonto/[id]` |
 | RF-12.20 | Obr | parcial | previsto | lista `/odonto` cronológica básica |
-| RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` multi-child (1–99) · UI `/ad` · desfecho/condições/tipo LEDI |
+| RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` multi-child (1–99) · UI `/ad` CIAP/CID + `POST …/preview` preflight · desfecho/condições/tipo LEDI |
 | RF-3.53 | Obr | parcial | automatizado | `ledi-collective-v2` + UI `/coletivo` enums LEDI + participantes nominais |
 | RF-9.2 | Obr | parcial | previsto | BPA stub via produção |
 | RF-10.4 | Obr | parcial | automatizado | `bpa-stub.mapper` + `/production/bpa/export` |

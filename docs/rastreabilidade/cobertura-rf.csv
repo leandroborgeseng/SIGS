@@ -108,7 +108,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 2,Módulo de Cadastros,59,RF-2.59,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Emissão de plantões de saúde.
 2,Módulo de Cadastros,60,RF-2.60,Obrigatório,ambos,parcial,P0-P6,apps/api/.../assignments + ledi header,n/a,Listagem de profissionais por unidade de saúde.
 2,Módulo de Cadastros,61,RF-2.61,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Listagem das equipes de saúde com filtros de unidade, equipe e tipo."
-3,Módulo Ambulatorial,1,RF-3.1,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters + UI /aps,automatizado,"Registro de entrada de pacientes com pesquisa em única tela (nome, data de nascimento, nome da mãe, CPF, CNS, cartão cidadão)."
+3,Módulo Ambulatorial,1,RF-3.1,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters + UI /aps + CodeSearchSelect /atendimento,automatizado,"Registro de entrada de pacientes com pesquisa em única tela (nome, data de nascimento, nome da mãe, CPF, CNS, cartão cidadão)."
 3,Módulo Ambulatorial,2,RF-3.2,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Definição de serviço a ser executado no ato da entrada do paciente.
 3,Módulo Ambulatorial,3,RF-3.3,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Identificação do responsável pelo paciente, vinculado ao cadastro de pacientes."
 3,Módulo Ambulatorial,4,RF-3.4,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Localização do paciente registrado na entrada por tipo de atendimento, etapas, nível de urgência, período, situação, dados do paciente."
@@ -161,7 +161,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 3,Módulo Ambulatorial,51,RF-3.51,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Checagem de prescrições (CID, dados do paciente, medicamentos) com lançamento de evolução de enfermagem."
 3,Módulo Ambulatorial,52,RF-3.52,Obrigatório,ambos,parcial,P0-P6,,previsto,"Solicitação de procedimentos gerando demanda na central de regulação, com protocolos da gestão."
 3,Módulo Ambulatorial,53,RF-3.53,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-collective-v2 + /coletivo enums+nominais,automatizado,"Atendimentos por fichas de atendimento coletivo, conforme regras da APS."
-3,Módulo Ambulatorial,54,RF-3.54,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-homecare-v2 multi-child + /ad,automatizado,Atendimentos domiciliares conforme regras da APS (1–99 children LEDI).
+3,Módulo Ambulatorial,54,RF-3.54,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-homecare-v2 multi-child + /ad CIAP/CID + preview,automatizado,Atendimentos domiciliares conforme regras da APS (1–99 children LEDI).
 3,Módulo Ambulatorial,55,RF-3.55,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters#aps-care + /aps/[id] SOAP/medições/tipos FAI,automatizado,Registro de atendimentos da APS por fichas contemplando todos os campos exigidos pelo modelo de financiamento vigente.
 3,Módulo Ambulatorial,56,RF-3.56,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Atendimentos odontológicos com odontograma e próteses.
 3,Módulo Ambulatorial,57,RF-3.57,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Informações de patologias odontológicas no atendimento.

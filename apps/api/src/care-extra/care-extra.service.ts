@@ -34,9 +34,10 @@ import {
   ValidateDentalFaoDto,
 } from './dto';
 import { buildDentalLediPayload } from './ledi-dental.mapper';
-import { AD_MAX_CHILDREN, buildHomeCareLediPayload } from './ledi-homecare.mapper';
+import { AD_MAX_CHILDREN, buildHomeCareLediPayload, normalizeHomeCareProblemas } from './ledi-homecare.mapper';
 import { buildCollectiveLediPayload } from './ledi-collective.mapper';
 import { validateFaoJson, validateFaoXml } from './ledi-fao.validator';
+import { validateBatch } from '../production/preflight.validator';
 import { tipoAtendimentoFromItemType } from '../appointments/appointments.constants';
 import {
   defaultDentalCareDraft,
@@ -1530,6 +1531,7 @@ export class CareExtraService {
 
     const procedures =
       dto.procedures?.length ? dto.procedures : ['0101040024', 'VISITA'];
+    const problemas = normalizeHomeCareProblemas(dto.problemasCondicoes);
     const children = this.normalizeHomeCareChildDrafts(dto, {
       careType,
       shift,
@@ -1538,7 +1540,7 @@ export class CareExtraService {
       procedures,
       notes: dto.notes,
       condicoesAvaliadas: dto.condicoesAvaliadas,
-      problemasCondicoes: dto.problemasCondicoes,
+      problemasCondicoes: problemas.length ? problemas : undefined,
     });
 
     for (const c of children) {
@@ -1665,7 +1667,26 @@ export class CareExtraService {
     return this.getHomeCare(updated.id);
   }
 
-  async finishHomeCare(id: string, dto: FinishHomeCareVisitDto) {
+  async previewHomeCare(id: string, dto: FinishHomeCareVisitDto = {}) {
+    const prepared = await this.prepareHomeCareFinish(id, dto);
+    const preflight = validateBatch({
+      id: `preview-${id}`,
+      kind: 'home_care',
+      status: 'ready',
+      createdAt: new Date(),
+      payload: prepared.payload as unknown as Record<string, unknown>,
+    });
+    return {
+      visitId: id,
+      childCount: prepared.drafts.length,
+      canFinish: preflight.blockers === 0,
+      preflight,
+      payload: prepared.payload,
+      lotacao: prepared.lotacao,
+    };
+  }
+
+  private async prepareHomeCareFinish(id: string, dto: FinishHomeCareVisitDto) {
     const row = await this.prisma.homeCareVisit.findUnique({
       where: { id },
       include: { patient: true, facility: true, professional: true },
@@ -1683,6 +1704,8 @@ export class CareExtraService {
       cbo: dto.cbo,
     });
 
+    const problemasDefault = normalizeHomeCareProblemas(dto.problemasCondicoes);
+
     let drafts: HomeCareChildDto[];
     if (dto.children?.length) {
       drafts = this.normalizeHomeCareChildDrafts(
@@ -1695,7 +1718,7 @@ export class CareExtraService {
           procedures,
           notes: dto.notes || row.notes || undefined,
           condicoesAvaliadas: dto.condicoesAvaliadas,
-          problemasCondicoes: dto.problemasCondicoes,
+          problemasCondicoes: problemasDefault.length ? problemasDefault : dto.problemasCondicoes,
         },
       );
     } else {
@@ -1712,18 +1735,23 @@ export class CareExtraService {
                 notes: row.notes ?? undefined,
               },
             ];
-      drafts = drafts.map((c) => ({
-        ...c,
-        careType: (c.careType || row.careType).toUpperCase(),
-        shift: (c.shift || row.shift).toUpperCase(),
-        careLocation: c.careLocation || dto.careLocation || 'DOMICILIO',
-        encounterType: c.encounterType || dto.encounterType || 'ATENDIMENTO_PROGRAMADO',
-        procedures: c.procedures?.length ? c.procedures : procedures,
-        desfecho: c.desfecho || dto.desfecho || 'PERMANENCIA',
-        notes: c.notes ?? dto.notes ?? row.notes ?? undefined,
-        condicoesAvaliadas: c.condicoesAvaliadas ?? dto.condicoesAvaliadas,
-        problemasCondicoes: c.problemasCondicoes ?? dto.problemasCondicoes,
-      }));
+      drafts = drafts.map((c) => {
+        const childProblemas = normalizeHomeCareProblemas(
+          c.problemasCondicoes ?? (problemasDefault.length ? problemasDefault : undefined),
+        );
+        return {
+          ...c,
+          careType: (c.careType || row.careType).toUpperCase(),
+          shift: (c.shift || row.shift).toUpperCase(),
+          careLocation: c.careLocation || dto.careLocation || 'DOMICILIO',
+          encounterType: c.encounterType || dto.encounterType || 'ATENDIMENTO_PROGRAMADO',
+          procedures: c.procedures?.length ? c.procedures : procedures,
+          desfecho: c.desfecho || dto.desfecho || 'PERMANENCIA',
+          notes: c.notes ?? dto.notes ?? row.notes ?? undefined,
+          condicoesAvaliadas: c.condicoesAvaliadas ?? dto.condicoesAvaliadas,
+          problemasCondicoes: childProblemas.length ? childProblemas : undefined,
+        };
+      });
     }
 
     if (!drafts.length || drafts.length > AD_MAX_CHILDREN) {
@@ -1738,6 +1766,7 @@ export class CareExtraService {
       if (!byId.has(d.patientId)) {
         throw new BadRequestException(`patientId inválido: ${d.patientId}`);
       }
+      d.problemasCondicoes = normalizeHomeCareProblemas(d.problemasCondicoes);
     }
 
     const uuidFicha = randomUUID();
@@ -1764,6 +1793,12 @@ export class CareExtraService {
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
+
+    return { row, drafts, payload, procedures, lotacao };
+  }
+
+  async finishHomeCare(id: string, dto: FinishHomeCareVisitDto) {
+    const { row, drafts, payload, procedures } = await this.prepareHomeCareFinish(id, dto);
 
     const batch = await this.prisma.productionBatch.create({
       data: {
