@@ -43,7 +43,7 @@
 | `65a01d1` | Handoff STATUS CNES/PF |
 | `551acf2` | FieldHint Siaps/Previne paciente + território |
 | `8f50870` | Gap TB_FAIXA documentado + testes CDS/faixa |
-| *(esta onda)* | Stubs lote CDS 3/8/10 + detector enum + manual CNES/PF |
+| `5db1740` | Stubs lote CDS 3/8/10 + detector enum + manual CNES/PF |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC (**live** — não quebrar)
