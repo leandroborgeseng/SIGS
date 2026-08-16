@@ -22,6 +22,8 @@ Validação: exatamente 7 dígitos (aceita máscara e normaliza).
 
 UBS demo usa **3516200** (Franca/SP). Seed atualiza bases antigas sem IBGE.
 
+Import em massa: ver [cnes-import.md](./cnes-import.md) (`npm run sync:cnes` / `POST /v1/cnes/sync`).
+
 ## Preflight
 
 `IBGE_MISSING` / `IBGE_FORMAT` → `MONEY_RISK` + checklist `ibge_ok`.

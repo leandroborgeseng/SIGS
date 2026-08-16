@@ -14,9 +14,13 @@ export class OrganizationController {
   constructor(private readonly service: OrganizationService) {}
 
   @Get('facilities')
-  listFacilities(@Query('q') q?: string, @Query('active') active?: string) {
-    const a = active === undefined ? undefined : active === 'true';
-    return this.service.listFacilities(q, a);
+  listFacilities(
+    @Query('q') q?: string,
+    @Query('active') active?: string,
+    @Query('ibge') ibge?: string,
+  ) {
+    const a = active === undefined ? undefined : active === 'true' || active === '1';
+    return this.service.listFacilities(q, a, ibge);
   }
 
   @Post('facilities')

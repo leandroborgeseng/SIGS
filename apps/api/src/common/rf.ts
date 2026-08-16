@@ -240,6 +240,20 @@ export const RF = {
     teste_faturamento: 'n/a',
     nota: 'Lotação / listagem de profissionais por unidade',
   },
+  CNES_SYNC: {
+    id: 'RF-10.2',
+    tipo: 'Obrigatório',
+    fonte: 'e-SUS',
+    teste_faturamento: 'n/a',
+    nota: 'Import/sync estabelecimentos e equipes CNES (snapshot municipal)',
+  },
+  CNES_AUDIT: {
+    id: 'RF-9.6',
+    tipo: 'Desejável',
+    fonte: 'ambos',
+    teste_faturamento: 'previsto',
+    nota: 'Auditoria de consistência cadastro × base CNES (Franca IBGE 3516200)',
+  },
 } as const;
 
 export const APPOINTMENT_STATUS = [

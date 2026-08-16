@@ -10,7 +10,8 @@
     "test": "jest --config jest.config.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "sync:cnes": "ts-node --transpile-only src/cnes/cli-sync.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1109.0",

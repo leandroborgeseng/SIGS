@@ -43,7 +43,16 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '0.1.0',
     updatedAt: '2026-08-11',
     summary: 'CNES e código IBGE do município para produção LEDI.',
-    body: `Em Unidades, selecione a UBS e informe o IBGE municipal (7 dígitos). Franca/SP = 3516200. Esse código vai para o header das fichas de produção. Sem IBGE, o pré-envio alerta risco de rejeição.`,
+    body: `Em Unidades, selecione a UBS e informe o IBGE municipal (7 dígitos). Franca/SP = 3516200. Esse código vai para o header das fichas de produção. Sem IBGE, o pré-envio alerta risco de rejeição. Para inconsistências CNES×SIGS use /cadastros/cnes-auditoria.`,
+  },
+  {
+    id: 'cadastros.cnes-auditoria',
+    title: 'Auditoria cadastro CNES',
+    module: 'Cadastros',
+    version: '0.1.0',
+    updatedAt: '2026-08-16',
+    summary: 'Checks de inconsistência Facility/Team vs snapshot CNES Franca (IBGE 3516200).',
+    body: `Em /cadastros/cnes-auditoria: rode Sync snapshot (POST /v1/cnes/sync) e consulte findings (GET /v1/cnes/audit). Cobertura: equipe sem CNES, estabelecimento sem equipe, INE duplicado / INE×CNES de outro IBGE, tipo equipe vs tipo unidade, inativo no snapshot e ativo no SIGS, CNES ≠7 dígitos, IBGE ≠3516200, vínculo paciente-equipe órfão, lotação com INE inexistente, alertas LEDI recentes. Export CSV. Sem PHI.`,
   },
   {
     id: 'cadastros.lotacao',

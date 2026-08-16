@@ -3,6 +3,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { PlatformModule } from './platform/platform.module';
 import { OrganizationModule } from './organization/organization.module';
+import { CnesModule } from './cnes/cnes.module';
 import { PatientsModule } from './patients/patients.module';
 import { TerritoryModule } from './territory/territory.module';
 import { AppointmentsModule } from './appointments/appointments.module';
@@ -28,6 +29,7 @@ import { JobsModule } from './infra/jobs/jobs.module';
     AuthModule,
     PlatformModule,
     OrganizationModule,
+    CnesModule,
     PatientsModule,
     TerritoryModule,
     AppointmentsModule,

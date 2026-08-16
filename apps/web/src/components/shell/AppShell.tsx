@@ -71,6 +71,7 @@ const NAV: Array<{ id: NavGroupId; group: string; items: readonly NavItem[] }> =
       { href: '/unidades', label: 'Unidades' },
       { href: '/territorio', label: 'Território' },
       { href: '/lotacoes', label: 'Lotações' },
+      { href: '/cadastros/cnes-auditoria', label: 'Auditoria CNES' },
     ],
   },
   {

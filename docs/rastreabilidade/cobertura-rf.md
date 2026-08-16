@@ -27,18 +27,20 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-1.14 | Obr | parcial | n/a | `apps/api/.../audit + auth` |
 | RF-2.2 | Obr | parcial | n/a | `apps/api/src/organization#professionals` |
 | RF-2.17 | Obr | parcial | n/a | `GET/POST /v1/appointments` · `day-grid` · `itemType` CONSULTA/ENCAIXE · `careLine` APS/ODONTO |
-| RF-2.19 | Obr | parcial | n/a | `apps/api/src/organization#teams` |
+| RF-2.19 | Obr | parcial | n/a | `apps/api/src/organization#teams` + **import CNES** (`POST /v1/cnes/sync`, INE unique) |
 | RF-2.27 | Obr | parcial | n/a | `apps/api/src/patients` (+ PATCH + UI) |
 | RF-2.29 | Obr | parcial | n/a | território + microáreas/vínculos + **Household/Family CDS** (`/v1/households`, catálogo LEDI, UI `/territorio`) — sem GIS/lote XML |
 | RF-17.11 | Obr | parcial | n/a | visita ACS `AcsHomeVisit` · `GET/POST /v1/acs-home-visits` · catálogo motivos/desfecho LEDI · UI `/territorio` aba Visitas ACS — sem lote XML tipo 8 |
 | RF-17.12 | Obr | parcial | n/a | lat/long opcional na visita + `mapUrl` OpenStreetMap externo (sem Leaflet/Mapbox) |
 | RF-2.30 | Obr | parcial | n/a | cadastro individual CDS: nacionalidade/IBGE nasc./etnia/deficiência/NIS/e-mail + `links` no GET paciente · UI `/pacientes/[id]` |
-| RF-2.47 | Obr | parcial | n/a | `facilities` + IBGE + UI `/unidades` |
+| RF-2.47 | Obr | parcial | n/a | `facilities` + IBGE + UI `/unidades` + **sync CNES** (`data/cnes/franca-3516200.json`) |
 | RF-2.56 | Obr | parcial | n/a | `apps/api/src/patients#search` + UI |
 | RF-3.1 | Obr | parcial | automatizado | `POST /v1/encounters` fila SOAP + origem FAI `/aps` (paciente+lotação) · CIAP/CID `CodeSearchSelect` em `/atendimento/[id]` |
 | RF-3.24 | Obr | parcial | automatizado | ficha APS `/aps/[id]` SOAP+antropometria · preview-fai · finish → batch · fila `/faturamento/aps` |
 | RF-3.55 | Obr | parcial | automatizado | campos FAI financiamento mínimos (tipos 1/2/4/5/6, medições, SOAP, condutas, CIAP/CID, SIGTAP) |
 | RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` · finish FAI/FAO → motor `clinical-core` (`source=native`) · **wizard lote** `/faturamento/lote/{fai,fao,proc}` (gate de tipo + 2 ZIPs) |
+| RF-10.2 | Obr | parcial | n/a | sync CNES Franca `POST /v1/cnes/sync` · snapshot `data/cnes/franca-3516200.json` · `npm run sync:cnes` |
+| RF-9.6 | Des | parcial | previsto | auditoria CNES `GET /v1/cnes/audit` · UI `/cadastros/cnes-auditoria` |
 | RF-10.20 | Obr | parcial | automatizado | preflight + `POST /production/send` + UI `/producao` |
 | RF-14.1 | Obr | parcial | automatizado | `vaccination_immunobiologicals` + seed LEDI v3 (99) doses `lediId` |
 | RF-14.2 | Obr | parcial | automatizado | catálogo completo LEDI + Prisma + `POST …/catalog/vaccination/sync` overlay |

@@ -19,15 +19,17 @@ export class OrganizationService {
     return social || civil;
   }
 
-  listFacilities(q?: string, active?: boolean) {
+  listFacilities(q?: string, active?: boolean, ibgeCode?: string) {
     return this.prisma.facility.findMany({
       where: {
         ...(active === undefined ? {} : { active }),
+        ...(ibgeCode ? { ibgeCode } : {}),
         ...(q
           ? { OR: [{ name: { contains: q } }, { cnes: { contains: q } }] }
           : {}),
       },
       orderBy: { name: 'asc' },
+      include: { _count: { select: { teams: true } } },
     });
   }
 

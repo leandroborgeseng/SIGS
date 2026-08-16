@@ -1,26 +1,22 @@
 # STATUS — SIGS
 
-- **etapa_atual:** Domingo APS — AD CIAP/CID + preflight; próximo gap técnico abaixo
-- **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI + fila APS + LEDI P1 + wizard lote + Ondas domingo 2026-08-16 + frio/almox + visita ACS + AD polish):**
+- **etapa_atual:** Import CNES Franca (estabelecimentos + equipes); próximo gap técnico abaixo
+- **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI + fila APS + LEDI P1 + wizard lote + Ondas domingo 2026-08-16 + frio/almox + visita ACS + CNES sync):**
   - Área `/faturamento` (hub · filas `/faturamento/odonto` e `/faturamento/aps` · sanfona **Tratamento de lotes LEDI**: FAO / FAI / Procedimentos)
   - **APS FAI Onda A:** `/aps/[id]` com SOAP + antropometria → mapper · RF-3.24/3.55 parciais
-  - **Vacinação:** catálogo LEDI **v3 (99 imunos)** + 54 faixas · void · PDF · UI `/vacinacao` · **estoque/frio beyond-MVP** (lote · equipamento frio · caixa térmica · leitura manual °C · insumos leves; baixa no create; void devolve)
-  - **RF-2.30:** campos CDS no paciente + vínculos no GET · PATCH desativar vínculo
-  - **RF-2.29 domicílio/família CDS:** `Household` / `HouseholdFamily` / `FamilyMember` · API + catálogo LEDI · UI `/territorio` aba Domicílios · resumo na ficha do paciente · seed demo
-  - **RF-17.11 / RF-17.12 visita ACS:** `AcsHomeVisit` · motivos/desfecho LEDI · lat/long opcional + link OSM · API `/v1/acs-home-visits` · UI `/territorio` aba Visitas ACS
-  - **RF-3.54 AD:** multi-child · **CIAP/CID UI** (`CodeSearchSelect`) · `POST …/preview` preflight · finish · mapper 1–99 · BPA qty=N · UI `/ad`
-  - **RF-3.1:** CIAP/CID `CodeSearchSelect` em `/atendimento/[id]` (antes texto livre)
-  - Coletivo / odontograma / agenda / wizard lote (intactos)
+  - **Vacinação:** catálogo LEDI **v3 (99 imunos)** + 54 faixas · void · PDF · UI `/vacinacao` · **estoque/frio beyond-MVP**
+  - **RF-2.30 / RF-2.29 / RF-17.11–17.12 / RF-3.54** — CDS, domicílio, visita ACS, AD multi-child (intactos)
+  - **CNES Franca (IBGE 3516200):** sync idempotente estabelecimentos + equipes · snapshot `data/cnes/franca-3516200.json` · `POST /v1/cnes/sync` · `GET /v1/cnes/audit` · `npm run sync:cnes` · UI `/unidades` + `/cadastros/cnes-auditoria`
 - **como usar:**
   1. `/aps/agenda` ou `/aps` → ficha FAI → fila `/faturamento/aps`
-  2. `/vacinacao` — aplicar · **Estoque / frio** (equipamento · caixa · leitura · insumos) · faixa etária · anular · cartão PDF
-  3. `GET/POST /v1/vaccination-stock` · cold-equipment · thermal-boxes · temp-readings · supplies · supply-links · `GET /v1/catalog/vaccination`
-  4. `/territorio` — microáreas · vínculos · **domicílios/famílias CDS** · **visitas ACS** (lat/long + OSM)
-  5. `/pacientes/[id]` — CDS + vínculos + domicílio
-  6. `/ad` — ficha multi-cidadão · CIAP/CID · Preflight → Finalizar · `/coletivo` · `/odonto/[id]` · lotes `/faturamento/lote/{fai,fao,proc}`
-- **API:** vacinação + estoque/frio/insumos · patients CDS · households · **acs-home-visits** · `GET/POST /v1/home-care-visits` · `POST …/preview` · `POST/DELETE …/children` · `POST …/finish` · `GET /v1/catalog/home-care` · `GET /v1/catalog/acs-visit`
-- **params:** `REQUIRE_INE_APS_OPEN` · `APS_DEFAULT_TIPO_ATENDIMENTO=5` · `MUNICIPIO_IBGE` · `MUNICIPIO_NOME` · `SKIP_VACCINATION_CATALOG_SEED`
-- **limite documentado:** sem IoT/alarmes contínuos; sem farmácia municipal geral; faixa etária seed ≠ dump TB e-SUS; sem mapa embutido (só OSM externo); lote XML cadastro domiciliar/visita ACS/AD não; agenda TR completa (cadastro livre tipos/salas) depois
+  2. `/vacinacao` — aplicar · estoque/frio · anular · cartão PDF
+  3. `/territorio` — microáreas · domicílios · visitas ACS
+  4. `/unidades` — Sync CNES Franca · listar unidades/equipes importadas
+  5. `npm run sync:cnes -- --ibge=3516200 --source=snapshot` (offline) ou `source=auto` (live→fallback)
+  6. `/ad` · `/coletivo` · `/odonto/[id]` · lotes `/faturamento/lote/{fai,fao,proc}`
+- **API:** + `POST /v1/cnes/sync` · `GET /v1/cnes/snapshot` · facilities com `_count.teams` e filtro `ibge`/`active`
+- **params:** `MUNICIPIO_IBGE` · `CNES_DATA_DIR` · `CNES_API_BASE` · `CNESWEB_BASE`
+- **limite documentado:** sync CNES **sem** profissionais lotados (PF); demais limites APS anteriores
 - **próximo:** ver **Retomar daqui — domingo 16/08/2026**
 
 ## Retomar daqui — domingo 16/08/2026
@@ -34,30 +30,29 @@
 | `a4ba05c` | Domicílio/família CDS territorial (RF-2.29) |
 | `a938f16` | AD multi-child LEDI (RF-3.54) · condições · qty BPA |
 | `00e180f` | Catálogo 99 imunobiológicos LEDI v3 + faixas Prisma |
-| `3a44631` | Estoque/frio vacinal MVP (baixa na aplicação · estorno no void) |
-| `b2928ca` | Frio/almox beyond-MVP: equipamentos · caixa térmica · leitura manual · insumos |
-| `760a436` | Visita ACS lat/long MVP (RF-17.11/17.12) · OSM externo |
-| `8b3de08` | AD CIAP/CID UI + preview/preflight · CIAP/CID `/atendimento` |
+| `3a44631` | Estoque/frio vacinal MVP |
+| `b2928ca` | Frio/almox beyond-MVP |
+| `760a436` | Visita ACS lat/long MVP (RF-17.11/17.12) |
+| *(pendente push)* | Import CNES Franca estabelecimentos+equipes |
 
 ### Já fechado (não reabrir nesta fase)
-- Wizard lote LEDI FAI / FAO / PROC (Safari upload, autofix chunked, PDF secretaria) — reutilizar shell na Fase 2 UI
-- Estoque/frio MVP + beyond-MVP (equipamento/caixa/leitura/insumos leves) — não reabrir como MVP stub
-- Visita ACS registro + lat/long + OSM — não reabrir como MVP stub (lote XML tipo 8 ainda pendente)
-- Agenda CONSULTA/ENCAIXE + grade dia — não reabrir como stub de tipos item (gap TR = cadastro livre municipal)
-- AD CIAP/CID UI + preview — não reabrir como “só via API”
+- Wizard lote LEDI FAI / FAO / PROC — não quebrar
+- Estoque/frio + visita ACS lat/long — não reabrir como MVP stub
+- Import CNES unidades/equipes Franca — não reabrir como stub (próximo = PF/lotações)
 
 ### Pendente / próximos gaps
-1. Import dump real `TB_FAIXA_ETARIA_VACINACAO` (lookup imuno+estratégia+dose) quando disponível
-2. Lote XML cadastro domiciliar e visita ACS (tipo 8) / AD — **bloqueado** até dump/TB
-3. Agenda TR residual (salas / grade municipal / tipos livres) — só se TR exigir além de CONSULTA/ENCAIXE
-4. Fase 2 UI Claude Design — **não** nesta fase (backend-first)
-5. Fora APS P0: SAMU stream · Farmácia estoque geral · Hospitalar — ver estratégia fase 1
-6. IoT contínuo / alarmes geladeira — só se hardware/integração (fora do beyond-MVP atual)
+1. Import CNES **profissionais lotados** (PF → `Professional` + `ProfessionalAssignment`)
+2. Import dump real `TB_FAIXA_ETARIA_VACINACAO` quando disponível
+3. Lote XML cadastro domiciliar e visita ACS (tipo 8) / AD
+4. Polish gaps RF APS ainda parciais
+5. Fase 2 UI Claude Design — **não** nesta fase
+6. Fora APS P0: SAMU · Farmácia geral · Hospitalar
 
 ### Notas handoff
 - Working tree: não commitar `data/esus`, `data/sigtap`, `sus_intelligence`, `tools/*-home`, `contexts/`
+- **Sim** versionar `data/cnes/*.json` (sem PHI)
 - Sem dados reais de pacientes
 - Não quebrar wizard lote FAI/FAO/PROC
-- Após pull: `cd apps/api && npx prisma db push` (tabelas frio/insumos vacinal + catálogo + **acs_home_visits**)
+- Após pull: `cd apps/api && npx prisma db push` (endereço Facility + unique cnes/ine + tabelas anteriores)
 
-_Atualizado em 2026-08-16 (onda AD CIAP/CID + preflight)_
+_Atualizado em 2026-08-16 (onda import CNES Franca)_
