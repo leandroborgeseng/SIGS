@@ -47,7 +47,8 @@
 | `8f50870` | Gap TB_FAIXA documentado + testes CDS/faixa |
 | `5db1740` | Stubs lote CDS 3/8/10 + detector enum + manual CNES/PF |
 | `38517c1` | STATUS SHA stubs CDS |
-| *(este handoff)* | Regressão CNES/PF/audit/LEDI + manuais stubs + RF-10.21 no CSV |
+| `6302a33` | Regressão CNES/PF/audit/LEDI + smoke `smoke:cnes-pf-ledi` |
+| `bdf966c` | Manuais stubs CDS/auditoria + RF-10.21 no CSV + handoff STATUS |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC (**live** — não quebrar)
