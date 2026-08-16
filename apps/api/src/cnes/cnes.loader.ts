@@ -1,17 +1,25 @@
 import { PrismaClient } from '@prisma/client';
-import type { CnesSnapshot, CnesSyncResult } from './cnes.types';
+import type { CnesSnapshot, CnesSyncGestao, CnesSyncResult } from './cnes.types';
+import { applyGestaoFilter, type CnesFilterStats } from './cnes.filter';
 
 type Db = Pick<PrismaClient, 'facility' | 'team'>;
 
 export async function loadCnesSnapshot(
   prisma: Db,
   snapshot: CnesSnapshot,
-  opts?: { activeOnly?: boolean; source?: 'live' | 'snapshot'; snapshotPath?: string },
+  opts?: {
+    activeOnly?: boolean;
+    source?: 'live' | 'snapshot';
+    snapshotPath?: string;
+    gestao?: CnesSyncGestao;
+  },
 ): Promise<CnesSyncResult> {
+  const gestao = opts?.gestao || 'municipal';
+  const { snapshot: filtered, filter } = applyGestaoFilter(snapshot, gestao);
   const activeOnly = !!opts?.activeOnly;
   const establishments = activeOnly
-    ? snapshot.establishments.filter((e) => e.active)
-    : snapshot.establishments;
+    ? filtered.establishments.filter((e) => e.active)
+    : filtered.establishments;
 
   const facilities = { created: 0, updated: 0, skipped: 0 };
   const cnesToId = new Map<string, string>();
@@ -63,7 +71,7 @@ export async function loadCnesSnapshot(
 
   // Resolve facility ids for teams even if establishment was filtered out (activeOnly)
   const teamsCounter = { created: 0, updated: 0, skipped: 0 };
-  for (const team of snapshot.teams) {
+  for (const team of filtered.teams) {
     let facilityId = cnesToId.get(team.cnes);
     if (!facilityId) {
       const fac = await prisma.facility.findUnique({ where: { cnes: team.cnes } });
@@ -104,18 +112,40 @@ export async function loadCnesSnapshot(
     }
   }
 
-  return {
+  return buildSyncResult({
     ibgeCode: snapshot.meta.ibgeCode,
     source: opts?.source || 'snapshot',
+    gestao,
+    filter,
     facilities,
     teams: teamsCounter,
-    totals: {
-      establishments: snapshot.establishments.length,
-      teams: snapshot.teams.length,
-      establishmentsActive:
-        snapshot.meta.counts?.establishmentsActive ??
-        snapshot.establishments.filter((e) => e.active).length,
-    },
     snapshotPath: opts?.snapshotPath,
+  });
+}
+
+export function buildSyncResult(args: {
+  ibgeCode: string;
+  source: 'live' | 'snapshot';
+  gestao: CnesSyncGestao;
+  filter: CnesFilterStats;
+  facilities: { created: number; updated: number; skipped: number };
+  teams: { created: number; updated: number; skipped: number };
+  snapshotPath?: string;
+}): CnesSyncResult {
+  return {
+    ibgeCode: args.ibgeCode,
+    source: args.source,
+    gestao: args.gestao,
+    filter: args.filter,
+    facilities: args.facilities,
+    teams: args.teams,
+    totals: {
+      establishments: args.filter.after.establishments,
+      teams: args.filter.after.teams,
+      establishmentsActive: args.filter.after.establishmentsActive,
+      establishmentsCity: args.filter.before.establishments,
+      teamsCity: args.filter.before.teams,
+    },
+    snapshotPath: args.snapshotPath,
   };
 }

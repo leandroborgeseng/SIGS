@@ -22,9 +22,19 @@ type Facility = {
 
 type SyncResult = {
   source: string;
+  gestao?: string;
+  filter?: {
+    before: { establishments: number; teams: number };
+    after: { establishments: number; teams: number };
+  };
   facilities: { created: number; updated: number; skipped: number };
   teams: { created: number; updated: number; skipped: number };
-  totals: { establishments: number; teams: number; establishmentsActive: number };
+  totals: {
+    establishments: number;
+    teams: number;
+    establishmentsActive: number;
+    establishmentsCity?: number;
+  };
 };
 
 export default function UnidadesPage() {
@@ -95,11 +105,16 @@ export default function UnidadesPage() {
     setError(null);
     setOk(null);
     try {
-      const out = await api<SyncResult>('/v1/cnes/sync?ibge=3516200&source=auto', {
-        method: 'POST',
-      });
+      const out = await api<SyncResult>(
+        '/v1/cnes/sync?ibge=3516200&source=snapshot&gestao=municipal',
+        { method: 'POST' },
+      );
+      const city = out.filter?.before?.establishments ?? out.totals.establishmentsCity;
+      const muni = out.filter?.after?.establishments ?? out.totals.establishments;
       setOk(
-        `CNES sync (${out.source}): unidades +${out.facilities.created}/~${out.facilities.updated}, equipes +${out.teams.created}/~${out.teams.updated} (snapshot ${out.totals.establishments} est. / ${out.totals.teams} eq.)`,
+        `Rede municipal sincronizada (${out.source}): +${out.facilities.created}/~${out.facilities.updated} unidades · +${out.teams.created}/~${out.teams.updated} equipes (${muni} est. Prefeitura` +
+          (city != null ? ` de ${city} na cidade` : '') +
+          `).`,
       );
       await load();
     } catch (err) {
@@ -120,14 +135,25 @@ export default function UnidadesPage() {
             <Link className="btn btn-secondary" href="/cadastros/cnes-auditoria">
               Auditoria CNES
             </Link>
-            <button className="btn" type="button" disabled={syncing} onClick={() => void onSyncCnes()}>
-              {syncing ? 'Sync CNES…' : 'Sync CNES Franca'}
+            <button className="btn btn-primary" type="button" disabled={syncing} onClick={() => void onSyncCnes()}>
+              {syncing ? 'Sincronizando…' : 'Sincronizar rede municipal'}
             </button>
           </>
         }
       />
       <ErrorBox message={error} />
       <OkBox message={ok} />
+
+      {!loading && rows.length === 0 ? (
+        <div className="card" style={{ marginBottom: 12, borderColor: 'var(--warn, #b45309)' }}>
+          <p style={{ margin: 0, fontWeight: 600 }}>Nenhuma unidade da rede municipal no banco</p>
+          <p className="muted" style={{ margin: '8px 0 0' }}>
+            Clique em <strong>Sincronizar rede municipal</strong> para importar só a Prefeitura (~66
+            estabelecimentos / ~123 equipes; a cidade tem ~1346 CNES). Depois confira a{' '}
+            <Link href="/cadastros/cnes-auditoria">auditoria CNES</Link>.
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid-2">
         <div className="card">

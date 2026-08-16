@@ -11,18 +11,25 @@ export class FaturamentoController {
   @Get('status')
   status() {
     return {
-      audit: 'GET /v1/faturamento/audit?competencia=YYYY-MM&ibge=3516200',
+      audit: 'GET /v1/faturamento/audit?competencia=YYYY-MM&ibge=3516200&gestao=municipal',
       defaultIbge: FRANCA_IBGE,
+      defaultGestao: 'municipal',
     };
   }
 
   /**
    * Cruza produção (batches / ProductionRecord / encounters) com cadastro CNES + SIGTAP.
+   * Escopo default: rede municipal (Prefeitura). Use gestao=todos para cidade inteira.
    * Severidade: blocker = bloqueia envio; quality = qualidade / Previne.
    */
   @Get('audit')
   @RequirePermissions(PERMISSIONS.PRODUCTION)
-  audit(@Query('competencia') competencia?: string, @Query('ibge') ibge?: string) {
-    return this.auditService.audit({ competencia, ibge });
+  audit(
+    @Query('competencia') competencia?: string,
+    @Query('ibge') ibge?: string,
+    @Query('gestao') gestao?: string,
+  ) {
+    const mode = gestao === 'todos' || gestao === 'all' ? 'todos' : 'municipal';
+    return this.auditService.audit({ competencia, ibge, gestao: mode });
   }
 }

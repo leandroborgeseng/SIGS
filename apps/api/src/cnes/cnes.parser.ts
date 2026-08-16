@@ -1,4 +1,8 @@
 import { assertIbgeCode } from '../ledi/ibge';
+import {
+  isMunicipalPrefeituraNetwork,
+  normalizeNaturezaJuridicaCode,
+} from './cnes.filter';
 import type { CnesEstablishment, CnesSnapshot, CnesTeam } from './cnes.types';
 
 export function padCnes(raw: unknown): string | null {
@@ -79,10 +83,34 @@ function normalizeNormalized(obj: Record<string, unknown>, fallbackIbge: string)
         : undefined,
       sourceTeams: metaIn.sourceTeams ? String(metaIn.sourceTeams) : undefined,
       generatedAt: metaIn.generatedAt ? String(metaIn.generatedAt) : undefined,
+      gestaoCriterion: metaIn.gestaoCriterion ? String(metaIn.gestaoCriterion) : undefined,
+      gestaoFilter: metaIn.gestaoFilter ? String(metaIn.gestaoFilter) : undefined,
       counts: {
         establishments: establishments.length,
         teams: teams.length,
         establishmentsActive: establishments.filter((e) => e.active).length,
+        establishmentsCity:
+          metaIn.counts && typeof metaIn.counts === 'object'
+            ? Number((metaIn.counts as Record<string, unknown>).establishmentsCity) || undefined
+            : undefined,
+        teamsCity:
+          metaIn.counts && typeof metaIn.counts === 'object'
+            ? Number((metaIn.counts as Record<string, unknown>).teamsCity) || undefined
+            : undefined,
+        establishmentsMunicipal:
+          metaIn.counts && typeof metaIn.counts === 'object'
+            ? Number((metaIn.counts as Record<string, unknown>).establishmentsMunicipal) ||
+              undefined
+            : undefined,
+        teamsMunicipal:
+          metaIn.counts && typeof metaIn.counts === 'object'
+            ? Number((metaIn.counts as Record<string, unknown>).teamsMunicipal) || undefined
+            : undefined,
+        establishmentsMunicipalActive:
+          metaIn.counts && typeof metaIn.counts === 'object'
+            ? Number((metaIn.counts as Record<string, unknown>).establishmentsMunicipalActive) ||
+              undefined
+            : undefined,
       },
     },
     establishments,
@@ -97,7 +125,10 @@ function mapNormalizedEstablishment(row: unknown, ibge: string): CnesEstablishme
   if (!cnes) return null;
   const name = String(r.name || `CNES ${cnes}`).trim();
   const addr = r.address && typeof r.address === 'object' ? (r.address as Record<string, unknown>) : null;
-  return {
+  const naturezaJuridica =
+    normalizeNaturezaJuridicaCode(r.naturezaJuridica) ||
+    normalizeNaturezaJuridicaCode(r.descricao_natureza_juridica_estabelecimento);
+  const base: CnesEstablishment = {
     cnes,
     name,
     typeId: r.typeId != null ? String(r.typeId) : null,
@@ -114,7 +145,21 @@ function mapNormalizedEstablishment(row: unknown, ibge: string): CnesEstablishme
           zip: addr.zip != null ? String(addr.zip).replace(/\D/g, '').slice(0, 8) : null,
         }
       : null,
+    tipoGestao: r.tipoGestao != null ? String(r.tipoGestao).trim() || null : r.tipo_gestao != null ? String(r.tipo_gestao).trim() || null : null,
+    esferaAdministrativa:
+      r.esferaAdministrativa != null
+        ? String(r.esferaAdministrativa).trim() || null
+        : r.descricao_esfera_administrativa != null
+          ? String(r.descricao_esfera_administrativa).trim() || null
+          : null,
+    naturezaJuridica,
+    razaoSocial: r.razaoSocial != null ? String(r.razaoSocial).trim() || null : null,
   };
+  base.municipalNetwork =
+    r.municipalNetwork === true || r.municipalNetwork === false
+      ? Boolean(r.municipalNetwork)
+      : isMunicipalPrefeituraNetwork(base);
+  return base;
 }
 
 export function mapApiEstablishment(row: unknown, ibge7: string): CnesEstablishment {
@@ -123,7 +168,10 @@ export function mapApiEstablishment(row: unknown, ibge7: string): CnesEstablishm
   const desab = String(r.codigo_motivo_desabilitacao_estabelecimento || '').trim();
   const name = String(r.nome_fantasia || r.nome_razao_social || r.name || `CNES ${cnes}`).trim();
   const cep = String(r.codigo_cep_estabelecimento || r.cep || '').replace(/\D/g, '');
-  return {
+  const naturezaJuridica = normalizeNaturezaJuridicaCode(
+    r.descricao_natureza_juridica_estabelecimento ?? r.naturezaJuridica,
+  );
+  const base: CnesEstablishment = {
     cnes,
     name,
     typeId: r.codigo_tipo_unidade != null ? String(r.codigo_tipo_unidade) : r.typeId != null ? String(r.typeId) : null,
@@ -134,11 +182,20 @@ export function mapApiEstablishment(row: unknown, ibge7: string): CnesEstablishm
       street: r.endereco_estabelecimento != null ? String(r.endereco_estabelecimento) : null,
       number: r.numero_estabelecimento != null ? String(r.numero_estabelecimento) : null,
       neighborhood: r.bairro_estabelecimento != null ? String(r.bairro_estabelecimento) : null,
-      city: 'Franca',
-      state: 'SP',
+      city: ibge7 === '3516200' ? 'Franca' : null,
+      state: ibge7.startsWith('35') ? 'SP' : null,
       zip: cep ? cep.padStart(8, '0').slice(-8) : null,
     },
+    tipoGestao: r.tipo_gestao != null ? String(r.tipo_gestao).trim() || null : null,
+    esferaAdministrativa:
+      r.descricao_esfera_administrativa != null
+        ? String(r.descricao_esfera_administrativa).trim() || null
+        : null,
+    naturezaJuridica,
+    razaoSocial: r.nome_razao_social != null ? String(r.nome_razao_social).trim() || null : null,
   };
+  base.municipalNetwork = isMunicipalPrefeituraNetwork(base);
+  return base;
 }
 
 function mapLooseTeam(row: unknown): CnesTeam | null {

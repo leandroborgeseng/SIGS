@@ -4,6 +4,7 @@ import {
   parseCnesWebEquipesHtml,
   parseCnesWebEquipesListHtml,
 } from './cnes.parser';
+import { annotateMunicipalNetwork, CNES_GESTAO_CRITERION } from './cnes.filter';
 import type { CnesSnapshot, CnesTeam } from './cnes.types';
 
 const API_BASE = process.env.CNES_API_BASE || 'https://apidadosabertos.saude.gov.br';
@@ -49,7 +50,7 @@ export async function fetchLiveCnesSnapshot(ibgeCode: string): Promise<CnesSnaps
     teams.push(...parseCnesWebEquipesHtml(u.cnes, page));
   }
 
-  return {
+  return annotateMunicipalNetwork({
     meta: {
       ibgeCode,
       municipality: ibgeCode === '3516200' ? 'Franca' : undefined,
@@ -57,13 +58,10 @@ export async function fetchLiveCnesSnapshot(ibgeCode: string): Promise<CnesSnaps
       sourceEstablishments: `${API_BASE}/cnes/estabelecimentos`,
       sourceTeams: `${CNESWEB_BASE}/Mod_Ind_Equipes_Listar.asp`,
       generatedAt: new Date().toISOString(),
-      counts: {
-        establishments: establishments.length,
-        teams: teams.length,
-        establishmentsActive: establishments.filter((e) => e.active).length,
-      },
+      gestaoCriterion: CNES_GESTAO_CRITERION,
+      competenciaHint: 'API Dados Abertos + CnesWeb (sem PHI)',
     },
     establishments,
     teams,
-  };
+  });
 }

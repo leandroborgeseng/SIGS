@@ -22,12 +22,15 @@ describe('cnes.snapshot helpers', () => {
     expect(teamFacilityTypeMismatch('99', '22')).toBe(false);
   });
 
-  it('carrega snapshot Franca versionado', () => {
+  it('carrega snapshot Franca versionado com gestão', () => {
     const { snapshot, path } = loadBundledSnapshot(FRANCA_IBGE);
     expect(path).toMatch(/franca-3516200\.json$/);
     expect(snapshot.meta.ibgeCode).toBe('3516200');
     expect(snapshot.establishments.length).toBeGreaterThan(100);
     expect(snapshot.teams.length).toBeGreaterThan(50);
+    const muni = snapshot.establishments.filter((e) => e.naturezaJuridica === '1244' || e.municipalNetwork);
+    expect(muni.length).toBeGreaterThan(50);
+    expect(muni.length).toBeLessThan(snapshot.establishments.length);
   });
 });
 
@@ -61,10 +64,20 @@ describe('CnesAuditService', () => {
         typeId: '22',
         _count: { teams: 2 },
       },
+      {
+        id: 'f-muni-empty',
+        cnes: '2049074',
+        name: 'UBS ESTACAO sem equipe',
+        active: true,
+        ibgeCode: '3516200',
+        typeId: '2',
+        _count: { teams: 0 },
+      },
     ];
     const teams = [
       {
         id: 't1',
+        name: 'eSF A',
         ine: '0001667653',
         teamTypeId: '70',
         active: true,
@@ -73,6 +86,7 @@ describe('CnesAuditService', () => {
       },
       {
         id: 't2',
+        name: 'eSF B',
         ine: '0001667653',
         teamTypeId: '70',
         active: true,
@@ -96,7 +110,32 @@ describe('CnesAuditService', () => {
     expect(codes.has('INE_DUPLICATE')).toBe(true);
     expect(codes.has('TEAM_FACILITY_TYPE_MISMATCH')).toBe(true);
     expect(report.counts.findings).toBeGreaterThan(0);
+    expect(report.needsSync).toBe(false);
+    expect(report.gestao).toBe('municipal');
+    expect(report.counts.snapshotEstablishments).toBeGreaterThan(50);
+    expect(report.counts.snapshotEstablishmentsCity).toBeGreaterThan(
+      report.counts.snapshotEstablishments || 0,
+    );
+    expect(report.inventory.facilities.length).toBeGreaterThan(0);
+    expect(report.inventory.teams.length).toBeGreaterThan(0);
     expect(report.heuristics.teamFacilityType).toMatch(/consultório isolado/);
+  });
+
+  it('marca needsSync quando cadastro municipal está vazio', async () => {
+    const prisma = {
+      facility: { findMany: jest.fn().mockResolvedValue([]) },
+      team: { findMany: jest.fn().mockResolvedValue([]) },
+      patientTeamLink: { findMany: jest.fn().mockResolvedValue([]) },
+      professionalAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+      productionRecord: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new CnesAuditService(prisma as never);
+    const report = await service.audit({ ibgeCode: '3516200', includeLedi: false });
+    expect(report.needsSync).toBe(true);
+    expect(report.counts.facilitiesInScope).toBe(0);
+    expect(report.counts.teamsInScope).toBe(0);
+    expect(report.inventory.facilities).toEqual([]);
+    expect(report.inventory.teams).toEqual([]);
   });
 
   it('marca vínculo ativo em equipe inativa como órfão', async () => {

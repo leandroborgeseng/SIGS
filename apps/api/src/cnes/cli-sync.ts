@@ -1,10 +1,11 @@
 /**
- * CLI: npx ts-node --transpile-only src/cnes/cli-sync.ts --ibge=3516200 --source=snapshot
+ * CLI: npx ts-node --transpile-only src/cnes/cli-sync.ts --ibge=3516200 --source=snapshot --gestao=municipal
  */
 import { PrismaClient } from '@prisma/client';
 import { assertIbgeCode } from '../ledi/ibge';
 import { fetchLiveCnesSnapshot } from './cnes.fetch';
 import { loadCnesSnapshot } from './cnes.loader';
+import { parseGestaoMode } from './cnes.filter';
 import { loadBundledSnapshot } from './cnes.snapshot';
 
 function arg(name: string): string | undefined {
@@ -20,6 +21,14 @@ async function main() {
   const ibge = assertIbgeCode(arg('ibge') || process.env.MUNICIPIO_IBGE || '3516200') || '3516200';
   const source = (arg('source') || 'auto') as 'live' | 'snapshot' | 'auto';
   const activeOnly = flag('activeOnly') || arg('activeOnly') === '1';
+  const gestao = parseGestaoMode(
+    arg('gestao'),
+    flag('somentePrefeitura') || arg('somentePrefeitura') === '1'
+      ? true
+      : flag('todos')
+        ? false
+        : arg('somentePrefeitura'),
+  );
 
   const prisma = new PrismaClient();
   try {
@@ -30,14 +39,15 @@ async function main() {
         activeOnly,
         source: 'snapshot',
         snapshotPath: path,
+        gestao,
       });
     } else if (source === 'live') {
       const snapshot = await fetchLiveCnesSnapshot(ibge);
-      result = await loadCnesSnapshot(prisma, snapshot, { activeOnly, source: 'live' });
+      result = await loadCnesSnapshot(prisma, snapshot, { activeOnly, source: 'live', gestao });
     } else {
       try {
         const snapshot = await fetchLiveCnesSnapshot(ibge);
-        result = await loadCnesSnapshot(prisma, snapshot, { activeOnly, source: 'live' });
+        result = await loadCnesSnapshot(prisma, snapshot, { activeOnly, source: 'live', gestao });
       } catch (err) {
         console.warn('live falhou:', (err as Error).message, '→ snapshot');
         const { snapshot, path } = loadBundledSnapshot(ibge);
@@ -45,6 +55,7 @@ async function main() {
           activeOnly,
           source: 'snapshot',
           snapshotPath: path,
+          gestao,
         });
       }
     }

@@ -9,6 +9,8 @@ import {
   normalizeCnes,
   normalizeIne,
 } from '../cnes/cnes.snapshot';
+import { applyGestaoFilter, CNES_GESTAO_CRITERION } from '../cnes/cnes.filter';
+import type { CnesSyncGestao } from '../cnes/cnes.types';
 
 export type FatAuditSeverity = 'blocker' | 'quality';
 
@@ -49,11 +51,17 @@ export type FatAuditReport = {
   competenciaYm: string;
   ibgeCode: string;
   generatedAt: string;
+  gestao: CnesSyncGestao;
+  gestaoCriterion: string;
   counts: {
     findings: number;
     bySeverity: Record<FatAuditSeverity, number>;
     byCode: Partial<Record<FatAuditCode, number>>;
     sources: { batches: number; productionRecords: number; encounters: number };
+    cnesMunicipal?: number;
+    cnesCity?: number;
+    teamsMunicipal?: number;
+    teamsCity?: number;
   };
   findings: FatAuditFinding[];
   rfIds: string[];
@@ -317,14 +325,15 @@ export class FaturamentoAuditService {
     private readonly sigtap: SigtapService,
   ) {}
 
-  async audit(opts: { competencia?: string; ibge?: string } = {}): Promise<FatAuditReport> {
+  async audit(opts: { competencia?: string; ibge?: string; gestao?: CnesSyncGestao } = {}): Promise<FatAuditReport> {
     const ibgeCode = (opts.ibge || FRANCA_IBGE).replace(/\D/g, '');
     if (!/^\d{7}$/.test(ibgeCode)) {
       throw new BadRequestException('ibge deve ter 7 dígitos');
     }
+    const gestao = opts.gestao || 'municipal';
     const comp = parseCompetencia(opts.competencia);
 
-    const cadastro = await this.buildCadastroIndex(ibgeCode);
+    const cadastro = await this.buildCadastroIndex(ibgeCode, gestao);
     const units: ProdUnit[] = [];
 
     const batches = await this.prisma.productionBatch.findMany({
@@ -444,6 +453,7 @@ export class FaturamentoAuditService {
       [RF.FATURAMENTO_AUDIT.id, RF.PROD.id, RF.SIGTAP_VALIDATE.id, RF.CNES_AUDIT.id],
       {
         ibgeCode,
+        gestao,
         findings: findings.length,
         blockers: bySeverity.blocker,
       },
@@ -454,6 +464,8 @@ export class FaturamentoAuditService {
       competenciaYm: comp.ym,
       ibgeCode,
       generatedAt: new Date().toISOString(),
+      gestao,
+      gestaoCriterion: CNES_GESTAO_CRITERION,
       counts: {
         findings: findings.length,
         bySeverity,
@@ -463,13 +475,20 @@ export class FaturamentoAuditService {
           productionRecords: records.length,
           encounters: encounters.length,
         },
+        cnesMunicipal: cadastro.scope.after.establishments,
+        cnesCity: cadastro.scope.before.establishments,
+        teamsMunicipal: cadastro.scope.after.teams,
+        teamsCity: cadastro.scope.before.teams,
       },
       findings,
       rfIds: [RF.FATURAMENTO_AUDIT.id, RF.PROD.id, RF.SIGTAP_VALIDATE.id, RF.CNES_AUDIT.id],
     };
   }
 
-  private async buildCadastroIndex(ibgeCode: string): Promise<CadastroIndex> {
+  private async buildCadastroIndex(
+    ibgeCode: string,
+    gestao: CnesSyncGestao = 'municipal',
+  ): Promise<CadastroIndex & { scope: { before: { establishments: number; teams: number }; after: { establishments: number; teams: number } } }> {
     const facilityByCnes = new Map<
       string,
       { id: string; active: boolean; ibgeCode: string | null; name: string }
@@ -479,10 +498,25 @@ export class FaturamentoAuditService {
       string,
       Array<{ facilityCnes: string; ine: string | null; cbo: string; facilityId: string; teamId: string | null }>
     >();
+    let scope = {
+      before: { establishments: 0, teams: 0 },
+      after: { establishments: 0, teams: 0 },
+    };
 
     try {
       const { snapshot } = loadBundledSnapshot(ibgeCode);
-      for (const e of snapshot.establishments) {
+      const { snapshot: scoped, filter } = applyGestaoFilter(snapshot, gestao);
+      scope = {
+        before: {
+          establishments: filter.before.establishments,
+          teams: filter.before.teams,
+        },
+        after: {
+          establishments: filter.after.establishments,
+          teams: filter.after.teams,
+        },
+      };
+      for (const e of scoped.establishments) {
         const cnes = normalizeCnes(e.cnes) || e.cnes;
         facilityByCnes.set(cnes, {
           id: `snap:${cnes}`,
@@ -491,7 +525,7 @@ export class FaturamentoAuditService {
           name: e.name,
         });
       }
-      for (const t of snapshot.teams) {
+      for (const t of scoped.teams) {
         const ine = normalizeIne(t.ine) || t.ine;
         teamByIne.set(ine, {
           id: `snap:${ine}`,
@@ -509,6 +543,11 @@ export class FaturamentoAuditService {
     });
     for (const f of facilities) {
       const cnes = normalizeCnes(f.cnes) || f.cnes;
+      // Em gestao=municipal, só sobrescreve/aceita CNES já no índice (rede Prefeitura)
+      // ou, se o snapshot falhou, aceita o que está no banco (já filtrado pelo sync default).
+      if (gestao === 'municipal' && scope.after.establishments > 0 && !facilityByCnes.has(cnes)) {
+        continue;
+      }
       const prev = facilityByCnes.get(cnes);
       facilityByCnes.set(cnes, {
         id: f.id,
@@ -526,10 +565,14 @@ export class FaturamentoAuditService {
     for (const t of teams) {
       if (!t.ine) continue;
       const ine = normalizeIne(t.ine) || t.ine;
+      const facCnes = normalizeCnes(t.facility.cnes) || t.facility.cnes;
+      if (gestao === 'municipal' && scope.after.establishments > 0 && !facilityByCnes.has(facCnes) && !teamByIne.has(ine)) {
+        continue;
+      }
       teamByIne.set(ine, {
         id: t.id,
         active: t.active,
-        cnes: normalizeCnes(t.facility.cnes) || t.facility.cnes,
+        cnes: facCnes,
         name: t.name,
       });
     }
@@ -542,9 +585,13 @@ export class FaturamentoAuditService {
     for (const a of assignments) {
       const cns = (a.professional.cns || '').replace(/\D/g, '');
       if (!cns) continue;
+      const facCnes = normalizeCnes(a.facility.cnes) || a.facility.cnes;
+      if (gestao === 'municipal' && scope.after.establishments > 0 && !facilityByCnes.has(facCnes)) {
+        continue;
+      }
       const list = assignmentsByCns.get(cns) || [];
       list.push({
-        facilityCnes: normalizeCnes(a.facility.cnes) || a.facility.cnes,
+        facilityCnes: facCnes,
         ine: a.team?.ine ? normalizeIne(a.team.ine) || a.team.ine : null,
         cbo: a.cbo,
         facilityId: a.facilityId,
@@ -553,7 +600,7 @@ export class FaturamentoAuditService {
       assignmentsByCns.set(cns, list);
     }
 
-    return { facilityByCnes, teamByIne, assignmentsByCns };
+    return { facilityByCnes, teamByIne, assignmentsByCns, scope };
   }
 
   private auditUnit(

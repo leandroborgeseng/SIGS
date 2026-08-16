@@ -11,6 +11,8 @@ describe('cnes.loader', () => {
         typeId: '2',
         active: true,
         ibgeCode: '3516200',
+        naturezaJuridica: '1244',
+        municipalNetwork: true,
         address: { street: 'RUA A', number: '1', neighborhood: 'B', city: 'Franca', state: 'SP', zip: '14400000' },
       },
     ],
@@ -36,9 +38,14 @@ describe('cnes.loader', () => {
       create: jest.fn().mockResolvedValue({ id: 't1' }),
       update: jest.fn(),
     };
-    const out = await loadCnesSnapshot({ facility, team } as never, snapshot, { source: 'snapshot' });
+    const out = await loadCnesSnapshot({ facility, team } as never, snapshot, {
+      source: 'snapshot',
+      gestao: 'municipal',
+    });
     expect(out.facilities.created).toBe(1);
     expect(out.teams.created).toBe(1);
+    expect(out.gestao).toBe('municipal');
+    expect(out.filter.after.establishments).toBe(1);
     expect(facility.create).toHaveBeenCalled();
     expect(team.create).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -14,7 +14,7 @@ describe('cnes.parser', () => {
     expect(padIne('1667653')).toBe('0001667653');
   });
 
-  it('mapApiEstablishment marca desabilitado', () => {
+  it('mapApiEstablishment marca desabilitado e rede municipal', () => {
     const row = mapApiEstablishment(
       {
         codigo_cnes: 9644687,
@@ -25,12 +25,34 @@ describe('cnes.parser', () => {
         numero_estabelecimento: '10',
         bairro_estabelecimento: 'CENTRO',
         codigo_cep_estabelecimento: '14400000',
+        tipo_gestao: 'M',
+        descricao_esfera_administrativa: 'MUNICIPAL',
+        descricao_natureza_juridica_estabelecimento: '2062',
+        nome_razao_social: 'EMPRESA X',
       },
       '3516200',
     );
     expect(row.active).toBe(false);
     expect(row.cnes).toBe('9644687');
     expect(row.address?.city).toBe('Franca');
+    expect(row.naturezaJuridica).toBe('2062');
+    expect(row.municipalNetwork).toBe(false);
+  });
+
+  it('mapApiEstablishment marca Prefeitura (natureza 1244)', () => {
+    const row = mapApiEstablishment(
+      {
+        codigo_cnes: 9647198,
+        nome_fantasia: 'UBS SANTA CLARA',
+        nome_razao_social: 'PREFEITURA MUNICIPAL DE FRANCA',
+        codigo_tipo_unidade: 2,
+        tipo_gestao: 'M',
+        descricao_natureza_juridica_estabelecimento: '1244',
+      },
+      '3516200',
+    );
+    expect(row.municipalNetwork).toBe(true);
+    expect(row.naturezaJuridica).toBe('1244');
   });
 
   it('parseCnesSnapshot normalizado', () => {

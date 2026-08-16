@@ -8,6 +8,8 @@ import {
   normalizeIne,
   teamFacilityTypeMismatch,
 } from './cnes.snapshot';
+import { applyGestaoFilter, CNES_GESTAO_CRITERION } from './cnes.filter';
+import type { CnesSyncGestao } from './cnes.types';
 
 export type CnesAuditSeverity = 'error' | 'warn' | 'info';
 
@@ -36,17 +38,41 @@ export type CnesAuditFinding = {
   details?: Record<string, unknown>;
 };
 
+export type CnesAuditInventoryRow = {
+  id: string;
+  name: string;
+  cnes?: string | null;
+  ine?: string | null;
+  active: boolean;
+  typeId?: string | null;
+  teamCount?: number;
+  facilityName?: string | null;
+};
+
 export type CnesAuditReport = {
   ibgeCode: string;
   generatedAt: string;
   snapshotPath?: string;
   snapshotMeta?: Record<string, unknown>;
+  gestao: CnesSyncGestao;
+  gestaoCriterion: string;
+  /** true quando o banco municipal está vazio — UI deve pedir sync CNES */
+  needsSync: boolean;
   counts: {
     findings: number;
     bySeverity: Record<CnesAuditSeverity, number>;
     byCode: Partial<Record<CnesAuditCode, number>>;
     facilitiesInScope: number;
     teamsInScope: number;
+    snapshotEstablishments?: number;
+    snapshotTeams?: number;
+    snapshotEstablishmentsCity?: number;
+    snapshotTeamsCity?: number;
+  };
+  /** Amostra do cadastro SIGS (após sync) — evita tela só com findings vazios */
+  inventory: {
+    facilities: CnesAuditInventoryRow[];
+    teams: CnesAuditInventoryRow[];
   };
   findings: CnesAuditFinding[];
   heuristics: {
@@ -58,14 +84,21 @@ export type CnesAuditReport = {
 export class CnesAuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async audit(opts: { ibgeCode?: string; includeLedi?: boolean } = {}): Promise<CnesAuditReport> {
+  async audit(
+    opts: { ibgeCode?: string; includeLedi?: boolean; gestao?: CnesSyncGestao } = {},
+  ): Promise<CnesAuditReport> {
     const ibgeCode = (opts.ibgeCode || FRANCA_IBGE).replace(/\D/g, '');
     if (!/^\d{7}$/.test(ibgeCode)) {
       throw new BadRequestException('ibge deve ter 7 dígitos');
     }
+    const gestao = opts.gestao || 'municipal';
 
     let snapshotPath: string | undefined;
     let snapshotMeta: Record<string, unknown> | undefined;
+    let snapshotEstablishments = 0;
+    let snapshotTeams = 0;
+    let snapshotEstablishmentsCity = 0;
+    let snapshotTeamsCity = 0;
     let snapByCnes = new Map<string, { active: boolean; typeId?: string | null; ibgeCode: string }>();
     let snapByIne = new Map<
       string,
@@ -75,12 +108,21 @@ export class CnesAuditService {
     try {
       const loaded = loadBundledSnapshot(ibgeCode);
       snapshotPath = loaded.path;
-      snapshotMeta = loaded.snapshot.meta as unknown as Record<string, unknown>;
-      for (const e of loaded.snapshot.establishments) {
+      const { snapshot: scoped, filter } = applyGestaoFilter(loaded.snapshot, gestao);
+      snapshotMeta = {
+        ...(loaded.snapshot.meta as unknown as Record<string, unknown>),
+        gestaoFilter: filter.mode,
+        gestaoCriterion: filter.criterion,
+      };
+      snapshotEstablishmentsCity = filter.before.establishments;
+      snapshotTeamsCity = filter.before.teams;
+      snapshotEstablishments = filter.after.establishments;
+      snapshotTeams = filter.after.teams;
+      for (const e of scoped.establishments) {
         const cnes = normalizeCnes(e.cnes) || e.cnes;
         snapByCnes.set(cnes, { active: e.active, typeId: e.typeId, ibgeCode: e.ibgeCode });
       }
-      for (const t of loaded.snapshot.teams) {
+      for (const t of scoped.teams) {
         const ine = normalizeIne(t.ine) || t.ine;
         snapByIne.set(ine, {
           cnes: normalizeCnes(t.cnes) || t.cnes,
@@ -102,17 +144,32 @@ export class CnesAuditService {
       include: { facility: true },
     });
 
-    // Escopo municipal: IBGE pedido OU presente no snapshot OU sem IBGE (para detectar)
-    const facilitiesInScope = facilities.filter(
-      (f) => !f.ibgeCode || f.ibgeCode === ibgeCode || snapByCnes.has(f.cnes),
-    );
-    const teamsInScope = teams.filter(
-      (t) =>
+    // Escopo: com gestao=municipal, só CNES presentes no snapshot filtrado (rede Prefeitura).
+    // Com gestao=todos, IBGE pedido OU presente no snapshot OU sem IBGE (para detectar).
+    const facilitiesInScope = facilities.filter((f) => {
+      if (gestao === 'municipal') {
+        return snapByCnes.size === 0
+          ? !f.ibgeCode || f.ibgeCode === ibgeCode
+          : snapByCnes.has(normalizeCnes(f.cnes) || f.cnes);
+      }
+      return !f.ibgeCode || f.ibgeCode === ibgeCode || snapByCnes.has(f.cnes);
+    });
+    const teamsInScope = teams.filter((t) => {
+      const facCnes = normalizeCnes(t.facility.cnes) || t.facility.cnes;
+      const ine = t.ine ? normalizeIne(t.ine) || t.ine : null;
+      if (gestao === 'municipal') {
+        if (snapByCnes.size === 0 && snapByIne.size === 0) {
+          return !t.facility.ibgeCode || t.facility.ibgeCode === ibgeCode;
+        }
+        return snapByCnes.has(facCnes) || (!!ine && snapByIne.has(ine));
+      }
+      return (
         !t.facility.ibgeCode ||
         t.facility.ibgeCode === ibgeCode ||
-        snapByCnes.has(t.facility.cnes) ||
-        (t.ine && snapByIne.has(normalizeIne(t.ine) || t.ine)),
-    );
+        snapByCnes.has(facCnes) ||
+        (!!ine && snapByIne.has(ine))
+      );
+    });
 
     // CNES formato inválido
     for (const f of facilities) {
@@ -434,17 +491,58 @@ export class CnesAuditService {
         severityRank[a.severity] - severityRank[b.severity] || a.code.localeCompare(b.code),
     );
 
+    const inventoryFacilities: CnesAuditInventoryRow[] = facilitiesInScope
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+      .slice(0, 40)
+      .map((f) => ({
+        id: f.id,
+        name: f.name,
+        cnes: f.cnes,
+        active: f.active,
+        typeId: f.typeId,
+        teamCount: f._count.teams,
+      }));
+
+    const inventoryTeams: CnesAuditInventoryRow[] = teamsInScope
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+      .slice(0, 40)
+      .map((t) => ({
+        id: t.id,
+        name: t.name,
+        cnes: t.facility.cnes,
+        ine: t.ine,
+        active: t.active,
+        typeId: t.teamTypeId,
+        facilityName: t.facility.name,
+      }));
+
     return {
       ibgeCode,
       generatedAt: new Date().toISOString(),
       snapshotPath,
       snapshotMeta,
+      gestao,
+      gestaoCriterion:
+        gestao === 'municipal'
+          ? CNES_GESTAO_CRITERION
+          : 'sem filtro — todos os CNES do município (IBGE)',
+      needsSync: facilitiesInScope.length === 0 && teamsInScope.length === 0,
       counts: {
         findings: findings.length,
         bySeverity,
         byCode,
         facilitiesInScope: facilitiesInScope.length,
         teamsInScope: teamsInScope.length,
+        snapshotEstablishments: snapshotEstablishments || undefined,
+        snapshotTeams: snapshotTeams || undefined,
+        snapshotEstablishmentsCity: snapshotEstablishmentsCity || undefined,
+        snapshotTeamsCity: snapshotTeamsCity || undefined,
+      },
+      inventory: {
+        facilities: inventoryFacilities,
+        teams: inventoryTeams,
       },
       findings,
       heuristics: {

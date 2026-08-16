@@ -26,11 +26,17 @@ type AuditReport = {
   competenciaYm: string;
   ibgeCode: string;
   generatedAt: string;
+  gestao?: string;
+  gestaoCriterion?: string;
   counts: {
     findings: number;
     bySeverity: Record<Severity, number>;
     byCode: Record<string, number>;
     sources: { batches: number; productionRecords: number; encounters: number };
+    cnesMunicipal?: number;
+    cnesCity?: number;
+    teamsMunicipal?: number;
+    teamsCity?: number;
   };
   findings: Finding[];
 };
@@ -61,6 +67,7 @@ export default function FaturamentoAuditoriaPage() {
       const qs = new URLSearchParams({
         competencia,
         ibge: '3516200',
+        gestao: 'municipal',
       });
       const data = await api<AuditReport>(`/v1/faturamento/audit?${qs.toString()}`);
       setReport(data);
@@ -142,7 +149,7 @@ export default function FaturamentoAuditoriaPage() {
       <PageHeader
         title="Auditoria de faturamento"
         eyebrow="Faturamento & Validação"
-        description="Cruza fichas/lotes da competência com CNES ativo, INE, lotação CNS/CBO e catálogo SIGTAP (IBGE 3516200)."
+        description="Cruza fichas/lotes da competência com a rede municipal CNES (Prefeitura), INE, lotação CNS/CBO e SIGTAP (IBGE 3516200)."
         actions={
           <>
             <HelpLink id="faturamento.auditoria" />
@@ -169,13 +176,19 @@ export default function FaturamentoAuditoriaPage() {
           />
         </label>
         <span className="muted" style={{ fontSize: 12.5 }}>
-          IBGE 3516200 · blocker = bloqueia envio · quality = qualidade
+          Escopo: rede municipal (Prefeitura) · IBGE 3516200 · blocker = bloqueia envio
         </span>
       </div>
 
       {report ? (
         <div className="card" style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13 }}>
+            <span>
+              Escopo CNES: <strong>Rede municipal</strong>
+              {report.counts.cnesMunicipal != null
+                ? ` (${report.counts.cnesMunicipal}/${report.counts.cnesCity ?? '—'} est. · ${report.counts.teamsMunicipal ?? '—'}/${report.counts.teamsCity ?? '—'} eq.)`
+                : ''}
+            </span>
             <span>
               Findings: <strong>{report.counts.findings}</strong>
             </span>
@@ -188,6 +201,11 @@ export default function FaturamentoAuditoriaPage() {
               registros · {report.counts.sources.encounters} encounters
             </span>
           </div>
+          {report.gestaoCriterion ? (
+            <p className="muted" style={{ margin: '10px 0 0', fontSize: 12.5 }}>
+              Critério CNES: {report.gestaoCriterion}
+            </p>
+          ) : null}
         </div>
       ) : null}
 

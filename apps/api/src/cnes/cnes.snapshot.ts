@@ -25,10 +25,14 @@ export function normalizeIne(raw: string | null | undefined): string | null {
 function candidateSnapshotPaths(ibgeCode: string): string[] {
   const env = process.env.CNES_SNAPSHOT_PATH?.trim();
   const file = `franca-${ibgeCode}.json`;
+  // cwd típicos: monorepo raiz, apps/api (dev), /app/apps/api (Docker runner)
   const roots = [
     process.env.CNES_DATA_DIR,
+    '/app/data/cnes',
     join(process.cwd(), 'data', 'cnes'),
     join(process.cwd(), '..', '..', 'data', 'cnes'),
+    join(process.cwd(), '..', 'data', 'cnes'),
+    join(__dirname, 'snapshots'), // dist/cnes/snapshots (imagem Docker)
     join(__dirname, '..', '..', '..', '..', 'data', 'cnes'),
     join(__dirname, '..', '..', '..', '..', '..', 'data', 'cnes'),
   ].filter(Boolean) as string[];

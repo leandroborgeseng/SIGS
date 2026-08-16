@@ -46,6 +46,15 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/prisma ./apps/api/prisma
+# Snapshot CNES (Franca) — sync offline em produção (cwd API = /app/apps/api → ../../data/cnes)
+COPY --from=build /app/data/cnes ./data/cnes
+RUN if [ ! -f data/cnes/franca-3516200.json ]; then \
+      echo "FATAL: snapshot CNES ausente (data/cnes/franca-3516200.json)"; \
+      ls -la data/cnes 2>/dev/null || true; \
+      exit 1; \
+    fi \
+  && mkdir -p apps/api/dist/cnes/snapshots \
+  && cp data/cnes/*.json apps/api/dist/cnes/snapshots/
 RUN if [ ! -f apps/api/dist/main.js ]; then \
       echo "FATAL: apps/api/dist/main.js ausente no estágio runner"; \
       find apps/api/dist -name 'main.js' 2>/dev/null || true; \
