@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
+import { FieldSection, FieldToneLegend, LabeledField } from '@/components/ui/FieldHint';
 import { api } from '@/lib/api';
 import { displayPatientName } from '@/lib/labels';
 
@@ -214,7 +215,7 @@ export default function PatientDetailPage() {
     <AppShell helpId="cadastros.pacientes">
       <PageHeader
         title={loaded ? displayPatientName({ civilName, socialName }) : 'Paciente'}
-        description="Edição da ficha — regras de nome social, desconhece e óbito."
+        description="Identificação Siaps + CDS individual (RF-2.30) com badges Previne nos campos de qualidade."
         actions={
           <>
             <HelpLink id="cadastros.pacientes" />
@@ -234,39 +235,37 @@ export default function PatientDetailPage() {
       {ok ? <div className="alert" style={{ borderColor: 'var(--ok-bd)', background: 'var(--ok-bg)' }}>{ok}</div> : null}
       {loaded ? (
         <form className="card" onSubmit={onSubmit}>
+          <FieldToneLegend />
           <div className="grid-2">
-            <div className="field">
-              <label>Nome civil *</label>
+            <LabeledField label="Nome civil *" tone="siaps">
               <input required value={civilName} onChange={(e) => setCivilName(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>Nome social</label>
+            </LabeledField>
+            <LabeledField label="Nome social" tone="neutral">
               <input value={socialName} onChange={(e) => setSocialName(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>CPF</label>
+            </LabeledField>
+            <LabeledField
+              label="CPF"
+              tone="siaps"
+              hint="cnsCidadao ou cpfCidadao + stNaoPossuiCpf nas fichas LEDI."
+            >
               <input className="mono" value={cpf} onChange={(e) => setCpf(e.target.value)} maxLength={11} />
-            </div>
-            <div className="field">
-              <label>CNS</label>
+            </LabeledField>
+            <LabeledField label="CNS" tone="siaps" hint="Preferencial para numerador Previne / header LEDI.">
               <input className="mono" value={cns} onChange={(e) => setCns(e.target.value)} maxLength={16} />
-            </div>
-            <div className="field">
-              <label>Data de nascimento *</label>
+            </LabeledField>
+            <LabeledField label="Data de nascimento *" tone="siaps">
               <input type="date" required value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>Sexo *</label>
+            </LabeledField>
+            <LabeledField label="Sexo *" tone="siaps">
               <select value={sex} onChange={(e) => setSex(e.target.value)}>
                 <option value="F">Feminino</option>
                 <option value="M">Masculino</option>
                 <option value="I">Ignorado</option>
               </select>
-            </div>
-            <div className="field">
-              <label>Nome da mãe</label>
+            </LabeledField>
+            <LabeledField label="Nome da mãe" tone="siaps" hint="Obrigatório ou Desconhece.">
               <input disabled={motherUnknown} value={motherName} onChange={(e) => setMotherName(e.target.value)} />
-              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 500 }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 500, marginTop: 8 }}>
                 <input
                   type="checkbox"
                   checked={motherUnknown}
@@ -277,11 +276,10 @@ export default function PatientDetailPage() {
                 />
                 Desconhece
               </label>
-            </div>
-            <div className="field">
-              <label>Nome do pai</label>
+            </LabeledField>
+            <LabeledField label="Nome do pai" tone="neutral">
               <input disabled={fatherUnknown} value={fatherName} onChange={(e) => setFatherName(e.target.value)} />
-              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 500 }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 500, marginTop: 8 }}>
                 <input
                   type="checkbox"
                   checked={fatherUnknown}
@@ -292,28 +290,38 @@ export default function PatientDetailPage() {
                 />
                 Desconhece
               </label>
-            </div>
-            <div className="field">
-              <label>Telefone</label>
+            </LabeledField>
+            <LabeledField label="Telefone" tone="neutral">
               <input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
+            </LabeledField>
           </div>
 
-          <div className="section-label" style={{ marginTop: 8 }}>
-            Cadastro individual APS (RF-2.30)
-          </div>
+          <FieldSection
+            title="Cadastro individual APS (RF-2.30)"
+            tone="previne"
+            badgeLabel="Indicador"
+            hint="Campos CDS de qualidade / denominador — não inventar BLOCKER LEDI além do que o serviço já valida."
+          >
           <div className="grid-2">
-            <div className="field">
-              <label>Nacionalidade</label>
+            <LabeledField
+              label="Nacionalidade"
+              tone="previne"
+              badgeLabel="Indicador"
+              hint="Se BRASILEIRA, IBGE de nascimento vira obrigatório no serviço."
+            >
               <select value={nationality} onChange={(e) => setNationality(e.target.value)}>
                 <option value="">— não informado —</option>
                 <option value="BRASILEIRA">Brasileira</option>
                 <option value="NATURALIZADA">Naturalizada</option>
                 <option value="ESTRANGEIRA">Estrangeira</option>
               </select>
-            </div>
-            <div className="field">
-              <label>Município nascimento (IBGE)</label>
+            </LabeledField>
+            <LabeledField
+              label="Município nascimento (IBGE)"
+              tone="previne"
+              badgeLabel="Indicador"
+              hint="6–7 dígitos quando nacionalidade = BRASILEIRA."
+            >
               <input
                 className="mono"
                 value={birthMunicipalityIbge}
@@ -321,29 +329,34 @@ export default function PatientDetailPage() {
                 maxLength={7}
                 placeholder="ex.: 351620"
               />
-            </div>
-            <div className="field">
-              <label>Raça / cor</label>
+            </LabeledField>
+            <LabeledField label="Raça / cor" tone="previne" badgeLabel="Indicador">
               <input value={raceColor} onChange={(e) => setRaceColor(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>Etnia</label>
+            </LabeledField>
+            <LabeledField
+              label="Etnia"
+              tone="previne"
+              badgeLabel="Indicador"
+              hint="Obrigatória quando raça/cor é indígena."
+            >
               <input value={ethnicity} onChange={(e) => setEthnicity(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>E-mail</label>
+            </LabeledField>
+            <LabeledField label="E-mail" tone="neutral">
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>NIS / PIS / PASEP</label>
+            </LabeledField>
+            <LabeledField label="NIS / PIS / PASEP" tone="previne" badgeLabel="Indicador" hint="11 dígitos se informado.">
               <input className="mono" value={nis} onChange={(e) => setNis(e.target.value)} maxLength={11} />
-            </div>
-            <div className="field">
-              <label>Escolaridade</label>
+            </LabeledField>
+            <LabeledField label="Escolaridade" tone="neutral">
               <input value={educationLevel} onChange={(e) => setEducationLevel(e.target.value)} />
-            </div>
-            <div className="field">
-              <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            </LabeledField>
+            <LabeledField
+              label="Deficiência"
+              tone="previne"
+              badgeLabel="Indicador"
+              hint="Com flag ativa, informe ≥1 código CDS."
+            >
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 500 }}>
                 <input
                   type="checkbox"
                   checked={hasDisability}
@@ -359,8 +372,9 @@ export default function PatientDetailPage() {
                   style={{ marginTop: 8 }}
                 />
               ) : null}
-            </div>
+            </LabeledField>
           </div>
+          </FieldSection>
 
           {links.length ? (
             <div className="alert" style={{ marginTop: 12 }}>
@@ -453,14 +467,12 @@ export default function PatientDetailPage() {
           {isDeceased ? (
             <div className="alert">
               <div className="grid-2">
-                <div className="field">
-                  <label>Data do óbito</label>
+                <LabeledField label="Data do óbito" tone="siaps" hint="Obrigatório quando falecido.">
                   <input type="date" value={deathDate} onChange={(e) => setDeathDate(e.target.value)} />
-                </div>
-                <div className="field">
-                  <label>Nº da certidão</label>
+                </LabeledField>
+                <LabeledField label="Nº da certidão" tone="siaps" hint="Obrigatório quando falecido.">
                   <input className="mono" value={deathCertificate} onChange={(e) => setDeathCertificate(e.target.value)} />
-                </div>
+                </LabeledField>
               </div>
             </div>
           ) : null}

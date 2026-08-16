@@ -64,3 +64,5 @@ Checklist DoD (além de `docs/manuais/README.md`):
 | `/vacinacao` | `usuario/vacinacao/aplicacao.md` | `vacinacao.aplicacao` |
 | `/ad` | `usuario/ambulatorial/atencao-domiciliar.md` | `ad.stub` |
 | `/coletivo` | `usuario/ambulatorial/atividade-coletiva.md` | `coletivo.stub` |
+| `/pacientes/novo` · `/pacientes/[id]` | `usuario/cadastros/pacientes-territorio.md` | `cadastros.pacientes` |
+| `/territorio` | `usuario/cadastros/pacientes-territorio.md` | `cadastros.territorio` |

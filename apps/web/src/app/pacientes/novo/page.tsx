@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
+import { FieldToneLegend, LabeledField } from '@/components/ui/FieldHint';
 import { api } from '@/lib/api';
 
 export default function NewPatientPage() {
@@ -75,49 +76,50 @@ export default function NewPatientPage() {
     <AppShell helpId="cadastros.pacientes">
       <PageHeader
         title="Novo paciente"
-        description="Campos condicionais de óbito e “desconhece” mãe/pai seguem a regra do design."
+        description="Identificação Siaps (CPF/CNS) e campos condicionais de óbito / “desconhece” mãe-pai. CDS APS completo na ficha após salvar."
         actions={<HelpLink id="cadastros.pacientes" />}
       />
       <ErrorBox message={error} />
       <form className="card" onSubmit={onSubmit}>
+        <FieldToneLegend />
         <div className="grid-2">
-          <div className="field">
-            <label>Nome civil *</label>
+          <LabeledField label="Nome civil *" tone="siaps" hint="Identificação mínima do cidadão na produção LEDI.">
             <input required value={civilName} onChange={(e) => setCivilName(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>Nome social</label>
+          </LabeledField>
+          <LabeledField label="Nome social" tone="neutral" hint="Sempre visível — exibido nas listagens quando preenchido.">
             <input value={socialName} onChange={(e) => setSocialName(e.target.value)} />
-            <span className="hint">Sempre visível — exibido nas listagens quando preenchido.</span>
-          </div>
-          <div className="field">
-            <label>CPF</label>
+          </LabeledField>
+          <LabeledField
+            label="CPF"
+            tone="siaps"
+            hint="cnsCidadao ou cpfCidadao + stNaoPossuiCpf nas fichas — preencha um dos dois quando possível."
+          >
             <input className="mono" value={cpf} onChange={(e) => setCpf(e.target.value)} maxLength={11} />
-          </div>
-          <div className="field">
-            <label>CNS</label>
+          </LabeledField>
+          <LabeledField label="CNS" tone="siaps" hint="Preferencial para numerador Previne e header LEDI.">
             <input className="mono" value={cns} onChange={(e) => setCns(e.target.value)} maxLength={16} />
-          </div>
-          <div className="field">
-            <label>Data de nascimento *</label>
+          </LabeledField>
+          <LabeledField label="Data de nascimento *" tone="siaps">
             <input type="date" required value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>Sexo *</label>
+          </LabeledField>
+          <LabeledField label="Sexo *" tone="siaps">
             <select value={sex} onChange={(e) => setSex(e.target.value)}>
               <option value="F">Feminino</option>
               <option value="M">Masculino</option>
               <option value="I">Ignorado</option>
             </select>
-          </div>
-          <div className="field">
-            <label>Nome da mãe</label>
+          </LabeledField>
+          <LabeledField
+            label="Nome da mãe"
+            tone="siaps"
+            hint="Obrigatório no cadastro (ou marque Desconhece)."
+          >
             <input
               disabled={motherUnknown}
               value={motherName}
               onChange={(e) => setMotherName(e.target.value)}
             />
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 500 }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 500, marginTop: 8 }}>
               <input
                 type="checkbox"
                 checked={motherUnknown}
@@ -128,15 +130,14 @@ export default function NewPatientPage() {
               />
               Desconhece
             </label>
-          </div>
-          <div className="field">
-            <label>Nome do pai</label>
+          </LabeledField>
+          <LabeledField label="Nome do pai" tone="neutral">
             <input
               disabled={fatherUnknown}
               value={fatherName}
               onChange={(e) => setFatherName(e.target.value)}
             />
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 500 }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 500, marginTop: 8 }}>
               <input
                 type="checkbox"
                 checked={fatherUnknown}
@@ -147,11 +148,10 @@ export default function NewPatientPage() {
               />
               Desconhece
             </label>
-          </div>
-          <div className="field">
-            <label>Telefone</label>
+          </LabeledField>
+          <LabeledField label="Telefone" tone="neutral">
             <input value={phone} onChange={(e) => setPhone(e.target.value)} />
-          </div>
+          </LabeledField>
         </div>
 
         <div className="section-label" style={{ marginTop: 8 }}>
@@ -199,18 +199,16 @@ export default function NewPatientPage() {
         {isDeceased ? (
           <div className="alert">
             <div className="grid-2">
-              <div className="field">
-                <label>Data do óbito</label>
+              <LabeledField label="Data do óbito" tone="siaps" hint="Obrigatório quando falecido.">
                 <input type="date" value={deathDate} onChange={(e) => setDeathDate(e.target.value)} />
-              </div>
-              <div className="field">
-                <label>Nº da certidão</label>
+              </LabeledField>
+              <LabeledField label="Nº da certidão" tone="siaps" hint="Obrigatório quando falecido.">
                 <input
                   className="mono"
                   value={deathCertificate}
                   onChange={(e) => setDeathCertificate(e.target.value)}
                 />
-              </div>
+              </LabeledField>
             </div>
           </div>
         ) : null}

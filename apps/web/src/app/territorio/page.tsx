@@ -5,6 +5,7 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, PageHeader } from '@/components/ui/PageHeader';
+import { FieldToneLegend, LabeledField } from '@/components/ui/FieldHint';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { displayPatientName } from '@/lib/labels';
@@ -387,6 +388,7 @@ function TerritoryInner() {
         description="Equipes, microáreas, vínculos, domicílios CDS e visita ACS com lat/long opcional (RF-2.29 · RF-17.11/17.12)."
         actions={<HelpLink id="cadastros.territorio" />}
       />
+      <FieldToneLegend />
       <ErrorBox message={error} />
       {ok ? (
         <div className="alert" style={{ borderColor: 'var(--ok-bd)', background: 'var(--ok-bg)' }}>
@@ -503,8 +505,12 @@ function TerritoryInner() {
         <div className="stack">
           <form className="card grid-2" onSubmit={createLink}>
             <h3 style={{ gridColumn: '1 / -1', margin: 0 }}>Vincular paciente à equipe</h3>
-            <div className="field">
-              <label>Paciente</label>
+            <LabeledField
+              label="Paciente"
+              tone="previne"
+              badgeLabel="Indicador"
+              hint="Vínculo pessoa↔equipe (NT 30/2025) alimenta denominadores Previne."
+            >
               <select required value={linkPatientId} onChange={(e) => setLinkPatientId(e.target.value)}>
                 <option value="">Selecionar…</option>
                 {patients.map((p) => (
@@ -513,9 +519,8 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Equipe</label>
+            </LabeledField>
+            <LabeledField label="Equipe" tone="previne" badgeLabel="Indicador" hint="INE da equipe no denominador.">
               <select
                 required
                 value={linkTeamId}
@@ -530,9 +535,8 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Microárea (opcional)</label>
+            </LabeledField>
+            <LabeledField label="Microárea (opcional)" tone="neutral">
               <select value={linkMicroAreaId} onChange={(e) => setLinkMicroAreaId(e.target.value)}>
                 <option value="">— sem microárea —</option>
                 {microsForLinkTeam.map((m) => (
@@ -541,7 +545,7 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
+            </LabeledField>
             <button className="btn btn-primary" type="submit">
               Salvar vínculo
             </button>
@@ -635,8 +639,7 @@ function TerritoryInner() {
         <div className="stack">
           <form className="card grid-2" onSubmit={createHousehold}>
             <h3 style={{ gridColumn: '1 / -1', margin: 0 }}>Novo domicílio / família CDS</h3>
-            <div className="field">
-              <label>Equipe</label>
+            <LabeledField label="Equipe" tone="siaps" hint="Header territorial da ficha domiciliar LEDI.">
               <select
                 required
                 value={hhTeamId}
@@ -651,9 +654,8 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Microárea</label>
+            </LabeledField>
+            <LabeledField label="Microárea" tone="neutral">
               <select value={hhMicroAreaId} onChange={(e) => setHhMicroAreaId(e.target.value)}>
                 <option value="">— opcional —</option>
                 {microsForHhTeam.map((m) => (
@@ -662,9 +664,8 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Tipo de imóvel</label>
+            </LabeledField>
+            <LabeledField label="Tipo de imóvel" tone="siaps" hint="Catálogo LEDI propertyType.">
               <select value={hhPropertyType} onChange={(e) => setHhPropertyType(e.target.value)}>
                 {(catalog?.propertyTypes || [{ id: 1, label: 'Domicílio' }]).map((p) => (
                   <option key={String(p.id)} value={String(p.id)}>
@@ -672,11 +673,10 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Logradouro</label>
+            </LabeledField>
+            <LabeledField label="Logradouro" tone="siaps">
               <input value={hhStreet} onChange={(e) => setHhStreet(e.target.value)} required />
-            </div>
+            </LabeledField>
             <div className="field">
               <label>Número</label>
               <input value={hhNumber} onChange={(e) => setHhNumber(e.target.value)} />
@@ -693,8 +693,11 @@ function TerritoryInner() {
               <label>UF</label>
               <input maxLength={2} value={hhState} onChange={(e) => setHhState(e.target.value)} />
             </div>
-            <div className="field">
-              <label>Responsável familiar</label>
+            <LabeledField
+              label="Responsável familiar"
+              tone="siaps"
+              hint="Família CDS exige responsável (patientId válido)."
+            >
               <select
                 required
                 value={hhResponsibleId}
@@ -707,7 +710,7 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
+            </LabeledField>
             <div className="field">
               <label>Membro adicional (opcional)</label>
               <select value={hhMemberId} onChange={(e) => setHhMemberId(e.target.value)}>
@@ -840,8 +843,7 @@ function TerritoryInner() {
               Motivo/desfecho alinhados ao LEDI (ficha tipo 8). Lat/long opcional — mapa via OpenStreetMap
               externo (sem Leaflet/Mapbox). Lote XML adiado.
             </p>
-            <div className="field">
-              <label>Equipe</label>
+            <LabeledField label="Equipe" tone="neutral">
               <select value={acsTeamId} onChange={(e) => setAcsTeamId(e.target.value)}>
                 <option value="">—</option>
                 {teams.map((t) => (
@@ -850,9 +852,13 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Turno</label>
+            </LabeledField>
+            <LabeledField
+              label="Turno"
+              tone="previne"
+              badgeLabel="Indicador"
+              hint="QUALITY — janelas Previne usam turno da visita."
+            >
               <select value={acsShift} onChange={(e) => setAcsShift(e.target.value)}>
                 {(acsCatalog?.shifts || [
                   { id: 'MANHA', label: 'Manhã' },
@@ -864,9 +870,12 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Paciente</label>
+            </LabeledField>
+            <LabeledField
+              label="Paciente"
+              tone="siaps"
+              hint="Informe paciente e/ou domicílio (serviço exige ao menos um)."
+            >
               <select value={acsPatientId} onChange={(e) => setAcsPatientId(e.target.value)}>
                 <option value="">—</option>
                 {patients.map((p) => (
@@ -875,9 +884,12 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Domicílio</label>
+            </LabeledField>
+            <LabeledField
+              label="Domicílio"
+              tone="siaps"
+              hint="Informe paciente e/ou domicílio (serviço exige ao menos um)."
+            >
               <select value={acsHouseholdId} onChange={(e) => setAcsHouseholdId(e.target.value)}>
                 <option value="">—</option>
                 {householdsForAcsTeam.map((h) => (
@@ -886,9 +898,8 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label>Desfecho</label>
+            </LabeledField>
+            <LabeledField label="Desfecho" tone="siaps" hint="Catálogo LEDI desfecho visita ACS.">
               <select value={acsDesfecho} onChange={(e) => setAcsDesfecho(e.target.value)}>
                 {(acsCatalog?.desfechos || [
                   { id: 1, label: 'Visita realizada' },
@@ -900,31 +911,43 @@ function TerritoryInner() {
                   </option>
                 ))}
               </select>
-            </div>
+            </LabeledField>
             <div className="field">
               <label>Notas</label>
               <input value={acsNotes} onChange={(e) => setAcsNotes(e.target.value)} />
             </div>
-            <div className="field">
-              <label>Latitude (opcional)</label>
+            <LabeledField
+              label="Latitude (opcional)"
+              tone="previne"
+              badgeLabel="Indicador"
+              hint="RF-17.12 — informar lat e long juntos; link OSM na lista."
+            >
               <input
                 className="mono"
                 placeholder="-20.538"
                 value={acsLat}
                 onChange={(e) => setAcsLat(e.target.value)}
               />
-            </div>
-            <div className="field">
-              <label>Longitude (opcional)</label>
+            </LabeledField>
+            <LabeledField
+              label="Longitude (opcional)"
+              tone="previne"
+              badgeLabel="Indicador"
+              hint="RF-17.12 — informar lat e long juntos."
+            >
               <input
                 className="mono"
                 placeholder="-47.401"
                 value={acsLon}
                 onChange={(e) => setAcsLon(e.target.value)}
               />
-            </div>
-            <div className="field" style={{ gridColumn: '1 / -1' }}>
-              <label>Motivos (LEDI)</label>
+            </LabeledField>
+            <LabeledField
+              label="Motivos (LEDI)"
+              tone="siaps"
+              hint="≥1 motivo obrigatório no serviço."
+              style={{ gridColumn: '1 / -1' }}
+            >
               <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
                 {(acsCatalog?.motivos || [])
                   .filter((m) =>
@@ -945,7 +968,7 @@ function TerritoryInner() {
                     );
                   })}
               </div>
-            </div>
+            </LabeledField>
             <button className="btn btn-primary" type="submit">
               Registrar visita
             </button>
