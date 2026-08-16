@@ -37,7 +37,7 @@
 | `3a44631` | Estoque/frio vacinal MVP (baixa na aplicação · estorno no void) |
 | `b2928ca` | Frio/almox beyond-MVP: equipamentos · caixa térmica · leitura manual · insumos |
 | `760a436` | Visita ACS lat/long MVP (RF-17.11/17.12) · OSM externo |
-| *(este)* | AD CIAP/CID UI + preview/preflight · CIAP/CID `/atendimento` |
+| `8b3de08` | AD CIAP/CID UI + preview/preflight · CIAP/CID `/atendimento` |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC (Safari upload, autofix chunked, PDF secretaria) — reutilizar shell na Fase 2 UI
