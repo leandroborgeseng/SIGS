@@ -180,4 +180,32 @@ describe('assertLoteTipoMatch (gate P0)', () => {
       expect(err.message).toMatch(/stub/);
     }
   });
+
+  it('recusa visita ACS e AD nas telas live apontando stubs corretos', () => {
+    const visita = `<dadoTransporteTransportXml>
+<tipoDadoSerializado>8</tipoDadoSerializado>
+<fichaVisitaDomiciliarMasterTransport></fichaVisitaDomiciliarMasterTransport>
+</dadoTransporteTransportXml>`;
+    const ad = `<dadoTransporteTransportXml>
+<tipoDadoSerializado>10</tipoDadoSerializado>
+<fichaAtendimentoDomiciliarMasterTransport></fichaAtendimentoDomiciliarMasterTransport>
+</dadoTransporteTransportXml>`;
+    try {
+      assertLoteTipoMatch({ expectedTipo: 'FAO', files: [{ name: 'visita.xml', xml: visita }] });
+      fail('expected throw');
+    } catch (e) {
+      const err = e as LediTipoMismatchError;
+      expect(err.detectedTipo).toBe('VISITA_ACS');
+      expect(err.href).toBe(CDS_LOTE_STUB.VISITA_ACS.href);
+      expect(err.message).toMatch(/stub/);
+    }
+    try {
+      assertLoteTipoMatch({ expectedTipo: 'PROCEDIMENTOS', files: [{ name: 'ad.xml', xml: ad }] });
+      fail('expected throw');
+    } catch (e) {
+      const err = e as LediTipoMismatchError;
+      expect(err.detectedTipo).toBe('AD');
+      expect(err.href).toBe(CDS_LOTE_STUB.AD.href);
+    }
+  });
 });

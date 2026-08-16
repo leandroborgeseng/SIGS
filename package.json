@@ -15,6 +15,7 @@
     "test": "npm run test --workspace=@sigs/api",
     "sync:ledi-errors": "node scripts/sync-ledi-error-registry.mjs",
     "sync:cnes": "npm run sync:cnes --workspace=@sigs/api --",
+    "smoke:cnes-pf-ledi": "bash scripts/smoke-regressao-cnes-pf-ledi.sh",
     "db:migrate": "npm run db:migrate --workspace=@sigs/api",
     "db:generate": "npm run db:generate --workspace=@sigs/api"
   },

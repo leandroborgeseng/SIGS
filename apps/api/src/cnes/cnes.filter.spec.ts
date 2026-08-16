@@ -3,6 +3,7 @@ import {
   isMunicipalPrefeituraNetwork,
   parseGestaoMode,
 } from './cnes.filter';
+import { FRANCA_IBGE, loadBundledSnapshot } from './cnes.snapshot';
 import type { CnesSnapshot } from './cnes.types';
 
 const snapshot: CnesSnapshot = {
@@ -75,5 +76,17 @@ describe('cnes.filter', () => {
     const { snapshot: filtered, filter } = applyGestaoFilter(snapshot, 'todos');
     expect(filter.after.establishments).toBe(3);
     expect(filtered.teams).toHaveLength(2);
+  });
+
+  it('snapshot Franca versionado: municipal 1244 ≈ 66 est. (não cidade inteira)', () => {
+    const { snapshot: city } = loadBundledSnapshot(FRANCA_IBGE);
+    expect(city.establishments.length).toBeGreaterThan(1000);
+    const { snapshot: muni, filter } = applyGestaoFilter(city, 'municipal');
+    expect(filter.after.establishments).toBe(66);
+    expect(muni.establishments.every((e) => isMunicipalPrefeituraNetwork(e))).toBe(true);
+    expect(muni.teams.length).toBeGreaterThan(100);
+    expect(muni.teams.length).toBeLessThanOrEqual(city.teams.length);
+    const { snapshot: all } = applyGestaoFilter(city, 'todos');
+    expect(all.establishments.length).toBe(city.establishments.length);
   });
 });

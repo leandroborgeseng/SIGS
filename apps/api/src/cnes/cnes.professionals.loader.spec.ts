@@ -1,6 +1,10 @@
 import { loadCnesProfessionalsSnapshot } from './cnes.professionals.loader';
-import { parseCnesWebProfessionalsHtml } from './cnes.professionals.snapshot';
+import {
+  loadProfessionalsSnapshot,
+  parseCnesWebProfessionalsHtml,
+} from './cnes.professionals.snapshot';
 import type { CnesProfessionalsSnapshot } from './cnes.professionals.types';
+import { FRANCA_IBGE } from './cnes.snapshot';
 
 describe('parseCnesWebProfessionalsHtml', () => {
   it('extrai nome CNS CBO atividade', () => {
@@ -97,5 +101,32 @@ describe('loadCnesProfessionalsSnapshot', () => {
     expect(out.professionals.updated).toBe(1);
     expect(out.assignments.skipped).toBe(1);
     expect(professionalAssignment.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('loadProfessionalsSnapshot (fixture Franca)', () => {
+  it('carrega PF municipal versionado sem PHI (só CNS/nome/CBO)', () => {
+    const { snapshot: pf, path } = loadProfessionalsSnapshot(FRANCA_IBGE);
+    expect(path).toMatch(/franca-3516200-professionals\.json$/);
+    expect(pf.professionals.length).toBeGreaterThanOrEqual(400);
+    expect(pf.assignments.length).toBeGreaterThanOrEqual(500);
+    const sample = pf.professionals[0];
+    expect(String(sample.cns).replace(/\D/g, '')).toHaveLength(15);
+    expect(sample.civilName).toBeTruthy();
+    for (const p of pf.professionals.slice(0, 50)) {
+      expect(Object.keys(p).sort()).toEqual(['civilName', 'cns']);
+    }
+    for (const a of pf.assignments.slice(0, 50)) {
+      expect(a).toEqual(
+        expect.objectContaining({
+          cns: expect.stringMatching(/^\d{15}$/),
+          cnes: expect.stringMatching(/^\d{7}$/),
+          cbo: expect.any(String),
+        }),
+      );
+      expect(a).not.toHaveProperty('cpf');
+    }
+    const cnesKnown = new Set(pf.assignments.map((a) => a.cnes));
+    expect(cnesKnown.has('9647198')).toBe(true);
   });
 });
