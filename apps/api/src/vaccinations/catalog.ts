@@ -32,6 +32,8 @@ export type VaccineApplicationInput = {
   siteId: string;
   /** Validade do lote (ISO date) — RF-14.14 parcial */
   lotExpiry?: string;
+  /** Preenchido pelo serviço quando baixa estoque (auditoria) */
+  stockLotId?: string;
   prescriberCbo?: string;
   indicationCid10?: string;
   leprosyContact?: boolean;
@@ -203,12 +205,40 @@ export function replaceOverlays(input: {
   getImmunobiologicals();
 }
 
-/** Estoque/frio adiado — stub RF-14.3–6 / 15–19 */
-export const STOCK_STUB = {
-  status: 'deferred' as const,
-  rf: ['RF-14.3', 'RF-14.4', 'RF-14.5', 'RF-14.6', 'RF-14.15', 'RF-14.16', 'RF-14.17', 'RF-14.18', 'RF-14.19'],
-  note: 'Estoque em salas, rede de frio, caixa térmica e temperatura — fora desta fatia (stub).',
+/** Estoque/frio MVP — RF-14.3–6 / 15–19 parciais (sem IoT). */
+export const STOCK_MVP = {
+  status: 'mvp' as const,
+  rf: [
+    'RF-14.3',
+    'RF-14.4',
+    'RF-14.5',
+    'RF-14.6',
+    'RF-14.15',
+    'RF-14.16',
+    'RF-14.17',
+    'RF-14.18',
+    'RF-14.19',
+  ],
+  features: {
+    lotQuantityUnit: true,
+    expiry: true,
+    targetTempRangeC: true,
+    applyDecrementWhenStockExists: true,
+    voidRestoreQuantity: true,
+  },
+  notIncluded: [
+    'Monitoramento contínuo de geladeira (sensores/IoT)',
+    'Alarmes e gráficos de temperatura em tempo real',
+    'Cadastro de equipamentos frios / caixa térmica',
+    'Almoxarifado geral e vínculo de insumos farmácia',
+    'Transferência entre salas/unidades',
+  ],
+  note:
+    'MVP: lote + validade + qty + unidade + faixa °C alvo declarada. Baixa no create se houver estoque do lote; void devolve. Sem hardware.',
 };
+
+/** @deprecated use STOCK_MVP */
+export const STOCK_STUB = STOCK_MVP;
 
 export function resolveImmunoLediId(id: string): number | null {
   return byId(getImmunobiologicals(), id)?.lediId ?? null;

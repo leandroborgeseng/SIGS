@@ -20,6 +20,7 @@ model Facility {
   teams     Team[]
   encounters Encounter[]
   vaccinations VaccinationRecord[]
+  vaccinationStockLots VaccinationStockLot[]
   dentalEncounters DentalEncounter[]
   homeCareVisits HomeCareVisit[]
   collectiveActivities CollectiveActivity[]
@@ -430,6 +431,58 @@ model VaccinationAgeRange {
   @@index([immunobiologicalId])
   @@index([source])
   @@map("vaccination_age_ranges")
+}
+
+/// Estoque vacinal por lote na unidade — RF-14.15/14.16 (MVP).
+/// Temperatura alvo/faixa declarada; NÃO é monitoramento contínuo de geladeira.
+model VaccinationStockLot {
+  id                 String    @id @default(uuid())
+  facilityId         String    @map("facility_id")
+  immunobiologicalId String    @map("immunobiological_id")
+  /// Número do lote (mesmo charset da aplicação)
+  lot                String
+  manufacturer       String?
+  expiresAt          DateTime? @map("expires_at")
+  quantity           Int
+  /// Unidade de quantidade (MVP: dose)
+  unit               String    @default("dose")
+  /// Faixa de temperatura alvo (°C) — declarado, sem IoT
+  targetTempMinC     Float?    @map("target_temp_min_c")
+  targetTempMaxC     Float?    @map("target_temp_max_c")
+  /// Rótulo da sala/geladeira (texto livre; sem cadastro de equipamento)
+  roomLabel          String?   @map("room_label")
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  facility  Facility                   @relation(fields: [facilityId], references: [id])
+  movements VaccinationStockMovement[]
+
+  @@unique([facilityId, immunobiologicalId, lot])
+  @@index([facilityId, active])
+  @@index([immunobiologicalId])
+  @@index([expiresAt])
+  @@map("vaccination_stock_lots")
+}
+
+/// Movimentos de estoque vacinal (entrada, baixa por aplicação, estorno void).
+model VaccinationStockMovement {
+  id                   String   @id @default(uuid())
+  stockLotId           String   @map("stock_lot_id")
+  /// ENTRY | APPLY | VOID_RETURN | ADJUST
+  kind                 String
+  /// Delta aplicado à quantidade (+ entrada/estorno, − baixa)
+  quantityDelta        Int      @map("quantity_delta")
+  vaccinationRecordId  String?  @map("vaccination_record_id")
+  note                 String?
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  stockLot VaccinationStockLot @relation(fields: [stockLotId], references: [id])
+
+  @@index([stockLotId])
+  @@index([vaccinationRecordId])
+  @@index([kind])
+  @@map("vaccination_stock_movements")
 }
 
 model ProductionBatch {

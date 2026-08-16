@@ -4,9 +4,12 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -35,6 +38,29 @@ export class VoidVaccinationDto {
   @IsOptional() @IsString() reason?: string;
   /** Obrigatório: anulação só local (sem recall Ministério/Siaps). */
   @IsOptional() @IsBoolean() acknowledgeLocalOnly?: boolean;
+}
+
+export class CreateVaccinationStockDto {
+  @IsString() facilityId!: string;
+  @IsString() immunobiologicalId!: string;
+  @IsString() @MaxLength(30) lot!: string;
+  @IsOptional() @IsString() manufacturer?: string;
+  @IsOptional() @IsDateString() expiresAt?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  quantity!: number;
+  @IsOptional() @IsString() unit?: string;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  targetTempMinC?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  targetTempMaxC?: number;
+  @IsOptional() @IsString() roomLabel?: string;
+  @IsOptional() @IsString() note?: string;
 }
 
 export class SyncVaccinationCatalogDto {

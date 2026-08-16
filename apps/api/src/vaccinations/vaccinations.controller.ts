@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Header, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { VaccinationsService } from './vaccinations.service';
-import { CreateVaccinationDto, SyncVaccinationCatalogDto, VoidVaccinationDto } from './dto';
+import { CreateVaccinationDto, CreateVaccinationStockDto, SyncVaccinationCatalogDto, VoidVaccinationDto } from './dto';
 
 @Controller('v1')
 export class VaccinationsController {
@@ -20,6 +20,19 @@ export class VaccinationsController {
   @Post('catalog/vaccination/seed')
   seedCatalog() {
     return this.service.ensureSeeded({ force: true });
+  }
+
+  @Get('vaccination-stock')
+  listStock(
+    @Query('facilityId') facilityId?: string,
+    @Query('immunobiologicalId') immunobiologicalId?: string,
+  ) {
+    return this.service.listStock(facilityId, immunobiologicalId);
+  }
+
+  @Post('vaccination-stock')
+  createStock(@Body() dto: CreateVaccinationStockDto) {
+    return this.service.createStock(dto);
   }
 
   @Get('vaccinations')

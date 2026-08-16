@@ -18,7 +18,7 @@ import {
   IMMUNO_SEED_META,
   ROUTES,
   SITES,
-  STOCK_STUB,
+  STOCK_MVP,
   STRATEGIES,
   VaccineApplicationInput,
   getAgeRanges,
@@ -28,7 +28,7 @@ import {
   validateVaccineApplications,
   type CatalogSyncInput,
 } from './catalog';
-import { CreateVaccinationDto, VoidVaccinationDto } from './dto';
+import { CreateVaccinationDto, CreateVaccinationStockDto, VoidVaccinationDto } from './dto';
 import { buildVaccinationLediPayload } from './ledi-vaccination.mapper';
 import { resolveLotacaoHeader } from '../ledi/lotacao.resolver';
 import { ClinicalCoreService } from '../clinical-core/clinical-core.service';
@@ -194,13 +194,13 @@ export class VaccinationsService implements OnModuleInit {
       sites: SITES,
       attendanceGroups: ATTENDANCE_GROUPS,
       ageRanges: getAgeRanges(),
-      stock: STOCK_STUB,
+      stock: STOCK_MVP,
       mapperVersion: 'ledi-vaccination-v2',
       catalogVersion: CATALOG_VERSION,
       seedMeta: { immuno: IMMUNO_SEED_META, age: AGE_SEED_META },
       persisted,
       notes:
-        'Catálogo LEDI completo (seed v3) + Prisma. Faixa etária seed PNI (≠ TB e-SUS). Estoque/frio stub.',
+        'Catálogo LEDI completo (seed v3) + Prisma. Faixa etária seed PNI (≠ TB e-SUS). Estoque/frio MVP (sem IoT).',
     };
   }
 
@@ -264,6 +264,194 @@ export class VaccinationsService implements OnModuleInit {
       persisted: true,
       catalog: await this.catalog(),
     };
+  }
+
+  listStock(facilityId?: string, immunobiologicalId?: string) {
+    return this.prisma.vaccinationStockLot.findMany({
+      where: {
+        ...(facilityId ? { facilityId } : {}),
+        ...(immunobiologicalId ? { immunobiologicalId } : {}),
+        active: true,
+      },
+      orderBy: [{ expiresAt: 'asc' }, { lot: 'asc' }],
+      include: {
+        facility: { select: { id: true, name: true, cnes: true } },
+      },
+    });
+  }
+
+  async createStock(dto: CreateVaccinationStockDto) {
+    const facility = await this.prisma.facility.findUnique({ where: { id: dto.facilityId } });
+    if (!facility) throw new BadRequestException('facilityId inválido');
+    const immuno = getImmunobiologicals().find((i) => i.id === dto.immunobiologicalId);
+    if (!immuno) throw new BadRequestException('immunobiologicalId inválido');
+    if (!dto.lot?.trim()) throw new BadRequestException('lot obrigatório');
+    if (
+      dto.targetTempMinC != null &&
+      dto.targetTempMaxC != null &&
+      dto.targetTempMinC > dto.targetTempMaxC
+    ) {
+      throw new BadRequestException('targetTempMinC não pode ser maior que targetTempMaxC');
+    }
+
+    const lot = dto.lot.trim();
+    const unit = (dto.unit || 'dose').trim() || 'dose';
+    const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
+    if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+      throw new BadRequestException('expiresAt inválida');
+    }
+
+    const existing = await this.prisma.vaccinationStockLot.findUnique({
+      where: {
+        facilityId_immunobiologicalId_lot: {
+          facilityId: dto.facilityId,
+          immunobiologicalId: dto.immunobiologicalId,
+          lot,
+        },
+      },
+    });
+
+    let row;
+    if (existing) {
+      row = await this.prisma.vaccinationStockLot.update({
+        where: { id: existing.id },
+        data: {
+          quantity: existing.quantity + dto.quantity,
+          manufacturer: dto.manufacturer?.trim() || existing.manufacturer,
+          expiresAt: expiresAt ?? existing.expiresAt,
+          unit,
+          targetTempMinC: dto.targetTempMinC ?? existing.targetTempMinC,
+          targetTempMaxC: dto.targetTempMaxC ?? existing.targetTempMaxC,
+          roomLabel: dto.roomLabel?.trim() || existing.roomLabel,
+          active: true,
+        },
+      });
+    } else {
+      row = await this.prisma.vaccinationStockLot.create({
+        data: {
+          facilityId: dto.facilityId,
+          immunobiologicalId: dto.immunobiologicalId,
+          lot,
+          manufacturer: dto.manufacturer?.trim() || null,
+          expiresAt,
+          quantity: dto.quantity,
+          unit,
+          targetTempMinC: dto.targetTempMinC ?? 2,
+          targetTempMaxC: dto.targetTempMaxC ?? 8,
+          roomLabel: dto.roomLabel?.trim() || null,
+          active: true,
+        },
+      });
+    }
+
+    await this.prisma.vaccinationStockMovement.create({
+      data: {
+        stockLotId: row.id,
+        kind: 'ENTRY',
+        quantityDelta: dto.quantity,
+        note: dto.note || (existing ? 'Entrada adicional no lote' : 'Entrada inicial'),
+      },
+    });
+
+    await this.prisma.audit('create', 'vaccination_stock', row.id, [RF.VACCINATION.id], {
+      facilityId: dto.facilityId,
+      immunobiologicalId: dto.immunobiologicalId,
+      lot,
+      quantity: dto.quantity,
+      previousQuantity: existing?.quantity ?? 0,
+    });
+
+    return {
+      ...row,
+      stock: STOCK_MVP,
+      entry: { quantity: dto.quantity, previousQuantity: existing?.quantity ?? 0 },
+    };
+  }
+
+  /**
+   * Baixa 1 dose por aplicação quando existir lote de estoque
+   * (facility + imuno + número do lote). Sem estoque → não bloqueia.
+   */
+  private async applyStockDecrements(
+    facilityId: string,
+    vaccinationRecordId: string,
+    applications: VaccineApplicationInput[],
+  ): Promise<VaccineApplicationInput[]> {
+    const out: VaccineApplicationInput[] = [];
+    for (const app of applications) {
+      const lot = (app.lot || '').trim();
+      if (!lot) {
+        out.push(app);
+        continue;
+      }
+      const stock = await this.prisma.vaccinationStockLot.findUnique({
+        where: {
+          facilityId_immunobiologicalId_lot: {
+            facilityId,
+            immunobiologicalId: app.immunobiologicalId,
+            lot,
+          },
+        },
+      });
+      if (!stock || !stock.active) {
+        out.push(app);
+        continue;
+      }
+      if (stock.quantity < 1) {
+        throw new BadRequestException(
+          `Estoque insuficiente para ${app.immunobiologicalId} lote ${lot} (qty=${stock.quantity}).`,
+        );
+      }
+      await this.prisma.vaccinationStockLot.update({
+        where: { id: stock.id },
+        data: { quantity: stock.quantity - 1 },
+      });
+      await this.prisma.vaccinationStockMovement.create({
+        data: {
+          stockLotId: stock.id,
+          kind: 'APPLY',
+          quantityDelta: -1,
+          vaccinationRecordId,
+          note: `Baixa por aplicação ${vaccinationRecordId.slice(0, 8)}`,
+        },
+      });
+      out.push({ ...app, stockLotId: stock.id });
+    }
+    return out;
+  }
+
+  /** Devolve qty das baixas APPLY ainda não estornadas deste registro. */
+  private async restoreStockOnVoid(vaccinationRecordId: string) {
+    const applies = await this.prisma.vaccinationStockMovement.findMany({
+      where: { vaccinationRecordId, kind: 'APPLY' },
+    });
+    const restored: Array<{ stockLotId: string; quantity: number }> = [];
+    for (const mov of applies) {
+      const already = await this.prisma.vaccinationStockMovement.findFirst({
+        where: {
+          vaccinationRecordId,
+          stockLotId: mov.stockLotId,
+          kind: 'VOID_RETURN',
+        },
+      });
+      if (already) continue;
+      const qty = Math.abs(mov.quantityDelta) || 1;
+      await this.prisma.vaccinationStockLot.update({
+        where: { id: mov.stockLotId },
+        data: { quantity: { increment: qty }, active: true },
+      });
+      await this.prisma.vaccinationStockMovement.create({
+        data: {
+          stockLotId: mov.stockLotId,
+          kind: 'VOID_RETURN',
+          quantityDelta: qty,
+          vaccinationRecordId,
+          note: `Estorno void ${vaccinationRecordId.slice(0, 8)}`,
+        },
+      });
+      restored.push({ stockLotId: mov.stockLotId, quantity: qty });
+    }
+    return restored;
   }
 
   private parseApps(json: string): VaccineApplicationInput[] {
@@ -388,6 +576,8 @@ export class VaccinationsService implements OnModuleInit {
       include: { patient: true, facility: true, professional: true },
     });
 
+    const stockRestored = await this.restoreStockOnVoid(id);
+
     if (row.productionBatchId) {
       const voidMeta = {
         ...batchPayload,
@@ -396,6 +586,7 @@ export class VaccinationsService implements OnModuleInit {
         voidReason: dto.reason || null,
         ministryRecall: false,
         bucket: 'incomplete',
+        stockRestored,
       };
       await this.prisma.productionBatch.update({
         where: { id: row.productionBatchId },
@@ -415,6 +606,7 @@ export class VaccinationsService implements OnModuleInit {
       acknowledgeLocalOnly: true,
       batchStatusBefore,
       ministryRecall: false,
+      stockRestored,
     });
 
     return {
@@ -425,6 +617,7 @@ export class VaccinationsService implements OnModuleInit {
         localOnly: true,
         ministryRecall: false,
         batchStatusBefore,
+        stockRestored,
         warning:
           'Anulação local no SIGS. Não há estorno/XML de exclusão no Ministério; se o XML já foi enviado, trate o recall pelos canais oficiais.',
       },
@@ -526,9 +719,51 @@ export class VaccinationsService implements OnModuleInit {
       },
     });
 
+    let applicationsWithStock = dto.applications as VaccineApplicationInput[];
+    let stockDecrements: Array<{ immunobiologicalId: string; lot: string; stockLotId: string }> = [];
+    try {
+      applicationsWithStock = await this.applyStockDecrements(
+        dto.facilityId,
+        row.id,
+        dto.applications,
+      );
+      stockDecrements = applicationsWithStock
+        .filter((a) => a.stockLotId)
+        .map((a) => ({
+          immunobiologicalId: a.immunobiologicalId,
+          lot: a.lot,
+          stockLotId: a.stockLotId!,
+        }));
+      if (stockDecrements.length) {
+        await this.prisma.vaccinationRecord.update({
+          where: { id: row.id },
+          data: { applicationsJson: JSON.stringify(applicationsWithStock) },
+        });
+      }
+    } catch (e) {
+      await this.prisma.vaccinationRecord.update({
+        where: { id: row.id },
+        data: {
+          status: 'VOID',
+          voidReason: 'Falha na baixa de estoque — registro anulado automaticamente',
+          voidedAt: new Date(),
+        },
+      });
+      await this.prisma.productionBatch.update({
+        where: { id: batch.id },
+        data: {
+          status: 'error',
+          errorMessage: (e as Error).message,
+          statusChangedAt: new Date(),
+        },
+      });
+      throw e;
+    }
+
     await this.prisma.audit('create', 'vaccination', row.id, [RF.VACCINATION.id, RF.PROD.id], {
       productionBatchId: batch.id,
       uuidFicha,
+      stockDecrements,
     });
 
     await this.clinicalCore
@@ -552,22 +787,24 @@ export class VaccinationsService implements OnModuleInit {
         cnes: lotacao.cnes,
         ine: lotacao.ine,
         ibgeMunicipio: facility.ibgeCode,
-        procedures: dto.applications.map((a) => ({
+        procedures: applicationsWithStock.map((a) => ({
           code: `VAC:${a.immunobiologicalId}:${a.doseId}`,
           quantity: 1,
         })),
         conditions: [],
         extensions: {
           kind: 'vaccination',
-          applications: dto.applications,
+          applications: applicationsWithStock,
           mapperVersion: 'ledi-vaccination-v2',
+          stockDecrements,
         },
       })
       .catch(() => undefined);
 
     return {
-      record: { ...row, applications: dto.applications },
+      record: { ...row, applications: applicationsWithStock, applicationsJson: JSON.stringify(applicationsWithStock) },
       productionBatch: { id: batch.id, kind: batch.kind, status: batch.status, payload },
+      stock: { decrements: stockDecrements, meta: STOCK_MVP },
     };
   }
 }

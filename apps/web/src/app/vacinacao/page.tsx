@@ -18,6 +18,11 @@ type Catalog = {
   routes: Opt[];
   sites: Opt[];
   attendanceGroups: Opt[];
+  stock?: {
+    status: string;
+    note?: string;
+    notIncluded?: string[];
+  };
 };
 type Patient = { id: string; civilName: string; socialName?: string | null };
 type Professional = { id: string; civilName: string };
@@ -27,6 +32,18 @@ type VacRow = {
   status?: string;
   patient: Patient;
   applicationsJson?: string;
+};
+type StockRow = {
+  id: string;
+  immunobiologicalId: string;
+  lot: string;
+  manufacturer?: string | null;
+  expiresAt?: string | null;
+  quantity: number;
+  unit: string;
+  targetTempMinC?: number | null;
+  targetTempMaxC?: number | null;
+  roomLabel?: string | null;
 };
 type Card = {
   patientId: string;
@@ -45,11 +62,12 @@ type Card = {
 function VaccinationInner() {
   const params = useSearchParams();
   const { facilityId } = useAuth();
-  const [tab, setTab] = useState<'aplicar' | 'cartao' | 'dia'>('aplicar');
+  const [tab, setTab] = useState<'aplicar' | 'cartao' | 'dia' | 'estoque'>('aplicar');
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [recent, setRecent] = useState<VacRow[]>([]);
+  const [stockRows, setStockRows] = useState<StockRow[]>([]);
   const [card, setCard] = useState<Card | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
@@ -70,6 +88,15 @@ function VaccinationInner() {
   const [indicationCid10, setCid] = useState('');
   const [leprosyContact, setLeprosy] = useState(false);
 
+  const [stockImm, setStockImm] = useState('BCG');
+  const [stockLot, setStockLot] = useState('');
+  const [stockMfr, setStockMfr] = useState('');
+  const [stockExpiry, setStockExpiry] = useState('');
+  const [stockQty, setStockQty] = useState('10');
+  const [stockTempMin, setStockTempMin] = useState('2');
+  const [stockTempMax, setStockTempMax] = useState('8');
+  const [stockRoom, setStockRoom] = useState('');
+
   const isSpecial = strategyId === 'SPECIAL';
   const isBcg = immunobiologicalId === 'BCG';
 
@@ -80,16 +107,19 @@ function VaccinationInner() {
 
   async function load() {
     const qs = facilityId ? `?facilityId=${encodeURIComponent(facilityId)}` : '';
-    const [c, pts, list, profs] = await Promise.all([
+    const stockQs = facilityId ? `?facilityId=${encodeURIComponent(facilityId)}` : '';
+    const [c, pts, list, profs, stock] = await Promise.all([
       api<Catalog>('/v1/catalog/vaccination'),
       api<Patient[]>('/v1/patients'),
       api<VacRow[]>(`/v1/vaccinations${qs}`),
       api<Professional[]>('/v1/professionals'),
+      api<StockRow[]>(`/v1/vaccination-stock${stockQs}`),
     ]);
     setCatalog(c);
     setPatients(pts);
     setRecent(list.slice(0, 50));
     setProfessionals(profs);
+    setStockRows(stock);
     if (!professionalId && profs[0]) setProfessionalId(profs[0].id);
     if (!patientId && params.get('paciente')) setPatientId(params.get('paciente')!);
   }
@@ -168,12 +198,48 @@ function VaccinationInner() {
     }
   }
 
+  async function onStockSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!facilityId) {
+      setError('Selecione uma unidade antes de lançar estoque.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    try {
+      await api('/v1/vaccination-stock', {
+        method: 'POST',
+        json: {
+          facilityId,
+          immunobiologicalId: stockImm,
+          lot: stockLot,
+          manufacturer: stockMfr || undefined,
+          expiresAt: stockExpiry || undefined,
+          quantity: Number(stockQty),
+          unit: 'dose',
+          targetTempMinC: stockTempMin !== '' ? Number(stockTempMin) : undefined,
+          targetTempMaxC: stockTempMax !== '' ? Number(stockTempMax) : undefined,
+          roomLabel: stockRoom || undefined,
+        },
+      });
+      setStockLot('');
+      setStockQty('10');
+      setOk('Entrada de estoque registrada (MVP — sem monitoramento contínuo).');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha no estoque');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
         title="Vacinação"
         eyebrow="Operação"
-        description="Aplicar · cartão vacinal · lista do dia."
+        description="Aplicar · estoque/frio MVP · cartão · lista do dia."
         actions={
           <>
             <HelpLink id="vacinacao.aplicacao" />
@@ -189,6 +255,7 @@ function VaccinationInner() {
         {(
           [
             ['aplicar', 'Aplicar'],
+            ['estoque', 'Estoque / frio'],
             ['cartao', 'Cartão vacinal'],
             ['dia', 'Lista do dia'],
           ] as const
@@ -330,6 +397,121 @@ function VaccinationInner() {
             {busy ? 'Registrando…' : 'Registrar aplicação'}
           </button>
         </form>
+      ) : null}
+
+      {tab === 'estoque' ? (
+        <div className="stack">
+          <div className="alert">
+            <strong>MVP estoque / cadeia de frio declarada</strong>
+            <p style={{ margin: '6px 0 0' }}>
+              {catalog?.stock?.note ||
+                'Lote, validade, quantidade, unidade e faixa °C alvo. Baixa automática na aplicação se o lote existir; void devolve qty.'}
+            </p>
+            <p style={{ margin: '8px 0 0', color: 'var(--ink-3)' }}>
+              <strong>Não é:</strong>{' '}
+              {(catalog?.stock?.notIncluded || ['Monitoramento contínuo de geladeira (IoT)']).join(' · ')}
+            </p>
+          </div>
+          <form className="card" onSubmit={onStockSubmit} style={{ marginBottom: 16 }}>
+            <div className="grid-2">
+              <div className="field">
+                <label>Imunobiológico *</label>
+                <select value={stockImm} onChange={(e) => setStockImm(e.target.value)}>
+                  {(catalog?.immunobiologicals || []).map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Lote *</label>
+                <input
+                  className="mono"
+                  required
+                  value={stockLot}
+                  onChange={(e) => setStockLot(e.target.value)}
+                  maxLength={30}
+                />
+              </div>
+              <div className="field">
+                <label>Fabricante</label>
+                <input value={stockMfr} onChange={(e) => setStockMfr(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Validade</label>
+                <input type="date" value={stockExpiry} onChange={(e) => setStockExpiry(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Quantidade (doses) *</label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={stockQty}
+                  onChange={(e) => setStockQty(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label>Sala / geladeira (rótulo)</label>
+                <input
+                  value={stockRoom}
+                  onChange={(e) => setStockRoom(e.target.value)}
+                  placeholder="ex.: Geladeira sala vacina 1"
+                />
+              </div>
+              <div className="field">
+                <label>Temp. alvo mín (°C)</label>
+                <input value={stockTempMin} onChange={(e) => setStockTempMin(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Temp. alvo máx (°C)</label>
+                <input value={stockTempMax} onChange={(e) => setStockTempMax(e.target.value)} />
+              </div>
+            </div>
+            <button className="btn btn-primary" type="submit" disabled={busy || !facilityId}>
+              {busy ? 'Salvando…' : 'Entrada de estoque'}
+            </button>
+          </form>
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Imuno</th>
+                  <th>Lote</th>
+                  <th>Qty</th>
+                  <th>Validade</th>
+                  <th>°C alvo</th>
+                  <th>Sala</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stockRows.map((s) => (
+                  <tr key={s.id}>
+                    <td>{s.immunobiologicalId}</td>
+                    <td className="mono">{s.lot}</td>
+                    <td className="mono">
+                      {s.quantity} {s.unit}
+                    </td>
+                    <td className="mono">{s.expiresAt ? String(s.expiresAt).slice(0, 10) : '—'}</td>
+                    <td className="mono">
+                      {s.targetTempMinC != null || s.targetTempMaxC != null
+                        ? `${s.targetTempMinC ?? '?'}–${s.targetTempMaxC ?? '?'} °C`
+                        : '—'}
+                    </td>
+                    <td>{s.roomLabel || '—'}</td>
+                  </tr>
+                ))}
+                {!stockRows.length ? (
+                  <TableStateRow
+                    colSpan={6}
+                    empty={facilityId ? 'Sem lotes de estoque nesta unidade.' : 'Selecione uma unidade.'}
+                  />
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : null}
 
       {tab === 'cartao' ? (

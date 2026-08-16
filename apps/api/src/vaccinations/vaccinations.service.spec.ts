@@ -23,6 +23,14 @@ describe('VaccinationsService void', () => {
         findUnique: jest.fn().mockResolvedValue({ id: 'b1', status: 'ready', payloadJson: '{}' }),
         update: jest.fn(),
       },
+      vaccinationStockMovement: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
+      },
+      vaccinationStockLot: {
+        update: jest.fn(),
+      },
       audit: jest.fn(),
       ...overrides,
     };
