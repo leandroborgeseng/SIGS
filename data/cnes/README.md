@@ -14,8 +14,9 @@ JSON público (sem PHI / sem dados de pacientes) para sync offline do município
 | Cidade | 1346 | 124 | ~545 | — | — |
 | **Rede municipal (Prefeitura)** | **66** | **123** | **59** | **503** | **742** |
 
-**Critério unidades:** `naturezaJuridica=1244` (Município). Não filtrar só por `tipo_gestao=M`.
+**Critério unidades:** `naturezaJuridica=1244` (Município). CNPJ mantenedora Prefeitura: `47970769000104` (enriquecimento — `numero_cnpj` CNES nulo na rede 1244). Não filtrar só por `tipo_gestao=M`.
 
+Lista UI `/unidades` e `GET /v1/facilities` default `gestao=municipal` (~59 ativas), não cidade (~545).
 ```bash
 npm run sync:cnes -- --ibge=3516200 --source=snapshot --gestao=municipal
 npm run sync:cnes -- --professionals --ibge=3516200

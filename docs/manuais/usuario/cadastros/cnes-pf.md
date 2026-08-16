@@ -13,17 +13,20 @@
 
 ## Passo a passo
 
-1. Abra **Cadastros → CNES / auditoria** (`/cadastros/cnes-auditoria`) ou **Unidades**.
-2. Clique em **Sincronizar rede municipal** (ou equivalente). Aguarde o resumo (ex.: 66 estabelecimentos / 123 equipes em Franca).
-3. Em seguida **Importar profissionais lotados** (PF). Ordem importa: unidades/equipes **antes** de profissionais.
-4. Revise findings na mesma tela; exporte CSV se precisar.
-5. No faturamento: `/faturamento/auditoria?competencia=YYYY-MM` — alerta `CNS_NOT_IN_MUNICIPAL_CNES` quando o CNS da ficha não está no PF municipal.
+1. Abra **Unidades** (`/unidades`) — a lista default é **Rede Prefeitura (mantenedora)** (~59 ativas em Franca), não a cidade inteira (~545).
+2. Ou abra **Cadastros → CNES / auditoria** (`/cadastros/cnes-auditoria`).
+3. Clique em **Sincronizar rede municipal**. Aguarde o resumo (ex.: 66 estabelecimentos / 123 equipes).
+4. Em seguida **Importar profissionais lotados** (PF). Ordem importa: unidades/equipes **antes** de profissionais.
+5. Revise findings; exporte CSV se precisar.
+6. No faturamento: `/faturamento/auditoria?competencia=YYYY-MM`.
+
+Toggle em Unidades: **Todos IBGE** mostra a cidade inteira (só para inspeção).
 
 ## Escopo
 
 | Modo | O que entra |
 |---|---|
-| `gestao=municipal` (default) | Só Prefeitura (1244) |
+| `gestao=municipal` (default) | Só Prefeitura (natureza **1244**; CNPJ mantenedora `47970769000104`) |
 | `gestao=todos` | Cidade inteira (particulares + outros) |
 
 ## Limites (documentados)

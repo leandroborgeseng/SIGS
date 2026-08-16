@@ -70,9 +70,10 @@
 - Não commitar `data/esus`, `data/sigtap`, `sus_intelligence`, `tools/*-home`, `contexts/`
 - **Commitar** `data/cnes/*.json` (público)
 - Sem dados reais de pacientes (PF = cadastro público CNES: nome+CNS+CBO)
-- Critério municipal: **natureza jurídica 1244** (66 est. Franca no snapshot)
+- Critério municipal: **natureza jurídica 1244** (66 est. / 59 ativos Franca) + CNPJ mantenedora **47970769000104** (enriquecimento; CNES `numero_cnpj` nulo na rede)
+- Lista `/unidades` + `GET /v1/facilities` default **Rede Prefeitura** (não cidade ~545)
 - Ordem sync: unidades/equipes **antes** de profissionais
-- Testar ao voltar: `npm run smoke:cnes-pf-ledi` · UI `/faturamento` + stubs · `GET /v1/faturamento/ledi-cds-lotes`
+- Testar ao voltar: `npm run smoke:cnes-pf-ledi` · UI `/unidades` (~59) · `/faturamento` + stubs · `GET /v1/faturamento/ledi-cds-lotes`
 - Matriz: `docs/rastreabilidade/cobertura-rf.csv` agora inclui **RF-10.21**
 
-_Atualizado em 2026-08-16 (regressão CNES/PF/LEDI + manuais)_
+_Atualizado em 2026-08-16 (lista unidades default municipal + CNPJ mantenedora)_

@@ -14,6 +14,8 @@ type Facility = {
   ibgeCode?: string | null;
   active: boolean;
   typeId?: string | null;
+  cnpj?: string | null;
+  municipalNetwork?: boolean;
   addressStreet?: string | null;
   addressNeighborhood?: string | null;
   addressCity?: string | null;
@@ -37,6 +39,9 @@ type SyncResult = {
   };
 };
 
+/** Escopo da lista: rede Prefeitura (default) vs todos CNES do IBGE. */
+type ListaEscopo = 'municipal' | 'todos';
+
 export default function UnidadesPage() {
   const { facilityId } = useAuth();
   const [rows, setRows] = useState<Facility[]>([]);
@@ -44,6 +49,7 @@ export default function UnidadesPage() {
   const [ibgeCode, setIbgeCode] = useState('');
   const [name, setName] = useState('');
   const [activeOnly, setActiveOnly] = useState(true);
+  const [escopo, setEscopo] = useState<ListaEscopo>('municipal');
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +62,7 @@ export default function UnidadesPage() {
       const qs = new URLSearchParams();
       if (activeOnly) qs.set('active', 'true');
       qs.set('ibge', '3516200');
+      qs.set('gestao', escopo);
       const list = await api<Facility[]>(`/v1/facilities?${qs.toString()}`);
       setRows(list);
       const current = list.find((f) => f.id === facilityId) || list[0] || null;
@@ -73,7 +80,7 @@ export default function UnidadesPage() {
 
   useEffect(() => {
     void load();
-  }, [facilityId, activeOnly]);
+  }, [facilityId, activeOnly, escopo]);
 
   function pick(f: Facility) {
     setSelected(f);
@@ -111,10 +118,11 @@ export default function UnidadesPage() {
       );
       const city = out.filter?.before?.establishments ?? out.totals.establishmentsCity;
       const muni = out.filter?.after?.establishments ?? out.totals.establishments;
+      setEscopo('municipal');
       setOk(
         `Rede municipal sincronizada (${out.source}): +${out.facilities.created}/~${out.facilities.updated} unidades · +${out.teams.created}/~${out.teams.updated} equipes (${muni} est. Prefeitura` +
           (city != null ? ` de ${city} na cidade` : '') +
-          `).`,
+          `). Esperado ~66 / ~59 ativos.`,
       );
       await load();
     } catch (err) {
@@ -124,11 +132,16 @@ export default function UnidadesPage() {
     }
   }
 
+  const escopoLabel =
+    escopo === 'municipal'
+      ? 'Rede Prefeitura (mantenedora)'
+      : 'Todos IBGE (cidade inteira)';
+
   return (
     <AppShell>
       <PageHeader
         title="Unidades"
-        description="CNES e código IBGE do município (header LEDI)"
+        description="Default: rede Prefeitura de Franca (natureza 1244 / CNPJ mantenedora). Não a cidade inteira."
         actions={
           <>
             <HelpLink id="cadastros.unidades" />
@@ -144,12 +157,12 @@ export default function UnidadesPage() {
       <ErrorBox message={error} />
       <OkBox message={ok} />
 
-      {!loading && rows.length === 0 ? (
+      {!loading && rows.length === 0 && escopo === 'municipal' ? (
         <div className="card" style={{ marginBottom: 12, borderColor: 'var(--warn, #b45309)' }}>
           <p style={{ margin: 0, fontWeight: 600 }}>Nenhuma unidade da rede municipal no banco</p>
           <p className="muted" style={{ margin: '8px 0 0' }}>
             Clique em <strong>Sincronizar rede municipal</strong> para importar só a Prefeitura (~66
-            estabelecimentos / ~123 equipes; a cidade tem ~1346 CNES). Depois confira a{' '}
+            estabelecimentos / ~59 ativos; a cidade tem ~545 ativos / ~1346 CNES). Depois confira a{' '}
             <Link href="/cadastros/cnes-auditoria">auditoria CNES</Link>.
           </p>
         </div>
@@ -160,14 +173,36 @@ export default function UnidadesPage() {
           <div className="section-label">Lista</div>
           <label className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
             <input
+              type="radio"
+              name="escopo"
+              checked={escopo === 'municipal'}
+              onChange={() => setEscopo('municipal')}
+            />
+            Rede Prefeitura (mantenedora)
+          </label>
+          <label className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <input
+              type="radio"
+              name="escopo"
+              checked={escopo === 'todos'}
+              onChange={() => setEscopo('todos')}
+            />
+            Todos IBGE (cidade inteira)
+          </label>
+          <label className="muted" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <input
               type="checkbox"
               checked={activeOnly}
               onChange={(e) => setActiveOnly(e.target.checked)}
             />
-            Só unidades ativas (IBGE 3516200)
+            Só unidades ativas
           </label>
           {loading ? <p className="muted">Carregando…</p> : null}
-          <p className="muted">{rows.length} unidade(s)</p>
+          <p className="muted">
+            {escopoLabel}
+            {activeOnly ? ' · ativas' : ''} · IBGE 3516200 · {rows.length} unidade(s)
+            {escopo === 'municipal' ? ' (esperado ~59 ativas / ~66 total)' : ' (cidade ~545 ativas)'}
+          </p>
           <table>
             <thead>
               <tr>
@@ -208,6 +243,13 @@ export default function UnidadesPage() {
               <div className="field">
                 <label>CNES</label>
                 <input className="mono" value={selected.cnes} disabled />
+              </div>
+              <div className="field">
+                <label>CNPJ (mantenedora / estabelecimento)</label>
+                <p className="mono muted" style={{ margin: 0 }}>
+                  {selected.cnpj || '—'}
+                  {selected.municipalNetwork ? ' · rede Prefeitura' : ''}
+                </p>
               </div>
               <div className="field">
                 <label>Endereço</label>

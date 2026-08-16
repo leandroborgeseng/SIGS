@@ -32,6 +32,7 @@ describe('cnes.loader', () => {
       findUnique: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({ id: 'f1', cnes: '9647198' }),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const team = {
       findUnique: jest.fn().mockResolvedValue(null),
@@ -46,7 +47,16 @@ describe('cnes.loader', () => {
     expect(out.teams.created).toBe(1);
     expect(out.gestao).toBe('municipal');
     expect(out.filter.after.establishments).toBe(1);
-    expect(facility.create).toHaveBeenCalled();
+    expect(facility.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          municipalNetwork: true,
+          naturezaJuridica: '1244',
+          cnpj: '47970769000104',
+        }),
+      }),
+    );
+    expect(facility.updateMany).toHaveBeenCalled();
     expect(team.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ ine: '0001667653', facilityId: 'f1' }),
@@ -60,9 +70,11 @@ describe('cnes.loader', () => {
       cnes: '9647198',
       name: 'UBS SANTA CLARA',
       active: true,
-      cnpj: null,
+      cnpj: '47970769000104',
       typeId: '2',
       ibgeCode: '3516200',
+      municipalNetwork: true,
+      naturezaJuridica: '1244',
       addressStreet: 'RUA A',
       addressNumber: '1',
       addressNeighborhood: 'B',
@@ -82,6 +94,7 @@ describe('cnes.loader', () => {
       findUnique: jest.fn().mockResolvedValue(existingFac),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const team = {
       findUnique: jest.fn().mockResolvedValue(existingTeam),

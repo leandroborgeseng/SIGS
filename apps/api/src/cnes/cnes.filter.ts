@@ -11,11 +11,43 @@ import type { CnesEstablishment, CnesSnapshot, CnesSyncGestao } from './cnes.typ
  *
  * NÃO usar só `tipo_gestao=M` / esfera MUNICIPAL: quase todos os CNES do
  * município (particulares inclusos) ficam sob gestão territorial municipal.
+ *
+ * CNPJ do estabelecimento (`numero_cnpj`) vem **nulo** para os 66 CNES 1244
+ * no snapshot. CNPJ oficial da mantenedora (portal Prefeitura):
+ *   **47.970.769/0001-04** → `47970769000104`
+ * Usado como enriquecimento / filtro alinhado (não substitui natureza 1244).
  */
 export const MUNICIPAL_NATUREZA_JURIDICA_CODES = new Set(['1244']);
 
+/** CNPJ oficial Município/Prefeitura de Franca (portal franca.sp.gov.br). */
+export const PREFEITURA_FRANCA_CNPJ = '47970769000104';
+
+export const PREFEITURA_MANTENEDORA_CNPJS = new Set([PREFEITURA_FRANCA_CNPJ]);
+
 export const CNES_GESTAO_CRITERION =
-  'naturezaJuridica=1244 (Município) — Prefeitura/Município de Franca; não usar só tipo_gestao=M';
+  'naturezaJuridica=1244 (Município) — Prefeitura/Município de Franca; CNPJ mantenedora 47970769000104 (enriquecimento; CNES numero_cnpj nulo na rede 1244); não usar só tipo_gestao=M';
+
+export function normalizeCnpjDigits(raw: unknown): string | null {
+  if (raw == null || raw === '') return null;
+  const digits = String(raw).replace(/\D/g, '');
+  return digits.length >= 14 ? digits.slice(0, 14) : digits.length ? digits : null;
+}
+
+/** Alias UI/API: prefeitura | municipio | mantenedora → CNPJ Franca. */
+export function resolveCnpjFilter(raw?: string | null): string | null {
+  if (raw == null || String(raw).trim() === '') return null;
+  const v = String(raw).trim().toLowerCase();
+  if (
+    v === 'prefeitura' ||
+    v === 'municipio' ||
+    v === 'mantenedora' ||
+    v === 'prefeitura-franca' ||
+    v === 'prefeitura_franca'
+  ) {
+    return PREFEITURA_FRANCA_CNPJ;
+  }
+  return normalizeCnpjDigits(raw);
+}
 
 export function normalizeNaturezaJuridicaCode(raw: unknown): string | null {
   if (raw == null || raw === '') return null;
@@ -73,6 +105,25 @@ export function isMunicipalPrefeituraNetwork(est: CnesEstablishment): boolean {
   const code = normalizeNaturezaJuridicaCode(est.naturezaJuridica);
   if (code) return MUNICIPAL_NATUREZA_JURIDICA_CODES.has(code);
   return looksLikePrefeituraMantenedora(est);
+}
+
+/**
+ * CNPJ efetivo para persistência: usa o do estabelecimento; se rede municipal
+ * e CNES sem CNPJ, preenche com CNPJ oficial da Prefeitura (mantenedora).
+ */
+export function resolveFacilityCnpj(est: {
+  cnpj?: string | null;
+  municipalNetwork?: boolean;
+  naturezaJuridica?: string | null;
+  name?: string | null;
+  razaoSocial?: string | null;
+}): string | null {
+  const own = normalizeCnpjDigits(est.cnpj);
+  if (own) return own;
+  if (isMunicipalPrefeituraNetwork(est as CnesEstablishment)) {
+    return PREFEITURA_FRANCA_CNPJ;
+  }
+  return null;
 }
 
 export type CnesFilterStats = {

@@ -18,9 +18,11 @@ export class OrganizationController {
     @Query('q') q?: string,
     @Query('active') active?: string,
     @Query('ibge') ibge?: string,
+    @Query('gestao') gestao?: string,
+    @Query('cnpj') cnpj?: string,
   ) {
     const a = active === undefined ? undefined : active === 'true' || active === '1';
-    return this.service.listFacilities(q, a, ibge);
+    return this.service.listFacilities(q, a, ibge, gestao, cnpj);
   }
 
   @Post('facilities')

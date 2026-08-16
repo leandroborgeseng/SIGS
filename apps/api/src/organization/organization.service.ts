@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
 import {
@@ -10,6 +11,14 @@ import {
   UpdateFacilityDto,
 } from './dto';
 import { assertIbgeCode } from '../ledi/ibge';
+import {
+  applyGestaoFilter,
+  parseGestaoMode,
+  PREFEITURA_FRANCA_CNPJ,
+  PREFEITURA_MANTENEDORA_CNPJS,
+  resolveCnpjFilter,
+} from '../cnes/cnes.filter';
+import { loadBundledSnapshot } from '../cnes/cnes.snapshot';
 
 @Injectable()
 export class OrganizationService {
@@ -19,18 +28,63 @@ export class OrganizationService {
     return social || civil;
   }
 
-  listFacilities(q?: string, active?: boolean, ibgeCode?: string) {
+  /**
+   * Lista unidades. Default `gestao=municipal` = rede Prefeitura (não cidade IBGE inteira).
+   * `gestao=todos` = todos os CNES do IBGE. `cnpj=prefeitura|47970769000104` alinha ao mantenedor.
+   */
+  listFacilities(
+    q?: string,
+    active?: boolean,
+    ibgeCode?: string,
+    gestaoRaw?: string,
+    cnpjRaw?: string,
+  ) {
+    const gestao = parseGestaoMode(gestaoRaw);
+    const cnpj = resolveCnpjFilter(cnpjRaw);
+    const and: Prisma.FacilityWhereInput[] = [];
+
+    if (active !== undefined) and.push({ active });
+    if (ibgeCode) and.push({ ibgeCode });
+    if (q) and.push({ OR: [{ name: { contains: q } }, { cnes: { contains: q } }] });
+
+    if (gestao === 'municipal' || (cnpj && PREFEITURA_MANTENEDORA_CNPJS.has(cnpj))) {
+      and.push(this.municipalListScope(ibgeCode));
+    } else if (cnpj) {
+      and.push({ cnpj });
+    }
+
     return this.prisma.facility.findMany({
-      where: {
-        ...(active === undefined ? {} : { active }),
-        ...(ibgeCode ? { ibgeCode } : {}),
-        ...(q
-          ? { OR: [{ name: { contains: q } }, { cnes: { contains: q } }] }
-          : {}),
-      },
+      where: and.length ? { AND: and } : {},
       orderBy: { name: 'asc' },
       include: { _count: { select: { teams: true } } },
     });
+  }
+
+  /** Escopo rede Prefeitura: flag DB + fallback snapshot (CNES 1244) se nada marcado. */
+  private municipalListScope(ibgeCode?: string): Prisma.FacilityWhereInput {
+    const cnesFromSnapshot = this.municipalCnesFromSnapshot(ibgeCode);
+    if (cnesFromSnapshot?.length) {
+      return {
+        OR: [{ municipalNetwork: true }, { cnes: { in: cnesFromSnapshot } }],
+      };
+    }
+    if (ibgeCode === '3516200' || !ibgeCode) {
+      return {
+        OR: [{ municipalNetwork: true }, { cnpj: PREFEITURA_FRANCA_CNPJ }, { naturezaJuridica: '1244' }],
+      };
+    }
+    return { municipalNetwork: true };
+  }
+
+  private municipalCnesFromSnapshot(ibgeCode?: string): string[] | null {
+    const ibge = ibgeCode || '3516200';
+    try {
+      const { snapshot } = loadBundledSnapshot(ibge);
+      const { snapshot: muni } = applyGestaoFilter(snapshot, 'municipal');
+      return muni.establishments.map((e) => e.cnes);
+    } catch {
+      return null;
+    }
   }
 
   async createFacility(dto: CreateFacilityDto) {

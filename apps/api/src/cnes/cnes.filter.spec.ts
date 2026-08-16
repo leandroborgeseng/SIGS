@@ -2,6 +2,9 @@ import {
   applyGestaoFilter,
   isMunicipalPrefeituraNetwork,
   parseGestaoMode,
+  PREFEITURA_FRANCA_CNPJ,
+  resolveCnpjFilter,
+  resolveFacilityCnpj,
 } from './cnes.filter';
 import { FRANCA_IBGE, loadBundledSnapshot } from './cnes.snapshot';
 import type { CnesSnapshot } from './cnes.types';
@@ -83,10 +86,19 @@ describe('cnes.filter', () => {
     expect(city.establishments.length).toBeGreaterThan(1000);
     const { snapshot: muni, filter } = applyGestaoFilter(city, 'municipal');
     expect(filter.after.establishments).toBe(66);
+    expect(filter.after.establishmentsActive).toBe(59);
     expect(muni.establishments.every((e) => isMunicipalPrefeituraNetwork(e))).toBe(true);
+    expect(muni.establishments.every((e) => !e.cnpj)).toBe(true); // CNES numero_cnpj nulo
     expect(muni.teams.length).toBeGreaterThan(100);
     expect(muni.teams.length).toBeLessThanOrEqual(city.teams.length);
     const { snapshot: all } = applyGestaoFilter(city, 'todos');
     expect(all.establishments.length).toBe(city.establishments.length);
+  });
+
+  it('CNPJ mantenedora Prefeitura + resolveFacilityCnpj preenche rede 1244', () => {
+    expect(resolveCnpjFilter('prefeitura')).toBe(PREFEITURA_FRANCA_CNPJ);
+    expect(resolveCnpjFilter('47.970.769/0001-04')).toBe(PREFEITURA_FRANCA_CNPJ);
+    expect(resolveFacilityCnpj(snapshot.establishments[0])).toBe(PREFEITURA_FRANCA_CNPJ);
+    expect(resolveFacilityCnpj(snapshot.establishments[1])).toBeNull();
   });
 });

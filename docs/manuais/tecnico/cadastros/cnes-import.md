@@ -6,13 +6,14 @@
 
 ## Critério de filtro (oficial)
 
-| Campo API Dados Abertos | Uso |
+| Critério | Uso |
 |---|---|
 | `descricao_natureza_juridica_estabelecimento` = **1244** (Município) | **Critério principal** — bate 100% com razão social Prefeitura/Município de Franca |
+| CNPJ mantenedora **47.970.769/0001-04** (`47970769000104`) | **Alinhado / enriquecimento** — portal Prefeitura. No snapshot CNES, `numero_cnpj` dos 66 est. 1244 vem **nulo**; o sync grava o CNPJ oficial da mantenedora. API: `?cnpj=prefeitura` ou `?cnpj=47970769000104` |
 | `tipo_gestao` / esfera MUNICIPAL | **Não usar sozinho** — ~1334/1346 CNES da cidade ficam `M` (particulares inclusos) |
 | `nome_razao_social` contendo Prefeitura/Município | Confirmação / fallback de snapshot antigo |
 
-Decisão de produto: importar e auditar **somente** a rede da Prefeitura (faturamento/procedimentos municipais), não particulares nem estadual/federal.
+Decisão de produto: importar, listar e auditar **somente** a rede da Prefeitura (faturamento/procedimentos municipais), não particulares nem estadual/federal.
 
 Contagens Franca (snapshot regenerado):
 
@@ -20,6 +21,15 @@ Contagens Franca (snapshot regenerado):
 |---|---:|---:|---:|
 | Cidade (IBGE 3516200) | 1346 | 124 | 545 |
 | Rede municipal (1244) | **66** | **123** | **59** |
+
+### Lista UI `/unidades` e `GET /v1/facilities`
+
+| Query | Comportamento |
+|---|---|
+| *(default)* `gestao=municipal` | Rede Prefeitura (~59 ativas) — **não** cidade inteira |
+| `gestao=todos` | Todos CNES do IBGE (~545 ativas) |
+| `cnpj=prefeitura` / `47970769000104` | Mesmo escopo mantenedora (alinhado a 1244) |
+| `active=true` | Só ativos |
 
 ## Fonte
 
@@ -80,21 +90,22 @@ Default `gestao=municipal`: snapshot e findings usam só a rede Prefeitura. Reto
 
 Default `gestao=municipal`: índice CNES/INE só da rede Prefeitura (produção de particular não “passa” como CNES municipal válido).
 
+## UI
+
+- `/unidades` — default **Rede Prefeitura (mantenedora)** (~59 ativas); toggle **Todos IBGE**; sync municipal; contagens filtradas
+- `/cadastros/cnes-auditoria` — escopo Prefeitura + snapshot filtrado vs cidade
+- `/faturamento/auditoria` — escopo CNES municipal no cabeçalho
+
 ## Endpoints
 
 | Método | Path |
 |---|---|
+| `GET` | `/v1/facilities?ibge=3516200&gestao=municipal\|todos&cnpj=prefeitura&active=true` |
 | `POST` | `/v1/cnes/sync?ibge=&source=&gestao=municipal\|todos&somentePrefeitura=&activeOnly=` |
 | `GET` | `/v1/cnes/audit?ibge=3516200&gestao=municipal` |
 | `GET` | `/v1/cnes/snapshot?ibge=` — meta + contagens cidade/municipal |
 | `GET` | `/v1/cnes/status` |
 | `GET` | `/v1/faturamento/audit?competencia=&ibge=&gestao=municipal` |
-
-## UI
-
-- `/unidades` — **Sincronizar rede municipal** + contagens filtradas
-- `/cadastros/cnes-auditoria` — escopo Prefeitura + snapshot filtrado vs cidade
-- `/faturamento/auditoria` — escopo CNES municipal no cabeçalho
 
 ## Próximo passo
 

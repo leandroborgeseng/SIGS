@@ -16,6 +16,10 @@ model Facility {
   typeId    String?  @map("type_id")
   /// Código IBGE do município (7 dígitos) — header LEDI codigoIbgeMunicipio
   ibgeCode  String?  @map("ibge_code")
+  /// Rede Prefeitura (natureza jurídica 1244 / mantenedora municipal)
+  municipalNetwork Boolean @default(false) @map("municipal_network")
+  /// Código natureza jurídica CNES (ex.: 1244 = Município)
+  naturezaJuridica String? @map("natureza_juridica")
   /// Endereço CNES (público; sem PHI)
   addressStreet       String? @map("address_street")
   addressNumber       String? @map("address_number")
@@ -44,6 +48,8 @@ model Facility {
 
   @@index([ibgeCode])
   @@index([active])
+  @@index([municipalNetwork])
+  @@index([cnpj])
   @@map("facilities")
 }
 

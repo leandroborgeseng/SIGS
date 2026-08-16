@@ -43,7 +43,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '0.1.0',
     updatedAt: '2026-08-11',
     summary: 'CNES e código IBGE do município para produção LEDI.',
-    body: `Em Unidades, selecione a UBS e informe o IBGE municipal (7 dígitos). Franca/SP = 3516200. Botão «Sincronizar rede municipal» importa só a Prefeitura (natureza jurídica 1244; POST /v1/cnes/sync?source=snapshot&gestao=municipal) — não traz particulares. Para inconsistências use /cadastros/cnes-auditoria.`,
+    body: `Em Unidades, default = Rede Prefeitura (mantenedora) — natureza jurídica 1244 / CNPJ 47970769000104 (~59 ativas). Toggle «Todos IBGE» mostra a cidade (~545 ativas). Botão «Sincronizar rede municipal» importa só a Prefeitura (POST /v1/cnes/sync?gestao=municipal). API GET /v1/facilities?gestao=municipal&ibge=3516200. Auditoria: /cadastros/cnes-auditoria.`,
   },
   {
     id: 'cadastros.cnes-auditoria',
@@ -52,7 +52,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '0.3.0',
     updatedAt: '2026-08-16',
     summary: 'Checks Facility/Team vs snapshot CNES — escopo rede municipal (Prefeitura).',
-    body: `Em /cadastros/cnes-auditoria: «Sincronizar rede municipal» (POST /v1/cnes/sync?gestao=municipal) se o escopo estiver 0/0; depois «Importar profissionais lotados» (POST /v1/cnes/sync-professionals). Critério unidades: natureza jurídica 1244. PF: nome+CNS+CBO+INE (público CNES). Contagens cidade vs filtrado no painel. Export CSV. Sem PHI. Railway: CNES_SYNC_ON_BOOT=1 (+ CNES_SYNC_PROFESSIONALS_ON_BOOT=1 opcional).`,
+    body: `Em /cadastros/cnes-auditoria: «Sincronizar rede municipal» (POST /v1/cnes/sync?gestao=municipal) se o escopo estiver 0/0; depois «Importar profissionais lotados» (POST /v1/cnes/sync-professionals). Critério unidades: natureza jurídica 1244 (+ CNPJ mantenedora 47970769000104 enriquecido). PF: nome+CNS+CBO+INE (público CNES). Contagens cidade vs filtrado no painel. Export CSV. Sem PHI. Railway: CNES_SYNC_ON_BOOT=1 (+ CNES_SYNC_PROFESSIONALS_ON_BOOT=1 opcional).`,
   },
   {
     id: 'cadastros.lotacao',
