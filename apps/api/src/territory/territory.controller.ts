@@ -2,10 +2,12 @@ import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common
 import { TerritoryService } from './territory.service';
 import {
   AddFamilyMemberDto,
+  CreateAcsHomeVisitDto,
   CreateHouseholdDto,
   CreateHouseholdFamilyDto,
   CreateMicroAreaDto,
   CreatePatientTeamLinkDto,
+  UpdateAcsHomeVisitDto,
   UpdateFamilyMemberDto,
   UpdateHouseholdDto,
   UpdateHouseholdFamilyDto,
@@ -19,6 +21,11 @@ export class TerritoryController {
   @Get('catalog/household')
   catalogHousehold() {
     return this.service.catalogHousehold();
+  }
+
+  @Get('catalog/acs-visit')
+  catalogAcsVisit() {
+    return this.service.catalogAcsVisit();
   }
 
   @Get('micro-areas')
@@ -88,5 +95,30 @@ export class TerritoryController {
   @Patch('family-members/:id')
   updateFamilyMember(@Param('id') id: string, @Body() dto: UpdateFamilyMemberDto) {
     return this.service.updateFamilyMember(id, dto);
+  }
+
+  @Get('acs-home-visits')
+  listAcsVisits(
+    @Query('facilityId') facilityId?: string,
+    @Query('patientId') patientId?: string,
+    @Query('householdId') householdId?: string,
+    @Query('teamId') teamId?: string,
+  ) {
+    return this.service.listAcsVisits({ facilityId, patientId, householdId, teamId });
+  }
+
+  @Post('acs-home-visits')
+  createAcsVisit(@Body() dto: CreateAcsHomeVisitDto) {
+    return this.service.createAcsVisit(dto);
+  }
+
+  @Get('acs-home-visits/:id')
+  getAcsVisit(@Param('id') id: string) {
+    return this.service.getAcsVisit(id);
+  }
+
+  @Patch('acs-home-visits/:id')
+  updateAcsVisit(@Param('id') id: string, @Body() dto: UpdateAcsHomeVisitDto) {
+    return this.service.updateAcsVisit(id, dto);
   }
 }

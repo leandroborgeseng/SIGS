@@ -39,10 +39,18 @@ describe('TerritoryService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
       },
+      facility: { findUnique: jest.fn().mockResolvedValue({ id: 'f1' }) },
+      professional: { findUnique: jest.fn().mockResolvedValue({ id: 'pr1' }) },
+      acsHomeVisit: {
+        create: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
       audit: jest.fn(),
       ...overrides,
     };
-    return { service: new TerritoryService(prisma as never), prisma };
+    return { service: new TerritoryService(prisma as never), prisma: prisma as any };
   }
 
   it('bloqueia microárea de outra equipe no vínculo', async () => {
@@ -135,5 +143,84 @@ describe('TerritoryService', () => {
     expect(prisma.household.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ active: false }) }),
     );
+  });
+
+  it('catalogAcsVisit expõe desfecho e motivos LEDI', () => {
+    const { service } = make();
+    const cat = service.catalogAcsVisit();
+    expect(cat.desfechos.map((d) => d.id)).toEqual([1, 2, 3]);
+    expect(cat.motivos.some((m) => m.id === 29)).toBe(true);
+  });
+
+  it('cria visita ACS com lat/long e mapUrl OSM', async () => {
+    const { service, prisma } = make({
+      facility: { findUnique: jest.fn().mockResolvedValue({ id: 'f1' }) },
+      professional: { findUnique: jest.fn().mockResolvedValue({ id: 'pr1' }) },
+      acsHomeVisit: {
+        create: jest.fn().mockResolvedValue({
+          id: 'v1',
+          facilityId: 'f1',
+          patientId: 'p1',
+          householdId: 'h1',
+          desfecho: 1,
+          motivosJson: '[29]',
+          latitude: -20.53,
+          longitude: -47.4,
+          shift: 'MANHA',
+          status: 'RECORDED',
+        }),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
+    });
+    prisma.household.findUnique.mockResolvedValue({ id: 'h1', teamId: 't1' });
+    prisma.team.findUnique.mockResolvedValue({ id: 't1', facilityId: 'f1' });
+
+    const row = await service.createAcsVisit({
+      facilityId: 'f1',
+      householdId: 'h1',
+      patientId: 'p1',
+      desfecho: 1,
+      motivos: [29],
+      latitude: -20.53,
+      longitude: -47.4,
+    });
+    expect(prisma.acsHomeVisit.create).toHaveBeenCalled();
+    expect(row.mapUrl).toContain('openstreetmap.org');
+    expect(row.motivos).toEqual([29]);
+    expect(prisma.audit).toHaveBeenCalledWith(
+      'create',
+      'acs_home_visit',
+      'v1',
+      expect.arrayContaining(['RF-17.11', 'RF-17.12']),
+      expect.any(Object),
+    );
+  });
+
+  it('exige patient ou household na visita ACS', async () => {
+    const { service } = make({
+      facility: { findUnique: jest.fn().mockResolvedValue({ id: 'f1' }) },
+      acsHomeVisit: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+    });
+    await expect(
+      service.createAcsVisit({ facilityId: 'f1', desfecho: 1, motivos: [1] }),
+    ).rejects.toThrow(/patientId e\/ou householdId/);
+  });
+
+  it('rejeita lat sem long', async () => {
+    const { service } = make({
+      facility: { findUnique: jest.fn().mockResolvedValue({ id: 'f1' }) },
+      acsHomeVisit: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+    });
+    await expect(
+      service.createAcsVisit({
+        facilityId: 'f1',
+        patientId: 'p1',
+        desfecho: 1,
+        motivos: [1],
+        latitude: -20.5,
+      }),
+    ).rejects.toThrow(/latitude e longitude/);
   });
 });

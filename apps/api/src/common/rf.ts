@@ -19,6 +19,20 @@ export const RF = {
     teste_faturamento: 'n/a',
     nota: 'Território APS: microáreas, vínculos e domicílio/família CDS (sem GIS)',
   },
+  ACS_VISIT: {
+    id: 'RF-17.11',
+    tipo: 'Obrigatório',
+    fonte: 'TR',
+    teste_faturamento: 'n/a',
+    nota: 'Visita domiciliar ACS/ACE (motivo/desfecho LEDI; sem lote XML tipo 8)',
+  },
+  ACS_VISIT_GEO: {
+    id: 'RF-17.12',
+    tipo: 'Obrigatório',
+    fonte: 'TR',
+    teste_faturamento: 'n/a',
+    nota: 'Latitude/longitude opcional na visita ACS + link OSM externo',
+  },
   AGENDA: { id: 'RF-2.17', tipo: 'Obrigatório', fonte: 'ambos', teste_faturamento: 'n/a', nota: 'Agenda / slots' },
   ENCOUNTER_ENTRY: {
     id: 'RF-3.1',

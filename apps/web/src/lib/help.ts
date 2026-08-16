@@ -130,10 +130,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'cadastros.territorio',
     title: 'Território APS',
     module: 'Cadastros',
-    version: '1.1.0',
+    version: '1.2.0',
     updatedAt: '2026-08-16',
-    summary: 'Equipes, microáreas, vínculos e domicílio/família CDS.',
-    body: `Em Território você cria equipes na unidade atual, cadastra microáreas, vincula pacientes e registra domicílios/famílias CDS (tipo de imóvel LEDI, endereço, responsável e membros). A microárea, se informada, precisa pertencer à mesma equipe. Sem mapa GIS nesta fase. Na ficha do paciente há resumo dos vínculos e do domicílio.`,
+    summary: 'Equipes, microáreas, vínculos, domicílio CDS e visita ACS com lat/long.',
+    body: `Em Território você cria equipes na unidade atual, cadastra microáreas, vincula pacientes, registra domicílios/famílias CDS e visitas ACS (motivo/desfecho LEDI). Lat/long é opcional; com coordenadas, a lista oferece link externo OpenStreetMap. Sem mapa embutido e sem lote XML de visita nesta fase.`,
   },
   {
     id: 'odonto.atendimento',

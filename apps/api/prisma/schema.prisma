@@ -27,6 +27,7 @@ model Facility {
   vaccinationSupplies VaccinationSupply[]
   dentalEncounters DentalEncounter[]
   homeCareVisits HomeCareVisit[]
+  acsHomeVisits AcsHomeVisit[]
   collectiveActivities CollectiveActivity[]
   appointmentSlots AppointmentSlot[]
   queueTickets QueueTicket[]
@@ -51,6 +52,7 @@ model Professional {
   vaccinations VaccinationRecord[]
   dentalEncounters DentalEncounter[]
   homeCareVisits HomeCareVisit[]
+  acsHomeVisits AcsHomeVisit[]
   collectiveActivities CollectiveActivity[]
   queueTickets QueueTicket[]
   prescriptions Prescription[]
@@ -73,6 +75,7 @@ model Team {
   microAreas MicroArea[]
   links      PatientTeamLink[]
   households Household[]
+  acsHomeVisits AcsHomeVisit[]
   assignments ProfessionalAssignment[]
 
   @@map("teams")
@@ -155,6 +158,7 @@ model Patient {
   vaccinations VaccinationRecord[]
   dentalEncounters DentalEncounter[]
   homeCareVisits HomeCareVisit[]
+  acsHomeVisits AcsHomeVisit[]
   queueTickets QueueTicket[]
   prescriptions Prescription[]
   regulationRequests RegulationRequest[]
@@ -182,6 +186,7 @@ model MicroArea {
   team       Team        @relation(fields: [teamId], references: [id])
   links      PatientTeamLink[]
   households Household[]
+  acsHomeVisits AcsHomeVisit[]
 
   @@map("micro_areas")
 }
@@ -238,10 +243,48 @@ model Household {
   team      Team               @relation(fields: [teamId], references: [id])
   microArea MicroArea?         @relation(fields: [microAreaId], references: [id])
   families  HouseholdFamily[]
+  acsVisits AcsHomeVisit[]
 
   @@index([teamId, active])
   @@index([microAreaId])
   @@map("households")
+}
+
+/// Visita domiciliar ACS/ACE (RF-17.11 / RF-17.12) — ficha LEDI tipo 8 fields mínimos; sem lote XML
+model AcsHomeVisit {
+  id             String    @id @default(uuid())
+  facilityId     String    @map("facility_id")
+  teamId         String?   @map("team_id")
+  microAreaId    String?   @map("micro_area_id")
+  householdId    String?   @map("household_id")
+  patientId      String?   @map("patient_id")
+  professionalId String?   @map("professional_id")
+  /// MANHA | TARDE | NOITE (LEDI turno)
+  shift          String    @default("MANHA")
+  /// LEDI DesfechoDbEnum: 1=realizada · 2=recusada · 3=ausente
+  desfecho       Int
+  /// JSON array de ids MotivoVisitaDbEnum
+  motivosJson    String    @default("[]") @map("motivos_json")
+  latitude       Float?
+  longitude      Float?
+  visitedAt      DateTime  @default(now()) @map("visited_at")
+  notes          String?
+  /// RECORDED | VOID
+  status         String    @default("RECORDED")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  facility     Facility      @relation(fields: [facilityId], references: [id])
+  team         Team?         @relation(fields: [teamId], references: [id])
+  microArea    MicroArea?    @relation(fields: [microAreaId], references: [id])
+  household    Household?    @relation(fields: [householdId], references: [id])
+  patient      Patient?      @relation(fields: [patientId], references: [id])
+  professional Professional? @relation(fields: [professionalId], references: [id])
+
+  @@index([facilityId, visitedAt])
+  @@index([patientId, visitedAt])
+  @@index([householdId, visitedAt])
+  @@map("acs_home_visits")
 }
 
 /// Família no domicílio (FamiliaRowThrift + membros locais)

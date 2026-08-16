@@ -1,7 +1,7 @@
 # Cobertura RF — rastreabilidade
 
 **CSV completo:** [cobertura-rf.csv](cobertura-rf.csv)
-**Total linhas:** 599 · **cobertos:** 9 · **parciais:** 41 · **adiados:** 114 · **backlog SAMU:** 30 (não iniciado / onda `samu-backlog`)
+**Total linhas:** 599 · **cobertos:** 9 · **parciais:** 43 · **adiados:** 114 · **backlog SAMU:** 30 (não iniciado / onda `samu-backlog`)
 
 Legenda status: `coberto` = escopo Onda 1/código atual atende o RF mínimo com evidência; `parcial` = há código mas falta fatia TR/e-SUS. Não inventar cobertura.
 
@@ -30,6 +30,8 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-2.19 | Obr | parcial | n/a | `apps/api/src/organization#teams` |
 | RF-2.27 | Obr | parcial | n/a | `apps/api/src/patients` (+ PATCH + UI) |
 | RF-2.29 | Obr | parcial | n/a | território + microáreas/vínculos + **Household/Family CDS** (`/v1/households`, catálogo LEDI, UI `/territorio`) — sem GIS/lote XML |
+| RF-17.11 | Obr | parcial | n/a | visita ACS `AcsHomeVisit` · `GET/POST /v1/acs-home-visits` · catálogo motivos/desfecho LEDI · UI `/territorio` aba Visitas ACS — sem lote XML tipo 8 |
+| RF-17.12 | Obr | parcial | n/a | lat/long opcional na visita + `mapUrl` OpenStreetMap externo (sem Leaflet/Mapbox) |
 | RF-2.30 | Obr | parcial | n/a | cadastro individual CDS: nacionalidade/IBGE nasc./etnia/deficiência/NIS/e-mail + `links` no GET paciente · UI `/pacientes/[id]` |
 | RF-2.47 | Obr | parcial | n/a | `facilities` + IBGE + UI `/unidades` |
 | RF-2.56 | Obr | parcial | n/a | `apps/api/src/patients#search` + UI |

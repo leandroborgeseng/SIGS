@@ -564,8 +564,8 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 17,Módulo de Aplicativos e Transparência,8,RF-17.8,Obrigatório,TR,não iniciado,depois,,n/a,Acompanhar fila de cirurgias eletivas com status.
 17,Módulo de Aplicativos e Transparência,9,RF-17.9,Obrigatório,TR,não iniciado,depois,,n/a,"Visualizar boletim médico do paciente internado, via senha da internação."
 17,Módulo de Aplicativos e Transparência,10,RF-17.10,Obrigatório,TR,não iniciado,depois,,n/a,Visualizar unidades de atendimento com geração de rota no app.
-17,Módulo de Aplicativos e Transparência,11,RF-17.11,Obrigatório,TR,não iniciado,depois,,n/a,Registro de visita domiciliar do agente comunitário de saúde.
-17,Módulo de Aplicativos e Transparência,12,RF-17.12,Obrigatório,TR,não iniciado,depois,,n/a,Informar latitude/longitude na visita domiciliar.
+17,Módulo de Aplicativos e Transparência,11,RF-17.11,Obrigatório,TR,parcial,P0-P6,acs-home-visits+/territorio,n/a,Registro de visita domiciliar do agente comunitário de saúde.
+17,Módulo de Aplicativos e Transparência,12,RF-17.12,Obrigatório,TR,parcial,P0-P6,acs-home-visits+lat-long+OSM,n/a,Informar latitude/longitude na visita domiciliar.
 17,Módulo de Aplicativos e Transparência,13,RF-17.13,Obrigatório,TR,não iniciado,depois,,n/a,"Cadastro do paciente pelo app, com validação posterior na unidade e possível unificação."
 17,Módulo de Aplicativos e Transparência,14,RF-17.14,Obrigatório,TR,não iniciado,depois,,n/a,Registro de cadastro individual do paciente com fichas conforme Ministério da Saúde.
 17,Módulo de Aplicativos e Transparência,15,RF-17.15,Obrigatório,TR,não iniciado,depois,,n/a,Cadastro domiciliar conforme regras do MS.

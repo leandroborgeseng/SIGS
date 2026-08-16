@@ -3,16 +3,25 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
 import {
   AddFamilyMemberDto,
+  CreateAcsHomeVisitDto,
   CreateHouseholdDto,
   CreateHouseholdFamilyDto,
   CreateMicroAreaDto,
   CreatePatientTeamLinkDto,
+  UpdateAcsHomeVisitDto,
   UpdateFamilyMemberDto,
   UpdateHouseholdDto,
   UpdateHouseholdFamilyDto,
   UpdatePatientTeamLinkDto,
 } from './dto';
 import { householdCatalog, isValidPropertyType, isValidRelationship } from './household-catalog';
+import {
+  acsVisitCatalog,
+  isValidAcsDesfecho,
+  isValidAcsMotivo,
+  isValidAcsShift,
+  openStreetMapUrl,
+} from './acs-visit-catalog';
 
 const householdInclude = {
   team: { include: { facility: true } },
@@ -35,6 +44,10 @@ export class TerritoryService {
 
   catalogHousehold() {
     return householdCatalog();
+  }
+
+  catalogAcsVisit() {
+    return acsVisitCatalog();
   }
 
   listMicroAreas(teamId?: string) {
@@ -473,5 +486,271 @@ export class TerritoryService {
       active: row.active,
     });
     return row;
+  }
+
+  private parseMotivosJson(raw: string): number[] {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) ? parsed.map(Number).filter((n) => Number.isFinite(n)) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private decorateAcsVisit<T extends { motivosJson: string; latitude: number | null; longitude: number | null }>(
+    row: T,
+  ) {
+    const motivos = this.parseMotivosJson(row.motivosJson);
+    const hasGeo =
+      row.latitude != null &&
+      row.longitude != null &&
+      Number.isFinite(row.latitude) &&
+      Number.isFinite(row.longitude);
+    return {
+      ...row,
+      motivos,
+      mapUrl: hasGeo ? openStreetMapUrl(row.latitude as number, row.longitude as number) : null,
+    };
+  }
+
+  private validateGeoPair(lat?: number | null, lon?: number | null) {
+    const hasLat = lat != null && Number.isFinite(lat);
+    const hasLon = lon != null && Number.isFinite(lon);
+    if (hasLat !== hasLon) {
+      throw new BadRequestException('Informe latitude e longitude juntos, ou nenhum dos dois');
+    }
+  }
+
+  private normalizeMotivos(motivos: number[]): number[] {
+    const unique = [...new Set(motivos.map(Number))];
+    if (!unique.length) throw new BadRequestException('Informe ao menos um motivo de visita');
+    for (const id of unique) {
+      if (!isValidAcsMotivo(id)) throw new BadRequestException(`motivo inválido: ${id}`);
+    }
+    return unique;
+  }
+
+  private async assertAcsRefs(input: {
+    facilityId: string;
+    teamId?: string | null;
+    microAreaId?: string | null;
+    householdId?: string | null;
+    patientId?: string | null;
+    professionalId?: string | null;
+  }) {
+    if (!(await this.prisma.facility.findUnique({ where: { id: input.facilityId } }))) {
+      throw new BadRequestException('facilityId inválido');
+    }
+    if (input.patientId) await this.assertPatient(input.patientId);
+    if (input.professionalId) {
+      if (!(await this.prisma.professional.findUnique({ where: { id: input.professionalId } }))) {
+        throw new BadRequestException('professionalId inválido');
+      }
+    }
+    let teamId = input.teamId ?? null;
+    if (input.householdId) {
+      const hh = await this.prisma.household.findUnique({ where: { id: input.householdId } });
+      if (!hh) throw new BadRequestException('householdId inválido');
+      if (!teamId) teamId = hh.teamId;
+      else if (teamId !== hh.teamId) {
+        throw new BadRequestException('householdId não pertence à equipe informada');
+      }
+    }
+    if (teamId) {
+      const team = await this.prisma.team.findUnique({ where: { id: teamId } });
+      if (!team) throw new BadRequestException('teamId inválido');
+      if (team.facilityId !== input.facilityId) {
+        throw new BadRequestException('equipe não pertence à unidade');
+      }
+    }
+    if (input.microAreaId) {
+      const ma = await this.prisma.microArea.findUnique({ where: { id: input.microAreaId } });
+      if (!ma) throw new BadRequestException('microAreaId inválido');
+      if (teamId && ma.teamId !== teamId) {
+        throw new BadRequestException('microárea não pertence à equipe');
+      }
+    }
+    return teamId;
+  }
+
+  listAcsVisits(filters: {
+    facilityId?: string;
+    patientId?: string;
+    householdId?: string;
+    teamId?: string;
+  }) {
+    return this.prisma.acsHomeVisit
+      .findMany({
+        where: {
+          ...(filters.facilityId ? { facilityId: filters.facilityId } : {}),
+          ...(filters.patientId ? { patientId: filters.patientId } : {}),
+          ...(filters.householdId ? { householdId: filters.householdId } : {}),
+          ...(filters.teamId ? { teamId: filters.teamId } : {}),
+          status: { not: 'VOID' },
+        },
+        orderBy: { visitedAt: 'desc' },
+        include: {
+          patient: true,
+          household: true,
+          team: true,
+          microArea: true,
+          professional: true,
+          facility: true,
+        },
+        take: 200,
+      })
+      .then((rows) => rows.map((r) => this.decorateAcsVisit(r)));
+  }
+
+  async getAcsVisit(id: string) {
+    const row = await this.prisma.acsHomeVisit.findUnique({
+      where: { id },
+      include: {
+        patient: true,
+        household: true,
+        team: true,
+        microArea: true,
+        professional: true,
+        facility: true,
+      },
+    });
+    if (!row) throw new NotFoundException('Visita ACS não encontrada');
+    return this.decorateAcsVisit(row);
+  }
+
+  async createAcsVisit(dto: CreateAcsHomeVisitDto) {
+    if (!dto.patientId && !dto.householdId) {
+      throw new BadRequestException('Informe patientId e/ou householdId');
+    }
+    if (!isValidAcsDesfecho(dto.desfecho)) {
+      throw new BadRequestException('desfecho inválido');
+    }
+    const shift = (dto.shift || 'MANHA').toUpperCase();
+    if (!isValidAcsShift(shift)) throw new BadRequestException('turno inválido');
+    const motivos = this.normalizeMotivos(dto.motivos);
+    this.validateGeoPair(dto.latitude, dto.longitude);
+
+    const teamId = await this.assertAcsRefs({
+      facilityId: dto.facilityId,
+      teamId: dto.teamId,
+      microAreaId: dto.microAreaId,
+      householdId: dto.householdId,
+      patientId: dto.patientId,
+      professionalId: dto.professionalId,
+    });
+
+    const row = await this.prisma.acsHomeVisit.create({
+      data: {
+        facilityId: dto.facilityId,
+        teamId: teamId ?? undefined,
+        microAreaId: dto.microAreaId,
+        householdId: dto.householdId,
+        patientId: dto.patientId,
+        professionalId: dto.professionalId,
+        shift,
+        desfecho: dto.desfecho,
+        motivosJson: JSON.stringify(motivos),
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        visitedAt: dto.visitedAt ? new Date(dto.visitedAt) : new Date(),
+        notes: dto.notes,
+      },
+      include: {
+        patient: true,
+        household: true,
+        team: true,
+        microArea: true,
+        professional: true,
+        facility: true,
+      },
+    });
+    await this.prisma.audit(
+      'create',
+      'acs_home_visit',
+      row.id,
+      [RF.ACS_VISIT.id, RF.ACS_VISIT_GEO.id],
+      {
+        desfecho: row.desfecho,
+        hasGeo: row.latitude != null && row.longitude != null,
+      },
+    );
+    return this.decorateAcsVisit(row);
+  }
+
+  async updateAcsVisit(id: string, dto: UpdateAcsHomeVisitDto) {
+    const current = await this.prisma.acsHomeVisit.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException('Visita ACS não encontrada');
+
+    const nextPatientId =
+      dto.patientId !== undefined ? dto.patientId : current.patientId;
+    const nextHouseholdId =
+      dto.householdId !== undefined ? dto.householdId : current.householdId;
+    if (!nextPatientId && !nextHouseholdId) {
+      throw new BadRequestException('Informe patientId e/ou householdId');
+    }
+
+    const desfecho = dto.desfecho ?? current.desfecho;
+    if (!isValidAcsDesfecho(desfecho)) throw new BadRequestException('desfecho inválido');
+
+    const shift = (dto.shift ?? current.shift).toUpperCase();
+    if (!isValidAcsShift(shift)) throw new BadRequestException('turno inválido');
+
+    const motivos =
+      dto.motivos !== undefined
+        ? this.normalizeMotivos(dto.motivos)
+        : this.parseMotivosJson(current.motivosJson);
+
+    const latitude = dto.latitude !== undefined ? dto.latitude : current.latitude;
+    const longitude = dto.longitude !== undefined ? dto.longitude : current.longitude;
+    this.validateGeoPair(latitude, longitude);
+
+    if (dto.status !== undefined && dto.status !== 'RECORDED' && dto.status !== 'VOID') {
+      throw new BadRequestException('status inválido');
+    }
+
+    const teamId = await this.assertAcsRefs({
+      facilityId: current.facilityId,
+      teamId: dto.teamId !== undefined ? dto.teamId : current.teamId,
+      microAreaId: dto.microAreaId !== undefined ? dto.microAreaId : current.microAreaId,
+      householdId: nextHouseholdId,
+      patientId: nextPatientId,
+      professionalId:
+        dto.professionalId !== undefined ? dto.professionalId : current.professionalId,
+    });
+
+    const row = await this.prisma.acsHomeVisit.update({
+      where: { id },
+      data: {
+        teamId: teamId,
+        microAreaId: dto.microAreaId !== undefined ? dto.microAreaId : undefined,
+        householdId: dto.householdId !== undefined ? dto.householdId : undefined,
+        patientId: dto.patientId !== undefined ? dto.patientId : undefined,
+        professionalId: dto.professionalId !== undefined ? dto.professionalId : undefined,
+        shift,
+        desfecho,
+        motivosJson: JSON.stringify(motivos),
+        latitude,
+        longitude,
+        ...(dto.visitedAt ? { visitedAt: new Date(dto.visitedAt) } : {}),
+        ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
+      },
+      include: {
+        patient: true,
+        household: true,
+        team: true,
+        microArea: true,
+        professional: true,
+        facility: true,
+      },
+    });
+    await this.prisma.audit(
+      'update',
+      'acs_home_visit',
+      id,
+      [RF.ACS_VISIT.id, RF.ACS_VISIT_GEO.id],
+      { status: row.status, hasGeo: row.latitude != null },
+    );
+    return this.decorateAcsVisit(row);
   }
 }

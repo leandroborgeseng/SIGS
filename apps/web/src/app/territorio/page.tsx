@@ -65,12 +65,37 @@ type Household = {
   microArea?: { id: string; code: string; name: string } | null;
   families?: HouseholdFamily[];
 };
+type AcsVisitCatalog = {
+  desfechos: CatalogOpt[];
+  motivos: CatalogOpt[];
+  shifts: Array<{ id: string; label: string }>;
+};
+type AcsVisit = {
+  id: string;
+  facilityId: string;
+  teamId?: string | null;
+  householdId?: string | null;
+  patientId?: string | null;
+  shift: string;
+  desfecho: number;
+  motivos: number[];
+  latitude?: number | null;
+  longitude?: number | null;
+  mapUrl?: string | null;
+  visitedAt: string;
+  notes?: string | null;
+  status: string;
+  patient?: Patient | null;
+  household?: Household | null;
+  team?: Team | null;
+  microArea?: { id: string; code: string; name: string } | null;
+};
 
 function TerritoryInner() {
   const params = useSearchParams();
   const { facilityId } = useAuth();
   const initialPatient = params.get('paciente') || '';
-  const [tab, setTab] = useState<'microareas' | 'vinculos' | 'domicilios'>(
+  const [tab, setTab] = useState<'microareas' | 'vinculos' | 'domicilios' | 'visitas'>(
     initialPatient ? 'vinculos' : 'microareas',
   );
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +107,8 @@ function TerritoryInner() {
   const [links, setLinks] = useState<LinkRow[]>([]);
   const [households, setHouseholds] = useState<Household[]>([]);
   const [catalog, setCatalog] = useState<HouseholdCatalog | null>(null);
+  const [acsCatalog, setAcsCatalog] = useState<AcsVisitCatalog | null>(null);
+  const [acsVisits, setAcsVisits] = useState<AcsVisit[]>([]);
 
   const [teamId, setTeamId] = useState('');
   const [maCode, setMaCode] = useState('');
@@ -108,6 +135,16 @@ function TerritoryInner() {
   const [hhMemberRel, setHhMemberRel] = useState('FILHO');
   const [filterHhPatientId, setFilterHhPatientId] = useState(initialPatient);
 
+  const [acsTeamId, setAcsTeamId] = useState('');
+  const [acsPatientId, setAcsPatientId] = useState(initialPatient);
+  const [acsHouseholdId, setAcsHouseholdId] = useState('');
+  const [acsDesfecho, setAcsDesfecho] = useState('1');
+  const [acsMotivos, setAcsMotivos] = useState<number[]>([29]);
+  const [acsShift, setAcsShift] = useState('MANHA');
+  const [acsLat, setAcsLat] = useState('');
+  const [acsLon, setAcsLon] = useState('');
+  const [acsNotes, setAcsNotes] = useState('');
+
   const microsForLinkTeam = useMemo(
     () => microAreas.filter((m) => m.teamId === linkTeamId && m.active),
     [microAreas, linkTeamId],
@@ -116,9 +153,32 @@ function TerritoryInner() {
     () => microAreas.filter((m) => m.teamId === hhTeamId && m.active),
     [microAreas, hhTeamId],
   );
+  const householdsForAcsTeam = useMemo(
+    () =>
+      households.filter(
+        (h) => h.active && (!acsTeamId || h.teamId === acsTeamId),
+      ),
+    [households, acsTeamId],
+  );
 
   function propertyLabel(code: number) {
     return catalog?.propertyTypes.find((p) => Number(p.id) === code)?.label || `Tipo ${code}`;
+  }
+
+  function desfechoLabel(code: number) {
+    return acsCatalog?.desfechos.find((d) => Number(d.id) === code)?.label || `Desfecho ${code}`;
+  }
+
+  function motivoLabels(ids: number[]) {
+    return ids
+      .map((id) => acsCatalog?.motivos.find((m) => Number(m.id) === id)?.label || String(id))
+      .join(', ');
+  }
+
+  function toggleMotivo(id: number) {
+    setAcsMotivos((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   }
 
   async function load() {
@@ -127,7 +187,10 @@ function TerritoryInner() {
     const hhQs = filterHhPatientId
       ? `?patientId=${encodeURIComponent(filterHhPatientId)}`
       : '';
-    const [t, ma, pts, ln, hh, cat] = await Promise.all([
+    const acsQs = facilityId
+      ? `?facilityId=${encodeURIComponent(facilityId)}`
+      : '';
+    const [t, ma, pts, ln, hh, cat, acsCat, visits] = await Promise.all([
       api<Team[]>(`/v1/teams${qsTeam}`),
       api<MicroArea[]>('/v1/micro-areas'),
       api<Patient[]>('/v1/patients'),
@@ -138,6 +201,8 @@ function TerritoryInner() {
       ),
       api<Household[]>(`/v1/households${hhQs}`),
       api<HouseholdCatalog>('/v1/catalog/household'),
+      api<AcsVisitCatalog>('/v1/catalog/acs-visit'),
+      api<AcsVisit[]>(`/v1/acs-home-visits${acsQs}`),
     ]);
     setTeams(t);
     setMicroAreas(ma);
@@ -145,9 +210,12 @@ function TerritoryInner() {
     setLinks(ln);
     setHouseholds(hh);
     setCatalog(cat);
+    setAcsCatalog(acsCat);
+    setAcsVisits(visits);
     if (!teamId && t[0]) setTeamId(t[0].id);
     if (!linkTeamId && t[0]) setLinkTeamId(t[0].id);
     if (!hhTeamId && t[0]) setHhTeamId(t[0].id);
+    if (!acsTeamId && t[0]) setAcsTeamId(t[0].id);
   }
 
   useEffect(() => {
@@ -268,11 +336,55 @@ function TerritoryInner() {
     }
   }
 
+  async function createAcsVisit(e: FormEvent) {
+    e.preventDefault();
+    if (!facilityId) {
+      setError('Selecione uma unidade antes de registrar a visita ACS.');
+      return;
+    }
+    if (!acsPatientId && !acsHouseholdId) {
+      setError('Informe paciente e/ou domicílio.');
+      return;
+    }
+    if (!acsMotivos.length) {
+      setError('Selecione ao menos um motivo de visita.');
+      return;
+    }
+    setError(null);
+    setOk(null);
+    try {
+      const lat = acsLat.trim() ? Number(acsLat) : undefined;
+      const lon = acsLon.trim() ? Number(acsLon) : undefined;
+      await api('/v1/acs-home-visits', {
+        method: 'POST',
+        json: {
+          facilityId,
+          teamId: acsTeamId || undefined,
+          patientId: acsPatientId || undefined,
+          householdId: acsHouseholdId || undefined,
+          desfecho: Number(acsDesfecho) || 1,
+          motivos: acsMotivos,
+          shift: acsShift,
+          latitude: lat,
+          longitude: lon,
+          notes: acsNotes || undefined,
+        },
+      });
+      setOk('Visita ACS registrada.');
+      setAcsNotes('');
+      setAcsLat('');
+      setAcsLon('');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao registrar visita ACS');
+    }
+  }
+
   return (
     <>
       <PageHeader
         title="Território"
-        description="Equipes, microáreas, vínculos e domicílio/família CDS (RF-2.29 — sem GIS)."
+        description="Equipes, microáreas, vínculos, domicílios CDS e visita ACS com lat/long opcional (RF-2.29 · RF-17.11/17.12)."
         actions={<HelpLink id="cadastros.territorio" />}
       />
       <ErrorBox message={error} />
@@ -303,6 +415,13 @@ function TerritoryInner() {
           onClick={() => setTab('domicilios')}
         >
           Domicílios / Famílias
+        </button>
+        <button
+          type="button"
+          className={`btn ${tab === 'visitas' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setTab('visitas')}
+        >
+          Visitas ACS
         </button>
       </div>
 
@@ -705,6 +824,182 @@ function TerritoryInner() {
                 {households.length === 0 ? (
                   <tr>
                     <td colSpan={6}>Nenhum domicílio — seed demo ou cadastre acima.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      {tab === 'visitas' ? (
+        <div className="stack">
+          <form className="card grid-2" onSubmit={createAcsVisit}>
+            <h3 style={{ gridColumn: '1 / -1', margin: 0 }}>Registrar visita ACS</h3>
+            <p style={{ gridColumn: '1 / -1', margin: 0, color: 'var(--muted)' }}>
+              Motivo/desfecho alinhados ao LEDI (ficha tipo 8). Lat/long opcional — mapa via OpenStreetMap
+              externo (sem Leaflet/Mapbox). Lote XML adiado.
+            </p>
+            <div className="field">
+              <label>Equipe</label>
+              <select value={acsTeamId} onChange={(e) => setAcsTeamId(e.target.value)}>
+                <option value="">—</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Turno</label>
+              <select value={acsShift} onChange={(e) => setAcsShift(e.target.value)}>
+                {(acsCatalog?.shifts || [
+                  { id: 'MANHA', label: 'Manhã' },
+                  { id: 'TARDE', label: 'Tarde' },
+                  { id: 'NOITE', label: 'Noite' },
+                ]).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Paciente</label>
+              <select value={acsPatientId} onChange={(e) => setAcsPatientId(e.target.value)}>
+                <option value="">—</option>
+                {patients.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {displayPatientName(p)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Domicílio</label>
+              <select value={acsHouseholdId} onChange={(e) => setAcsHouseholdId(e.target.value)}>
+                <option value="">—</option>
+                {householdsForAcsTeam.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {[h.street, h.number, h.neighborhood].filter(Boolean).join(', ') || h.id.slice(0, 8)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Desfecho</label>
+              <select value={acsDesfecho} onChange={(e) => setAcsDesfecho(e.target.value)}>
+                {(acsCatalog?.desfechos || [
+                  { id: 1, label: 'Visita realizada' },
+                  { id: 2, label: 'Visita recusada' },
+                  { id: 3, label: 'Ausente' },
+                ]).map((d) => (
+                  <option key={String(d.id)} value={String(d.id)}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Notas</label>
+              <input value={acsNotes} onChange={(e) => setAcsNotes(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Latitude (opcional)</label>
+              <input
+                className="mono"
+                placeholder="-20.538"
+                value={acsLat}
+                onChange={(e) => setAcsLat(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label>Longitude (opcional)</label>
+              <input
+                className="mono"
+                placeholder="-47.401"
+                value={acsLon}
+                onChange={(e) => setAcsLon(e.target.value)}
+              />
+            </div>
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>Motivos (LEDI)</label>
+              <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+                {(acsCatalog?.motivos || [])
+                  .filter((m) =>
+                    [1, 29, 5, 6, 7, 8, 11, 12, 31, 26, 28].includes(Number(m.id)),
+                  )
+                  .map((m) => {
+                    const id = Number(m.id);
+                    const on = acsMotivos.includes(id);
+                    return (
+                      <button
+                        key={String(m.id)}
+                        type="button"
+                        className={`btn ${on ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => toggleMotivo(id)}
+                      >
+                        {m.label}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+            <button className="btn btn-primary" type="submit">
+              Registrar visita
+            </button>
+          </form>
+
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Paciente</th>
+                  <th>Domicílio</th>
+                  <th>Desfecho</th>
+                  <th>Motivos</th>
+                  <th>Geo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {acsVisits.map((v) => (
+                  <tr key={v.id}>
+                    <td className="mono">{new Date(v.visitedAt).toLocaleString('pt-BR')}</td>
+                    <td>{v.patient ? displayPatientName(v.patient) : '—'}</td>
+                    <td>
+                      {v.household
+                        ? [v.household.street, v.household.number].filter(Boolean).join(', ') ||
+                          v.householdId?.slice(0, 8)
+                        : '—'}
+                    </td>
+                    <td>{desfechoLabel(v.desfecho)}</td>
+                    <td>{motivoLabels(v.motivos || [])}</td>
+                    <td>
+                      {v.latitude != null && v.longitude != null ? (
+                        <>
+                          <span className="mono">
+                            {v.latitude.toFixed(5)}, {v.longitude.toFixed(5)}
+                          </span>
+                          {v.mapUrl ? (
+                            <>
+                              {' '}
+                              <a href={v.mapUrl} target="_blank" rel="noreferrer">
+                                OSM
+                              </a>
+                            </>
+                          ) : null}
+                        </>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {acsVisits.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>Nenhuma visita ACS nesta unidade.</td>
                   </tr>
                 ) : null}
               </tbody>

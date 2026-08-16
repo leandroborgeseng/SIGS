@@ -1,10 +1,13 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   ValidateNested,
@@ -138,4 +141,63 @@ export class AddFamilyMemberDto {
 export class UpdateFamilyMemberDto {
   @IsOptional() @IsString() relationship?: string;
   @IsOptional() @IsBoolean() active?: boolean;
+}
+
+export class CreateAcsHomeVisitDto {
+  @IsString() facilityId!: string;
+  @IsOptional() @IsString() teamId?: string;
+  @IsOptional() @IsString() microAreaId?: string;
+  @IsOptional() @IsString() householdId?: string;
+  @IsOptional() @IsString() patientId?: string;
+  @IsOptional() @IsString() professionalId?: string;
+  @IsOptional() @IsString() shift?: string;
+  @IsInt() @Min(1) @Max(3) desfecho!: number;
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsInt({ each: true })
+  motivos!: number[];
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
+  @IsOptional() @IsString() visitedAt?: string;
+  @IsOptional() @IsString() notes?: string;
+}
+
+export class UpdateAcsHomeVisitDto {
+  @IsOptional() @IsString() teamId?: string | null;
+  @IsOptional() @IsString() microAreaId?: string | null;
+  @IsOptional() @IsString() householdId?: string | null;
+  @IsOptional() @IsString() patientId?: string | null;
+  @IsOptional() @IsString() professionalId?: string | null;
+  @IsOptional() @IsString() shift?: string;
+  @IsOptional() @IsInt() @Min(1) @Max(3) desfecho?: number;
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsInt({ each: true })
+  motivos?: number[];
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number | null;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number | null;
+  @IsOptional() @IsString() visitedAt?: string;
+  @IsOptional() @IsString() notes?: string | null;
+  @IsOptional() @IsString() status?: string;
 }
