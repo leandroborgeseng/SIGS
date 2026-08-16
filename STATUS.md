@@ -32,7 +32,7 @@
 | `b2928ca` | Frio/almox beyond-MVP: equipamentos · caixa térmica · leitura manual · insumos |
 | `760a436` | Visita ACS lat/long MVP (RF-17.11/17.12) · OSM externo |
 | `8b3de08` | AD CIAP/CID UI + preview/preflight · CIAP/CID `/atendimento` |
-| *(este)* | CNES sync Franca + auditoria cadastro (RF-10.2 / RF-9.6) |
+| `d1736e4` | CNES sync Franca + auditoria cadastro (RF-10.2 / RF-9.6) |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC — reutilizar shell na Fase 2 UI
