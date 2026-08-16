@@ -57,6 +57,6 @@
 - Sem dados reais de pacientes (PF = cadastro público CNES: nome+CNS+CBO)
 - Critério municipal: **natureza jurídica 1244**
 - Ordem sync: unidades/equipes **antes** de profissionais
-- SHAs bloco autônomo academia: `07d72eb` · `ef138bc`
+- SHAs bloco autônomo academia: `07d72eb` · `ef138bc` · `c74e415`
 
 _Atualizado em 2026-08-16 (CNES municipal + PF + stub design)_
