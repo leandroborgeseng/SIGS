@@ -34,4 +34,4 @@ authors: [SIGS]
 | Turno / tipo atendimento / desfecho | **Indicador** | QUALITY_WARN se ausente |
 | CIAP / CID | **Indicador** | QUALITY_WARN (qualidade clínica; não BLOCKER sozinho nesta ficha) |
 
-UI Claude Design na fase 2. Lote XML AD / visita ACS tipo 8 permanece adiado.
+UI Claude Design na fase 2. Lote XML AD tipo 10 = stub em `/faturamento/lote/ad` (sem upload até amostra).

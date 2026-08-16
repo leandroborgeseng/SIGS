@@ -40,6 +40,27 @@ const LOTES = [
   },
 ];
 
+const LOTES_STUB = [
+  {
+    href: '/faturamento/lote/domicilio',
+    title: 'Cadastro domiciliar',
+    badge: 'Tipo 3 · stub',
+    desc: 'Sem ZIP até amostra municipal — origem em Território.',
+  },
+  {
+    href: '/faturamento/lote/visita-acs',
+    title: 'Visita ACS',
+    badge: 'Tipo 8 · stub',
+    desc: 'Sem wizard ZIP — registre em Território → Visitas ACS.',
+  },
+  {
+    href: '/faturamento/lote/ad',
+    title: 'Atenção domiciliar',
+    badge: 'Tipo 10 · stub',
+    desc: 'Origem nativa /ad; lote XML adiado (sem dump).',
+  },
+];
+
 const EXTRA = [
   {
     href: '/faturamento/auditoria',
@@ -87,11 +108,42 @@ export default function FaturamentoHubPage() {
         </h3>
         <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
           Escolha o tipo da ficha. Os três usam o mesmo painel: upload → alertas → export ZIP / dry-run /
-          relatório. Vacina, AD e coletivo geram lote na origem (Operação) — não há tela de ZIP XML nesta
-          fase.
+          relatório.
         </p>
         <div className="stack" style={{ gap: 10 }}>
           {LOTES.map((item) => (
+            <Link key={item.href} href={item.href} className="unit-card" style={{ textAlign: 'left' }}>
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'baseline',
+                    flexWrap: 'wrap',
+                    marginBottom: 2,
+                  }}
+                >
+                  <span style={{ fontSize: 14.5, fontWeight: 600 }}>{item.title}</span>
+                  <span style={{ fontSize: 11.5, color: 'var(--ink-4)' }}>{item.badge}</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>{item.desc}</div>
+              </div>
+              <span style={{ color: 'var(--ink-4)' }}>›</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ marginBottom: 20, maxWidth: 720 }}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>
+          CDS territorial / AD (stub)
+        </h3>
+        <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
+          Tipos 3 · 8 · 10 detectados no gate, sem upload nesta fase. API:{' '}
+          <code>GET /v1/faturamento/ledi-cds-lotes</code>.
+        </p>
+        <div className="stack" style={{ gap: 10 }}>
+          {LOTES_STUB.map((item) => (
             <Link key={item.href} href={item.href} className="unit-card" style={{ textAlign: 'left' }}>
               <div style={{ flex: 1 }}>
                 <div

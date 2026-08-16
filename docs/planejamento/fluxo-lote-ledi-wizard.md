@@ -194,14 +194,14 @@ Lista da Atenção Básica no transporte CDS (não copiar o e-SUS; códigos de e
 | Código | Tipo | Tela lote XML | Origem nativa SIGS | Status fase 1 |
 |---|---|---|---|---|
 | 2 | Cadastro individual | — | `/pacientes` (cadastro, não lote) | cadastro P2; **sem lote XML** |
-| 3 | Cadastro domiciliar | — | `/territorio` (parcial) | **sem lote XML** |
+| 3 | Cadastro domiciliar | stub `/faturamento/lote/domicilio` | `/territorio` | **stub** (sem ZIP) |
 | **4** | **FAI** — atendimento individual | `/faturamento/lote/fai` (alias `/aps/lote`) | `/aps` + fila `/faturamento/aps` | **lote XML + origem** |
 | **5** | **FAO** — atendimento odontológico | `/faturamento/lote/fao` (alias `/odonto/lote`) | `/odonto` + fila `/faturamento/odonto` | **lote XML + origem** |
 | 6 | Atividade coletiva | — | `/coletivo` (`ledi-collective-v2`) | P6 origem; **sem lote XML** |
 | **7** | **Procedimentos** | `/faturamento/lote/proc` (alias `/procedimentos/lote`) | sem ficha clínica dedicada | **lote XML** (dump Franca) |
-| 8 | Visita domiciliar (ACS) | — | — | **adiado** (≠ AD tipo 10) |
+| 8 | Visita domiciliar (ACS) | stub `/faturamento/lote/visita-acs` | `/territorio` | **stub** (≠ AD tipo 10) |
 | 9 | PEC Atendimento | — | — | não é ficha CDS clássica; **fora** |
-| 10 | Atendimento domiciliar (AD) | — | `/ad` (`ledi-homecare-v2`) | P6 origem; **sem lote XML** |
+| 10 | Atendimento domiciliar (AD) | stub `/faturamento/lote/ad` | `/ad` (`ledi-homecare-v2`) | **stub** + origem nativa |
 | 11 | Avaliação de elegibilidade (AD) | — | — | **adiado** |
 | 12 | Consumo alimentar | — | — | **adiado** |
 | 13 | Complementar Zika / microcefalia | — | — | **adiado** |
@@ -209,9 +209,9 @@ Lista da Atenção Básica no transporte CDS (não copiar o e-SUS; códigos de e
 | 15 | Vinculação cidadão–equipe | — | cadastro/lotação | vínculo; **não é lote** |
 | 16 | Cuidado compartilhado | — | `/regulacao` (parcial) | **adiado** lote XML |
 
-Wizard (P0–P3 neste documento) **só** nas três rotas de lote. Não criar `/faturamento/lote/vacina` etc. nesta entrega.
+Wizard ZIP (P0–P3) **só** nas três rotas live. Stubs 3/8/10: detecção + UI informativa — ver [desenho-lote-ledi-cds-3-8-10.md](desenho-lote-ledi-cds-3-8-10.md).
 
-Nota de detector: `ledi-ficha-tipo.ts` mapeia o código **2** para VACINA pela tag `fichaVacinacaoMasterTransport`; o código CDS de vacina é **14** (2 = cadastro individual). Não corrigir nesta entrega (só nav/hub/docs).
+Nota de detector: alinhado a `TipoDadoTranspEnum` — código **2** = cadastro individual; vacina = **14** (`fichaVacinacaoMasterTransport`).
 
 ---
 

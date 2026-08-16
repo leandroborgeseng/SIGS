@@ -29,8 +29,8 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-2.17 | Obr | parcial | n/a | `GET/POST /v1/appointments` · `day-grid` · `itemType` CONSULTA/ENCAIXE · `careLine` APS/ODONTO |
 | RF-2.19 | Obr | parcial | n/a | `apps/api/src/organization#teams` + **import CNES** (`POST /v1/cnes/sync`, INE unique) |
 | RF-2.27 | Obr | parcial | n/a | `apps/api/src/patients` (+ PATCH + UI) |
-| RF-2.29 | Obr | parcial | n/a | território + microáreas/vínculos + **Household/Family CDS** (`/v1/households`, catálogo LEDI, UI `/territorio` com FieldHint Siaps/Previne) — sem GIS/lote XML |
-| RF-17.11 | Obr | parcial | n/a | visita ACS `AcsHomeVisit` · `GET/POST /v1/acs-home-visits` · catálogo motivos/desfecho LEDI · UI `/territorio` aba Visitas ACS (FieldHint) — sem lote XML tipo 8 |
+| RF-2.29 | Obr | parcial | n/a | território + microáreas/vínculos + **Household/Family CDS** (`/v1/households`, catálogo LEDI, UI `/territorio` FieldHint) — lote XML tipo 3 = **stub** (`/faturamento/lote/domicilio`, sem ZIP) |
+| RF-17.11 | Obr | parcial | n/a | visita ACS `AcsHomeVisit` · UI `/territorio` · lote XML tipo 8 = **stub** (`/faturamento/lote/visita-acs`) |
 | RF-17.12 | Obr | parcial | n/a | lat/long opcional na visita + `mapUrl` OpenStreetMap externo (sem Leaflet/Mapbox) · badge Previne na UI |
 | RF-2.30 | Obr | parcial | n/a | cadastro individual CDS: nacionalidade/IBGE nasc./etnia/deficiência/NIS/e-mail + `links` no GET paciente · UI `/pacientes/[id]` FieldHint Siaps (ID) / Previne (CDS) |
 | RF-2.47 | Obr | parcial | n/a | `facilities` + IBGE + UI `/unidades` + **sync CNES** (`data/cnes/franca-3516200.json`) |
@@ -38,7 +38,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-3.1 | Obr | parcial | automatizado | `POST /v1/encounters` fila SOAP + origem FAI `/aps` (paciente+lotação) · CIAP/CID `CodeSearchSelect` em `/atendimento/[id]` |
 | RF-3.24 | Obr | parcial | automatizado | ficha APS `/aps/[id]` SOAP+antropometria · preview-fai · finish → batch · fila `/faturamento/aps` |
 | RF-3.55 | Obr | parcial | automatizado | campos FAI financiamento mínimos (tipos 1/2/4/5/6, medições, SOAP, condutas, CIAP/CID, SIGTAP) |
-| RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` · finish FAI/FAO → motor `clinical-core` (`source=native`) · **wizard lote** `/faturamento/lote/{fai,fao,proc}` (gate de tipo + 2 ZIPs) |
+| RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` · finish FAI/FAO → motor `clinical-core` · **wizard lote** `/faturamento/lote/{fai,fao,proc}` · stubs CDS 3/8/10 + `GET /v1/faturamento/ledi-cds-lotes` |
 | RF-10.2 | Obr | parcial | n/a | sync CNES Franca `POST /v1/cnes/sync?gestao=municipal` (default Prefeitura · natureza 1244) · `gestao=todos` · snapshot `data/cnes/franca-3516200.json` · **PF** `POST /v1/cnes/sync-professionals` · `npm run sync:cnes` · UI `/unidades` + `/cadastros/cnes-auditoria` |
 | RF-9.6 | Des | parcial | previsto | auditoria CNES `GET /v1/cnes/audit?gestao=municipal` · UI `/cadastros/cnes-auditoria` · export CSV |
 | RF-10.21 | Des | parcial | automatizado | auditoria faturamento `GET /v1/faturamento/audit?gestao=municipal` · UI `/faturamento/auditoria` (ficha×rede municipal CNES/INE/CNS/SIGTAP) |
@@ -75,7 +75,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-12.11 | Obr | coberto | automatizado | `GET …/odontogram-history` (inclui `treatmentId`) · `PATCH …/odontogram-history/:sourceId` · timeline + filtro “só tratamento atual” + “Usar neste atendimento” em `/odonto/[id]` |
 | RF-12.13 | Obr | coberto | automatizado | catálogo predefinido `GET /v1/catalog/dental#predefinedProcedures` · PATCH lista + `done` · FAO só `done !== false` · UI `/odonto/[id]` |
 | RF-12.20 | Obr | parcial | previsto | lista `/odonto` cronológica básica |
-| RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` multi-child (1–99) · UI `/ad` CIAP/CID + `POST …/preview` preflight · desfecho/condições/tipo LEDI |
+| RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` multi-child (1–99) · UI `/ad` CIAP/CID + preview · lote XML tipo 10 = **stub** (`/faturamento/lote/ad`) |
 | RF-3.53 | Obr | parcial | automatizado | `ledi-collective-v2` + UI `/coletivo` enums LEDI + participantes nominais |
 | RF-9.2 | Obr | parcial | previsto | BPA stub via produção |
 | RF-10.4 | Obr | parcial | automatizado | `bpa-stub.mapper` + `/production/bpa/export` |

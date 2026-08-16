@@ -1,5 +1,6 @@
 import {
   assertLoteTipoMatch,
+  CDS_LOTE_STUB,
   detectLediFichaTipo,
   isLediTipoMismatchError,
   LediTipoMismatchError,
@@ -16,6 +17,7 @@ describe('ledi-ficha-tipo', () => {
     expect(t.id).toBe('FAO');
     expect(t.code).toBe(5);
     expect(t.odontoLoteSupported).toBe(true);
+    expect(t.loteXmlLive).toBe(true);
   });
 
   it('detecta FAI tipo 4', () => {
@@ -27,6 +29,7 @@ describe('ledi-ficha-tipo', () => {
     expect(t.id).toBe('FAI');
     expect(t.code).toBe(4);
     expect(t.odontoLoteSupported).toBe(false);
+    expect(t.loteXmlLive).toBe(true);
   });
 
   it('detecta Procedimentos tipo 7', () => {
@@ -37,7 +40,57 @@ describe('ledi-ficha-tipo', () => {
     const t = detectLediFichaTipo(xml);
     expect(t.id).toBe('PROCEDIMENTOS');
     expect(t.code).toBe(7);
-    expect(t.odontoLoteSupported).toBe(false);
+    expect(t.loteXmlLive).toBe(true);
+  });
+
+  it('detecta Cadastro Domiciliar tipo 3 (stub)', () => {
+    const xml = `<dadoTransporteTransportXml>
+<tipoDadoSerializado>3</tipoDadoSerializado>
+<cadastroDomiciliarTransport></cadastroDomiciliarTransport>
+</dadoTransporteTransportXml>`;
+    const t = detectLediFichaTipo(xml);
+    expect(t.id).toBe('CADASTRO_DOMICILIAR');
+    expect(t.code).toBe(3);
+    expect(t.loteXmlLive).toBe(false);
+    expect(t.masterTag).toBe('cadastroDomiciliarTransport');
+  });
+
+  it('detecta Visita ACS tipo 8 por tag', () => {
+    const xml = `<dadoTransporteTransportXml>
+<fichaVisitaDomiciliarMasterTransport></fichaVisitaDomiciliarMasterTransport>
+</dadoTransporteTransportXml>`;
+    const t = detectLediFichaTipo(xml);
+    expect(t.id).toBe('VISITA_ACS');
+    expect(t.code).toBe(8);
+    expect(t.loteXmlLive).toBe(false);
+  });
+
+  it('detecta AD tipo 10', () => {
+    const xml = `<dadoTransporteTransportXml>
+<tipoDadoSerializado>10</tipoDadoSerializado>
+<fichaAtendimentoDomiciliarMasterTransport></fichaAtendimentoDomiciliarMasterTransport>
+</dadoTransporteTransportXml>`;
+    const t = detectLediFichaTipo(xml);
+    expect(t.id).toBe('AD');
+    expect(t.code).toBe(10);
+    expect(t.loteXmlLive).toBe(false);
+  });
+
+  it('alinha vacina ao código 14 (não 2)', () => {
+    const byCode = detectLediFichaTipo(
+      `<dadoTransporteTransportXml><tipoDadoSerializado>14</tipoDadoSerializado></dadoTransporteTransportXml>`,
+    );
+    expect(byCode.id).toBe('VACINA');
+    expect(byCode.code).toBe(14);
+    const byTag = detectLediFichaTipo(
+      `<dadoTransporteTransportXml><fichaVacinacaoMasterTransport/></dadoTransporteTransportXml>`,
+    );
+    expect(byTag.id).toBe('VACINA');
+    expect(byTag.code).toBe(14);
+    const individual = detectLediFichaTipo(
+      `<dadoTransporteTransportXml><tipoDadoSerializado>2</tipoDadoSerializado></dadoTransporteTransportXml>`,
+    );
+    expect(individual.id).toBe('CADASTRO_INDIVIDUAL');
   });
 });
 
@@ -54,6 +107,11 @@ const FAI_XML = `<dadoTransporteTransportXml>
 const PROC_XML = `<dadoTransporteTransportXml>
 <tipoDadoSerializado>7</tipoDadoSerializado>
 <fichaProcedimentoMasterTransport></fichaProcedimentoMasterTransport>
+</dadoTransporteTransportXml>`;
+
+const DOM_XML = `<dadoTransporteTransportXml>
+<tipoDadoSerializado>3</tipoDadoSerializado>
+<cadastroDomiciliarTransport></cadastroDomiciliarTransport>
 </dadoTransporteTransportXml>`;
 
 describe('assertLoteTipoMatch (gate P0)', () => {
@@ -109,5 +167,17 @@ describe('assertLoteTipoMatch (gate P0)', () => {
     expect(() =>
       assertLoteTipoMatch({ expectedTipo: 'FAI', files: [{ name: 'p.xml', xml: PROC_XML }] }),
     ).toThrow(/Lote Procedimentos/);
+  });
+
+  it('recusa CDS domicílio na tela FAI apontando stub', () => {
+    try {
+      assertLoteTipoMatch({ expectedTipo: 'FAI', files: [{ name: 'dom.xml', xml: DOM_XML }] });
+      fail('expected throw');
+    } catch (e) {
+      const err = e as LediTipoMismatchError;
+      expect(err.detectedTipo).toBe('CADASTRO_DOMICILIAR');
+      expect(err.href).toBe(CDS_LOTE_STUB.CADASTRO_DOMICILIAR.href);
+      expect(err.message).toMatch(/stub/);
+    }
   });
 });

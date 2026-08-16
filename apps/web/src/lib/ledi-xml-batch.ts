@@ -19,16 +19,19 @@ export function shouldUnzipZipInBrowser(_size: number): boolean {
 
 export type LediLoteTipo = 'FAO' | 'FAI' | 'PROCEDIMENTOS';
 
-const TIPO_BY_CODE: Record<number, LediLoteTipo> = {
-  4: 'FAI',
-  5: 'FAO',
-  7: 'PROCEDIMENTOS',
-};
-
 const TELA: Record<LediLoteTipo, { href: string; label: string }> = {
   FAI: { href: '/faturamento/lote/fai', label: 'Lote LEDI FAI' },
   FAO: { href: '/faturamento/lote/fao', label: 'Lote LEDI FAO' },
   PROCEDIMENTOS: { href: '/faturamento/lote/proc', label: 'Lote Procedimentos' },
+};
+
+const STUB_TELA: Record<string, { href: string; label: string }> = {
+  CADASTRO_DOMICILIAR: {
+    href: '/faturamento/lote/domicilio',
+    label: 'Lote Cadastro Domiciliar (stub)',
+  },
+  VISITA_ACS: { href: '/faturamento/lote/visita-acs', label: 'Lote Visita ACS (stub)' },
+  AD: { href: '/faturamento/lote/ad', label: 'Lote Atenção Domiciliar (stub)' },
 };
 
 export class LediTipoMismatchError extends Error {
@@ -38,13 +41,16 @@ export class LediTipoMismatchError extends Error {
   readonly href: string;
 
   constructor(opts: { expectedTipo: LediLoteTipo; detectedTipo: string }) {
-    const dest = TELA[opts.detectedTipo as LediLoteTipo];
+    const dest = TELA[opts.detectedTipo as LediLoteTipo] || STUB_TELA[opts.detectedTipo];
     const where = dest
       ? `${dest.label} (${dest.href})`
       : 'a tela correspondente ao tipo da ficha';
+    const stubHint = STUB_TELA[opts.detectedTipo]
+      ? ' Lote XML deste tipo ainda é stub (sem upload).'
+      : '';
     super(
       `Este arquivo é ${opts.detectedTipo}, não ${opts.expectedTipo}. ` +
-        `Abra ${where} e envie de lá. Separe os tipos — não analisamos este arquivo.`,
+        `Abra ${where} e envie de lá.${stubHint} Separe os tipos — não analisamos este arquivo.`,
     );
     this.name = 'LediTipoMismatchError';
     this.expectedTipo = opts.expectedTipo;
@@ -119,13 +125,32 @@ export function decodeXmlBytes(u8: Uint8Array): string {
   return new TextDecoder('utf-8').decode(u8);
 }
 
+/** Detecção ampla (gate) — inclui stubs CDS; wizard live só 4/5/7. */
+const DETECT_BY_CODE: Record<number, string> = {
+  2: 'CADASTRO_INDIVIDUAL',
+  3: 'CADASTRO_DOMICILIAR',
+  4: 'FAI',
+  5: 'FAO',
+  6: 'COLETIVO',
+  7: 'PROCEDIMENTOS',
+  8: 'VISITA_ACS',
+  10: 'AD',
+  14: 'VACINA',
+};
+
 export function detectLediTipoId(xml: string): string {
   const codeMatch = xml.match(/<tipoDadoSerializado>\s*(\d+)\s*<\/tipoDadoSerializado>/i);
   const code = codeMatch ? Number(codeMatch[1]) : NaN;
-  if (Number.isFinite(code) && TIPO_BY_CODE[code]) return TIPO_BY_CODE[code]!;
+  if (Number.isFinite(code) && DETECT_BY_CODE[code]) return DETECT_BY_CODE[code]!;
   if (/fichaAtendimentoOdontologicoMasterTransport/i.test(xml)) return 'FAO';
   if (/fichaAtendimentoIndividualMasterTransport/i.test(xml)) return 'FAI';
   if (/fichaProcedimentoMasterTransport/i.test(xml)) return 'PROCEDIMENTOS';
+  if (/fichaVisitaDomiciliarMasterTransport/i.test(xml)) return 'VISITA_ACS';
+  if (/fichaAtendimentoDomiciliarMasterTransport/i.test(xml)) return 'AD';
+  if (/cadastroDomiciliarTransport/i.test(xml)) return 'CADASTRO_DOMICILIAR';
+  if (/fichaVacinacaoMasterTransport/i.test(xml)) return 'VACINA';
+  if (/fichaAtividadeColetivaMasterTransport/i.test(xml)) return 'COLETIVO';
+  if (/cadastroIndividualTransport/i.test(xml)) return 'CADASTRO_INDIVIDUAL';
   return 'UNKNOWN';
 }
 

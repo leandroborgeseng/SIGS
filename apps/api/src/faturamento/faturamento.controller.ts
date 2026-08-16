@@ -3,6 +3,7 @@ import { RequirePermissions } from '../auth/decorators';
 import { PERMISSIONS } from '../auth/roles.seed';
 import { FaturamentoAuditService } from './faturamento-audit.service';
 import { FRANCA_IBGE } from '../cnes/cnes.snapshot';
+import { listLediCdsLotes } from './ledi-cds-lote.stub';
 
 @Controller('v1/faturamento')
 export class FaturamentoController {
@@ -12,9 +13,20 @@ export class FaturamentoController {
   status() {
     return {
       audit: 'GET /v1/faturamento/audit?competencia=YYYY-MM&ibge=3516200&gestao=municipal',
+      lediCdsLotes: 'GET /v1/faturamento/ledi-cds-lotes',
       defaultIbge: FRANCA_IBGE,
       defaultGestao: 'municipal',
     };
+  }
+
+  /**
+   * Catálogo live (FAI/FAO/PROC) vs stubs CDS 3/8/10 — sem upload nos stubs.
+   * Desenho: docs/planejamento/desenho-lote-ledi-cds-3-8-10.md
+   */
+  @Get('ledi-cds-lotes')
+  @RequirePermissions(PERMISSIONS.PRODUCTION)
+  lediCdsLotes() {
+    return listLediCdsLotes();
   }
 
   /**
