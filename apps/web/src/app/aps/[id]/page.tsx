@@ -31,6 +31,13 @@ type Care = {
   stNaoPossuiCpf: boolean;
   justificativaNaoPossuiCpf?: number | null;
   gestante?: boolean;
+  soapSubjective?: string;
+  soapObjective?: string;
+  soapAssessment?: string;
+  soapPlan?: string;
+  weightKg?: number;
+  heightCm?: number;
+  headCircumferenceCm?: number;
 };
 
 type Encounter = {
@@ -135,6 +142,13 @@ export default function ApsAtendimentoPage() {
           stNaoPossuiCpf: nextCare.stNaoPossuiCpf,
           justificativaNaoPossuiCpf: nextCare.justificativaNaoPossuiCpf,
           gestante: nextCare.gestante,
+          soapSubjective: nextCare.soapSubjective || undefined,
+          soapObjective: nextCare.soapObjective || undefined,
+          soapAssessment: nextCare.soapAssessment || undefined,
+          soapPlan: nextCare.soapPlan || undefined,
+          weightKg: nextCare.weightKg,
+          heightCm: nextCare.heightCm,
+          headCircumferenceCm: nextCare.headCircumferenceCm,
         },
       });
     },
@@ -407,6 +421,103 @@ export default function ApsAtendimentoPage() {
               onChange={(e) => setCare({ ...care, gestante: e.target.checked })}
             />
             Gestante
+          </label>
+
+          <h2>Antropometria (LEDI medições)</h2>
+          <div className="row-2">
+            <label>
+              Peso (kg)
+              <input
+                type="number"
+                step="0.1"
+                min={0.5}
+                max={500}
+                disabled={readonly}
+                value={care.weightKg ?? ''}
+                onChange={(e) =>
+                  setCare({
+                    ...care,
+                    weightKg: e.target.value ? Number(e.target.value) : undefined,
+                  })
+                }
+              />
+            </label>
+            <label>
+              Altura (cm)
+              <input
+                type="number"
+                step="0.1"
+                min={20}
+                max={250}
+                disabled={readonly}
+                value={care.heightCm ?? ''}
+                onChange={(e) =>
+                  setCare({
+                    ...care,
+                    heightCm: e.target.value ? Number(e.target.value) : undefined,
+                  })
+                }
+              />
+            </label>
+          </div>
+          <label>
+            Perímetro cefálico (cm)
+            <input
+              type="number"
+              step="0.1"
+              min={10}
+              max={200}
+              disabled={readonly}
+              value={care.headCircumferenceCm ?? ''}
+              onChange={(e) =>
+                setCare({
+                  ...care,
+                  headCircumferenceCm: e.target.value ? Number(e.target.value) : undefined,
+                })
+              }
+            />
+          </label>
+
+          <h2>SOAP</h2>
+          <label>
+            Subjetivo (S)
+            <textarea
+              disabled={readonly}
+              rows={2}
+              value={care.soapSubjective || ''}
+              onChange={(e) => setCare({ ...care, soapSubjective: e.target.value })}
+              placeholder="Queixa / história…"
+            />
+          </label>
+          <label>
+            Objetivo (O)
+            <textarea
+              disabled={readonly}
+              rows={2}
+              value={care.soapObjective || ''}
+              onChange={(e) => setCare({ ...care, soapObjective: e.target.value })}
+              placeholder="Exame físico / achados…"
+            />
+          </label>
+          <label>
+            Avaliação (A)
+            <textarea
+              disabled={readonly}
+              rows={2}
+              value={care.soapAssessment || ''}
+              onChange={(e) => setCare({ ...care, soapAssessment: e.target.value })}
+              placeholder="Hipóteses / diagnóstico…"
+            />
+          </label>
+          <label>
+            Plano (P)
+            <textarea
+              disabled={readonly}
+              rows={2}
+              value={care.soapPlan || ''}
+              onChange={(e) => setCare({ ...care, soapPlan: e.target.value })}
+              placeholder="Conduta / plano terapêutico…"
+            />
           </label>
 
           <h2>Problemas (CIAP/CID) *</h2>

@@ -12,8 +12,12 @@ type Opt = { id: string; label: string };
 type Catalog = {
   activityTypes: Opt[];
   audiences: Opt[];
-  themes: Opt[];
+  themes: Array<Opt & { group?: string }>;
+  shifts?: Opt[];
+  procedureHints?: Opt[];
 };
+type Patient = { id: string; civilName: string; socialName?: string | null };
+type Professional = { id: string; civilName: string };
 type Row = {
   id: string;
   status: string;
@@ -29,6 +33,8 @@ export default function CollectivePage() {
   const { facilityId } = useAuth();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,17 +42,31 @@ export default function CollectivePage() {
   const [theme, setTheme] = useState('ALIMENTACAO');
   const [audience, setAudience] = useState('COMUNIDADE');
   const [participantCount, setParticipantCount] = useState(10);
+  const [participantIds, setParticipantIds] = useState<string[]>([]);
+  const [professionalId, setProfessionalId] = useState('');
+  const [procedureCode, setProcedureCode] = useState('0101050011');
   const [notes, setNotes] = useState('');
   const [shift, setShift] = useState('MANHA');
 
+  const isReuniao = activityType.startsWith('REUNIAO');
+  const themeOptions = (catalog?.themes || []).filter((t) =>
+    isReuniao ? t.group === 'reuniao' : t.group !== 'reuniao',
+  );
+
   async function load() {
     const qs = facilityId ? `?facilityId=${facilityId}` : '';
-    const [c, list] = await Promise.all([
+    const [c, list, pts, profs] = await Promise.all([
       api<Catalog>('/v1/catalog/collective'),
       api<Row[]>(`/v1/collective-activities${qs}`),
+      api<Patient[]>('/v1/patients'),
+      api<Professional[]>('/v1/professionals'),
     ]);
     setCatalog(c);
     setRows(list);
+    setPatients(pts);
+    setProfessionals(profs);
+    if (!professionalId && profs[0]) setProfessionalId(profs[0].id);
+    if (c?.procedureHints?.[0]) setProcedureCode((p) => p || c.procedureHints![0].id);
   }
 
   useEffect(() => {
@@ -56,23 +76,32 @@ export default function CollectivePage() {
       .finally(() => setLoading(false));
   }, [facilityId]);
 
+  useEffect(() => {
+    if (!themeOptions.some((t) => t.id === theme) && themeOptions[0]) {
+      setTheme(themeOptions[0].id);
+    }
+  }, [activityType, catalog]);
+
   async function open(e: FormEvent) {
     e.preventDefault();
     if (!facilityId) return setError('Selecione uma unidade.');
     setError(null);
     setOk(null);
     try {
+      const count = Math.max(participantCount, participantIds.length, 1);
       const row = await api<{ id: string }>('/v1/collective-activities', {
         method: 'POST',
         json: {
           facilityId,
+          professionalId: professionalId || undefined,
           activityType,
           theme,
           audience,
           shift,
-          participantCount,
+          participantCount: count,
+          participantIds: participantIds.length ? participantIds : undefined,
           notes: notes || undefined,
-          procedures: ['0101050011'],
+          procedures: [procedureCode].filter(Boolean),
         },
       });
       setNotes('');
@@ -102,6 +131,10 @@ export default function CollectivePage() {
     }
   }
 
+  function toggleParticipant(id: string) {
+    setParticipantIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
   const typeLabel = (id: string) => catalog?.activityTypes.find((t) => t.id === id)?.label || id;
   const themeLabel = (id: string) => catalog?.themes.find((t) => t.id === id)?.label || id;
 
@@ -110,7 +143,7 @@ export default function CollectivePage() {
       <PageHeader
         title="Atividade coletiva"
         eyebrow="Operação"
-        description="Ficha coletiva APS (RF-3.53) — educação em saúde, reunião e temas."
+        description="Ficha coletiva APS (RF-3.53) — enums LEDI, participantes nominais e lotação."
         actions={
           <>
             <HelpLink id="coletivo.stub" />
@@ -125,6 +158,17 @@ export default function CollectivePage() {
 
       <form className="card grid-2" onSubmit={open} style={{ marginBottom: 16 }}>
         <div className="field">
+          <label>Profissional (lotação)</label>
+          <select value={professionalId} onChange={(e) => setProfessionalId(e.target.value)}>
+            <option value="">Opcional…</option>
+            {professionals.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.civilName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
           <label>Tipo de atividade</label>
           <select value={activityType} onChange={(e) => setActivityType(e.target.value)}>
             {(catalog?.activityTypes || []).map((t) => (
@@ -137,7 +181,7 @@ export default function CollectivePage() {
         <div className="field">
           <label>Tema / prática</label>
           <select value={theme} onChange={(e) => setTheme(e.target.value)}>
-            {(catalog?.themes || []).map((t) => (
+            {themeOptions.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.label}
               </option>
@@ -157,9 +201,25 @@ export default function CollectivePage() {
         <div className="field">
           <label>Turno</label>
           <select value={shift} onChange={(e) => setShift(e.target.value)}>
-            <option value="MANHA">Manhã</option>
-            <option value="TARDE">Tarde</option>
-            <option value="NOITE">Noite</option>
+            {(catalog?.shifts || [
+              { id: 'MANHA', label: 'Manhã' },
+              { id: 'TARDE', label: 'Tarde' },
+              { id: 'NOITE', label: 'Noite' },
+            ]).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Procedimento (SIGTAP)</label>
+          <select value={procedureCode} onChange={(e) => setProcedureCode(e.target.value)}>
+            {(catalog?.procedureHints || [{ id: '0101050011', label: 'Escovação' }]).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.id} — {p.label}
+              </option>
+            ))}
           </select>
         </div>
         <div className="field">
@@ -171,6 +231,22 @@ export default function CollectivePage() {
             value={participantCount}
             onChange={(e) => setParticipantCount(Number(e.target.value))}
           />
+        </div>
+        <div className="field" style={{ gridColumn: '1 / -1' }}>
+          <label>Participantes nominais (opcional)</label>
+          <div style={{ maxHeight: 140, overflow: 'auto', display: 'grid', gap: 4 }}>
+            {patients.slice(0, 40).map((p) => (
+              <label key={p.id} className="check" style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={participantIds.includes(p.id)}
+                  onChange={() => toggleParticipant(p.id)}
+                />
+                {p.socialName || p.civilName}
+              </label>
+            ))}
+            {!patients.length ? <span className="muted">Cadastre pacientes para lista nominal.</span> : null}
+          </div>
         </div>
         <div className="field" style={{ gridColumn: '1 / -1' }}>
           <label>Observações</label>

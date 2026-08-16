@@ -1,7 +1,7 @@
 # Cobertura RF — rastreabilidade
 
 **CSV completo:** [cobertura-rf.csv](cobertura-rf.csv)
-**Total linhas:** 599 · **cobertos:** 9 · **parciais:** 39 · **adiados:** 114 · **backlog SAMU:** 30 (não iniciado / onda `samu-backlog`)
+**Total linhas:** 599 · **cobertos:** 9 · **parciais:** 41 · **adiados:** 114 · **backlog SAMU:** 30 (não iniciado / onda `samu-backlog`)
 
 Legenda status: `coberto` = escopo Onda 1/código atual atende o RF mínimo com evidência; `parcial` = há código mas falta fatia TR/e-SUS. Não inventar cobertura.
 
@@ -13,10 +13,10 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 |---|---:|---:|---:|---:|
 | 1. Especificações Gerais do Sistema | 50 | 39 | 11 | 3 |
 | 2. Módulo de Cadastros | 59 | 58 | 1 | 7 |
-| 3. Módulo Ambulatorial | 73 | 63 | 10 | 2 |
+| 3. Módulo Ambulatorial | 73 | 63 | 10 | 4 |
 | 10. Módulo de Integração com o e-SUS | 20 | 20 | 0 | 2 |
 | 12. Módulo de Odontologia | 20 | 20 | 0 | 14 |
-| 14. Módulo de Vacinação | 19 | 16 | 3 | 4 |
+| 14. Módulo de Vacinação | 19 | 16 | 3 | 5 |
 
 ## Implementados / parciais (amostra)
 
@@ -33,11 +33,15 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-2.47 | Obr | parcial | n/a | `facilities` + IBGE + UI `/unidades` |
 | RF-2.56 | Obr | parcial | n/a | `apps/api/src/patients#search` + UI |
 | RF-3.1 | Obr | parcial | automatizado | `POST /v1/encounters` fila SOAP + origem FAI `/aps` (paciente+lotação) |
-| RF-3.24 | Obr | parcial | automatizado | ficha APS `/aps/[id]` · preview-fai · finish → batch · fila `/faturamento/aps` |
+| RF-3.24 | Obr | parcial | automatizado | ficha APS `/aps/[id]` SOAP+antropometria · preview-fai · finish → batch · fila `/faturamento/aps` |
+| RF-3.55 | Obr | parcial | automatizado | campos FAI financiamento mínimos (tipos 1/2/4/5/6, medições, SOAP, condutas, CIAP/CID, SIGTAP) |
 | RF-10.3 | Obr | parcial | automatizado | mapper LEDI v2 + lotação + `/ledi/enums` + UI `/producao` · finish FAI/FAO → motor `clinical-core` (`source=native`) · **wizard lote** `/faturamento/lote/{fai,fao,proc}` (gate de tipo + 2 ZIPs) |
 | RF-10.20 | Obr | parcial | automatizado | preflight + `POST /production/send` + UI `/producao` |
-| RF-14.1 | Obr | parcial | automatizado | `apps/api/src/vaccinations` |
-| RF-14.2 | Obr | parcial | n/a | cartão vacinal UI + API |
+| RF-14.1 | Obr | parcial | automatizado | `apps/api/src/vaccinations#catalog` doses com `lediId` |
+| RF-14.2 | Obr | parcial | automatizado | catálogo imunobiológicos seed LEDI (BCG=15…) |
+| RF-14.11 | Obr | parcial | automatizado | aplicação + batch + `clinical-core` VAC + UI `/vacinacao` |
+| RF-14.13 | Obr | parcial | previsto | `GET …/vaccination-card.pdf` + botão imprimir em `/vacinacao` |
+| RF-14.14 | Obr | parcial | automatizado | lote/fabricante na aplicação LEDI |
 | RF-12.2 | Obr | coberto | automatizado | lotação/`assignmentId` na abertura `/odonto` + header LEDI |
 | RF-12.3 | Obr | coberto | automatizado | paciente na abertura + identificação na ficha |
 | RF-12.5 | Obr | coberto | automatizado | `tipoAtendimento` (default 5) + UI select |
@@ -54,8 +58,8 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-12.11 | Obr | coberto | automatizado | `GET …/odontogram-history` (inclui `treatmentId`) · `PATCH …/odontogram-history/:sourceId` · timeline + filtro “só tratamento atual” + “Usar neste atendimento” em `/odonto/[id]` |
 | RF-12.13 | Obr | coberto | automatizado | catálogo predefinido `GET /v1/catalog/dental#predefinedProcedures` · PATCH lista + `done` · FAO só `done !== false` · UI `/odonto/[id]` |
 | RF-12.20 | Obr | parcial | previsto | lista `/odonto` cronológica básica |
-| RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` + UI `/ad` |
-| RF-3.53 | Obr | parcial | automatizado | `ledi-collective-v2` + UI `/coletivo` |
+| RF-3.54 | Obr | parcial | automatizado | `ledi-homecare-v2` + UI `/ad` desfecho |
+| RF-3.53 | Obr | parcial | automatizado | `ledi-collective-v2` + UI `/coletivo` enums LEDI + participantes nominais |
 | RF-9.2 | Obr | parcial | previsto | BPA stub via produção |
 | RF-10.4 | Obr | parcial | automatizado | `bpa-stub.mapper` + `/production/bpa/export` |
 | RF-10.1 | Obr | parcial | previsto | seed expandido (~27) + `/sigtap` + `import-ms` |

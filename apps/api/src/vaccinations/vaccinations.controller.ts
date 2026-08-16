@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, Post, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { VaccinationsService } from './vaccinations.service';
 import { CreateVaccinationDto } from './dto';
 
@@ -29,5 +30,16 @@ export class VaccinationsController {
   @Get('patients/:patientId/vaccination-card')
   card(@Param('patientId') patientId: string) {
     return this.service.card(patientId);
+  }
+
+  @Get('patients/:patientId/vaccination-card.pdf')
+  @Header('Content-Type', 'application/pdf')
+  async cardPdf(@Param('patientId') patientId: string, @Res() res: Response) {
+    const buf = await this.service.cardPdf(patientId);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="cartao-vacinal-${patientId.slice(0, 8)}.pdf"`,
+    );
+    res.send(buf);
   }
 }

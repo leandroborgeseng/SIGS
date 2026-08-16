@@ -10,8 +10,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
 import { resolveLotacaoHeader } from '../ledi/lotacao.resolver';
 import {
+  LEDI_ATIVIDADE_COLETIVA,
   LEDI_CONDUTA_ODONTO,
   LEDI_LOCAL_ATENDIMENTO,
+  LEDI_PUBLICO_ALVO,
+  LEDI_TEMA_REUNIAO,
+  LEDI_TEMA_SAUDE,
   LEDI_TIPO_ATENDIMENTO,
   LEDI_TIPO_CONSULTA_ODONTO,
   LEDI_TURNO,
@@ -1494,26 +1498,35 @@ export class CareExtraService {
 
   catalogCollective() {
     return {
-      activityTypes: [
-        { id: 'EDUCACAO_SAUDE', label: 'Educação em saúde', lediId: 4 },
-        { id: 'REUNIAO', label: 'Reunião de equipe', lediId: 1 },
-        { id: 'OUTRO', label: 'Mobilização social / outro', lediId: 7 },
-      ],
-      audiences: [
-        { id: 'COMUNIDADE', label: 'Comunidade em geral', lediId: 1 },
-        { id: 'GESTANTES', label: 'Gestantes', lediId: 7 },
-        { id: 'CRIANCAS', label: 'Crianças (6–11)', lediId: 4 },
-        { id: 'IDOSOS', label: 'Idosos', lediId: 10 },
-        { id: 'HIPERTENSOS', label: 'Hipertensos / crônicos', lediId: 12 },
-        { id: 'PROFISSIONAIS', label: 'Profissionais de educação', lediId: 17 },
-      ],
+      activityTypes: LEDI_ATIVIDADE_COLETIVA.map((t) => ({
+        id: t.code,
+        label: t.label,
+        lediId: t.id,
+      })),
+      audiences: LEDI_PUBLICO_ALVO.map((t) => ({
+        id: t.code,
+        label: t.label,
+        lediId: t.id,
+      })),
       themes: [
-        { id: 'ALIMENTACAO', label: 'Alimentação saudável', lediId: 1 },
-        { id: 'TABAGISMO', label: 'Tabagismo / PNCT', lediId: 7 },
-        { id: 'SAUDE_BUCAL', label: 'Saúde bucal', lediId: 15 },
-        { id: 'SAUDE_MENTAL', label: 'Saúde mental', lediId: 16 },
-        { id: 'PREVENCAO', label: 'Autocuidado / prevenção', lediId: 4 },
-        { id: 'PLANEJAMENTO', label: 'Planejamento da equipe (reunião)', lediId: 4 },
+        ...LEDI_TEMA_SAUDE.map((t) => ({
+          id: t.code,
+          label: `Saúde · ${t.label}`,
+          lediId: t.id,
+          group: 'saude' as const,
+        })),
+        ...LEDI_TEMA_REUNIAO.map((t) => ({
+          id: t.code,
+          label: `Reunião · ${t.label}`,
+          lediId: t.id,
+          group: 'reuniao' as const,
+        })),
+      ],
+      shifts: LEDI_TURNO.map((t) => ({ id: t.code, label: t.label, lediId: t.id })),
+      procedureHints: [
+        { id: '0101050011', label: 'Escovação supervisionada (Previne B4)' },
+        { id: '0101050020', label: 'Aplicação tópica de flúor' },
+        { id: '0101040075', label: 'Prática coletiva de educação em saúde' },
       ],
     };
   }

@@ -12,7 +12,7 @@ import type {
   SigsProcedure,
 } from '../sigs-fhir.types';
 
-export type NativeFichaTipo = 'FAI' | 'FAO';
+export type NativeFichaTipo = 'FAI' | 'FAO' | 'VAC';
 
 export type NativeFichaInput = {
   fichaTipo: NativeFichaTipo;
@@ -154,9 +154,14 @@ export function nativeFichaToComposition(input: NativeFichaInput): SigsCompositi
   return {
     resourceType: 'Composition',
     id: input.encounterId,
-    title: input.fichaTipo === 'FAI' ? 'Atendimento individual (nativo)' : 'Atendimento odontológico (nativo)',
+    title:
+      input.fichaTipo === 'FAI'
+        ? 'Atendimento individual (nativo)'
+        : input.fichaTipo === 'VAC'
+          ? 'Vacinação (nativo)'
+          : 'Atendimento odontológico (nativo)',
     fichaTipo: input.fichaTipo,
-    fichaTipoCode: input.fichaTipo === 'FAI' ? 4 : 5,
+    fichaTipoCode: input.fichaTipo === 'FAI' ? 4 : input.fichaTipo === 'VAC' ? 7 : 5,
     uuidFicha: encounter.uuidFicha,
     encounters: [encounter],
     sourceFormat: 'sigs-native',

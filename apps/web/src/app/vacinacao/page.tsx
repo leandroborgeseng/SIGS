@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, OkBox, PageHeader, TableStateRow } from '@/components/ui/PageHeader';
-import { api } from '@/lib/api';
+import { api, getToken } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { displayPatientName, formatDateTime } from '@/lib/labels';
 
@@ -340,6 +340,31 @@ function VaccinationInner() {
           {card ? (
             <>
               <strong>{card.patientName}</strong>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={!patientId}
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        const token = getToken();
+                        const res = await fetch(`/api/v1/patients/${patientId}/vaccination-card.pdf`, {
+                          headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        });
+                        if (!res.ok) throw new Error(`PDF ${res.status}`);
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : 'Falha ao gerar PDF');
+                      }
+                    })();
+                  }}
+                >
+                  Imprimir PDF (RF-14.13)
+                </button>
+              </div>
               <div className="table-wrap">
                 <table className="data">
                   <thead>

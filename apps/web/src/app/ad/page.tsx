@@ -13,6 +13,7 @@ type Professional = { id: string; civilName: string };
 type Catalog = {
   careTypes: Array<{ id: string; label: string }>;
   shifts: Array<{ id: string; label: string }>;
+  desfechos?: Array<{ id: string; label: string }>;
   defaultProcedure: string;
   procedureHints: Array<{ id: string; label: string }>;
 };
@@ -38,6 +39,7 @@ export default function HomeCarePage() {
   const [shift, setShift] = useState('MANHA');
   const [procCode, setProcCode] = useState('0101040024');
   const [notes, setNotes] = useState('');
+  const [desfecho, setDesfecho] = useState('PERMANENCIA');
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
@@ -93,7 +95,7 @@ export default function HomeCarePage() {
     try {
       const res = await api<{ productionBatch?: { id: string } }>(`/v1/home-care-visits/${id}/finish`, {
         method: 'POST',
-        json: { procedures: [procCode, 'VISITA', 'ORIENTACAO'] },
+        json: { procedures: [procCode, 'VISITA', 'ORIENTACAO'], desfecho },
       });
       setOk(
         res.productionBatch?.id
@@ -184,6 +186,19 @@ export default function HomeCarePage() {
             {(catalog?.procedureHints || [{ id: '0101040024', label: 'Visita domiciliar' }]).map((p) => (
               <option key={p.id} value={p.id}>
                 {p.id} — {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Desfecho (ao finalizar)</label>
+          <select value={desfecho} onChange={(e) => setDesfecho(e.target.value)}>
+            {(catalog?.desfechos || [
+              { id: 'PERMANENCIA', label: 'Permanência' },
+              { id: 'ALTA', label: 'Alta clínica' },
+            ]).map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.label}
               </option>
             ))}
           </select>

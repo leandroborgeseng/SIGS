@@ -131,7 +131,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 3,Módulo Ambulatorial,21,RF-3.21,Desejável,ambos,não iniciado,P0-P6,,previsto,Visualizar lembretes na pré-consulta.
 3,Módulo Ambulatorial,22,RF-3.22,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Salvar pré-consulta encaminhando o paciente à próxima etapa.
 3,Módulo Ambulatorial,23,RF-3.23,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Chamada do paciente pelo painel.
-3,Módulo Ambulatorial,24,RF-3.24,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters#clinical + /aps preview-fai + /faturamento/aps,automatizado,"Lista de pacientes aguardando consulta médica (cor de classificação, etapa, dados do paciente, tempo de atendimento)."
+3,Módulo Ambulatorial,24,RF-3.24,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters#clinical + /aps SOAP+antropometria + preview-fai + /faturamento/aps,automatizado,"Lista de pacientes aguardando consulta médica (cor de classificação, etapa, dados do paciente, tempo de atendimento)."
 3,Módulo Ambulatorial,25,RF-3.25,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Visualizar etapas já ocorridas com o paciente no ato do atendimento.
 3,Módulo Ambulatorial,26,RF-3.26,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Preenchimento da ficha padrão da unidade como primeiro processo do atendimento, com campos editáveis."
 3,Módulo Ambulatorial,27,RF-3.27,Desejável,ambos,não iniciado,P0-P6,,previsto,Visualizar vacinas registradas do paciente.
@@ -160,9 +160,9 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 3,Módulo Ambulatorial,50,RF-3.50,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Lançamento da escala de Glasgow com cálculos automáticos.
 3,Módulo Ambulatorial,51,RF-3.51,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Checagem de prescrições (CID, dados do paciente, medicamentos) com lançamento de evolução de enfermagem."
 3,Módulo Ambulatorial,52,RF-3.52,Obrigatório,ambos,parcial,P0-P6,,previsto,"Solicitação de procedimentos gerando demanda na central de regulação, com protocolos da gestão."
-3,Módulo Ambulatorial,53,RF-3.53,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-collective-v2,automatizado,"Atendimentos por fichas de atendimento coletivo, conforme regras da APS."
-3,Módulo Ambulatorial,54,RF-3.54,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-homecare-v2,automatizado,Atendimentos domiciliares conforme regras da APS.
-3,Módulo Ambulatorial,55,RF-3.55,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Registro de atendimentos da APS por fichas contemplando todos os campos exigidos pelo modelo de financiamento vigente.
+3,Módulo Ambulatorial,53,RF-3.53,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-collective-v2 + /coletivo enums+nominais,automatizado,"Atendimentos por fichas de atendimento coletivo, conforme regras da APS."
+3,Módulo Ambulatorial,54,RF-3.54,Obrigatório,ambos,parcial,P0-P6,apps/api/src/care-extra#ledi-homecare-v2 + /ad desfecho UI,automatizado,Atendimentos domiciliares conforme regras da APS.
+3,Módulo Ambulatorial,55,RF-3.55,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters#aps-care + /aps/[id] SOAP/medições/tipos FAI,automatizado,Registro de atendimentos da APS por fichas contemplando todos os campos exigidos pelo modelo de financiamento vigente.
 3,Módulo Ambulatorial,56,RF-3.56,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Atendimentos odontológicos com odontograma e próteses.
 3,Módulo Ambulatorial,57,RF-3.57,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Informações de patologias odontológicas no atendimento.
 3,Módulo Ambulatorial,58,RF-3.58,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Geração automática de procedimentos em todos os processos de produção ambulatorial, quando pertinente."
@@ -483,8 +483,8 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 13,Módulo de Regulação,21,RF-13.21,Obrigatório,TR,não iniciado,depois,,n/a,"Cadastro de solicitações de unidades externas (ex.: AME, APAE)."
 13,Módulo de Regulação,22,RF-13.22,Obrigatório,TR,não iniciado,depois,,n/a,Reimpressão de solicitações de procedimentos.
 13,Módulo de Regulação,23,RF-13.23,Desejável,TR,não iniciado,depois,,n/a,Integração com WhatsApp para envio de mensagens automáticas.
-14,Módulo de Vacinação,1,RF-14.1,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations,automatizado,Cadastro das dosagens de vacina.
-14,Módulo de Vacinação,2,RF-14.2,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations,n/a,Cadastro de vacinas.
+14,Módulo de Vacinação,1,RF-14.1,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations#catalog lediId doses,automatizado,Cadastro das dosagens de vacina.
+14,Módulo de Vacinação,2,RF-14.2,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations#catalog immuno LEDI,automatizado,Cadastro de vacinas.
 14,Módulo de Vacinação,3,RF-14.3,Desejável,ambos,não iniciado,P0-P6,,previsto,Cadastro de equipamentos frios.
 14,Módulo de Vacinação,4,RF-14.4,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Vinculação de vacinas com insumos do almoxarifado.
 14,Módulo de Vacinação,5,RF-14.5,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Determinar número de doses no cadastro da vacina.
@@ -493,10 +493,10 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 14,Módulo de Vacinação,8,RF-14.8,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Bloquear vacinação fora da faixa etária permitida.
 14,Módulo de Vacinação,9,RF-14.9,Desejável,ambos,não iniciado,P0-P6,,previsto,Registro retroativo de doses de vacinas.
 14,Módulo de Vacinação,10,RF-14.10,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Informar equivalências no cadastro de vacinas.
-14,Módulo de Vacinação,11,RF-14.11,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations,n/a,Aplicação de vacina por paciente.
+14,Módulo de Vacinação,11,RF-14.11,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations + clinical-core VAC + /vacinacao,automatizado,Aplicação de vacina por paciente.
 14,Módulo de Vacinação,12,RF-14.12,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Agendamento de vacinação com controle de vacinas atrasadas.
-14,Módulo de Vacinação,13,RF-14.13,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Geração do cartão de vacina.
-14,Módulo de Vacinação,14,RF-14.14,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations,n/a,Lançamento de vacina por lote e validade.
+14,Módulo de Vacinação,13,RF-14.13,Obrigatório,ambos,parcial,P0-P6,GET /v1/patients/:id/vaccination-card.pdf + /vacinacao,previsto,Geração do cartão de vacina.
+14,Módulo de Vacinação,14,RF-14.14,Obrigatório,ambos,parcial,P0-P6,apps/api/src/vaccinations#lot validade + LEDI row,automatizado,Lançamento de vacina por lote e validade.
 14,Módulo de Vacinação,15,RF-14.15,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Entrada de estoque de vacinas em salas criadas pela gestão.
 14,Módulo de Vacinação,16,RF-14.16,Desejável,ambos,não iniciado,P0-P6,,previsto,Controle de estoques de vacinas.
 14,Módulo de Vacinação,17,RF-14.17,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Controle de equipamentos frios.

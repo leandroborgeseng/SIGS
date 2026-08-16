@@ -92,5 +92,23 @@ describe('buildVaccinationLediPayload', () => {
     expect(payload.vacinacoesIndividuais[0].sexo).toBe(0);
     expect(payload.vacinacoesIndividuais[0].vacinas).toHaveLength(1);
     expect(payload.vacinacoesIndividuais[0].vacinas[0].comunicanteHanseniase).toBe(true);
+    expect(payload.vacinacoesIndividuais[0].vacinas[0].imunobiologico).toBe(15);
+    expect(payload.vacinacoesIndividuais[0].vacinas[0].estrategiaVacinacao).toBe(1);
+    expect(payload.vacinacoesIndividuais[0].vacinas[0].dose).toBe(9);
+    expect(payload.vacinacoesIndividuais[0].vacinas[0].viaAdministracao).toBe(4);
+    expect(payload.vacinacoesIndividuais[0].vacinas[0].imunobiologicoCode).toBe('BCG');
+  });
+});
+
+describe('catalog LEDI ids', () => {
+  it('BCG=15 e estratégias alinhadas ao DbEnum', () => {
+    const { IMMUNOBIOLOGICALS, STRATEGIES, resolveImmunoLediId, resolveStrategyLediId } = require('./catalog');
+    expect(resolveImmunoLediId('BCG')).toBe(15);
+    expect(resolveImmunoLediId('HB')).toBe(9);
+    expect(resolveImmunoLediId('PENTA')).toBe(42);
+    expect(resolveStrategyLediId('ROUTINE')).toBe(1);
+    expect(resolveStrategyLediId('SPECIAL')).toBe(2);
+    expect(IMMUNOBIOLOGICALS.length).toBeGreaterThanOrEqual(6);
+    expect(STRATEGIES.length).toBe(15);
   });
 });

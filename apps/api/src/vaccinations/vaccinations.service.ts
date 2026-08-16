@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RF } from '../common/rf';
 import {
+  ATTENDANCE_GROUPS,
   DOSES,
   IMMUNOBIOLOGICALS,
   ROUTES,
@@ -14,10 +15,15 @@ import {
 import { CreateVaccinationDto } from './dto';
 import { buildVaccinationLediPayload } from './ledi-vaccination.mapper';
 import { resolveLotacaoHeader } from '../ledi/lotacao.resolver';
+import { ClinicalCoreService } from '../clinical-core/clinical-core.service';
+import { buildVaccinationCardPdf } from './vaccination-card-pdf';
 
 @Injectable()
 export class VaccinationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clinicalCore: ClinicalCoreService,
+  ) {}
 
   catalog() {
     return {
@@ -26,11 +32,10 @@ export class VaccinationsService {
       doses: DOSES,
       routes: ROUTES,
       sites: SITES,
-      attendanceGroups: [
-        { id: 'GERAL', label: 'Geral' },
-        { id: 'GESTANTE', label: 'Gestante' },
-        { id: 'PUERPERA', label: 'Puérpera' },
-      ],
+      attendanceGroups: ATTENDANCE_GROUPS,
+      mapperVersion: 'ledi-vaccination-v2',
+      notes:
+        'IDs LEDI (lediId) alinhados à documentação oficial de regras de vacinação e EstrategiaVacinacaoDbEnum.',
     };
   }
 
@@ -80,8 +85,26 @@ export class VaccinationsService {
     return {
       patientId,
       patientName: patient.socialName || patient.civilName,
+      cpf: patient.cpf,
+      cns: patient.cns,
+      birthDate: patient.birthDate?.toISOString().slice(0, 10) ?? null,
+      sex: patient.sex,
       doses,
     };
+  }
+
+  async cardPdf(patientId: string): Promise<Buffer> {
+    const card = await this.card(patientId);
+    return buildVaccinationCardPdf({
+      patientId: card.patientId,
+      patientName: card.patientName,
+      cpf: card.cpf,
+      cns: card.cns,
+      birthDate: card.birthDate,
+      sex: card.sex,
+      doses: card.doses,
+      municipio: process.env.MUNICIPIO_NOME || 'Franca',
+    });
   }
 
   async create(dto: CreateVaccinationDto) {
@@ -184,6 +207,41 @@ export class VaccinationsService {
       productionBatchId: batch.id,
       uuidFicha,
     });
+
+    // LEDI P1: ProductionRecord nativo (falha não derruba o lote)
+    await this.clinicalCore
+      .persistNativeEncounter({
+        fichaTipo: 'VAC',
+        encounterId: row.id,
+        uuidFicha,
+        status: 'finished',
+        periodStart: appliedAt.toISOString(),
+        periodEnd: appliedAt.toISOString(),
+        patient: {
+          id: patient.id,
+          civilName: patient.civilName,
+          cpf: patient.cpf,
+          cns: patient.cns,
+          birthDate: patient.birthDate,
+          sex: patient.sex,
+        },
+        practitionerCns: lotacao.profissionalCNS,
+        cbo: lotacao.cboCodigo_2002,
+        cnes: lotacao.cnes,
+        ine: lotacao.ine,
+        ibgeMunicipio: facility.ibgeCode,
+        procedures: dto.applications.map((a) => ({
+          code: `VAC:${a.immunobiologicalId}:${a.doseId}`,
+          quantity: 1,
+        })),
+        conditions: [],
+        extensions: {
+          kind: 'vaccination',
+          applications: dto.applications,
+          mapperVersion: 'ledi-vaccination-v2',
+        },
+      })
+      .catch(() => undefined);
 
     return {
       record: { ...row, applications: dto.applications },

@@ -1,4 +1,12 @@
-import { VaccineApplicationInput } from './catalog';
+import {
+  VaccineApplicationInput,
+  resolveAttendanceGroupLediId,
+  resolveDoseLediId,
+  resolveImmunoLediId,
+  resolveRouteLediId,
+  resolveSiteLediId,
+  resolveStrategyLediId,
+} from './catalog';
 import {
   resolveLocalAtendimento,
   resolveSexo,
@@ -8,14 +16,21 @@ import type { LotacaoHeader } from '../ledi/lotacao.resolver';
 import { resolveCodigoIbgeMunicipio } from '../ledi/ibge';
 
 export type LediVacinaRow = {
-  imunobiologico: string;
-  estrategiaVacinacao: string;
-  dose: string;
+  /** id LEDI imunobiológico (i64) */
+  imunobiologico: number;
+  imunobiologicoCode?: string;
+  estrategiaVacinacao: number;
+  estrategiaVacinacaoCode?: string;
+  dose: number;
+  doseCode?: string;
   lote: string;
   fabricante: string;
-  grupoAtendimento: string;
-  viaAdministracao: string;
-  localAplicacao: string;
+  grupoAtendimento: number;
+  grupoAtendimentoCode?: string;
+  viaAdministracao: number;
+  viaAdministracaoCode?: string;
+  localAplicacao: number;
+  localAplicacaoCode?: string;
   cboPrescritorCodigo2002?: string;
   cid10MotivoIndicacao?: string;
   stPesquisaClinica?: boolean;
@@ -61,6 +76,16 @@ export type LediVacinacaoMaster = {
   vacinacoesIndividuais: LediVacinacaoChild[];
 };
 
+function requireLediId(
+  label: string,
+  id: string,
+  resolver: (id: string) => number | null,
+): number {
+  const n = resolver(id);
+  if (n == null) throw new Error(`${label} inválido: "${id}"`);
+  return n;
+}
+
 export function buildVaccinationLediPayload(input: {
   uuidFicha: string;
   lotacao: LotacaoHeader;
@@ -77,14 +102,24 @@ export function buildVaccinationLediPayload(input: {
   applications: VaccineApplicationInput[];
 }): LediVacinacaoMaster {
   const rows: LediVacinaRow[] = input.applications.map((a) => ({
-    imunobiologico: a.immunobiologicalId,
-    estrategiaVacinacao: a.strategyId,
-    dose: a.doseId,
+    imunobiologico: requireLediId('imunobiologico', a.immunobiologicalId, resolveImmunoLediId),
+    imunobiologicoCode: a.immunobiologicalId,
+    estrategiaVacinacao: requireLediId('estrategiaVacinacao', a.strategyId, resolveStrategyLediId),
+    estrategiaVacinacaoCode: a.strategyId,
+    dose: requireLediId('dose', a.doseId, resolveDoseLediId),
+    doseCode: a.doseId,
     lote: a.lot,
     fabricante: a.manufacturer,
-    grupoAtendimento: a.attendanceGroupId,
-    viaAdministracao: a.routeId,
-    localAplicacao: a.siteId,
+    grupoAtendimento: requireLediId(
+      'grupoAtendimento',
+      a.attendanceGroupId,
+      resolveAttendanceGroupLediId,
+    ),
+    grupoAtendimentoCode: a.attendanceGroupId,
+    viaAdministracao: requireLediId('viaAdministracao', a.routeId, resolveRouteLediId),
+    viaAdministracaoCode: a.routeId,
+    localAplicacao: requireLediId('localAplicacao', a.siteId, resolveSiteLediId),
+    localAplicacaoCode: a.siteId,
     cboPrescritorCodigo2002: a.prescriberCbo,
     cid10MotivoIndicacao: a.indicationCid10,
     stPesquisaClinica: a.isClinicalResearch,

@@ -25,9 +25,15 @@ UI de produto (Claude Design) fica para a fase 2. Este stub descreve o shell té
 
 1. Menu **Atendimento clínico → Atendimento APS** (`/aps`) ou **Agenda APS** (`/aps/agenda`).
 2. Sem agenda: paciente + profissional + lotação/equipe (INE, mesmo padrão do odonto). Com agenda: slot do dia (consulta tipo 2 ou encaixe tipo 5) → **Abrir**.
-3. Na ficha: CIAP/CID, procedimentos SIGTAP, condutas FAI (não odonto).
+3. Na ficha: tipo/local/turno, antropometria (peso/altura/PC), SOAP, CIAP/CID, procedimentos SIGTAP, condutas FAI (não odonto).
 4. Painel LEDI FAI (Siaps-ready) → **Finalizar e faturar**.
 5. Fila do mês: `/faturamento/aps` (deep-link após finalizar).
 6. Lote XML legado: `/faturamento/lote/fai`.
 
 A fila SOAP (`/atendimento`) continua no grupo Operação e não mistura com `/odonto`.
+
+## Campos LEDI na ficha (Onda A 2026-08-16)
+
+- Medições: `weightKg`, `heightCm`, `headCircumferenceCm` → `medicoes` no payload
+- SOAP: subjetivo/objetivo/avaliação/plano → bloco `soap`
+- Tipos de atendimento FAI: 1, 2, 4, 5, 6 (catálogo `/v1/catalog/aps`)
