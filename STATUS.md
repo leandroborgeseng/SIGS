@@ -36,7 +36,7 @@
 | `d1736e4` | CNES sync Franca + auditoria cadastro |
 | `8a02ba1` | Auditoria de faturamento ficha×cadastros |
 | `07d72eb` | CNES **só rede municipal** (natureza 1244) |
-| `(pendente)` | Import **profissionais lotados** PF + audit CNS municipal |
+| `ef138bc` | Import **profissionais lotados** PF + audit CNS municipal |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC
@@ -48,7 +48,7 @@
 1. Import dump real `TB_FAIXA_ETARIA_VACINACAO` quando disponível
 2. Lote XML cadastro domiciliar / visita ACS / AD — bloqueado até dump/TB
 3. Agenda TR residual (salas / grade municipal) — só se TR exigir
-4. Fase 2 UI Claude Design — inventário/prompt ok; UI completa não nesta fase
+4. Fase 2 UI Claude Design — inventário stub em `docs/design/inventario-telas-fase2-stub.md`; UI completa **não** nesta fase
 5. Fora APS P0: SAMU · Farmácia geral · Hospitalar
 
 ### Notas handoff
@@ -57,5 +57,6 @@
 - Sem dados reais de pacientes (PF = cadastro público CNES: nome+CNS+CBO)
 - Critério municipal: **natureza jurídica 1244**
 - Ordem sync: unidades/equipes **antes** de profissionais
+- SHAs bloco autônomo academia: `07d72eb` · `ef138bc`
 
-_Atualizado em 2026-08-16 (CNES municipal + PF lotados)_
+_Atualizado em 2026-08-16 (CNES municipal + PF + stub design)_
