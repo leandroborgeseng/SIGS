@@ -201,7 +201,9 @@ export default function CnesAuditoriaPage() {
     URL.revokeObjectURL(url);
   }
 
-  const emptyCadastro = !!report?.needsSync || (report && report.counts.facilitiesInScope === 0 && report.counts.teamsInScope === 0);
+  const emptyCadastro =
+    !!report?.needsSync ||
+    (!!report && report.counts.facilitiesInScope === 0 && report.counts.teamsInScope === 0);
 
   return (
     <AppShell helpId="cadastros.cnes-auditoria">
