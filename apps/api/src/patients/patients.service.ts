@@ -238,6 +238,22 @@ export class PatientsService {
           },
           orderBy: { createdAt: 'desc' },
         },
+        familyMemberships: {
+          where: { active: true },
+          include: {
+            family: {
+              include: {
+                household: {
+                  include: {
+                    team: { include: { facility: true } },
+                    microArea: true,
+                  },
+                },
+                responsible: true,
+              },
+            },
+          },
+        },
       },
     });
     if (!row) throw new NotFoundException('Paciente não encontrado');

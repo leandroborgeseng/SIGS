@@ -19,6 +19,7 @@ export class DemoSeedService implements OnModuleInit {
     });
     if (existing) {
       await this.ensureDemoAssignments(existing.id);
+      await this.ensureDemoHousehold(existing.id);
       if (!existing.ibgeCode) {
         await this.prisma.facility.update({
           where: { id: existing.id },
@@ -107,6 +108,47 @@ export class DemoSeedService implements OnModuleInit {
         { patientId: maria.id, teamId: team.id, microAreaId: micro.id, active: true },
         { patientId: joao.id, teamId: team.id, microAreaId: micro.id, active: true },
       ],
+    });
+
+    await this.prisma.household.create({
+      data: {
+        teamId: team.id,
+        microAreaId: micro.id,
+        propertyType: 1,
+        street: 'Rua das Flores',
+        number: '120',
+        neighborhood: 'Centro',
+        city: 'Franca',
+        state: 'SP',
+        zip: '14400000',
+        municipalityIbge: '3516200',
+        locationType: 1,
+        dwellingType: 1,
+        ownershipStatus: 1,
+        waterSupply: 1,
+        sewageDisposal: 1,
+        wasteDisposal: 1,
+        electricity: true,
+        roomsCount: 4,
+        residentsCount: 2,
+        hasAnimals: false,
+        active: true,
+        notes: 'Domicílio demo CDS',
+        families: {
+          create: {
+            responsiblePatientId: maria.id,
+            membersCount: 2,
+            householdIncomeCode: 3,
+            residingSince: new Date('2015-01-01'),
+            members: {
+              create: [
+                { patientId: maria.id, relationship: 'RESPONSAVEL' },
+                { patientId: joao.id, relationship: 'FILHO' },
+              ],
+            },
+          },
+        },
+      },
     });
 
     const now = new Date();
@@ -236,5 +278,64 @@ export class DemoSeedService implements OnModuleInit {
       });
       this.log.log(`Lotação demo: ${s.roleLabel} CBO ${s.cbo}`);
     }
+  }
+
+  /** Domicílio/família CDS demo (RF-2.29) — idempotente em bases já seedadas. */
+  private async ensureDemoHousehold(facilityId: string) {
+    const team = await this.prisma.team.findFirst({
+      where: { facilityId, ine: '0000000001' },
+      include: { microAreas: true },
+    });
+    if (!team) return;
+    const existingHh = await this.prisma.household.findFirst({
+      where: { teamId: team.id, notes: 'Domicílio demo CDS' },
+    });
+    if (existingHh) return;
+
+    const maria = await this.prisma.patient.findFirst({ where: { cpf: '12345678901' } });
+    const joao = await this.prisma.patient.findFirst({ where: { cpf: '98765432100' } });
+    if (!maria || !joao) return;
+    const micro = team.microAreas.find((m) => m.code === '01') || team.microAreas[0];
+
+    await this.prisma.household.create({
+      data: {
+        teamId: team.id,
+        microAreaId: micro?.id,
+        propertyType: 1,
+        street: 'Rua das Flores',
+        number: '120',
+        neighborhood: 'Centro',
+        city: 'Franca',
+        state: 'SP',
+        zip: '14400000',
+        municipalityIbge: '3516200',
+        locationType: 1,
+        dwellingType: 1,
+        ownershipStatus: 1,
+        waterSupply: 1,
+        sewageDisposal: 1,
+        wasteDisposal: 1,
+        electricity: true,
+        roomsCount: 4,
+        residentsCount: 2,
+        active: true,
+        notes: 'Domicílio demo CDS',
+        families: {
+          create: {
+            responsiblePatientId: maria.id,
+            membersCount: 2,
+            householdIncomeCode: 3,
+            residingSince: new Date('2015-01-01'),
+            members: {
+              create: [
+                { patientId: maria.id, relationship: 'RESPONSAVEL' },
+                { patientId: joao.id, relationship: 'FILHO' },
+              ],
+            },
+          },
+        },
+      },
+    });
+    this.log.log('Demo seed: domicílio/família CDS criado');
   }
 }

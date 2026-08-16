@@ -48,6 +48,24 @@ type Patient = {
   nis?: string | null;
   educationLevel?: string | null;
   links?: TeamLink[];
+  familyMemberships?: FamilyMembership[];
+};
+
+type FamilyMembership = {
+  id: string;
+  relationship: string;
+  family?: {
+    responsible?: { civilName: string; socialName?: string | null } | null;
+    household?: {
+      street?: string | null;
+      number?: string | null;
+      neighborhood?: string | null;
+      city?: string | null;
+      state?: string | null;
+      team?: { name: string } | null;
+      microArea?: { code: string; name: string } | null;
+    } | null;
+  } | null;
 };
 
 function toDateInput(iso?: string | null) {
@@ -93,6 +111,7 @@ export default function PatientDetailPage() {
   const [nis, setNis] = useState('');
   const [educationLevel, setEducationLevel] = useState('');
   const [links, setLinks] = useState<TeamLink[]>([]);
+  const [memberships, setMemberships] = useState<FamilyMembership[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -129,6 +148,7 @@ export default function PatientDetailPage() {
         setNis(row.nis || '');
         setEducationLevel(row.educationLevel || '');
         setLinks(row.links || []);
+        setMemberships(row.familyMemberships || []);
         setLoaded(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Falha ao carregar');
@@ -359,6 +379,37 @@ export default function PatientDetailPage() {
             <p style={{ color: 'var(--ink-3)', marginTop: 12 }}>
               Sem vínculo ativo com equipe —{' '}
               <Link href={`/territorio?paciente=${params.id}`}>gerenciar no Território</Link>.
+            </p>
+          )}
+
+          {memberships.length ? (
+            <div className="alert" style={{ marginTop: 12 }}>
+              <strong>Domicílio / família CDS</strong>
+              <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                {memberships.map((m) => {
+                  const hh = m.family?.household;
+                  const addr = hh
+                    ? [hh.street, hh.number].filter(Boolean).join(', ')
+                    : '';
+                  return (
+                    <li key={m.id}>
+                      {m.relationship}
+                      {addr ? ` · ${addr}` : ''}
+                      {hh?.neighborhood ? ` · ${hh.neighborhood}` : ''}
+                      {hh?.team?.name ? ` · ${hh.team.name}` : ''}
+                      {hh?.microArea ? ` · microárea ${hh.microArea.code}` : ''}
+                    </li>
+                  );
+                })}
+              </ul>
+              <p style={{ margin: '8px 0 0' }}>
+                <Link href={`/territorio?paciente=${params.id}`}>Abrir Território</Link>
+              </p>
+            </div>
+          ) : (
+            <p style={{ color: 'var(--ink-3)', marginTop: 12 }}>
+              Sem domicílio CDS —{' '}
+              <Link href={`/territorio?paciente=${params.id}`}>cadastrar no Território</Link>.
             </p>
           )}
 

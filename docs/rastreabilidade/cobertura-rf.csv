@@ -75,7 +75,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 2,Módulo de Cadastros,26,RF-2.26,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de scripts de resultado de exames.
 2,Módulo de Cadastros,27,RF-2.27,Obrigatório,ambos,parcial,P0-P6,apps/api/.../patients.py,n/a,"Cadastro de pacientes: nome, mãe, data de nascimento, CPF, CNS, endereço completo, contatos, raça/cor, deficiência, naturalidade, nacionalidade, vínculo com uni"
 2,Módulo de Cadastros,28,RF-2.28,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro das equipes de saúde conforme exigências do SUS.
-2,Módulo de Cadastros,29,RF-2.29,Obrigatório,ambos,parcial,P0-P6,territory + PATCH links + /territorio,n/a,Cadastro domiciliar e territorial conforme regras da APS.
+2,Módulo de Cadastros,29,RF-2.29,Obrigatório,ambos,parcial,P0-P6,households+families+/territorio,n/a,Cadastro domiciliar e territorial conforme regras da APS (sem GIS/lote XML).
 2,Módulo de Cadastros,30,RF-2.30,Obrigatório,ambos,parcial,P0-P6,patients CDS + territory links + /pacientes/[id],n/a,Cadastro individual conforme regras da APS.
 2,Módulo de Cadastros,31,RF-2.31,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de protocolos de acesso por grupo, subgrupo, forma de organização ou procedimento, apoiando decisão da regulação."
 2,Módulo de Cadastros,32,RF-2.32,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de etapas do atendimento.

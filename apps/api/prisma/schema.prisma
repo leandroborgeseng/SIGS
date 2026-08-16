@@ -67,6 +67,7 @@ model Team {
   facility   Facility @relation(fields: [facilityId], references: [id])
   microAreas MicroArea[]
   links      PatientTeamLink[]
+  households Household[]
   assignments ProfessionalAssignment[]
 
   @@map("teams")
@@ -142,6 +143,8 @@ model Patient {
   mergedFrom Patient[] @relation("PatientMerge")
 
   links PatientTeamLink[]
+  familyMemberships FamilyMember[]
+  familiesAsResponsible HouseholdFamily[] @relation("FamilyResponsible")
   slots AppointmentSlot[]
   encounters Encounter[]
   vaccinations VaccinationRecord[]
@@ -171,8 +174,9 @@ model MicroArea {
   active    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
 
-  team  Team @relation(fields: [teamId], references: [id])
-  links PatientTeamLink[]
+  team       Team        @relation(fields: [teamId], references: [id])
+  links      PatientTeamLink[]
+  households Household[]
 
   @@map("micro_areas")
 }
@@ -190,6 +194,89 @@ model PatientTeamLink {
   microArea MicroArea? @relation(fields: [microAreaId], references: [id])
 
   @@map("patient_team_links")
+}
+
+/// Domicílio / imóvel CDS territorial (RF-2.29) — alinhado CadastroDomiciliarThrift, sem GIS
+model Household {
+  id               String   @id @default(uuid())
+  teamId           String   @map("team_id")
+  microAreaId      String?  @map("micro_area_id")
+  /// LEDI tipoDeImovel (1=Domicílio, 2=Comércio, …)
+  propertyType     Int      @default(1) @map("property_type")
+  street           String?
+  number           String?
+  complement       String?
+  neighborhood     String?
+  city             String?
+  state            String?
+  zip              String?
+  municipalityIbge String?  @map("municipality_ibge")
+  /// CondicaoMoradiaThrift — códigos LEDI (opcionais)
+  locationType     Int?     @map("location_type")
+  dwellingType     Int?     @map("dwelling_type")
+  ownershipStatus  Int?     @map("ownership_status")
+  waterSupply      Int?     @map("water_supply")
+  waterConsumption Int?     @map("water_consumption")
+  sewageDisposal   Int?     @map("sewage_disposal")
+  wasteDisposal    Int?     @map("waste_disposal")
+  electricity      Boolean?
+  roomsCount       Int?     @map("rooms_count")
+  residentsCount   Int?     @map("residents_count")
+  hasAnimals       Boolean  @default(false) @map("has_animals")
+  animalsCount     Int?     @map("animals_count")
+  refusalTerm      Boolean  @default(false) @map("refusal_term")
+  active           Boolean  @default(true)
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  team      Team               @relation(fields: [teamId], references: [id])
+  microArea MicroArea?         @relation(fields: [microAreaId], references: [id])
+  families  HouseholdFamily[]
+
+  @@index([teamId, active])
+  @@index([microAreaId])
+  @@map("households")
+}
+
+/// Família no domicílio (FamiliaRowThrift + membros locais)
+model HouseholdFamily {
+  id                    String    @id @default(uuid())
+  householdId           String    @map("household_id")
+  responsiblePatientId  String    @map("responsible_patient_id")
+  membersCount          Int?      @map("members_count")
+  /// Código LEDI rendaFamiliar
+  householdIncomeCode   Int?      @map("household_income_code")
+  residingSince         DateTime? @map("residing_since")
+  prontuarioNumber      String?   @map("prontuario_number")
+  active                Boolean   @default(true)
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  household   Household     @relation(fields: [householdId], references: [id])
+  responsible Patient       @relation("FamilyResponsible", fields: [responsiblePatientId], references: [id])
+  members     FamilyMember[]
+
+  @@index([householdId, active])
+  @@index([responsiblePatientId])
+  @@map("household_families")
+}
+
+model FamilyMember {
+  id           String   @id @default(uuid())
+  familyId     String   @map("family_id")
+  patientId    String   @map("patient_id")
+  /// RESPONSAVEL | CONJUGE | FILHO | OUTRO
+  relationship String   @default("OUTRO")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  family  HouseholdFamily @relation(fields: [familyId], references: [id])
+  patient Patient         @relation(fields: [patientId], references: [id])
+
+  @@unique([familyId, patientId])
+  @@index([patientId, active])
+  @@map("family_members")
 }
 
 /// Agenda — status alinhados ao design handoff

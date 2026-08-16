@@ -12,7 +12,13 @@ export const RF = {
     teste_faturamento: 'n/a',
     nota: 'Cadastro individual APS (campos CDS essenciais + vínculo equipe)',
   },
-  TERRITORY: { id: 'RF-2.29', tipo: 'Obrigatório', fonte: 'ambos', teste_faturamento: 'n/a' },
+  TERRITORY: {
+    id: 'RF-2.29',
+    tipo: 'Obrigatório',
+    fonte: 'ambos',
+    teste_faturamento: 'n/a',
+    nota: 'Território APS: microáreas, vínculos e domicílio/família CDS (sem GIS)',
+  },
   AGENDA: { id: 'RF-2.17', tipo: 'Obrigatório', fonte: 'ambos', teste_faturamento: 'n/a', nota: 'Agenda / slots' },
   ENCOUNTER_ENTRY: {
     id: 'RF-3.1',

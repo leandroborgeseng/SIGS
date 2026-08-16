@@ -29,7 +29,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-2.17 | Obr | parcial | n/a | `GET/POST /v1/appointments` · `day-grid` · `itemType` CONSULTA/ENCAIXE · `careLine` APS/ODONTO |
 | RF-2.19 | Obr | parcial | n/a | `apps/api/src/organization#teams` |
 | RF-2.27 | Obr | parcial | n/a | `apps/api/src/patients` (+ PATCH + UI) |
-| RF-2.29 | Obr | parcial | n/a | `apps/api/src/territory` + UI `/territorio` + PATCH desativar vínculo |
+| RF-2.29 | Obr | parcial | n/a | território + microáreas/vínculos + **Household/Family CDS** (`/v1/households`, catálogo LEDI, UI `/territorio`) — sem GIS/lote XML |
 | RF-2.30 | Obr | parcial | n/a | cadastro individual CDS: nacionalidade/IBGE nasc./etnia/deficiência/NIS/e-mail + `links` no GET paciente · UI `/pacientes/[id]` |
 | RF-2.47 | Obr | parcial | n/a | `facilities` + IBGE + UI `/unidades` |
 | RF-2.56 | Obr | parcial | n/a | `apps/api/src/patients#search` + UI |

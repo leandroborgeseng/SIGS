@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | id | cadastros.pacientes-territorio |
-| version | 1.2.0 |
+| version | 1.3.0 |
 | status | draft |
 | atualizado | 2026-08-16 |
 
@@ -11,13 +11,14 @@
 
 Cadastre/edite com nome social sempre visível; “Desconhece” para mãe/pai; óbito revela data e certidão.
 
-Campos CDS essenciais (cadastro individual APS): nacionalidade (+ IBGE nascimento se brasileira), raça/cor, etnia, deficiência, e-mail, NIS, escolaridade. A ficha mostra vínculos ativos com equipe/microárea.
+Campos CDS essenciais (cadastro individual APS): nacionalidade (+ IBGE nascimento se brasileira), raça/cor, etnia, deficiência, e-mail, NIS, escolaridade. A ficha mostra vínculos ativos com equipe/microárea e o domicílio/família CDS, se houver.
 
 ## Território (RF-2.29)
 
 1. Menu **Território**
 2. Aba **Equipes / Microáreas**: criar equipe na unidade atual e microáreas
 3. Aba **Vínculos paciente**: ligar paciente ↔ equipe (+ microárea opcional); **Desativar** vínculo antigo
-4. Na ficha do paciente, veja o resumo e use **Território** / **Gerenciar**
+4. Aba **Domicílios / Famílias**: cadastrar imóvel (tipo LEDI), endereço, responsável familiar e membro opcional; filtrar por paciente; desativar domicílio
+5. Na ficha do paciente, veja o resumo e use **Território** / **Abrir Território**
 
-O seed demo já traz `eSF Demonstração 01`, microárea `01` e vínculos de Maria/João Exemplo.
+O seed demo já traz `eSF Demonstração 01`, microárea `01`, vínculos de Maria/João Exemplo e um domicílio CDS na Rua das Flores.
