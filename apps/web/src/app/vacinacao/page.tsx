@@ -44,6 +44,42 @@ type StockRow = {
   targetTempMinC?: number | null;
   targetTempMaxC?: number | null;
   roomLabel?: string | null;
+  coldEquipmentId?: string | null;
+  coldEquipment?: { id: string; code: string; label: string } | null;
+};
+type ColdEq = {
+  id: string;
+  code: string;
+  label: string;
+  kind: string;
+  targetTempMinC: number;
+  targetTempMaxC: number;
+  status: string;
+};
+type ThermalBox = {
+  id: string;
+  code: string;
+  label: string;
+  status: string;
+  coldEquipmentId?: string | null;
+  targetTempMinC?: number | null;
+  targetTempMaxC?: number | null;
+};
+type TempReading = {
+  id: string;
+  temperatureC: number;
+  withinRange: boolean;
+  recordedAt: string;
+  coldEquipment?: { code: string; label: string } | null;
+  thermalBox?: { code: string; label: string } | null;
+};
+type SupplyRow = {
+  id: string;
+  sku: string;
+  label: string;
+  unit: string;
+  quantity: number;
+  links?: Array<{ immunobiologicalId: string; qtyPerDose: number }>;
 };
 type Card = {
   patientId: string;
@@ -68,6 +104,10 @@ function VaccinationInner() {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [recent, setRecent] = useState<VacRow[]>([]);
   const [stockRows, setStockRows] = useState<StockRow[]>([]);
+  const [coldEqs, setColdEqs] = useState<ColdEq[]>([]);
+  const [thermalBoxes, setThermalBoxes] = useState<ThermalBox[]>([]);
+  const [tempReadings, setTempReadings] = useState<TempReading[]>([]);
+  const [supplies, setSupplies] = useState<SupplyRow[]>([]);
   const [card, setCard] = useState<Card | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
@@ -96,6 +136,27 @@ function VaccinationInner() {
   const [stockTempMin, setStockTempMin] = useState('2');
   const [stockTempMax, setStockTempMax] = useState('8');
   const [stockRoom, setStockRoom] = useState('');
+  const [stockColdEq, setStockColdEq] = useState('');
+
+  const [eqCode, setEqCode] = useState('');
+  const [eqLabel, setEqLabel] = useState('');
+  const [eqKind, setEqKind] = useState('REFRIGERATOR');
+  const [eqMin, setEqMin] = useState('2');
+  const [eqMax, setEqMax] = useState('8');
+
+  const [boxCode, setBoxCode] = useState('');
+  const [boxLabel, setBoxLabel] = useState('');
+  const [boxEq, setBoxEq] = useState('');
+
+  const [readEq, setReadEq] = useState('');
+  const [readBox, setReadBox] = useState('');
+  const [readTemp, setReadTemp] = useState('5');
+
+  const [supSku, setSupSku] = useState('');
+  const [supLabel, setSupLabel] = useState('');
+  const [supQty, setSupQty] = useState('50');
+  const [linkImm, setLinkImm] = useState('BCG');
+  const [linkSupplyId, setLinkSupplyId] = useState('');
 
   const isSpecial = strategyId === 'SPECIAL';
   const isBcg = immunobiologicalId === 'BCG';
@@ -108,20 +169,32 @@ function VaccinationInner() {
   async function load() {
     const qs = facilityId ? `?facilityId=${encodeURIComponent(facilityId)}` : '';
     const stockQs = facilityId ? `?facilityId=${encodeURIComponent(facilityId)}` : '';
-    const [c, pts, list, profs, stock] = await Promise.all([
+    const readingsQs = facilityId
+      ? `?facilityId=${encodeURIComponent(facilityId)}&limit=20`
+      : '?limit=20';
+    const [c, pts, list, profs, stock, eqs, boxes, reads, sups] = await Promise.all([
       api<Catalog>('/v1/catalog/vaccination'),
       api<Patient[]>('/v1/patients'),
       api<VacRow[]>(`/v1/vaccinations${qs}`),
       api<Professional[]>('/v1/professionals'),
       api<StockRow[]>(`/v1/vaccination-stock${stockQs}`),
+      api<ColdEq[]>(`/v1/vaccination-cold-equipment${stockQs}`),
+      api<ThermalBox[]>(`/v1/vaccination-thermal-boxes${stockQs}`),
+      api<TempReading[]>(`/v1/vaccination-temp-readings${readingsQs}`),
+      api<SupplyRow[]>(`/v1/vaccination-supplies${stockQs}`),
     ]);
     setCatalog(c);
     setPatients(pts);
     setRecent(list.slice(0, 50));
     setProfessionals(profs);
     setStockRows(stock);
+    setColdEqs(eqs);
+    setThermalBoxes(boxes);
+    setTempReadings(reads);
+    setSupplies(sups);
     if (!professionalId && profs[0]) setProfessionalId(profs[0].id);
     if (!patientId && params.get('paciente')) setPatientId(params.get('paciente')!);
+    if (!linkSupplyId && sups[0]) setLinkSupplyId(sups[0].id);
   }
 
   useEffect(() => {
@@ -221,14 +294,167 @@ function VaccinationInner() {
           targetTempMinC: stockTempMin !== '' ? Number(stockTempMin) : undefined,
           targetTempMaxC: stockTempMax !== '' ? Number(stockTempMax) : undefined,
           roomLabel: stockRoom || undefined,
+          coldEquipmentId: stockColdEq || undefined,
         },
       });
       setStockLot('');
       setStockQty('10');
-      setOk('Entrada de estoque registrada (MVP — sem monitoramento contínuo).');
+      setOk('Entrada de estoque registrada (frio beyond-MVP — sem IoT contínuo).');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha no estoque');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onColdEqSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!facilityId) {
+      setError('Selecione uma unidade.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    try {
+      await api('/v1/vaccination-cold-equipment', {
+        method: 'POST',
+        json: {
+          facilityId,
+          code: eqCode,
+          label: eqLabel,
+          kind: eqKind,
+          targetTempMinC: Number(eqMin),
+          targetTempMaxC: Number(eqMax),
+        },
+      });
+      setEqCode('');
+      setEqLabel('');
+      setOk('Equipamento frio cadastrado (RF-14.17).');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha no equipamento');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onBoxSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!facilityId) {
+      setError('Selecione uma unidade.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    try {
+      await api('/v1/vaccination-thermal-boxes', {
+        method: 'POST',
+        json: {
+          facilityId,
+          code: boxCode,
+          label: boxLabel,
+          coldEquipmentId: boxEq || undefined,
+        },
+      });
+      setBoxCode('');
+      setBoxLabel('');
+      setOk('Caixa térmica cadastrada (RF-14.18).');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha na caixa térmica');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onTempSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!facilityId) {
+      setError('Selecione uma unidade.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    try {
+      const res = await api<{ withinRange: boolean }>('/v1/vaccination-temp-readings', {
+        method: 'POST',
+        json: {
+          facilityId,
+          coldEquipmentId: readEq || undefined,
+          thermalBoxId: readBox || undefined,
+          temperatureC: Number(readTemp),
+        },
+      });
+      setOk(
+        res.withinRange
+          ? 'Leitura registrada — dentro da faixa alvo.'
+          : 'Leitura registrada — FORA da faixa alvo (RF-14.19 manual).',
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha na leitura');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSupplySubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!facilityId) {
+      setError('Selecione uma unidade.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    try {
+      await api('/v1/vaccination-supplies', {
+        method: 'POST',
+        json: {
+          facilityId,
+          sku: supSku,
+          label: supLabel,
+          quantity: Number(supQty),
+          unit: 'un',
+        },
+      });
+      setSupSku('');
+      setSupLabel('');
+      setOk('Insumo registrado (RF-14.4/14.6 leve).');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha no insumo');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onLinkSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!linkSupplyId) {
+      setError('Selecione um insumo para vincular.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setOk(null);
+    try {
+      await api('/v1/vaccination-supply-links', {
+        method: 'POST',
+        json: {
+          immunobiologicalId: linkImm,
+          supplyId: linkSupplyId,
+          qtyPerDose: 1,
+        },
+      });
+      setOk(`Vínculo ${linkImm} → insumo criado (baixa na aplicação).`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha no vínculo');
     } finally {
       setBusy(false);
     }
@@ -239,7 +465,7 @@ function VaccinationInner() {
       <PageHeader
         title="Vacinação"
         eyebrow="Operação"
-        description="Aplicar · estoque/frio MVP · cartão · lista do dia."
+        description="Aplicar · estoque/frio · insumos · cartão · lista do dia."
         actions={
           <>
             <HelpLink id="vacinacao.aplicacao" />
@@ -402,17 +628,19 @@ function VaccinationInner() {
       {tab === 'estoque' ? (
         <div className="stack">
           <div className="alert">
-            <strong>MVP estoque / cadeia de frio declarada</strong>
+            <strong>Estoque / cadeia de frio (beyond-MVP)</strong>
             <p style={{ margin: '6px 0 0' }}>
               {catalog?.stock?.note ||
-                'Lote, validade, quantidade, unidade e faixa °C alvo. Baixa automática na aplicação se o lote existir; void devolve qty.'}
+                'Lote, equipamento frio, caixa térmica, leitura manual °C e insumos leves. Baixa automática na aplicação; void devolve.'}
             </p>
             <p style={{ margin: '8px 0 0', color: 'var(--ink-3)' }}>
               <strong>Não é:</strong>{' '}
               {(catalog?.stock?.notIncluded || ['Monitoramento contínuo de geladeira (IoT)']).join(' · ')}
             </p>
           </div>
+
           <form className="card" onSubmit={onStockSubmit} style={{ marginBottom: 16 }}>
+            <h3 style={{ marginTop: 0 }}>Entrada de lote</h3>
             <div className="grid-2">
               <div className="field">
                 <label>Imunobiológico *</label>
@@ -453,6 +681,17 @@ function VaccinationInner() {
                 />
               </div>
               <div className="field">
+                <label>Equipamento frio</label>
+                <select value={stockColdEq} onChange={(e) => setStockColdEq(e.target.value)}>
+                  <option value="">Opcional…</option>
+                  {coldEqs.map((eq) => (
+                    <option key={eq.id} value={eq.id}>
+                      {eq.code} — {eq.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
                 <label>Sala / geladeira (rótulo)</label>
                 <input
                   value={stockRoom}
@@ -473,7 +712,8 @@ function VaccinationInner() {
               {busy ? 'Salvando…' : 'Entrada de estoque'}
             </button>
           </form>
-          <div className="table-wrap">
+
+          <div className="table-wrap" style={{ marginBottom: 16 }}>
             <table className="data">
               <thead>
                 <tr>
@@ -482,7 +722,7 @@ function VaccinationInner() {
                   <th>Qty</th>
                   <th>Validade</th>
                   <th>°C alvo</th>
-                  <th>Sala</th>
+                  <th>Equipamento / sala</th>
                 </tr>
               </thead>
               <tbody>
@@ -499,7 +739,11 @@ function VaccinationInner() {
                         ? `${s.targetTempMinC ?? '?'}–${s.targetTempMaxC ?? '?'} °C`
                         : '—'}
                     </td>
-                    <td>{s.roomLabel || '—'}</td>
+                    <td>
+                      {s.coldEquipment
+                        ? `${s.coldEquipment.code} — ${s.coldEquipment.label}`
+                        : s.roomLabel || '—'}
+                    </td>
                   </tr>
                 ))}
                 {!stockRows.length ? (
@@ -511,6 +755,224 @@ function VaccinationInner() {
               </tbody>
             </table>
           </div>
+
+          <form className="card" onSubmit={onColdEqSubmit} style={{ marginBottom: 16 }}>
+            <h3 style={{ marginTop: 0 }}>Equipamento frio (RF-14.17)</h3>
+            <div className="grid-2">
+              <div className="field">
+                <label>Código *</label>
+                <input className="mono" required value={eqCode} onChange={(e) => setEqCode(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Nome *</label>
+                <input required value={eqLabel} onChange={(e) => setEqLabel(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Tipo</label>
+                <select value={eqKind} onChange={(e) => setEqKind(e.target.value)}>
+                  <option value="REFRIGERATOR">Geladeira</option>
+                  <option value="FREEZER">Freezer</option>
+                  <option value="COLD_ROOM">Câmara fria</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>Faixa °C</label>
+                <div className="row" style={{ gap: 8 }}>
+                  <input value={eqMin} onChange={(e) => setEqMin(e.target.value)} style={{ width: 72 }} />
+                  <span>–</span>
+                  <input value={eqMax} onChange={(e) => setEqMax(e.target.value)} style={{ width: 72 }} />
+                </div>
+              </div>
+            </div>
+            <button className="btn btn-secondary" type="submit" disabled={busy || !facilityId}>
+              Cadastrar equipamento
+            </button>
+            {coldEqs.length ? (
+              <p style={{ marginTop: 10, color: 'var(--ink-3)' }}>
+                {coldEqs.map((eq) => `${eq.code} (${eq.kind}, ${eq.targetTempMinC}–${eq.targetTempMaxC}°C)`).join(' · ')}
+              </p>
+            ) : null}
+          </form>
+
+          <form className="card" onSubmit={onBoxSubmit} style={{ marginBottom: 16 }}>
+            <h3 style={{ marginTop: 0 }}>Caixa térmica (RF-14.18)</h3>
+            <div className="grid-2">
+              <div className="field">
+                <label>Código *</label>
+                <input className="mono" required value={boxCode} onChange={(e) => setBoxCode(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Nome *</label>
+                <input required value={boxLabel} onChange={(e) => setBoxLabel(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Guardada em</label>
+                <select value={boxEq} onChange={(e) => setBoxEq(e.target.value)}>
+                  <option value="">Opcional…</option>
+                  {coldEqs.map((eq) => (
+                    <option key={eq.id} value={eq.id}>
+                      {eq.code} — {eq.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <button className="btn btn-secondary" type="submit" disabled={busy || !facilityId}>
+              Cadastrar caixa
+            </button>
+            {thermalBoxes.length ? (
+              <p style={{ marginTop: 10, color: 'var(--ink-3)' }}>
+                {thermalBoxes.map((b) => `${b.code} (${b.status})`).join(' · ')}
+              </p>
+            ) : null}
+          </form>
+
+          <form className="card" onSubmit={onTempSubmit} style={{ marginBottom: 16 }}>
+            <h3 style={{ marginTop: 0 }}>Leitura manual de temperatura (RF-14.19)</h3>
+            <div className="grid-2">
+              <div className="field">
+                <label>Equipamento</label>
+                <select value={readEq} onChange={(e) => setReadEq(e.target.value)}>
+                  <option value="">—</option>
+                  {coldEqs.map((eq) => (
+                    <option key={eq.id} value={eq.id}>
+                      {eq.code}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Caixa térmica</label>
+                <select value={readBox} onChange={(e) => setReadBox(e.target.value)}>
+                  <option value="">—</option>
+                  {thermalBoxes.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.code}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Temperatura (°C) *</label>
+                <input required value={readTemp} onChange={(e) => setReadTemp(e.target.value)} />
+              </div>
+            </div>
+            <button className="btn btn-secondary" type="submit" disabled={busy || !facilityId}>
+              Registrar leitura
+            </button>
+            {tempReadings.length ? (
+              <div className="table-wrap" style={{ marginTop: 12 }}>
+                <table className="data">
+                  <thead>
+                    <tr>
+                      <th>Quando</th>
+                      <th>Onde</th>
+                      <th>°C</th>
+                      <th>Faixa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tempReadings.slice(0, 8).map((r) => (
+                      <tr key={r.id}>
+                        <td className="mono">{formatDateTime(r.recordedAt)}</td>
+                        <td>
+                          {r.coldEquipment?.code || r.thermalBox?.code || '—'}
+                        </td>
+                        <td className="mono">{r.temperatureC}</td>
+                        <td>{r.withinRange ? 'OK' : 'FORA'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </form>
+
+          <form className="card" onSubmit={onSupplySubmit} style={{ marginBottom: 16 }}>
+            <h3 style={{ marginTop: 0 }}>Insumos leves (RF-14.4 / 14.6)</h3>
+            <div className="grid-2">
+              <div className="field">
+                <label>SKU *</label>
+                <input className="mono" required value={supSku} onChange={(e) => setSupSku(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Nome *</label>
+                <input required value={supLabel} onChange={(e) => setSupLabel(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Quantidade *</label>
+                <input
+                  type="number"
+                  min={0}
+                  required
+                  value={supQty}
+                  onChange={(e) => setSupQty(e.target.value)}
+                />
+              </div>
+            </div>
+            <button className="btn btn-secondary" type="submit" disabled={busy || !facilityId}>
+              Registrar insumo
+            </button>
+          </form>
+
+          <form className="card" onSubmit={onLinkSubmit} style={{ marginBottom: 16 }}>
+            <h3 style={{ marginTop: 0 }}>Vínculo imuno → insumo</h3>
+            <div className="grid-2">
+              <div className="field">
+                <label>Imunobiológico</label>
+                <select value={linkImm} onChange={(e) => setLinkImm(e.target.value)}>
+                  {(catalog?.immunobiologicals || []).map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Insumo</label>
+                <select value={linkSupplyId} onChange={(e) => setLinkSupplyId(e.target.value)}>
+                  <option value="">Selecionar…</option>
+                  {supplies.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.sku} — {s.label} ({s.quantity} {s.unit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <button className="btn btn-secondary" type="submit" disabled={busy || !linkSupplyId}>
+              Vincular (1 un/dose)
+            </button>
+            {supplies.length ? (
+              <div className="table-wrap" style={{ marginTop: 12 }}>
+                <table className="data">
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>Nome</th>
+                      <th>Qty</th>
+                      <th>Vínculos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {supplies.map((s) => (
+                      <tr key={s.id}>
+                        <td className="mono">{s.sku}</td>
+                        <td>{s.label}</td>
+                        <td className="mono">
+                          {s.quantity} {s.unit}
+                        </td>
+                        <td>
+                          {(s.links || []).map((l) => `${l.immunobiologicalId}×${l.qtyPerDose}`).join(', ') ||
+                            '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </form>
         </div>
       ) : null}
 

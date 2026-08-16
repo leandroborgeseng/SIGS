@@ -205,9 +205,9 @@ export function replaceOverlays(input: {
   getImmunobiologicals();
 }
 
-/** Estoque/frio MVP — RF-14.3–6 / 15–19 parciais (sem IoT). */
+/** Estoque/frio + almox vacinal leve — RF-14.3–6 / 15–19 (sem IoT). */
 export const STOCK_MVP = {
-  status: 'mvp' as const,
+  status: 'beyond-mvp' as const,
   rf: [
     'RF-14.3',
     'RF-14.4',
@@ -225,20 +225,42 @@ export const STOCK_MVP = {
     targetTempRangeC: true,
     applyDecrementWhenStockExists: true,
     voidRestoreQuantity: true,
+    coldEquipmentRegistry: true,
+    thermalBoxRegistry: true,
+    manualTempReadings: true,
+    supplyLinksAndConsume: true,
+    stockLotColdEquipmentLink: true,
   },
   notIncluded: [
     'Monitoramento contínuo de geladeira (sensores/IoT)',
     'Alarmes e gráficos de temperatura em tempo real',
-    'Cadastro de equipamentos frios / caixa térmica',
-    'Almoxarifado geral e vínculo de insumos farmácia',
+    'Almoxarifado farmacêutico geral / farmácia municipal',
     'Transferência entre salas/unidades',
   ],
   note:
-    'MVP: lote + validade + qty + unidade + faixa °C alvo declarada. Baixa no create se houver estoque do lote; void devolve. Sem hardware.',
+    'Lote + validade + qty + equipamento frio + caixa térmica + leitura manual °C + insumos leves (seringas etc.) vinculados ao imuno. Baixa estoque/insumos no create; void devolve. Sem IoT.',
 };
 
 /** @deprecated use STOCK_MVP */
 export const STOCK_STUB = STOCK_MVP;
+
+export const COLD_EQUIPMENT_KINDS = [
+  { id: 'REFRIGERATOR', label: 'Geladeira' },
+  { id: 'FREEZER', label: 'Freezer' },
+  { id: 'COLD_ROOM', label: 'Câmara fria' },
+] as const;
+
+export const COLD_EQUIPMENT_STATUSES = [
+  { id: 'ACTIVE', label: 'Ativo' },
+  { id: 'MAINTENANCE', label: 'Manutenção' },
+  { id: 'INACTIVE', label: 'Inativo' },
+] as const;
+
+export const THERMAL_BOX_STATUSES = [
+  { id: 'AVAILABLE', label: 'Disponível' },
+  { id: 'IN_USE', label: 'Em uso' },
+  { id: 'MAINTENANCE', label: 'Manutenção' },
+] as const;
 
 export function resolveImmunoLediId(id: string): number | null {
   return byId(getImmunobiologicals(), id)?.lediId ?? null;

@@ -60,7 +60,109 @@ export class CreateVaccinationStockDto {
   @IsNumber()
   targetTempMaxC?: number;
   @IsOptional() @IsString() roomLabel?: string;
+  /** Equipamento frio cadastrado (RF-14.17) */
+  @IsOptional() @IsString() coldEquipmentId?: string;
   @IsOptional() @IsString() note?: string;
+}
+
+export class CreateColdEquipmentDto {
+  @IsString() facilityId!: string;
+  @IsString() @MaxLength(40) code!: string;
+  @IsString() @MaxLength(120) label!: string;
+  @IsOptional() @IsString() kind?: string;
+  @Type(() => Number)
+  @IsNumber()
+  targetTempMinC!: number;
+  @Type(() => Number)
+  @IsNumber()
+  targetTempMaxC!: number;
+  @IsOptional() @IsString() status?: string;
+}
+
+export class PatchColdEquipmentDto {
+  @IsOptional() @IsString() @MaxLength(120) label?: string;
+  @IsOptional() @IsString() kind?: string;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  targetTempMinC?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  targetTempMaxC?: number;
+  @IsOptional() @IsString() status?: string;
+  @IsOptional() @IsBoolean() active?: boolean;
+}
+
+export class CreateThermalBoxDto {
+  @IsString() facilityId!: string;
+  @IsString() @MaxLength(40) code!: string;
+  @IsString() @MaxLength(120) label!: string;
+  @IsOptional() @IsString() coldEquipmentId?: string;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  targetTempMinC?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  targetTempMaxC?: number;
+  @IsOptional() @IsString() status?: string;
+}
+
+export class PatchThermalBoxDto {
+  @IsOptional() @IsString() @MaxLength(120) label?: string;
+  @IsOptional() @IsString() coldEquipmentId?: string;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  targetTempMinC?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  targetTempMaxC?: number;
+  @IsOptional() @IsString() status?: string;
+  @IsOptional() @IsBoolean() active?: boolean;
+}
+
+export class CreateTempReadingDto {
+  @IsString() facilityId!: string;
+  @IsOptional() @IsString() coldEquipmentId?: string;
+  @IsOptional() @IsString() thermalBoxId?: string;
+  @Type(() => Number)
+  @IsNumber()
+  temperatureC!: number;
+  @IsOptional() @IsDateString() recordedAt?: string;
+  @IsOptional() @IsString() note?: string;
+}
+
+export class CreateSupplyDto {
+  @IsString() facilityId!: string;
+  @IsString() @MaxLength(40) sku!: string;
+  @IsString() @MaxLength(120) label!: string;
+  @IsOptional() @IsString() unit?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  quantity!: number;
+}
+
+export class SupplyEntryDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  quantity!: number;
+  @IsOptional() @IsString() note?: string;
+}
+
+export class CreateSupplyLinkDto {
+  @IsString() immunobiologicalId!: string;
+  @IsString() supplyId!: string;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  qtyPerDose?: number;
 }
 
 export class SyncVaccinationCatalogDto {

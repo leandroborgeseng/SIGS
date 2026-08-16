@@ -45,15 +45,15 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-14.11 | Obr | parcial | automatizado | aplicação + batch + `clinical-core` VAC + UI `/vacinacao` + `POST …/void` local |
 | RF-14.13 | Obr | parcial | previsto | `GET …/vaccination-card.pdf` + botão imprimir em `/vacinacao` |
 | RF-14.14 | Obr | parcial | automatizado | lote/fabricante + `lotExpiry` opcional na aplicação |
-| RF-14.3 | Des | parcial | n/a | faixa °C alvo + `roomLabel` no lote de estoque (sem cadastro de equipamento frio) |
-| RF-14.4 | Obr | stub | n/a | vínculo almoxarifado/farmácia — fora do MVP |
+| RF-14.3 | Des | parcial | n/a | faixa °C alvo no lote + herdada do equipamento frio |
+| RF-14.4 | Obr | parcial | automatizado | `VaccinationSupply` + `SupplyLink` imuno→insumo (sem farmácia geral) |
 | RF-14.5 | Obr | stub | n/a | nº doses no cadastro vacina — catálogo LEDI; qty estoque separada |
-| RF-14.6 | Obr | stub | n/a | outros insumos na aplicação — fora do MVP |
-| RF-14.15 | Obr | parcial | automatizado | `POST /v1/vaccination-stock` entrada por unidade + lote |
+| RF-14.6 | Obr | parcial | automatizado | baixa insumos na aplicação + estorno no void |
+| RF-14.15 | Obr | parcial | automatizado | `POST /v1/vaccination-stock` entrada por unidade + lote (+ equipamento) |
 | RF-14.16 | Des | parcial | automatizado | listagem qty + baixa no `create` se estoque do lote existir |
-| RF-14.17 | Obr | stub | n/a | equipamentos frios — não (só rótulo sala) |
-| RF-14.18 | Obr | stub | n/a | caixa térmica — não |
-| RF-14.19 | Obr | parcial | n/a | temperatura alvo/faixa declarada; **não** monitoramento contínuo geladeira |
+| RF-14.17 | Obr | parcial | automatizado | `VaccinationColdEquipment` CRUD + vínculo no lote |
+| RF-14.18 | Obr | parcial | automatizado | `VaccinationThermalBox` CRUD + status operacional |
+| RF-14.19 | Obr | parcial | automatizado | leitura **manual** °C + `withinRange`; **não** IoT contínuo |
 | RF-12.2 | Obr | coberto | automatizado | lotação/`assignmentId` na abertura `/odonto` + header LEDI |
 | RF-12.3 | Obr | coberto | automatizado | paciente na abertura + identificação na ficha |
 | RF-12.5 | Obr | coberto | automatizado | `tipoAtendimento` (default 5) + UI select |

@@ -8,7 +8,7 @@ describe('VaccinationsService stock MVP', () => {
   }
 
   it('STOCK_MVP declara o que não é (sem IoT contínuo)', () => {
-    expect(STOCK_MVP.status).toBe('mvp');
+    expect(STOCK_MVP.status).toBe('beyond-mvp');
     expect(STOCK_MVP.notIncluded.some((n) => /Monitoramento contínuo/i.test(n))).toBe(true);
     expect(STOCK_MVP.features.applyDecrementWhenStockExists).toBe(true);
     expect(STOCK_MVP.features.voidRestoreQuantity).toBe(true);
@@ -48,7 +48,7 @@ describe('VaccinationsService stock MVP', () => {
         data: expect.objectContaining({ kind: 'ENTRY', quantityDelta: 10 }),
       }),
     );
-    expect(out.stock.status).toBe('mvp');
+    expect(out.stock.status).toBe('beyond-mvp');
   });
 
   it('createStock soma qty se lote já existir', async () => {
@@ -120,6 +120,12 @@ describe('VaccinationsService stock MVP', () => {
       vaccinationStockLot: {
         update: jest.fn(),
       },
+      vaccinationSupplyMovement: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
+      vaccinationSupply: { update: jest.fn() },
       audit: jest.fn(),
     };
     const service = makeStockService(prisma);

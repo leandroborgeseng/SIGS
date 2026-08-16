@@ -21,6 +21,10 @@ model Facility {
   encounters Encounter[]
   vaccinations VaccinationRecord[]
   vaccinationStockLots VaccinationStockLot[]
+  vaccinationColdEquipments VaccinationColdEquipment[]
+  vaccinationThermalBoxes VaccinationThermalBox[]
+  vaccinationTempReadings VaccinationTempReading[]
+  vaccinationSupplies VaccinationSupply[]
   dentalEncounters DentalEncounter[]
   homeCareVisits HomeCareVisit[]
   collectiveActivities CollectiveActivity[]
@@ -433,7 +437,7 @@ model VaccinationAgeRange {
   @@map("vaccination_age_ranges")
 }
 
-/// Estoque vacinal por lote na unidade — RF-14.15/14.16 (MVP).
+/// Estoque vacinal por lote na unidade — RF-14.15/14.16.
 /// Temperatura alvo/faixa declarada; NÃO é monitoramento contínuo de geladeira.
 model VaccinationStockLot {
   id                 String    @id @default(uuid())
@@ -449,19 +453,23 @@ model VaccinationStockLot {
   /// Faixa de temperatura alvo (°C) — declarado, sem IoT
   targetTempMinC     Float?    @map("target_temp_min_c")
   targetTempMaxC     Float?    @map("target_temp_max_c")
-  /// Rótulo da sala/geladeira (texto livre; sem cadastro de equipamento)
+  /// Rótulo da sala/geladeira (texto livre)
   roomLabel          String?   @map("room_label")
+  /// Equipamento frio cadastrado (RF-14.17) — opcional
+  coldEquipmentId    String?   @map("cold_equipment_id")
   active             Boolean   @default(true)
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  facility  Facility                   @relation(fields: [facilityId], references: [id])
-  movements VaccinationStockMovement[]
+  facility      Facility                  @relation(fields: [facilityId], references: [id])
+  coldEquipment VaccinationColdEquipment? @relation(fields: [coldEquipmentId], references: [id])
+  movements     VaccinationStockMovement[]
 
   @@unique([facilityId, immunobiologicalId, lot])
   @@index([facilityId, active])
   @@index([immunobiologicalId])
   @@index([expiresAt])
+  @@index([coldEquipmentId])
   @@map("vaccination_stock_lots")
 }
 
@@ -483,6 +491,138 @@ model VaccinationStockMovement {
   @@index([vaccinationRecordId])
   @@index([kind])
   @@map("vaccination_stock_movements")
+}
+
+/// Equipamento frio (geladeira/freezer/câmara) — RF-14.17 (sem IoT).
+model VaccinationColdEquipment {
+  id             String   @id @default(uuid())
+  facilityId     String   @map("facility_id")
+  code           String
+  label          String
+  /// REFRIGERATOR | FREEZER | COLD_ROOM
+  kind           String   @default("REFRIGERATOR")
+  targetTempMinC Float    @map("target_temp_min_c")
+  targetTempMaxC Float    @map("target_temp_max_c")
+  /// ACTIVE | MAINTENANCE | INACTIVE
+  status         String   @default("ACTIVE")
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  facility     Facility                   @relation(fields: [facilityId], references: [id])
+  stockLots    VaccinationStockLot[]
+  thermalBoxes VaccinationThermalBox[]
+  readings     VaccinationTempReading[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId, active])
+  @@index([status])
+  @@map("vaccination_cold_equipments")
+}
+
+/// Caixa térmica — RF-14.18 (controle operacional sem sensor).
+model VaccinationThermalBox {
+  id              String   @id @default(uuid())
+  facilityId      String   @map("facility_id")
+  code            String
+  label           String
+  coldEquipmentId String?  @map("cold_equipment_id")
+  targetTempMinC  Float?   @map("target_temp_min_c")
+  targetTempMaxC  Float?   @map("target_temp_max_c")
+  /// AVAILABLE | IN_USE | MAINTENANCE
+  status          String   @default("AVAILABLE")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  facility      Facility                  @relation(fields: [facilityId], references: [id])
+  coldEquipment VaccinationColdEquipment? @relation(fields: [coldEquipmentId], references: [id])
+  readings      VaccinationTempReading[]
+
+  @@unique([facilityId, code])
+  @@index([facilityId, active])
+  @@index([status])
+  @@index([coldEquipmentId])
+  @@map("vaccination_thermal_boxes")
+}
+
+/// Leitura manual de temperatura — RF-14.19 (não é IoT contínuo).
+model VaccinationTempReading {
+  id              String   @id @default(uuid())
+  facilityId      String   @map("facility_id")
+  coldEquipmentId String?  @map("cold_equipment_id")
+  thermalBoxId    String?  @map("thermal_box_id")
+  temperatureC    Float    @map("temperature_c")
+  recordedAt      DateTime @default(now()) @map("recorded_at")
+  withinRange     Boolean  @map("within_range")
+  note            String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  facility      Facility                  @relation(fields: [facilityId], references: [id])
+  coldEquipment VaccinationColdEquipment? @relation(fields: [coldEquipmentId], references: [id])
+  thermalBox    VaccinationThermalBox?    @relation(fields: [thermalBoxId], references: [id])
+
+  @@index([facilityId, recordedAt])
+  @@index([coldEquipmentId])
+  @@index([thermalBoxId])
+  @@index([withinRange])
+  @@map("vaccination_temp_readings")
+}
+
+/// Insumo vacinal leve (almoxarifado da sala) — RF-14.4/14.6 (sem farmácia geral).
+model VaccinationSupply {
+  id         String   @id @default(uuid())
+  facilityId String   @map("facility_id")
+  sku        String
+  label      String
+  unit       String   @default("un")
+  quantity   Int      @default(0)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  facility Facility                @relation(fields: [facilityId], references: [id])
+  links    VaccinationSupplyLink[]
+  movements VaccinationSupplyMovement[]
+
+  @@unique([facilityId, sku])
+  @@index([facilityId, active])
+  @@map("vaccination_supplies")
+}
+
+/// Vínculo imunobiológico → insumos por dose — RF-14.4/14.6.
+model VaccinationSupplyLink {
+  id                 String @id @default(uuid())
+  immunobiologicalId String @map("immunobiological_id")
+  supplyId           String @map("supply_id")
+  qtyPerDose         Int    @default(1) @map("qty_per_dose")
+  active             Boolean @default(true)
+
+  supply VaccinationSupply @relation(fields: [supplyId], references: [id])
+
+  @@unique([immunobiologicalId, supplyId])
+  @@index([immunobiologicalId])
+  @@index([supplyId])
+  @@map("vaccination_supply_links")
+}
+
+/// Movimentos de insumos vacinais (entrada, baixa aplicação, estorno void).
+model VaccinationSupplyMovement {
+  id                  String   @id @default(uuid())
+  supplyId            String   @map("supply_id")
+  /// ENTRY | APPLY | VOID_RETURN | ADJUST
+  kind                String
+  quantityDelta       Int      @map("quantity_delta")
+  vaccinationRecordId String?  @map("vaccination_record_id")
+  note                String?
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  supply VaccinationSupply @relation(fields: [supplyId], references: [id])
+
+  @@index([supplyId])
+  @@index([vaccinationRecordId])
+  @@index([kind])
+  @@map("vaccination_supply_movements")
 }
 
 model ProductionBatch {
