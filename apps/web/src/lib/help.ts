@@ -327,7 +327,7 @@ Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturament
     version: '0.2.0',
     updatedAt: '2026-08-16',
     summary: 'Cruzamento produção × rede municipal CNES/INE/CNS/CBO/SIGTAP por competência.',
-    body: `Em /faturamento/auditoria escolha a competência (YYYY-MM). Escopo default = rede municipal (Prefeitura; natureza jurídica 1244). Severidade blocker bloqueia envio; quality é qualidade/Previne. Checks: CNES ativo, INE, CNS/CBO vs lotação, SIGTAP, CIAP, conduta. Export CSV. Sem PHI. Não altera o wizard LEDI.
+    body: `Em /faturamento/auditoria escolha a competência (YYYY-MM). Escopo default = rede municipal (Prefeitura; natureza jurídica 1244). Severidade blocker bloqueia envio; quality é qualidade/Previne. Checks: CNES ativo, INE, CNS/CBO vs lotação, SIGTAP, CIAP, conduta. Coluna Abrir: encounter → fila APS/odonto (?encounterId=); production_record → paciente; batch → wizard do lote (?batchId=). Export CSV. Sem PHI. Não altera o wizard LEDI.
 
 Ver também: faturamento.cruzamentos · faturamento.siaps-vs-previne.`,
   },

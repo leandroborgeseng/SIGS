@@ -45,6 +45,9 @@ export type FatAuditFinding = {
   professionalCns?: string | null;
   cbo?: string | null;
   procedureCode?: string | null;
+  /** Deep-link UI (fila APS/odonto, paciente, wizard lote) */
+  href?: string | null;
+  patientId?: string | null;
   details?: Record<string, unknown>;
 };
 
@@ -93,7 +96,49 @@ type ProdUnit = {
   ciaps: string[];
   hasCondutaField: boolean;
   condutaOk: boolean;
+  patientId?: string;
+  href?: string;
 };
+
+/** Mapa kind/ficha → rota de lote ou fila. */
+export function resolveFatAuditHref(opts: {
+  sourceType: FatAuditFinding['sourceType'];
+  sourceId: string;
+  fichaTipo?: string | null;
+  patientId?: string | null;
+}): string {
+  const tipo = String(opts.fichaTipo || '').toLowerCase();
+  if (opts.sourceType === 'encounter') {
+    const odonto = /fao|dental|odonto/.test(tipo);
+    const base = odonto ? '/faturamento/odonto' : '/faturamento/aps';
+    return `${base}?encounterId=${encodeURIComponent(opts.sourceId)}`;
+  }
+  if (opts.sourceType === 'production_record') {
+    if (opts.patientId) return `/pacientes/${encodeURIComponent(opts.patientId)}`;
+    const odonto = /fao|dental|odonto/.test(tipo);
+    return odonto ? '/faturamento/odonto' : '/faturamento/aps';
+  }
+  // batch / productionBatch.kind
+  const loteByKind: Record<string, string> = {
+    individual_encounter: '/faturamento/lote/fai',
+    fai: '/faturamento/lote/fai',
+    dental_encounter: '/faturamento/lote/fao',
+    fao: '/faturamento/lote/fao',
+    procedimentos: '/faturamento/lote/proc',
+    proc: '/faturamento/lote/proc',
+    vaccination: '/faturamento',
+    vacina: '/faturamento',
+    home_care: '/faturamento/lote/ad',
+    ad: '/faturamento/lote/ad',
+    collective_activity: '/faturamento/lote/coletivo',
+    coletivo: '/faturamento/lote/coletivo',
+    cadastro_individual: '/faturamento/lote/cadastro-individual',
+    cadastro_domiciliar: '/faturamento/lote/domicilio',
+    visita_acs: '/faturamento/lote/visita-acs',
+  };
+  const path = loteByKind[tipo] || '/faturamento';
+  return `${path}?batchId=${encodeURIComponent(opts.sourceId)}`;
+}
 
 const KIND_DEFAULT_PROC: Record<string, string> = {
   individual_encounter: '0301010064',
@@ -266,7 +311,7 @@ function unitFromBatch(row: {
   );
   const cbo = str(header.cboCodigo_2002 || header.cbo || lotacao.cboCodigo_2002 || payload.cbo);
   const conduta = extractConduta(payload, row.kind);
-  return {
+  const unit: ProdUnit = {
     sourceType: 'batch',
     sourceId: row.id,
     fichaTipo: row.kind,
@@ -279,10 +324,13 @@ function unitFromBatch(row: {
     hasCondutaField: conduta.hasField,
     condutaOk: conduta.ok,
   };
+  unit.href = resolveFatAuditHref(unit);
+  return unit;
 }
 
 function unitFromProductionRecord(row: {
   id: string;
+  patientId: string;
   fichaTipo: string;
   facilityCnes: string | null;
   professionalCns: string | null;
@@ -307,7 +355,7 @@ function unitFromProductionRecord(row: {
           ? 'home_care'
           : row.fichaTipo;
   const conduta = extractConduta(payload, kindHint);
-  return {
+  const unit: ProdUnit = {
     sourceType: 'production_record',
     sourceId: row.id,
     fichaTipo: row.fichaTipo,
@@ -319,7 +367,10 @@ function unitFromProductionRecord(row: {
     ciaps: extractCiaps(payload),
     hasCondutaField: conduta.hasField,
     condutaOk: conduta.ok,
+    patientId: row.patientId,
   };
+  unit.href = resolveFatAuditHref(unit);
+  return unit;
 }
 
 @Injectable()
@@ -365,6 +416,7 @@ export class FaturamentoAuditService {
       },
       select: {
         id: true,
+        patientId: true,
         fichaTipo: true,
         facilityCnes: true,
         professionalCns: true,
@@ -401,7 +453,7 @@ export class FaturamentoAuditService {
         clinical = {};
       }
       const team = enc.teamId ? teamById.get(enc.teamId) : undefined;
-      units.push({
+      const unit: ProdUnit = {
         sourceType: 'encounter',
         sourceId: enc.id,
         fichaTipo: enc.encounterType || 'NATIVE',
@@ -423,7 +475,10 @@ export class FaturamentoAuditService {
           },
           'individual_encounter',
         ).ok,
-      });
+        patientId: enc.patientId,
+      };
+      unit.href = resolveFatAuditHref(unit);
+      units.push(unit);
     }
 
     const allProcCodes = [...new Set(units.flatMap((u) => u.procedureCodes))];
@@ -634,6 +689,8 @@ export class FaturamentoAuditService {
       ine: u.ine || null,
       professionalCns: u.professionalCns || null,
       cbo: u.cbo || null,
+      href: u.href || resolveFatAuditHref(u),
+      patientId: u.patientId || null,
     };
 
     const cnesNorm = normalizeCnes(u.cnes) || u.cnes;

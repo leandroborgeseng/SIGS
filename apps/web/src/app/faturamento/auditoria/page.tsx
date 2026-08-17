@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, PageHeader, TableStateRow } from '@/components/ui/PageHeader';
@@ -19,6 +20,8 @@ type Finding = {
   professionalCns?: string | null;
   cbo?: string | null;
   procedureCode?: string | null;
+  href?: string | null;
+  patientId?: string | null;
 };
 
 type AuditReport = {
@@ -255,6 +258,7 @@ export default function FaturamentoAuditoriaPage() {
               <th>INE</th>
               <th>SIGTAP</th>
               <th>Fonte</th>
+              <th>Abrir</th>
             </tr>
           </thead>
           <tbody>
@@ -281,10 +285,23 @@ export default function FaturamentoAuditoriaPage() {
                   {f.fichaTipo ? ` · ${f.fichaTipo}` : ''}
                   {f.sourceId ? ` · ${f.sourceId.slice(0, 8)}` : ''}
                 </td>
+                <td>
+                  {f.href ? (
+                    <Link className="btn ghost" href={f.href} style={{ fontSize: 12, padding: '4px 8px' }}>
+                      {f.sourceType === 'encounter'
+                        ? 'Fila'
+                        : f.sourceType === 'production_record'
+                          ? 'Paciente'
+                          : 'Lote'}
+                    </Link>
+                  ) : (
+                    '—'
+                  )}
+                </td>
               </tr>
             ))}
             {!filtered.length ? (
-              <TableStateRow colSpan={7} loading={loading} empty="Nenhum finding com os filtros atuais." />
+              <TableStateRow colSpan={8} loading={loading} empty="Nenhum finding com os filtros atuais." />
             ) : null}
           </tbody>
         </table>
