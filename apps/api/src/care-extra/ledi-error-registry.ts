@@ -10,7 +10,16 @@
 export type LediSeverity = 'BLOCKER' | 'MONEY_RISK' | 'QUALITY_WARN' | 'INFO';
 export type LediChannel = 'LEDI' | 'PREVINE' | 'LOTE';
 export type LediRepairClass = 'auto' | 'semi' | 'individual' | 'reexport' | 'info';
-export type LediFichaTipo = 'FAO' | 'FAI' | 'PROC';
+export type LediFichaTipo =
+  | 'FAO'
+  | 'FAI'
+  | 'PROC'
+  | 'AD'
+  | 'VISITA'
+  | 'VACINA'
+  | 'COLETIVO'
+  | 'CADASTRO_INDIVIDUAL'
+  | 'CADASTRO_DOMICILIAR';
 
 export type LediErrorDef = {
   code: string;
@@ -735,6 +744,94 @@ export const LEDI_ERROR_REGISTRY: Record<string, LediErrorDef> = {
     implemented: true,
     focusField: 'proc',
     tipos: ['PROC'],
+  },
+  FAO_CNS_NOT_IN_CADASTRO_INDIVIDUAL: {
+    code: 'FAO_CNS_NOT_IN_CADASTRO_INDIVIDUAL',
+    severity: 'MONEY_RISK',
+    channel: 'PREVINE',
+    title: 'Cidadão da FAO fora do Paciente Mestre',
+    why: 'O CNS/CPF da ficha não está no cadastro individual local — o indicador Previne perde denominador/numerador.',
+    how: 'Cadastre ou vincule o cidadão em /pacientes (identifiers CNS|CPF) e recarregue o lote.',
+    repairClass: 'individual',
+    implemented: true,
+    tipos: ['FAO'],
+  },
+  FAI_CNS_NOT_IN_CADASTRO_INDIVIDUAL: {
+    code: 'FAI_CNS_NOT_IN_CADASTRO_INDIVIDUAL',
+    severity: 'MONEY_RISK',
+    channel: 'PREVINE',
+    title: 'Cidadão da FAI fora do Paciente Mestre',
+    why: 'O CNS/CPF da ficha não está no cadastro individual local.',
+    how: 'Cadastre ou vincule o cidadão em /pacientes e recarregue o lote.',
+    repairClass: 'individual',
+    implemented: true,
+    tipos: ['FAI'],
+  },
+  PROC_CNS_NOT_IN_CADASTRO_INDIVIDUAL: {
+    code: 'PROC_CNS_NOT_IN_CADASTRO_INDIVIDUAL',
+    severity: 'MONEY_RISK',
+    channel: 'PREVINE',
+    title: 'Cidadão do PROC fora do Paciente Mestre',
+    why: 'O CNS/CPF da ficha de procedimentos não está no cadastro individual local.',
+    how: 'Cadastre ou vincule o cidadão em /pacientes e recarregue o lote.',
+    repairClass: 'individual',
+    implemented: true,
+    tipos: ['PROC'],
+  },
+  AD_CNS_NOT_IN_CADASTRO_INDIVIDUAL: {
+    code: 'AD_CNS_NOT_IN_CADASTRO_INDIVIDUAL',
+    severity: 'MONEY_RISK',
+    channel: 'PREVINE',
+    title: 'Cidadão da AD fora do Paciente Mestre',
+    why: 'CNS/CPF da atenção domiciliar ausente no mestre local.',
+    how: 'Cadastre o cidadão em /pacientes.',
+    repairClass: 'individual',
+    implemented: true,
+    tipos: ['AD'],
+  },
+  VISITA_CNS_NOT_IN_CADASTRO_INDIVIDUAL: {
+    code: 'VISITA_CNS_NOT_IN_CADASTRO_INDIVIDUAL',
+    severity: 'MONEY_RISK',
+    channel: 'PREVINE',
+    title: 'Cidadão da visita fora do Paciente Mestre',
+    why: 'CNS/CPF da visita ACS ausente no mestre local.',
+    how: 'Cadastre o cidadão em /pacientes.',
+    repairClass: 'individual',
+    implemented: true,
+    tipos: ['VISITA'],
+  },
+  VACINA_CNS_NOT_IN_CADASTRO_INDIVIDUAL: {
+    code: 'VACINA_CNS_NOT_IN_CADASTRO_INDIVIDUAL',
+    severity: 'MONEY_RISK',
+    channel: 'PREVINE',
+    title: 'Cidadão da vacina fora do Paciente Mestre',
+    why: 'CNS/CPF da vacinação ausente no mestre local.',
+    how: 'Cadastre o cidadão em /pacientes.',
+    repairClass: 'individual',
+    implemented: true,
+    tipos: ['VACINA'],
+  },
+  COLETIVO_CNS_NOT_IN_CADASTRO_INDIVIDUAL: {
+    code: 'COLETIVO_CNS_NOT_IN_CADASTRO_INDIVIDUAL',
+    severity: 'MONEY_RISK',
+    channel: 'PREVINE',
+    title: 'Participante do coletivo fora do Paciente Mestre',
+    why: 'Identificador de cidadão no coletivo ausente no mestre (quando aplicável).',
+    how: 'Cadastre o cidadão em /pacientes.',
+    repairClass: 'individual',
+    implemented: true,
+    tipos: ['COLETIVO'],
+  },
+  PROD_CNS_NOT_IN_CADASTRO_INDIVIDUAL: {
+    code: 'PROD_CNS_NOT_IN_CADASTRO_INDIVIDUAL',
+    severity: 'MONEY_RISK',
+    channel: 'PREVINE',
+    title: 'Cidadão da produção fora do Paciente Mestre',
+    why: 'CNS/CPF da produção não encontrado no cadastro individual local.',
+    how: 'Cadastre ou vincule em /pacientes.',
+    repairClass: 'individual',
+    implemented: true,
+    tipos: ['FAO', 'FAI', 'PROC'],
   },
   PROC_CODE_EMPTY: {
     code: 'PROC_CODE_EMPTY',

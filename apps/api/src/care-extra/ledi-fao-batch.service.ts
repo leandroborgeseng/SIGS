@@ -29,6 +29,11 @@ import {
   extractCdsHeader,
   type LediMunicipalCrossCtx,
 } from './ledi-cds-common';
+import {
+  appendCidadaoMasterCrossChecks,
+  extractCidadaoIdsFromXml,
+  type LediCidadaoMasterCtx,
+} from './ledi-cidadao-master';
 import { runRulesEngine } from '../clinical-core/rules-engine';
 import {
   classifyAutoFixable,
@@ -197,10 +202,44 @@ export class LediFaoBatchService {
     }
   }
 
+  /** Paciente Mestre (CNS/CPF) para cruzamento P×2. */
+  private async loadCidadaoMasterCtx(): Promise<LediCidadaoMasterCtx | null> {
+    try {
+      const knownCns = new Set<string>();
+      const knownCpf = new Set<string>();
+      const patients = await this.prisma.patient.findMany({
+        where: { OR: [{ cns: { not: null } }, { cpf: { not: null } }] },
+        select: { cns: true, cpf: true },
+        take: 20_000,
+      });
+      for (const p of patients) {
+        const cns = (p.cns || '').replace(/\D/g, '');
+        const cpf = (p.cpf || '').replace(/\D/g, '');
+        if (cns.length === 15) knownCns.add(cns);
+        if (cpf.length === 11) knownCpf.add(cpf);
+      }
+      const ids = await this.prisma.patientIdentifier.findMany({
+        where: { system: { in: ['cns', 'cpf'] } },
+        select: { system: true, value: true },
+        take: 40_000,
+      });
+      for (const row of ids) {
+        const v = (row.value || '').replace(/\D/g, '');
+        if (row.system === 'cns' && v.length === 15) knownCns.add(v);
+        if (row.system === 'cpf' && v.length === 11) knownCpf.add(v);
+      }
+      if (!knownCns.size && !knownCpf.size) return null;
+      return { knownCns, knownCpf };
+    } catch {
+      return null;
+    }
+  }
+
   private reportFromXml(
     xml: string,
     expectedTipo: LediLoteTipo = 'FAO',
     municipal?: LediMunicipalCrossCtx | null,
+    cidadao?: LediCidadaoMasterCtx | null,
   ): UnifiedReport {
     const engine = runRulesEngine({
       xml,
@@ -215,6 +254,14 @@ export class LediFaoBatchService {
       (expectedTipo === 'FAI' || expectedTipo === 'FAO' || expectedTipo === 'PROCEDIMENTOS')
     ) {
       appendMunicipalCrossChecks(findings, extractCdsHeader(xml), municipal);
+    }
+    if (cidadao) {
+      appendCidadaoMasterCrossChecks(
+        findings,
+        extractCidadaoIdsFromXml(xml),
+        expectedTipo,
+        cidadao,
+      );
     }
     const siapsReady = !findings.some((f) => f.severity === 'BLOCKER');
     const moneyOk = !findings.some((f) => f.severity === 'MONEY_RISK');
@@ -361,12 +408,13 @@ export class LediFaoBatchService {
 
     const scope = batchIdForKeys || 'pending';
     const municipal = await this.loadMunicipalCrossCtx();
+    const cidadao = await this.loadCidadaoMasterCtx();
     const out = [];
     for (const f of files) {
       const xml = f.xml?.trim();
       if (!xml) throw new BadRequestException(`Arquivo sem conteúdo: ${f.name}`);
       const tipo = detectLediFichaTipo(xml);
-      const report = this.reportFromXml(xml, expectedTipo, municipal);
+      const report = this.reportFromXml(xml, expectedTipo, municipal, cidadao);
       const findings = [...report.findings];
       if (!this.tipoMatchOk(tipo.id, expectedTipo)) {
         findings.unshift({
@@ -1558,7 +1606,8 @@ export class LediFaoBatchService {
   ) {
     const tipo = detectLediFichaTipo(xml);
     const municipal = await this.loadMunicipalCrossCtx();
-    const report = this.reportFromXml(xml, expectedTipo, municipal);
+    const cidadao = await this.loadCidadaoMasterCtx();
+    const report = this.reportFromXml(xml, expectedTipo, municipal, cidadao);
     const findings = [...report.findings];
     const label = loteLabel(expectedTipo);
     if (!this.tipoMatchOk(tipo.id, expectedTipo)) {

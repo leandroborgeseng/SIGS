@@ -12,6 +12,12 @@ import {
 import { applyGestaoFilter, CNES_GESTAO_CRITERION } from '../cnes/cnes.filter';
 import { loadProfessionalsSnapshot } from '../cnes/cnes.professionals.snapshot';
 import type { CnesSyncGestao } from '../cnes/cnes.types';
+import {
+  appendCidadaoMasterCrossChecks,
+  extractCidadaoIdsFromPayload,
+  type LediCidadaoMasterCtx,
+} from '../care-extra/ledi-cidadao-master';
+import type { FaoFinding } from '../care-extra/ledi-fao.validator';
 
 export type FatAuditSeverity = 'blocker' | 'quality';
 
@@ -31,7 +37,15 @@ export type FatAuditCode =
   | 'SIGTAP_INACTIVE'
   | 'SIGTAP_COMPETENCIA'
   | 'CIAP_FORMAT'
-  | 'CONDUTA_MISSING';
+  | 'CONDUTA_MISSING'
+  | 'FAO_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
+  | 'FAI_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
+  | 'PROC_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
+  | 'AD_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
+  | 'VISITA_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
+  | 'VACINA_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
+  | 'COLETIVO_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
+  | 'PROD_CNS_NOT_IN_CADASTRO_INDIVIDUAL';
 
 export type FatAuditFinding = {
   code: FatAuditCode;
@@ -98,6 +112,8 @@ type ProdUnit = {
   condutaOk: boolean;
   patientId?: string;
   href?: string;
+  cidadaoCns?: string;
+  cidadaoCpf?: string;
 };
 
 /** Mapa kind/ficha → rota de lote ou fila. */
@@ -311,6 +327,7 @@ function unitFromBatch(row: {
   );
   const cbo = str(header.cboCodigo_2002 || header.cbo || lotacao.cboCodigo_2002 || payload.cbo);
   const conduta = extractConduta(payload, row.kind);
+  const cidadao = extractCidadaoIdsFromPayload(payload);
   const unit: ProdUnit = {
     sourceType: 'batch',
     sourceId: row.id,
@@ -323,6 +340,8 @@ function unitFromBatch(row: {
     ciaps: extractCiaps(payload),
     hasCondutaField: conduta.hasField,
     condutaOk: conduta.ok,
+    cidadaoCns: cidadao.cns,
+    cidadaoCpf: cidadao.cpf,
   };
   unit.href = resolveFatAuditHref(unit);
   return unit;
@@ -355,6 +374,7 @@ function unitFromProductionRecord(row: {
           ? 'home_care'
           : row.fichaTipo;
   const conduta = extractConduta(payload, kindHint);
+  const cidadao = extractCidadaoIdsFromPayload(payload);
   const unit: ProdUnit = {
     sourceType: 'production_record',
     sourceId: row.id,
@@ -368,6 +388,8 @@ function unitFromProductionRecord(row: {
     hasCondutaField: conduta.hasField,
     condutaOk: conduta.ok,
     patientId: row.patientId,
+    cidadaoCns: cidadao.cns,
+    cidadaoCpf: cidadao.cpf,
   };
   unit.href = resolveFatAuditHref(unit);
   return unit;
@@ -389,6 +411,7 @@ export class FaturamentoAuditService {
     const comp = parseCompetencia(opts.competencia);
 
     const cadastro = await this.buildCadastroIndex(ibgeCode, gestao);
+    const cidadaoMaster = await this.loadCidadaoMasterCtx();
     const units: ProdUnit[] = [];
 
     const batches = await this.prisma.productionBatch.findMany({
@@ -491,7 +514,7 @@ export class FaturamentoAuditService {
 
     const findings: FatAuditFinding[] = [];
     for (const u of units) {
-      this.auditUnit(u, cadastro, sigtapMap, sigtapComp, comp.ym, findings);
+      this.auditUnit(u, cadastro, sigtapMap, sigtapComp, comp.ym, findings, cidadaoMaster);
     }
 
     const bySeverity: Record<FatAuditSeverity, number> = { blocker: 0, quality: 0 };
@@ -673,6 +696,38 @@ export class FaturamentoAuditService {
     return { facilityByCnes, teamByIne, assignmentsByCns, municipalCnsFromPf, scope };
   }
 
+  private async loadCidadaoMasterCtx(): Promise<LediCidadaoMasterCtx | null> {
+    try {
+      const knownCns = new Set<string>();
+      const knownCpf = new Set<string>();
+      const patients = await this.prisma.patient.findMany({
+        where: { OR: [{ cns: { not: null } }, { cpf: { not: null } }] },
+        select: { cns: true, cpf: true },
+        take: 20_000,
+      });
+      for (const p of patients) {
+        const cns = (p.cns || '').replace(/\D/g, '');
+        const cpf = (p.cpf || '').replace(/\D/g, '');
+        if (cns.length === 15) knownCns.add(cns);
+        if (cpf.length === 11) knownCpf.add(cpf);
+      }
+      const ids = await this.prisma.patientIdentifier.findMany({
+        where: { system: { in: ['cns', 'cpf'] } },
+        select: { system: true, value: true },
+        take: 40_000,
+      });
+      for (const row of ids) {
+        const v = (row.value || '').replace(/\D/g, '');
+        if (row.system === 'cns' && v.length === 15) knownCns.add(v);
+        if (row.system === 'cpf' && v.length === 11) knownCpf.add(v);
+      }
+      if (!knownCns.size && !knownCpf.size) return null;
+      return { knownCns, knownCpf };
+    } catch {
+      return null;
+    }
+  }
+
   private auditUnit(
     u: ProdUnit,
     cadastro: CadastroIndex,
@@ -680,6 +735,7 @@ export class FaturamentoAuditService {
     sigtapComp: Map<string, { code: string; active: boolean; competencia: string | null }>,
     competenciaYm: string,
     findings: FatAuditFinding[],
+    cidadaoMaster?: LediCidadaoMasterCtx | null,
   ) {
     const base = {
       sourceType: u.sourceType,
@@ -870,6 +926,26 @@ export class FaturamentoAuditService {
         severity: 'blocker',
         message: 'Conduta/desfecho ausente na ficha (bloqueia envio LEDI)',
       });
+    }
+
+    // P×2 — cidadão × Paciente Mestre (não aplica a encounter nativo já vinculado)
+    if (u.sourceType !== 'encounter' && cidadaoMaster) {
+      const tmp: FaoFinding[] = [];
+      appendCidadaoMasterCrossChecks(
+        tmp,
+        { cns: u.cidadaoCns || '', cpf: u.cidadaoCpf || '' },
+        u.fichaTipo,
+        cidadaoMaster,
+      );
+      for (const f of tmp) {
+        findings.push({
+          ...base,
+          code: f.code as FatAuditCode,
+          severity: 'quality',
+          message: f.message,
+          details: { hint: f.hint, rule: f.rule },
+        });
+      }
     }
   }
 }
