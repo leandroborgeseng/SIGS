@@ -263,24 +263,26 @@ Relacionados: faturamento.funil-pre-envio · faturamento.cruzamentos · faturame
     id: 'faturamento.cruzamentos',
     title: 'Cruzamentos entre fichas e CNES',
     module: 'Faturamento',
-    version: '1.1.0',
+    version: '1.2.0',
     updatedAt: '2026-08-17',
-    summary: 'Produção × cadastro × CNES/equipe × Paciente Mestre (P×2).',
+    summary: 'Produção × cadastro × vínculo NT 30 × CNES × Paciente Mestre.',
     body: `O Siaps olha cada ficha quase sozinha. O Previne e a qualidade municipal pedem o grafo: pessoa ↔ equipe ↔ domicílio ↔ produção.
 
 O que o SIGS cruza:
 • Produção × rede — CNES ativo na Prefeitura; CNS lotado + CBO; INE da equipe no CNES; profissional multi-equipe sem INE claro.
-• Produção × Cadastro Individual (tipo 2) — cidadão existe (CNS/CPF); vínculo com a equipe do cabeçalho; sexo/DN coerentes.
-• P×2 — produção × Paciente Mestre: se o CNS/CPF da ficha não está no cadastro mestre local, o lote e a auditoria emitem *_CNS_NOT_IN_CADASTRO_INDIVIDUAL (MONEY_RISK/qualidade). Corrija via /pacientes ou migração ZIP.
-• Tipo 2 × Domicílio (tipo 3) — pessoa membro/responsável; domicílio com responsável válido.
+• Produção × Cadastro Individual (tipo 2) — cidadão existe (CNS/CPF); sexo/DN coerentes.
+• P×2 — produção × Paciente Mestre: *_CNS_NOT_IN_CADASTRO_INDIVIDUAL se CNS/CPF fora do mestre.
+• P×2c / NT 30 — PRODUCAO_SEM_VINCULO_EQUIPE (cidadão conhecido sem patient-team-link ativo) e PRODUCAO_INE_NEQ_VINCULO (INE do cabeçalho ≠ vínculo). Cobertura honesta na auditoria (nota se poucos links).
+• Completude tipo 2 — CADASTRO_INCOMPLETO_SIAPS (ID mínimo) e CADASTRO_INCOMPLETO_PREVINE (nacionalidade/raça/IBGE/vínculo) ao avaliar pacientes da produção.
+• Tipo 2 × Domicílio (tipo 3) — pessoa membro/responsável; domicílio com responsável válido (domínio /territorio; sem ZIP tipo 3).
 • Visita ACS × domicílio × pessoa — visita aponta para cadastros existentes.
-• Coletivo × B4 e PROC × SIGTAP — escovação no coletivo; ABPG deve virar SIGTAP (mapa piloto + repair).
+• Coletivo × B4 e PROC × SIGTAP — escovação no coletivo; ABPG → SIGTAP.
 
-Onde agir: /cadastros/cnes-auditoria · /equipes · /pacientes · /pacientes/migracao · /territorio · /faturamento/auditoria · wizard do lote.
+Onde agir: /cadastros/cnes-auditoria · /equipes · /pacientes · /pacientes/migracao · /territorio · /faturamento/auditoria (seção vínculo/cadastro + CSV) · wizard do lote.
 
 Mensagem: corrigir só stNaoPossuiCpf + CIAP abre a porta do envio; sem cadastro/vínculo/procedimento certo o indicador continua baixo.
 
-Relacionados: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.siaps-vs-previne · pacientes.migracao-zip.`,
+Relacionados: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.siaps-vs-previne · faturamento.auditoria · pacientes.migracao-zip.`,
   },
   {
     id: 'faturamento.siaps-vs-previne',
@@ -325,19 +327,21 @@ Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturament
     id: 'faturamento.auditoria',
     title: 'Auditoria de faturamento',
     module: 'Faturamento',
-    version: '0.3.0',
+    version: '0.4.0',
     updatedAt: '2026-08-17',
-    summary: 'Cruzamento produção × rede × SIGTAP × Paciente Mestre; deep-link Abrir.',
+    summary: 'Rede × SIGTAP × P×2 × vínculo NT 30 × completude cadastro; CSV e deep-link.',
     body: `Em /faturamento/auditoria escolha a competência (YYYY-MM). Escopo default = rede municipal (Prefeitura; natureza jurídica 1244). Severidade blocker bloqueia envio; quality é qualidade/Previne.
 
-Checks: CNES ativo, INE, CNS/CBO vs lotação, SIGTAP, CIAP, conduta, P×2 (cidadão fora do Paciente Mestre → *_CNS_NOT_IN_CADASTRO_INDIVIDUAL).
+Checks: CNES ativo, INE, CNS/CBO vs lotação, SIGTAP, CIAP, conduta, P×2 (*_CNS_NOT_IN_CADASTRO_INDIVIDUAL), P×2c (PRODUCAO_SEM_VINCULO_EQUIPE · PRODUCAO_INE_NEQ_VINCULO), completude (CADASTRO_INCOMPLETO_SIAPS · CADASTRO_INCOMPLETO_PREVINE).
+
+Seção «Sem vínculo / cadastro incompleto» — contagens honestas de patient-team-links + nota se cobertura fraca; filtro rápido e botão «CSV vínculo/cadastro».
 
 Deep-link — coluna Abrir:
 • encounter → fila APS/odonto com ?encounterId=
-• production_record → /pacientes/[id]
+• production_record / findings de vínculo·cadastro → /pacientes/[id]
 • batch → wizard do lote com ?batchId=
 
-Export CSV. Sem PHI. Não altera o wizard LEDI.
+Export CSV (filtrado ou só vínculo/cadastro). Sem PHI. Não altera o wizard LEDI.
 
 Ver também: faturamento.cruzamentos · faturamento.siaps-vs-previne · pacientes.migracao-zip.`,
   },

@@ -64,6 +64,8 @@ Produção (4 FAI · 5 FAO · 6 coletivo · 7 PROC · 8 visita · 10 AD · 14 va
 **Siaps:** a FAO pode ir **sem** tipo 2 no ZIP.  
 **Previne:** sem cadastro e vínculo, o indicador de “vinculados” fica baixo mesmo com XML aceito.
 
+Códigos na auditoria (`/faturamento/auditoria`): `PRODUCAO_SEM_VINCULO_EQUIPE`, `PRODUCAO_INE_NEQ_VINCULO`, `CADASTRO_INCOMPLETO_SIAPS`, `CADASTRO_INCOMPLETO_PREVINE` — seção e CSV «vínculo/cadastro».
+
 ### 3. Cadastro Individual × Domicílio (2 × 3)
 
 | Cruzamento | Por quê |

@@ -40,6 +40,16 @@ type AuditReport = {
     cnesCity?: number;
     teamsMunicipal?: number;
     teamsCity?: number;
+    vinculo?: {
+      activeLinks: number;
+      patientsWithActiveLink: number;
+      patientsIndexed: number;
+      unitsChecked: number;
+      semVinculo: number;
+      ineNeq: number;
+      note: string | null;
+    };
+    cadastroIncompleto?: { siaps: number; previne: number; patientsEvaluated: number };
   };
   findings: Finding[];
 };
@@ -48,6 +58,13 @@ const SEV_LABEL: Record<Severity, string> = {
   blocker: 'Bloqueia envio',
   quality: 'Qualidade',
 };
+
+const VINCULO_CADASTRO_CODES = [
+  'PRODUCAO_SEM_VINCULO_EQUIPE',
+  'PRODUCAO_INE_NEQ_VINCULO',
+  'CADASTRO_INCOMPLETO_SIAPS',
+  'CADASTRO_INCOMPLETO_PREVINE',
+] as const;
 
 function defaultCompetencia() {
   const d = new Date();
@@ -62,6 +79,7 @@ export default function FaturamentoAuditoriaPage() {
   const [severity, setSeverity] = useState<'' | Severity>('');
   const [code, setCode] = useState('');
   const [q, setQ] = useState('');
+  const [focusVinculoCadastro, setFocusVinculoCadastro] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,6 +111,9 @@ export default function FaturamentoAuditoriaPage() {
   const filtered = useMemo(() => {
     if (!report) return [];
     return report.findings.filter((f) => {
+      if (focusVinculoCadastro && !VINCULO_CADASTRO_CODES.includes(f.code as (typeof VINCULO_CADASTRO_CODES)[number])) {
+        return false;
+      }
       if (severity && f.severity !== severity) return false;
       if (code && f.code !== code) return false;
       if (!q.trim()) return true;
@@ -100,10 +121,24 @@ export default function FaturamentoAuditoriaPage() {
         `${f.code} ${f.message} ${f.cnes || ''} ${f.ine || ''} ${f.fichaTipo || ''} ${f.procedureCode || ''}`.toLowerCase();
       return hay.includes(q.trim().toLowerCase());
     });
-  }, [report, severity, code, q]);
+  }, [report, severity, code, q, focusVinculoCadastro]);
 
-  function exportCsv() {
-    const rows = filtered.length ? filtered : report?.findings || [];
+  const vinculoCadastroCount = useMemo(() => {
+    if (!report) return 0;
+    return report.findings.filter((f) =>
+      VINCULO_CADASTRO_CODES.includes(f.code as (typeof VINCULO_CADASTRO_CODES)[number]),
+    ).length;
+  }, [report]);
+
+  function exportCsv(scope: 'filtered' | 'vinculo-cadastro' = 'filtered') {
+    const rows =
+      scope === 'vinculo-cadastro'
+        ? (report?.findings || []).filter((f) =>
+            VINCULO_CADASTRO_CODES.includes(f.code as (typeof VINCULO_CADASTRO_CODES)[number]),
+          )
+        : filtered.length
+          ? filtered
+          : report?.findings || [];
     const header = [
       'severity',
       'code',
@@ -116,6 +151,8 @@ export default function FaturamentoAuditoriaPage() {
       'professionalCns',
       'cbo',
       'procedureCode',
+      'patientId',
+      'href',
     ];
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = [
@@ -133,6 +170,8 @@ export default function FaturamentoAuditoriaPage() {
           f.professionalCns,
           f.cbo,
           f.procedureCode,
+          f.patientId,
+          f.href,
         ]
           .map(esc)
           .join(','),
@@ -142,7 +181,8 @@ export default function FaturamentoAuditoriaPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `faturamento-auditoria-${competencia}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const suffix = scope === 'vinculo-cadastro' ? 'vinculo-cadastro' : 'full';
+    a.download = `faturamento-auditoria-${suffix}-${competencia}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -161,8 +201,17 @@ export default function FaturamentoAuditoriaPage() {
             <button type="button" className="btn btn-secondary" onClick={() => void load()} disabled={loading}>
               Recarregar
             </button>
-            <button type="button" className="btn" onClick={exportCsv} disabled={!report?.findings.length}>
+            <button type="button" className="btn" onClick={() => exportCsv('filtered')} disabled={!report?.findings.length}>
               Export CSV
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => exportCsv('vinculo-cadastro')}
+              disabled={!vinculoCadastroCount}
+              title="Só PRODUCAO_* vínculo e CADASTRO_INCOMPLETO_*"
+            >
+              CSV vínculo/cadastro
             </button>
           </>
         }
@@ -209,6 +258,69 @@ export default function FaturamentoAuditoriaPage() {
           {report.gestaoCriterion ? (
             <p className="muted" style={{ margin: '10px 0 0', fontSize: 12.5 }}>
               Critério CNES: {report.gestaoCriterion}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {report?.counts.vinculo || report?.counts.cadastroIncompleto ? (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+            <strong style={{ fontSize: 14 }}>Sem vínculo / cadastro incompleto (NT 30 · tipo 2)</strong>
+            <button
+              type="button"
+              className={`btn ${focusVinculoCadastro ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: 12, padding: '4px 10px' }}
+              onClick={() => {
+                setFocusVinculoCadastro((v) => !v);
+                if (!focusVinculoCadastro) setCode('');
+              }}
+            >
+              {focusVinculoCadastro ? 'Mostrando só estes' : `Filtrar (${vinculoCadastroCount})`}
+            </button>
+            <Link href="/territorio" className="btn ghost" style={{ fontSize: 12, padding: '4px 8px' }}>
+              /territorio
+            </Link>
+            <Link href="/pacientes" className="btn ghost" style={{ fontSize: 12, padding: '4px 8px' }}>
+              /pacientes
+            </Link>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 13 }}>
+            {report.counts.vinculo ? (
+              <>
+                <span>
+                  Links ativos: <strong>{report.counts.vinculo.activeLinks}</strong>
+                  {' · '}
+                  pacientes c/ vínculo: {report.counts.vinculo.patientsWithActiveLink}/
+                  {report.counts.vinculo.patientsIndexed}
+                </span>
+                <span>
+                  Unidades checadas: {report.counts.vinculo.unitsChecked}
+                  {' · '}
+                  <span style={{ color: 'var(--warn, #b45309)' }}>
+                    sem vínculo: {report.counts.vinculo.semVinculo}
+                  </span>
+                  {' · '}
+                  INE ≠ vínculo: {report.counts.vinculo.ineNeq}
+                </span>
+              </>
+            ) : null}
+            {report.counts.cadastroIncompleto ? (
+              <span>
+                Cadastro incompleto — Siaps:{' '}
+                <strong style={{ color: 'var(--danger, #b91c1c)' }}>
+                  {report.counts.cadastroIncompleto.siaps}
+                </strong>
+                {' · '}
+                Previne: {report.counts.cadastroIncompleto.previne}
+                {' · '}
+                pacientes avaliados: {report.counts.cadastroIncompleto.patientsEvaluated}
+              </span>
+            ) : null}
+          </div>
+          {report.counts.vinculo?.note ? (
+            <p className="muted" style={{ margin: '10px 0 0', fontSize: 12.5 }}>
+              {report.counts.vinculo.note}
             </p>
           ) : null}
         </div>

@@ -65,7 +65,7 @@ Severidade: **BLOCKER** = Siaps/envio · **MONEY_RISK** = Previne/financiamento 
 | H5 | Multi-equipe | PF | CNS × N INEs | Lotação sem INE; profissional em ≥2 equipes sem escolha clara | MONEY_RISK | Não | Parcial — `ASSIGNMENT_INE_MISSING` · UI multi-equipe |
 | **P×2** | **4/5/7/6/8/10/14** | **Cad. Individual (2)** | CNS ou CPF | Cidadão da produção existe no mestre / tipo 2 | MONEY_RISK | Não (criar/vincular cadastro) | **Não** (só Paciente Mestre em migrate nativo) |
 | P×2b | Produção | Tipo 2 | CNS/CPF + DN | Identidade coerente (sexo/DN vs gestante/idade) | QUALITY / MONEY_RISK | Semi | Parcial — `GESTANTE_SEXO_MASC` · `DT_NASCIMENTO_*` (intra-ficha) |
-| P×2c | Produção | Tipo 2 + vínculo | CNS/CPF → INE | Pessoa vinculada à equipe do header (NT 30) | MONEY_RISK | Não | Parcial — `PATIENT_TEAM_LINK_ORPHAN` (CNES audit); **sem** cruzamento lote |
+| P×2c | Produção | Tipo 2 + vínculo | CNS/CPF → INE | Pessoa vinculada à equipe do header (NT 30) | MONEY_RISK | Não | **Sim** — `PRODUCAO_SEM_VINCULO_EQUIPE` · `PRODUCAO_INE_NEQ_VINCULO` (audit + cobertura honesta) |
 | **2×3** | Cad. Individual (2) | Domicílio (3) | CNS/CPF · uuid família/membro | Pessoa é membro/responsável de domicílio ativo na microárea | MONEY_RISK (C2–C6) | Não | Domínio UI `/territorio`; **sem** cruzamento LEDI |
 | 2×3b | Tipo 2 | Tipo 3 | responsável familiar | Todo domicílio com responsável válido no tipo 2 | BLOCKER (CDS) / QUALITY | Não | Validação serviço household; sem ZIP tipo 3 |
 | **8×3×2** | Visita ACS (8) | Dom. (3) + Ind. (2) | patientId / household · CNS | Visita aponta paciente **e/ou** domicílio existentes; motivos/desfecho | BLOCKER CDS / MONEY_RISK Previne | Não | Domínio + FieldHint; lote **stub** |
@@ -84,7 +84,7 @@ Severidade: **BLOCKER** = Siaps/envio · **MONEY_RISK** = Previne/financiamento 
 | 10×cond | AD | CIAP/CID | problemas | Qualidade clínica AD | QUALITY | Não | `AD_PROBLEMAS_MISSING` (preflight) |
 | **14×2** | Vacina (14) | Ind. (2) | CNS/CPF + DN | Pessoa + idade coerente com faixa PNI | MONEY_RISK C2/C3/C6/C7 | Não | Domínio vacina; **sem** ZIP 14 |
 | 14×faixa | Vacina | Catálogo faixa | imuno + dose + idade | Faixa oficial (`TB_FAIXA` quando houver dump) | MONEY_RISK / BLOCKER local | Não | Seed 54 ≠ dump (`officialDumpPresent=false`) |
-| **2 completo** | Tipo 2 | Siaps vs Previne | campos CDS | Ver §3 | BLOCKER ID / MONEY_RISK CDS | Semi ID | FieldHint UI; **sem** lote tipo 2 |
+| **2 completo** | Tipo 2 | Siaps vs Previne | campos CDS | Ver §3 | BLOCKER ID / MONEY_RISK CDS | Semi ID | **Sim** na auditoria — `CADASTRO_INCOMPLETO_SIAPS` · `CADASTRO_INCOMPLETO_PREVINE` (FieldHint); lote tipo 2 ainda sintético |
 | Dup | Qualquer | Paciente Mestre | CNS/CPF/DN | Duplicata HIGH/MEDIUM | MONEY_RISK | Semi unificação | Match A1–A2; UX MEDIUM parcial |
 
 ---
@@ -184,6 +184,8 @@ Prefixo: origem × destino. Não colidir com registry atual (`PROBLEMAS_MISSING`
 | Registry FAO/FAI/PROC | `apps/api/src/care-extra/ledi-error-registry.ts` |
 | Previne bucal x-ray | `apps/api/src/care-extra/ledi-fao-previne-xray.ts` |
 | Audit produção | `apps/api/src/faturamento/faturamento-audit.service.ts` |
+| Vínculo NT 30 (P×2c) | `apps/api/src/care-extra/ledi-vinculo-nt30.ts` |
+| Completude tipo 2 | `apps/api/src/care-extra/ledi-cadastro-completude.ts` |
 | Audit CNES/equipes | `apps/api/src/cnes/cnes-audit.service.ts` |
 | Detector tipos | `apps/api/src/care-extra/ledi-ficha-tipo.ts` |
 
