@@ -55,4 +55,4 @@
 - SHAs onda 1: `f295ac1` · `8b622a1` · `0f190e0` · `be4f3a5` · `6090fd7`
 - SHAs onda 2: `47719f3` · `1a910d4` · `0266126` · `b6b012c` · `407ae17` · `2af0930`
 - SHAs onda 3: `0e93126` · `c0871a3` · `13567e0`/`f715861`/`9c5b35f`/`e79f3cd`
-- SHAs onda 4: `552ee15` API P2 visita/AD/coletivo/território · `c195316` UI/Ajuda/smoke · `5f237c4`/`2f00c1e` STATUS · tip `2f00c1e`
+- SHAs onda 4: `552ee15` API P2 visita/AD/coletivo/território · `c195316` UI/Ajuda/smoke · `5f237c4`/`2f00c1e` STATUS · tip `b7f37c4`
