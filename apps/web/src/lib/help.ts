@@ -263,23 +263,24 @@ Relacionados: faturamento.funil-pre-envio · faturamento.cruzamentos · faturame
     id: 'faturamento.cruzamentos',
     title: 'Cruzamentos entre fichas e CNES',
     module: 'Faturamento',
-    version: '1.0.0',
-    updatedAt: '2026-08-16',
-    summary: 'Produção × cadastro individual × domicílio × CNES/equipe.',
+    version: '1.1.0',
+    updatedAt: '2026-08-17',
+    summary: 'Produção × cadastro × CNES/equipe × Paciente Mestre (P×2).',
     body: `O Siaps olha cada ficha quase sozinha. O Previne e a qualidade municipal pedem o grafo: pessoa ↔ equipe ↔ domicílio ↔ produção.
 
 O que o SIGS cruza:
 • Produção × rede — CNES ativo na Prefeitura; CNS lotado + CBO; INE da equipe no CNES; profissional multi-equipe sem INE claro.
 • Produção × Cadastro Individual (tipo 2) — cidadão existe (CNS/CPF); vínculo com a equipe do cabeçalho; sexo/DN coerentes.
+• P×2 — produção × Paciente Mestre: se o CNS/CPF da ficha não está no cadastro mestre local, o lote e a auditoria emitem *_CNS_NOT_IN_CADASTRO_INDIVIDUAL (MONEY_RISK/qualidade). Corrija via /pacientes ou migração ZIP.
 • Tipo 2 × Domicílio (tipo 3) — pessoa membro/responsável; domicílio com responsável válido.
 • Visita ACS × domicílio × pessoa — visita aponta para cadastros existentes.
-• Coletivo × B4 e PROC × SIGTAP — escovação no coletivo; ABPG deve virar SIGTAP.
+• Coletivo × B4 e PROC × SIGTAP — escovação no coletivo; ABPG deve virar SIGTAP (mapa piloto + repair).
 
-Onde agir: /cadastros/cnes-auditoria · /equipes · /pacientes · /territorio · /faturamento/auditoria · wizard do lote.
+Onde agir: /cadastros/cnes-auditoria · /equipes · /pacientes · /pacientes/migracao · /territorio · /faturamento/auditoria · wizard do lote.
 
 Mensagem: corrigir só stNaoPossuiCpf + CIAP abre a porta do envio; sem cadastro/vínculo/procedimento certo o indicador continua baixo.
 
-Relacionados: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.siaps-vs-previne.`,
+Relacionados: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.siaps-vs-previne · pacientes.migracao-zip.`,
   },
   {
     id: 'faturamento.siaps-vs-previne',
@@ -324,12 +325,21 @@ Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturament
     id: 'faturamento.auditoria',
     title: 'Auditoria de faturamento',
     module: 'Faturamento',
-    version: '0.2.0',
-    updatedAt: '2026-08-16',
-    summary: 'Cruzamento produção × rede municipal CNES/INE/CNS/CBO/SIGTAP por competência.',
-    body: `Em /faturamento/auditoria escolha a competência (YYYY-MM). Escopo default = rede municipal (Prefeitura; natureza jurídica 1244). Severidade blocker bloqueia envio; quality é qualidade/Previne. Checks: CNES ativo, INE, CNS/CBO vs lotação, SIGTAP, CIAP, conduta. Coluna Abrir: encounter → fila APS/odonto (?encounterId=); production_record → paciente; batch → wizard do lote (?batchId=). Export CSV. Sem PHI. Não altera o wizard LEDI.
+    version: '0.3.0',
+    updatedAt: '2026-08-17',
+    summary: 'Cruzamento produção × rede × SIGTAP × Paciente Mestre; deep-link Abrir.',
+    body: `Em /faturamento/auditoria escolha a competência (YYYY-MM). Escopo default = rede municipal (Prefeitura; natureza jurídica 1244). Severidade blocker bloqueia envio; quality é qualidade/Previne.
 
-Ver também: faturamento.cruzamentos · faturamento.siaps-vs-previne.`,
+Checks: CNES ativo, INE, CNS/CBO vs lotação, SIGTAP, CIAP, conduta, P×2 (cidadão fora do Paciente Mestre → *_CNS_NOT_IN_CADASTRO_INDIVIDUAL).
+
+Deep-link — coluna Abrir:
+• encounter → fila APS/odonto com ?encounterId=
+• production_record → /pacientes/[id]
+• batch → wizard do lote com ?batchId=
+
+Export CSV. Sem PHI. Não altera o wizard LEDI.
+
+Ver também: faturamento.cruzamentos · faturamento.siaps-vs-previne · pacientes.migracao-zip.`,
   },
   {
     id: 'faturamento.fila-aps',
@@ -344,10 +354,12 @@ Ver também: faturamento.cruzamentos · faturamento.siaps-vs-previne.`,
     id: 'odonto.lote-ledi',
     title: 'Lote LEDI FAO — validar e corrigir XMLs',
     module: 'Odontologia',
-    version: '1.3.0',
-    updatedAt: '2026-08-16',
-    summary: 'Upload de XMLs odonto, inconsistências, auto-correção e download ZIP.',
+    version: '1.4.0',
+    updatedAt: '2026-08-17',
+    summary: 'Wizard FAO + painel pré-envio Previne B1–B6 (contagens honestas).',
     body: `Em Faturamento → Lote FAO (/faturamento/lote/fao): wizard único (upload → gate → análise → problema a problema → fechamento → dois ZIPs → ficha a ficha). Pronto Siaps ≠ Pronto Previne ≠ 100% OK. ZIP do tipo errado é recusado.
+
+Pré-envio Previne: tabela B1–B6 com “com sinal” / “com gap” por ficha (proxy — não é denominador oficial). B4 = n/a na FAO (usar lote Coletivo). Clique no gap para filtrar.
 
 Regras do funil: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.cruzamentos · faturamento.siaps-vs-previne. Alias: /odonto/lote.`,
   },
@@ -366,12 +378,14 @@ Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturament
     id: 'faturamento.lote-proc',
     title: 'Lote LEDI Procedimentos',
     module: 'Faturamento',
-    version: '0.2.0',
-    updatedAt: '2026-08-16',
-    summary: 'Upload/validação de XMLs de Procedimentos (tipo 7) e export ZIP.',
-    body: `Em /faturamento/lote/proc: mesmo wizard FAI/FAO (gate tipo 7 → análise → dois ZIPs). Priorize CPF/CNS, turno e CNES; ABPG/SIGTAP na ficha.
+    version: '0.3.0',
+    updatedAt: '2026-08-17',
+    summary: 'PROC tipo 7: ABPG→SIGTAP (mapa piloto) e stNaoPossuiCpf.',
+    body: `Em /faturamento/lote/proc: mesmo wizard FAI/FAO (gate tipo 7 → análise → dois ZIPs). Priorize CPF/CNS, turno e CNES.
 
-Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.cruzamentos · faturamento.siaps-vs-previne. Alias: /procedimentos/lote.`,
+ABPG: códigos ABPGxxx bloqueiam (PROC_CODE_ABPG). O hint sugere SIGTAP do mapa piloto (data/sigtap/abpg-map-piloto.json, alinhado ao enum e-SUS). Confirme e aplique no repair — não autofix em massa sem validação municipal.
+
+Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.cruzamentos · faturamento.siaps-vs-previne · sigtap.catalogo. Alias: /procedimentos/lote.`,
   },
   {
     id: 'ad.stub',
@@ -394,19 +408,38 @@ Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturament
     id: 'sigtap.catalogo',
     title: 'Catálogo SIGTAP',
     module: 'Faturamento',
-    version: '0.4.0',
+    version: '0.5.0',
     updatedAt: '2026-08-17',
-    summary: 'Import offline ZIP/TXT em data/sigtap/ + seed piloto + validação PROC/ABPG.',
-    body: `Em /sigtap: busque códigos, valide listas, importe ZIP oficial (TB_PROCEDIMENTO) ou TXT/CSV — o site DATASUS costuma cair. Coloque o arquivo em data/sigtap/ e use “Importar pasta local” ou npm run sync:sigtap. Sem ZIP: Sincronizar seed (~27 códigos APS) ou fixture sample. ABPG no lote PROC bloqueia; preencha abpg-map-piloto.json e informe SIGTAP no repair. Manual: docs/manuais/usuario/integracao/sigtap.md · fontes data/sigtap/README.md.`,
+    summary: 'Import offline ZIP/TXT · seed · mapa ABPG→SIGTAP · validação PROC.',
+    body: `Em /sigtap: busque códigos, valide listas, importe ZIP oficial (TB_PROCEDIMENTO) ou TXT/CSV — o site DATASUS costuma cair.
+
+Offline (recomendado):
+1. Coloque TabelaUnificada_YYYYMM.zip ou TB_PROCEDIMENTO.txt em data/sigtap/
+2. Use “Importar pasta local” ou npm run sync:sigtap
+3. Sem ZIP: “Sincronizar seed” (catálogo piloto APS) ou a fixture sample
+
+ABPG no lote PROC: o mapa piloto (GET /v1/sigtap/abpg-map · data/sigtap/abpg-map-piloto.json) sugere SIGTAP 10 dígitos no hint de repair. ABPG035 permanece sem mapeamento no enum e-SUS 5.5.24.
+
+Manual: docs/manuais/usuario/integracao/sigtap.md · fontes data/sigtap/README.md.`,
   },
   {
     id: 'pacientes.migracao-zip',
     title: 'Migração ZIP → Paciente Mestre',
     module: 'Pacientes',
-    version: '0.1.0',
+    version: '0.2.0',
     updatedAt: '2026-08-17',
-    summary: 'Dry-run ou persistência de XMLs LEDI em ProductionRecord + Paciente Mestre.',
-    body: `Em /pacientes/migracao envie um ZIP LEDI. Default = dry-run (só relatório de findings, sem PHI). Marque Persistir para gravar ProductionRecord e criar/vincular pacientes. CLI: npm run migrate:ledi-zip -- --file=lote.zip [--persist]. API POST /v1/clinical-core/migrate-zip. Não substitui o wizard de correção de lotes.`,
+    summary: 'Dry-run ou persistência LEDI → ProductionRecord + Paciente Mestre (P×2).',
+    body: `Em /pacientes/migracao envie um ZIP LEDI.
+
+• Default = dry-run: processa XMLs, devolve contagens por código de finding (sem PHI) — não grava.
+• Marque Persistir só quando quiser criar/vincular pacientes e ProductionRecord.
+
+CLI: npm run migrate:ledi-zip -- --file=lote.zip [--persist]
+API: POST /v1/clinical-core/migrate-zip (multipart file + dryRun=1|0)
+
+Uso típico: popular Paciente Mestre antes do cruzamento P×2 (auditoria / lotes). Não substitui o wizard de correção de lotes (/faturamento/lote/…).
+
+Ver: faturamento.cruzamentos · faturamento.auditoria.`,
   },
   {
     id: 'admin.usuarios',
