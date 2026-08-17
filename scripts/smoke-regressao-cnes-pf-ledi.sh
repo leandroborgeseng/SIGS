@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke de regressão — CNES municipal · PF · auditoria faturamento · gate LEDI CDS.
+# Smoke de regressão — CNES/PF · auditoria · LEDI · SIGTAP · P×2 · deep-link · Previne.
 # Dados: fixtures sintéticas / snapshots públicos Franca (sem PHI de pacientes).
 set -euo pipefail
 
@@ -11,9 +11,9 @@ fi
 
 cd "$ROOT/apps/api"
 
-PATTERN='cnes\.filter|cnes-audit|cnes\.professionals|cnes\.loader|cnes\.parser|cnes-teams|team-type-catalog|faturamento-audit|ledi-ficha-tipo|ledi-cds-lote|ledi-cds-extra'
+PATTERN='cnes\.filter|cnes-audit|cnes\.professionals|cnes\.loader|cnes\.parser|cnes-teams|team-type-catalog|faturamento-audit|ledi-ficha-tipo|ledi-cds-lote|ledi-cds-extra|ledi-fai-proc|ledi-cidadao-master|ledi-fao-previne|sigtap\.seed|local-file\.loader|ms-procedimento'
 
-echo "==> Smoke regressão: ${PATTERN}"
+echo "==> Smoke regressão ampliado: ${PATTERN}"
 npx jest --config jest.config.js --testPathPattern="${PATTERN}" --ci --colors=false
 
-echo "==> OK — CNES/PF/audit/LEDI gate"
+echo "==> OK — CNES/PF/audit/LEDI/SIGTAP/P×2/Previne/deep-link"

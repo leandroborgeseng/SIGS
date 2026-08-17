@@ -253,7 +253,24 @@ export default function SigtapPage() {
       <ErrorBox message={error} />
       <OkBox message={ok} />
       {offlineHint ? (
-        <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 0 }}>{offlineHint}</p>
+        <div
+          className="card"
+          style={{
+            marginBottom: 16,
+            padding: '12px 14px',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--line)',
+          }}
+        >
+          <div className="section-label" style={{ marginBottom: 4 }}>
+            Modo offline
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>{offlineHint}</p>
+          <p style={{ fontSize: 12, color: 'var(--ink-3)', margin: '8px 0 0' }}>
+            ZIP oficial → pasta <span className="mono">data/sigtap/</span> ou upload abaixo · mapa ABPG em{' '}
+            <span className="mono">abpg-map-piloto.json</span> · help <HelpLink id="sigtap.catalogo" label="sigtap.catalogo" />.
+          </p>
+        </div>
       ) : null}
       <form className="card row" onSubmit={onSearch} style={{ marginBottom: 16 }}>
         <input

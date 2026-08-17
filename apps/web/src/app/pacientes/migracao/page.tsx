@@ -74,24 +74,47 @@ export default function MigracaoZipPage() {
       {!can ? (
         <p>Requer permissão de produção/TI.</p>
       ) : (
-        <form className="card" onSubmit={onSubmit}>
-          <div className="field">
-            <label>ZIP LEDI</label>
-            <input name="file" type="file" accept=".zip,application/zip" disabled={busy} />
+        <>
+          <div
+            className="card"
+            style={{
+              marginBottom: 16,
+              padding: '12px 14px',
+              background: 'var(--surface-2)',
+              border: '1px solid var(--line)',
+            }}
+          >
+            <div className="section-label" style={{ marginBottom: 4 }}>
+              Como usar
+            </div>
+            <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.5 }}>
+              <li>Envie um ZIP LEDI. Default = dry-run (só contagens, sem PHI).</li>
+              <li>Marque Persistir apenas para gravar Paciente Mestre + ProductionRecord.</li>
+              <li>
+                Reduz findings P×2 (<span className="mono">*_CNS_NOT_IN_CADASTRO_INDIVIDUAL</span>) na
+                auditoria.
+              </li>
+            </ol>
           </div>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-            <input
-              type="checkbox"
-              checked={persist}
-              onChange={(e) => setPersist(e.target.checked)}
-              disabled={busy}
-            />
-            Persistir (desmarque = dry-run)
-          </label>
-          <button className="btn btn-primary" type="submit" disabled={busy}>
-            {busy ? 'Processando…' : persist ? 'Migrar ZIP' : 'Dry-run ZIP'}
-          </button>
-        </form>
+          <form className="card" onSubmit={onSubmit}>
+            <div className="field">
+              <label>ZIP LEDI</label>
+              <input name="file" type="file" accept=".zip,application/zip" disabled={busy} />
+            </div>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+              <input
+                type="checkbox"
+                checked={persist}
+                onChange={(e) => setPersist(e.target.checked)}
+                disabled={busy}
+              />
+              Persistir (desmarque = dry-run)
+            </label>
+            <button className="btn btn-primary" type="submit" disabled={busy}>
+              {busy ? 'Processando…' : persist ? 'Migrar ZIP' : 'Dry-run ZIP'}
+            </button>
+          </form>
+        </>
       )}
 
       {report ? (
