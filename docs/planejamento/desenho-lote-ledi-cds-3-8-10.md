@@ -1,8 +1,7 @@
-# Desenho — lote XML CDS tipos 3 / 8 / 10
+# Desenho — lote XML CDS tipos 2 / 3 / 6 / 8 / 10
 
-**Status:** desenho + stubs (sem wizard de validação/ZIP)  
-**Data:** 2026-08-16  
-**Decisão:** **não** implementar pipeline FAI/FAO/PROC completo — dump Franca 5974691 **não** trouxe XMLs desses tipos; autofix/registry sem amostra seria inventar norma.
+**Status:** wizard live (schema sintético) — 2026-08-16  
+**Contexto:** dump Franca 5974691 **não** trouxe XMLs desses tipos; implementação usa `TipoDadoTranspEnum` + tags `*Transport` + fixtures sintéticas (sem PHI). Não inventar dump `TB_FAIXA`.
 
 ## Fonte (sem inventar)
 
@@ -10,49 +9,33 @@
 |---|---|
 | `TipoDadoTranspEnum` (`cds.common.api-5.5.24.jar`) | códigos envelope |
 | DTOs `*Transport` + thrift master | tags / structs |
-| Origem nativa SIGS | `/territorio`, visitas ACS, `/ad` |
+| Origem nativa SIGS | `/pacientes`, `/territorio`, `/coletivo`, `/ad` |
+| Padrão FAI/FAO/PROC | header · `stNaoPossuiCpf` · gate · 2 ZIPs |
 
-| Código | Enum e-SUS | Tag XML (JAXB / padrão `*Transport`) | Origem nativa SIGS | Stub UI |
+| Código | Enum e-SUS | Tag XML | Origem nativa | Wizard |
 |---:|---|---|---|---|
-| **3** | `CDS_CADASTRO_DOMICILIAR` | `cadastroDomiciliarTransport` | `/territorio` (Household/Family) | `/faturamento/lote/domicilio` |
-| **8** | `CDS_FICHA_VISITA_DOMICILIAR` | `fichaVisitaDomiciliarMasterTransport` | `/territorio` aba Visitas ACS | `/faturamento/lote/visita-acs` |
-| **10** | `CDS_FICHA_ATENDIMENTO_DOMICILIAR` | `fichaAtendimentoDomiciliarMasterTransport` | `/ad` (`ledi-homecare-v2`) | `/faturamento/lote/ad` |
+| **2** | `CDS_CADASTRO_INDIVIDUAL` | `cadastroIndividualTransport` | `/pacientes` | `/faturamento/lote/cadastro-individual` |
+| **3** | `CDS_CADASTRO_DOMICILIAR` | `cadastroDomiciliarTransport` | `/territorio` | `/faturamento/lote/domicilio` |
+| **6** | `CDS_ATIVIDADE_COLETIVA` | `fichaAtividadeColetivaMasterTransport` | `/coletivo` | `/faturamento/lote/coletivo` |
+| **8** | `CDS_FICHA_VISITA_DOMICILIAR` | `fichaVisitaDomiciliarMasterTransport` | `/territorio` | `/faturamento/lote/visita-acs` |
+| **10** | `CDS_FICHA_ATENDIMENTO_DOMICILIAR` | `fichaAtendimentoDomiciliarMasterTransport` | `/ad` | `/faturamento/lote/ad` |
 
-**Nota:** vacinação no enum é **14** (`CDS_FICHA_VACINACAO` / `fichaVacinacaoMasterTransport`); código **2** é cadastro individual. Detector SIGS alinhado a isso nesta onda.
+**Nota:** vacinação no enum é **14** (`CDS_FICHA_VACINACAO`); código **2** = cadastro individual. Lote 14 = stub nesta onda.
 
-## O que o stub entrega agora
+## Entrega atual (DoD)
 
-1. Detecção de tipo (código + tag) no gate — ZIP 3/8/10 em tela 4/5/7 → `LEDI_TIPO_MISMATCH` (lote **não** analisa).
-2. `GET /v1/faturamento/ledi-cds-lotes` — catálogo live vs stub + blockers.
-3. Telas stub no hub (sem upload) + links para origem nativa.
-4. Este desenho + STATUS / cobertura-rf.
+1. Gate de tipo — ZIP errado em qualquer tela live → `LEDI_TIPO_MISMATCH` (lote **não** analisa).
+2. `GET /v1/faturamento/ledi-cds-lotes` — catálogo live 2/3/4/5/6/7/8/10 + stub 14.
+3. Shell `LediTipoLotePage` + jobs async + export 2 ZIPs.
+4. RulePack CDS + autofix seguro + cruzamento municipal quando cadastro mestre sync.
+5. Fixtures sintéticas + testes + manuais.
 
-## O que falta para wizard real (DoD futuro)
+## Limitações
 
-1. **Amostra ZIP** municipal (ou golden XML) tipos 3, 8 e 10 — espelhar análise Franca 4/5/7.
-2. Validador mínimo (header CNS/CBO/CNES/INE, UUID, filhos) **sem** inventar BLOCKER.
-3. Reusar shell `LediTipoLotePage` + `assertLoteTipoMatch` com `LediLoteTipo` estendido.
-4. Autofix só campos seguros (mesmo critério FAI).
-5. Export 2 ZIPs + testes golden.
-6. Manual usuário final + ajuda na tela.
-
-## Fora de escopo
-
-- Wizard upload/autofix/ZIP destes tipos nesta fase.
-- Dump `TB_FAIXA_ETARIA_VACINACAO`.
-- Claude Design UI completa · SAMU/LIS/TFD.
-
-## API stub
-
-```http
-GET /v1/faturamento/ledi-cds-lotes
-```
-
-Resposta: lista `{ code, id, label, loteXmlStatus: 'live'|'stub', href?, nativeHref?, blocker }`.
-
-Live hoje: 4 FAI · 5 FAO · 7 PROC. Stub: 3 · 8 · 10.
+- Sem golden XML municipal → críticos estruturais além de header/identidade são mínimos.
+- Quando houver ZIP amostra, calibrar BLOCKER específicos sem regressão 4/5/7.
 
 ## Rastreio
 
-- RF-2.29 · RF-17.11 · RF-3.54 · RF-10.3 (extensão futura)
-- Irmão: [fluxo-lote-ledi-wizard.md](fluxo-lote-ledi-wizard.md)
+- RF-2.29 · RF-2.30 · RF-17.11 · RF-3.54 · RF-10.3
+- Irmão: [fluxo-lote-ledi-wizard.md](fluxo-lote-ledi-wizard.md) · [mvp-correcao-dados-aps.md](mvp-correcao-dados-aps.md)

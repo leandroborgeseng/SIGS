@@ -37,8 +37,8 @@ ORIGENS
 | Migração XML→banco | `POST /v1/clinical-core/{normalize-ledi,migrate-dry-run,migrate}` · match | Bulk UI de migração “outro sistema” end-to-end |
 | Cadastro mestre rede | Sync CNES **natureza 1244** (~**66** / **59 ativos** Franca) · PF · `/equipes` · multi-equipe | eSB↔eSF referência · CH 20h · NT 30 “oficial” |
 | Produção nativa | Finish APS/odonto → fila + motor; mappers FAI/FAO/vacina/AD/coletivo | Export ZIP nativo de **todos** os tipos CDS |
-| CDS 3/8/10 | Domínio + UI origem + **stub** de lote | Wizard ZIP (bloqueado sem amostra) |
-| Vacina / coletivo / cad. individual (2) | Domínio + mapper JSON | Lote XML wizard |
+| CDS 3/8/10 | Domínio + UI origem + **wizard ZIP live** (schema sintético) | Calibrar BLOCKER com amostra municipal |
+| Vacina / coletivo / cad. individual (2) | Domínio + mapper JSON · **wizard ZIP** 2/6 | Vacina 14 ainda sem lote ZIP |
 | Governo | ZIP Siaps-ready + relatório; BPA stub; RNDS stub | Envio real Siaps/RNDS; BPA oficial; SISAB como produto |
 
 **Papel atual:** **corrigir e filtrar** XML de terceiros (e o que o SIGS gera em 4/5) — ainda **não** “sistema único que substitui todo o CDS no envio”.
@@ -145,6 +145,7 @@ Ordem: **1→2→3→4** fecham correção com o que Franca já tem; **5–6** d
 | Fluxo wizard | [fluxo-lote-ledi-wizard.md](fluxo-lote-ledi-wizard.md) |
 | Stubs CDS 3/8/10 | [desenho-lote-ledi-cds-3-8-10.md](desenho-lote-ledi-cds-3-8-10.md) |
 | Tipos Franca 4/5/7 | [16-tres-tipos-ficha-ledi-franca.md](../conhecimento/16-tres-tipos-ficha-ledi-franca.md) |
+| Cruzamentos entre fichas | [cruzamentos-fichas-ledi.md](cruzamentos-fichas-ledi.md) — mapa 2×3×produção×CNES (Siaps/Previne) |
 | Siaps × Previne | [15-faturamento-indicadores-campos-obrigatorios.md](../conhecimento/15-faturamento-indicadores-campos-obrigatorios.md) |
 | Indicadores Previne | [14-indicadores-aps-previne-brasil.md](../conhecimento/14-indicadores-aps-previne-brasil.md) |
 | Motor / paciente mestre | [arquitetura-fhir-motor-paciente-mestre.md](arquitetura-fhir-motor-paciente-mestre.md) |
