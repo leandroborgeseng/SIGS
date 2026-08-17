@@ -1,16 +1,7 @@
 'use client';
 
-import { CdsLoteStubPage } from '@/app/faturamento/_components/CdsLoteStubPage';
+import { LediTipoLotePage } from '@/app/ledi/_components/LediTipoLotePage';
 
-export default function FaturamentoLoteVisitaAcsStubPage() {
-  return (
-    <CdsLoteStubPage
-      title="Lote Visita ACS"
-      tipoCode={8}
-      masterTag="fichaVisitaDomiciliarMasterTransport"
-      nativeHref="/territorio"
-      nativeLabel="Território (Visitas ACS)"
-      rf="RF-17.11"
-    />
-  );
+export default function FaturamentoLoteVisitaAcsPage() {
+  return <LediTipoLotePage expectedTipo="VISITA_ACS" />;
 }

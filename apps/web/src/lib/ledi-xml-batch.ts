@@ -1,6 +1,6 @@
 /**
  * Helpers puros do upload LEDI no browser: paths do ZIP e-SUS, fatias de XML
- * e detecção de tipo (FAI/FAO/PROC) — sem fflate / DOM.
+ * e detecção de tipo — sem fflate / DOM.
  */
 
 export const XML_SLICE_MAX_FILES = 80;
@@ -17,22 +17,34 @@ export function shouldUnzipZipInBrowser(_size: number): boolean {
   return false;
 }
 
-export type LediLoteTipo = 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+export type LediLoteTipo =
+  | 'FAO'
+  | 'FAI'
+  | 'PROCEDIMENTOS'
+  | 'CADASTRO_INDIVIDUAL'
+  | 'CADASTRO_DOMICILIAR'
+  | 'COLETIVO'
+  | 'VISITA_ACS'
+  | 'AD';
 
 const TELA: Record<LediLoteTipo, { href: string; label: string }> = {
   FAI: { href: '/faturamento/lote/fai', label: 'Lote LEDI FAI' },
   FAO: { href: '/faturamento/lote/fao', label: 'Lote LEDI FAO' },
   PROCEDIMENTOS: { href: '/faturamento/lote/proc', label: 'Lote Procedimentos' },
-};
-
-const STUB_TELA: Record<string, { href: string; label: string }> = {
+  CADASTRO_INDIVIDUAL: {
+    href: '/faturamento/lote/cadastro-individual',
+    label: 'Lote Cadastro Individual',
+  },
   CADASTRO_DOMICILIAR: {
     href: '/faturamento/lote/domicilio',
-    label: 'Lote Cadastro Domiciliar (stub)',
+    label: 'Lote Cadastro Domiciliar',
   },
-  VISITA_ACS: { href: '/faturamento/lote/visita-acs', label: 'Lote Visita ACS (stub)' },
-  AD: { href: '/faturamento/lote/ad', label: 'Lote Atenção Domiciliar (stub)' },
+  COLETIVO: { href: '/faturamento/lote/coletivo', label: 'Lote Atividade Coletiva' },
+  VISITA_ACS: { href: '/faturamento/lote/visita-acs', label: 'Lote Visita ACS' },
+  AD: { href: '/faturamento/lote/ad', label: 'Lote Atenção Domiciliar' },
 };
+
+const LOTE_IDS = new Set<string>(Object.keys(TELA));
 
 export class LediTipoMismatchError extends Error {
   readonly code = 'LEDI_TIPO_MISMATCH' as const;
@@ -41,16 +53,15 @@ export class LediTipoMismatchError extends Error {
   readonly href: string;
 
   constructor(opts: { expectedTipo: LediLoteTipo; detectedTipo: string }) {
-    const dest = TELA[opts.detectedTipo as LediLoteTipo] || STUB_TELA[opts.detectedTipo];
+    const dest = TELA[opts.detectedTipo as LediLoteTipo];
     const where = dest
       ? `${dest.label} (${dest.href})`
       : 'a tela correspondente ao tipo da ficha';
-    const stubHint = STUB_TELA[opts.detectedTipo]
-      ? ' Lote XML deste tipo ainda é stub (sem upload).'
-      : '';
+    const vacinaHint =
+      opts.detectedTipo === 'VACINA' ? ' Lote ZIP vacina (14) ainda não está nesta onda.' : '';
     super(
       `Este arquivo é ${opts.detectedTipo}, não ${opts.expectedTipo}. ` +
-        `Abra ${where} e envie de lá.${stubHint} Separe os tipos — não analisamos este arquivo.`,
+        `Abra ${where} e envie de lá.${vacinaHint} Separe os tipos — não analisamos este arquivo.`,
     );
     this.name = 'LediTipoMismatchError';
     this.expectedTipo = opts.expectedTipo;
@@ -125,7 +136,6 @@ export function decodeXmlBytes(u8: Uint8Array): string {
   return new TextDecoder('utf-8').decode(u8);
 }
 
-/** Detecção ampla (gate) — inclui stubs CDS; wizard live só 4/5/7. */
 const DETECT_BY_CODE: Record<number, string> = {
   2: 'CADASTRO_INDIVIDUAL',
   3: 'CADASTRO_DOMICILIAR',
@@ -179,7 +189,7 @@ export function assertLediTipoMatch(opts: {
   const detected = dominantLediTipo(opts.sampleXmls);
   if (!detected) return;
   if (detected === opts.expectedTipo) return;
-  if (detected === 'FAO' || detected === 'FAI' || detected === 'PROCEDIMENTOS') {
+  if (LOTE_IDS.has(detected) || detected === 'VACINA') {
     throw new LediTipoMismatchError({ expectedTipo: opts.expectedTipo, detectedTipo: detected });
   }
 }
@@ -210,15 +220,18 @@ export function parseLediTipoMismatchFromJob(job: {
   return null;
 }
 
+function parseExpectedTipo(raw: unknown): LediLoteTipo {
+  const s = String(raw || '');
+  if (LOTE_IDS.has(s)) return s as LediLoteTipo;
+  return 'FAI';
+}
+
 function parseMismatchPayload(raw: unknown): LediTipoMismatchError | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
   if (o.code !== 'LEDI_TIPO_MISMATCH') return null;
-  const expected = o.expectedTipo === 'FAO' || o.expectedTipo === 'PROCEDIMENTOS' || o.expectedTipo === 'FAI'
-    ? o.expectedTipo
-    : 'FAI';
   return new LediTipoMismatchError({
-    expectedTipo: expected,
+    expectedTipo: parseExpectedTipo(o.expectedTipo),
     detectedTipo: String(o.detectedTipo || 'UNKNOWN'),
   });
 }
@@ -228,6 +241,11 @@ function mismatchFromMessage(msg: string): LediTipoMismatchError {
   if (/Lote LEDI FAO|é FAO/i.test(msg)) detected = 'FAO';
   else if (/Lote LEDI FAI|é FAI/i.test(msg)) detected = 'FAI';
   else if (/Procedimentos/i.test(msg)) detected = 'PROCEDIMENTOS';
+  else if (/Cadastro Individual/i.test(msg)) detected = 'CADASTRO_INDIVIDUAL';
+  else if (/Cadastro Domiciliar|domiciliar/i.test(msg)) detected = 'CADASTRO_DOMICILIAR';
+  else if (/Coletiva|coletivo/i.test(msg)) detected = 'COLETIVO';
+  else if (/Visita ACS/i.test(msg)) detected = 'VISITA_ACS';
+  else if (/Atenção Domiciliar|é AD/i.test(msg)) detected = 'AD';
   let expected: LediLoteTipo = 'FAI';
   if (/não FAI/i.test(msg)) expected = 'FAI';
   else if (/não FAO/i.test(msg)) expected = 'FAO';
@@ -270,7 +288,7 @@ export function isMemoryError(err: unknown): boolean {
 export function unzipFallbackMessage(fileName: string): string {
   return (
     `Não foi possível descompactar “${fileName}” neste navegador (memória ou ZIP inválido). ` +
-      `Envie um ZIP menor e achatado (~200 XMLs, como Arquivo.zip) ou gere a amostra no Desktop: ` +
-      `node tools/make-sistemas-fai-amostra.cjs`
+    `Envie um ZIP menor e achatado (~200 XMLs, como Arquivo.zip) ou gere a amostra no Desktop: ` +
+    `node tools/make-sistemas-fai-amostra.cjs`
   );
 }

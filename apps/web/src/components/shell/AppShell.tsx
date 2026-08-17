@@ -30,9 +30,14 @@ const LEDI_LOTES_SUBGROUP: NavSubgroup = {
   id: 'ledi-lotes',
   group: 'Tratamento de lotes LEDI',
   items: [
-    { href: '/faturamento/lote/fao', label: 'Lote FAO' },
+    { href: '/faturamento/lote/cadastro-individual', label: 'Cadastro Individual' },
+    { href: '/faturamento/lote/domicilio', label: 'Cadastro Domiciliar' },
     { href: '/faturamento/lote/fai', label: 'Lote FAI' },
+    { href: '/faturamento/lote/fao', label: 'Lote FAO' },
+    { href: '/faturamento/lote/coletivo', label: 'Atividade Coletiva' },
     { href: '/faturamento/lote/proc', label: 'Lote Procedimentos' },
+    { href: '/faturamento/lote/visita-acs', label: 'Visita ACS' },
+    { href: '/faturamento/lote/ad', label: 'Atenção Domiciliar' },
   ],
 };
 

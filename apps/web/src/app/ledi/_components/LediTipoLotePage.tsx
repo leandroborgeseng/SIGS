@@ -45,10 +45,11 @@ import { isLediCondutaOdontoId } from '@/app/faturamento/lote/fao/condutas-odont
 import {
   isLediTipoMismatchError,
   parseLediTipoMismatch,
+  type LediLoteTipo,
   type LediTipoMismatchError,
 } from '@/lib/ledi-xml-batch';
 
-type LoteTipo = 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+type LoteTipo = LediLoteTipo;
 type ExportAction = 'zip-current' | 'zip-conformant' | 'zip-pending' | 'dry-run' | 'closure';
 type WizardStep = 'upload' | 'recusado' | 'analise' | 'tratar' | 'fechamento' | 'individual';
 
@@ -196,6 +197,91 @@ const META: Record<
     queueLabel: 'Hub faturamento',
     clinicalHref: '/faturamento',
     clinicalLabel: 'Hub',
+    defaultCbo: '',
+  },
+  CADASTRO_INDIVIDUAL: {
+    title: 'Lote Cadastro Individual',
+    help: 'Tipo 2 — schema sintético (dump Franca sem amostra). Wizard: upload → gate → críticas Siaps/header → autofix → 2 ZIPs.',
+    label: 'Cadastro Individual',
+    helpId: 'faturamento.lote-cds',
+    fileSlug: 'cad-ind',
+    siblingHref: '/faturamento/lote/domicilio',
+    siblingLabel: 'Lote Domiciliar',
+    variant: 'proc',
+    acceptHint: 'Cadastro Individual tipo 2',
+    fichaLabel: 'cadastro individual',
+    queueHref: '/faturamento',
+    queueLabel: 'Hub faturamento',
+    clinicalHref: '/pacientes',
+    clinicalLabel: 'Pacientes',
+    defaultCbo: '',
+  },
+  CADASTRO_DOMICILIAR: {
+    title: 'Lote Cadastro Domiciliar',
+    help: 'Tipo 3 — schema sintético. Mesmo shell do wizard LEDI; origem nativa em Território.',
+    label: 'Cadastro Domiciliar',
+    helpId: 'faturamento.lote-cds',
+    fileSlug: 'domicilio',
+    siblingHref: '/faturamento/lote/visita-acs',
+    siblingLabel: 'Lote Visita ACS',
+    variant: 'proc',
+    acceptHint: 'Cadastro Domiciliar tipo 3',
+    fichaLabel: 'cadastro domiciliar',
+    queueHref: '/faturamento',
+    queueLabel: 'Hub faturamento',
+    clinicalHref: '/territorio',
+    clinicalLabel: 'Território',
+    defaultCbo: '',
+  },
+  COLETIVO: {
+    title: 'Lote Atividade Coletiva',
+    help: 'Tipo 6 — schema sintético. Críticas de header/faturamento + participantes; origem /coletivo.',
+    label: 'Coletivo',
+    helpId: 'faturamento.lote-cds',
+    fileSlug: 'coletivo',
+    siblingHref: '/faturamento/lote/proc',
+    siblingLabel: 'Lote Procedimentos',
+    variant: 'proc',
+    acceptHint: 'Atividade Coletiva tipo 6',
+    fichaLabel: 'atividade coletiva',
+    queueHref: '/faturamento',
+    queueLabel: 'Hub faturamento',
+    clinicalHref: '/coletivo',
+    clinicalLabel: 'Coletivo',
+    defaultCbo: '',
+  },
+  VISITA_ACS: {
+    title: 'Lote Visita ACS',
+    help: 'Tipo 8 — schema sintético. Wizard ZIP com críticas CNS/CNES/CBO/INE; origem Território → Visitas.',
+    label: 'Visita ACS',
+    helpId: 'faturamento.lote-cds',
+    fileSlug: 'visita-acs',
+    siblingHref: '/faturamento/lote/ad',
+    siblingLabel: 'Lote AD',
+    variant: 'proc',
+    acceptHint: 'Visita ACS tipo 8',
+    fichaLabel: 'visita domiciliar ACS',
+    queueHref: '/faturamento',
+    queueLabel: 'Hub faturamento',
+    clinicalHref: '/territorio',
+    clinicalLabel: 'Território',
+    defaultCbo: '',
+  },
+  AD: {
+    title: 'Lote Atenção Domiciliar',
+    help: 'Tipo 10 — schema sintético. Mesmo wizard; origem nativa /ad.',
+    label: 'AD',
+    helpId: 'faturamento.lote-cds',
+    fileSlug: 'ad',
+    siblingHref: '/faturamento/lote/visita-acs',
+    siblingLabel: 'Lote Visita ACS',
+    variant: 'proc',
+    acceptHint: 'AD tipo 10',
+    fichaLabel: 'atendimento domiciliar',
+    queueHref: '/faturamento',
+    queueLabel: 'Hub faturamento',
+    clinicalHref: '/ad',
+    clinicalLabel: 'Atenção domiciliar',
     defaultCbo: '',
   },
 };
@@ -1083,7 +1169,7 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
             </button>
             {tipoRecusa.href ? (
               <Link className="btn btn-secondary" href={tipoRecusa.href}>
-                Ir para {tipoRecusa.detectedTipo === 'FAO' ? 'Lote FAO' : tipoRecusa.detectedTipo === 'PROCEDIMENTOS' ? 'Lote Procedimentos' : 'Lote FAI'}
+                Ir para {META[tipoRecusa.detectedTipo as LoteTipo]?.title || tipoRecusa.detectedTipo}
               </Link>
             ) : null}
           </div>

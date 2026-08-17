@@ -21,43 +21,52 @@ const FILAS = [
 
 const LOTES = [
   {
+    href: '/faturamento/lote/cadastro-individual',
+    title: 'Cadastro Individual',
+    badge: 'Tipo 2 · sintético',
+    desc: 'Wizard ZIP — críticas header/identidade; dump Franca sem amostra.',
+  },
+  {
+    href: '/faturamento/lote/domicilio',
+    title: 'Cadastro Domiciliar',
+    badge: 'Tipo 3 · sintético',
+    desc: 'Wizard ZIP CDS território; origem /territorio.',
+  },
+  {
+    href: '/faturamento/lote/fai',
+    title: 'Lote FAI',
+    badge: 'Tipo 4 · individual',
+    desc: 'Validar, corrigir e baixar ZIP de atendimento individual (dump Franca).',
+  },
+  {
     href: '/faturamento/lote/fao',
     title: 'Lote FAO',
     badge: 'Tipo 5 · odonto',
     desc: 'Upload, correção e export ZIP de fichas odontológicas.',
   },
   {
-    href: '/faturamento/lote/fai',
-    title: 'Lote FAI',
-    badge: 'Tipo 4 · individual',
-    desc: 'Mesmo fluxo: validar, corrigir e baixar ZIP de atendimento individual.',
+    href: '/faturamento/lote/coletivo',
+    title: 'Atividade Coletiva',
+    badge: 'Tipo 6 · sintético',
+    desc: 'Wizard ZIP coletivo (B4/Previne); origem /coletivo.',
   },
   {
     href: '/faturamento/lote/proc',
     title: 'Lote Procedimentos',
     badge: 'Tipo 7',
-    desc: 'Ficha de procedimentos — export ZIP, dry-run e relatório iguais aos demais lotes.',
-  },
-];
-
-const LOTES_STUB = [
-  {
-    href: '/faturamento/lote/domicilio',
-    title: 'Cadastro domiciliar',
-    badge: 'Tipo 3 · stub',
-    desc: 'Sem ZIP até amostra municipal — origem em Território.',
+    desc: 'Ficha de procedimentos — export ZIP, dry-run e relatório.',
   },
   {
     href: '/faturamento/lote/visita-acs',
     title: 'Visita ACS',
-    badge: 'Tipo 8 · stub',
-    desc: 'Sem wizard ZIP — registre em Território → Visitas ACS.',
+    badge: 'Tipo 8 · sintético',
+    desc: 'Wizard ZIP visitas ACS; origem Território.',
   },
   {
     href: '/faturamento/lote/ad',
-    title: 'Atenção domiciliar',
-    badge: 'Tipo 10 · stub',
-    desc: 'Origem nativa /ad; lote XML adiado (sem dump).',
+    title: 'Atenção Domiciliar',
+    badge: 'Tipo 10 · sintético',
+    desc: 'Wizard ZIP AD; origem /ad.',
   },
 ];
 
@@ -79,7 +88,7 @@ export default function FaturamentoHubPage() {
     <AppShell helpId="faturamento.hub">
       <PageHeader
         title="Faturamento & Validação"
-        description="Filas odonto/APS e tratamento de lotes LEDI (FAO · FAI · Procedimentos) — separado do atendimento clínico."
+        description="Filas odonto/APS e tratamento de lotes LEDI (tipos 2–8 e 10) — separado do atendimento clínico."
         actions={<HelpLink id="faturamento.hub" />}
       />
 
@@ -107,43 +116,12 @@ export default function FaturamentoHubPage() {
           Tratamento de lotes LEDI
         </h3>
         <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
-          Escolha o tipo da ficha. Os três usam o mesmo painel: upload → alertas → export ZIP / dry-run /
-          relatório.
-        </p>
-        <div className="stack" style={{ gap: 10 }}>
-          {LOTES.map((item) => (
-            <Link key={item.href} href={item.href} className="unit-card" style={{ textAlign: 'left' }}>
-              <div style={{ flex: 1 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    alignItems: 'baseline',
-                    flexWrap: 'wrap',
-                    marginBottom: 2,
-                  }}
-                >
-                  <span style={{ fontSize: 14.5, fontWeight: 600 }}>{item.title}</span>
-                  <span style={{ fontSize: 11.5, color: 'var(--ink-4)' }}>{item.badge}</span>
-                </div>
-                <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>{item.desc}</div>
-              </div>
-              <span style={{ color: 'var(--ink-4)' }}>›</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ marginBottom: 20, maxWidth: 720 }}>
-        <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>
-          CDS territorial / AD (stub)
-        </h3>
-        <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
-          Tipos 3 · 8 · 10 detectados no gate, sem upload nesta fase. API:{' '}
+          Mesmo wizard: upload → gate de tipo → críticas Siaps/faturamento → autofix → 2 ZIPs (aptos /
+          pendentes). Tipos 2/3/6/8/10 usam schema sintético (dump Franca só trouxe 4/5/7). API:{' '}
           <code>GET /v1/faturamento/ledi-cds-lotes</code>.
         </p>
         <div className="stack" style={{ gap: 10 }}>
-          {LOTES_STUB.map((item) => (
+          {LOTES.map((item) => (
             <Link key={item.href} href={item.href} className="unit-card" style={{ textAlign: 'left' }}>
               <div style={{ flex: 1 }}>
                 <div

@@ -1,16 +1,7 @@
 'use client';
 
-import { CdsLoteStubPage } from '@/app/faturamento/_components/CdsLoteStubPage';
+import { LediTipoLotePage } from '@/app/ledi/_components/LediTipoLotePage';
 
-export default function FaturamentoLoteDomicilioStubPage() {
-  return (
-    <CdsLoteStubPage
-      title="Lote Cadastro Domiciliar"
-      tipoCode={3}
-      masterTag="cadastroDomiciliarTransport"
-      nativeHref="/territorio"
-      nativeLabel="Território (domicílios)"
-      rf="RF-2.29"
-    />
-  );
+export default function FaturamentoLoteDomicilioPage() {
+  return <LediTipoLotePage expectedTipo="CADASTRO_DOMICILIAR" />;
 }

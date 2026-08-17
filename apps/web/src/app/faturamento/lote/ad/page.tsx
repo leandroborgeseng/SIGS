@@ -1,16 +1,7 @@
 'use client';
 
-import { CdsLoteStubPage } from '@/app/faturamento/_components/CdsLoteStubPage';
+import { LediTipoLotePage } from '@/app/ledi/_components/LediTipoLotePage';
 
-export default function FaturamentoLoteAdStubPage() {
-  return (
-    <CdsLoteStubPage
-      title="Lote Atenção Domiciliar"
-      tipoCode={10}
-      masterTag="fichaAtendimentoDomiciliarMasterTransport"
-      nativeHref="/ad"
-      nativeLabel="Atenção domiciliar"
-      rf="RF-3.54"
-    />
-  );
+export default function FaturamentoLoteAdPage() {
+  return <LediTipoLotePage expectedTipo="AD" />;
 }
