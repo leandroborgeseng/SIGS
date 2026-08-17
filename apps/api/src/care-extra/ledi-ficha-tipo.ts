@@ -90,6 +90,14 @@ export function isLediLoteTipo(v: string): v is LediLoteTipo {
   return (LEDI_LOTE_TIPOS as readonly string[]).includes(v);
 }
 
+/** Query/payload do wizard ZIP: 2/3/4/5/6/7/8/10. Não colapsar CDS em FAO. */
+export function parseLediLoteTipo(raw?: string | null, fallback: LediLoteTipo = 'FAO'): LediLoteTipo {
+  const t = String(raw || '').trim().toUpperCase();
+  if (t === 'PROC') return 'PROCEDIMENTOS';
+  if (isLediLoteTipo(t)) return t;
+  return fallback;
+}
+
 export type LediTipoMismatchPayload = {
   code: typeof LEDI_TIPO_MISMATCH;
   expectedTipo: LediLoteTipo;

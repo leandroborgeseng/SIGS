@@ -5,6 +5,7 @@ import {
   isJunkZipEntry,
   isLediXmlZipEntry,
   isLediTipoMismatchError,
+  lediTelaAcceptCopy,
   LediTipoMismatchError,
   parseLediTipoMismatchFromJob,
   sliceEntryRanges,
@@ -58,6 +59,42 @@ describe('ledi-xml-batch (cliente)', () => {
       expect(String(e)).toMatch(/Lote LEDI FAO/);
     }
     expect(() => assertLediTipoMatch({ expectedTipo: 'FAI', sampleXmls: [fai] })).not.toThrow();
+  });
+
+  it('Cadastro Individual tipo 2 na tela certa passa; FAO na tela 2 aponta FAO', () => {
+    const ci = '<tipoDadoSerializado>2</tipoDadoSerializado><cadastroIndividualTransport/>';
+    const fao = '<tipoDadoSerializado>5</tipoDadoSerializado><fichaAtendimentoOdontologicoMasterTransport/>';
+    expect(detectLediTipoId(ci)).toBe('CADASTRO_INDIVIDUAL');
+    expect(() =>
+      assertLediTipoMatch({ expectedTipo: 'CADASTRO_INDIVIDUAL', sampleXmls: [ci] }),
+    ).not.toThrow();
+    try {
+      assertLediTipoMatch({ expectedTipo: 'CADASTRO_INDIVIDUAL', sampleXmls: [fao] });
+      fail('expected throw');
+    } catch (e) {
+      expect(isLediTipoMismatchError(e)).toBe(true);
+      const err = e as LediTipoMismatchError;
+      expect(err.detectedTipo).toBe('FAO');
+      expect(err.expectedTipo).toBe('CADASTRO_INDIVIDUAL');
+      expect(err.href).toBe('/faturamento/lote/fao');
+      expect(String(e)).toMatch(/Lote LEDI FAO/);
+      expect(String(e)).toMatch(/Cadastro Individual/);
+      expect(String(e)).not.toMatch(/não FAO\./);
+    }
+  });
+
+  it('lediTelaAcceptCopy não diz Procedimentos tipo 7 nas telas CDS', () => {
+    expect(lediTelaAcceptCopy('CADASTRO_INDIVIDUAL')).toBe(
+      'Esta tela aceita só Cadastro Individual (tipo 2).',
+    );
+    expect(lediTelaAcceptCopy('CADASTRO_DOMICILIAR')).toMatch(/tipo 3/);
+    expect(lediTelaAcceptCopy('COLETIVO')).toMatch(/tipo 6/);
+    expect(lediTelaAcceptCopy('VISITA_ACS')).toMatch(/tipo 8/);
+    expect(lediTelaAcceptCopy('AD')).toMatch(/tipo 10/);
+    expect(lediTelaAcceptCopy('PROCEDIMENTOS')).toBe(
+      'Esta tela aceita só Procedimentos (tipo 7).',
+    );
+    expect(lediTelaAcceptCopy('CADASTRO_INDIVIDUAL')).not.toMatch(/Procedimentos/);
   });
 
   it('parseLediTipoMismatchFromJob lê recusa do servidor', () => {

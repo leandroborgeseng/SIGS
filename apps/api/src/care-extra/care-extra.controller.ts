@@ -37,6 +37,7 @@ import { JOB_NAMES } from '../infra/queue/queue.service';
 import { StorageService } from '../infra/storage/storage.service';
 import { randomUUID } from 'crypto';
 import { buildPendingReportPdf } from './ledi-pending-report-pdf';
+import { parseLediLoteTipo } from './ledi-ficha-tipo';
 import {
   lediAutofixAsyncThreshold,
   lediAutofixIdempotencyKey,
@@ -109,7 +110,7 @@ export class CareExtraController {
         `ZIP tem ${xmlCount} arquivos .xml; o limite por lote é ${maxFiles}. Divida o lote (por unidade/período) ou envie em partes.`,
       );
     }
-    const expectedTipo = (opts.expectedTipo as 'FAO' | 'FAI' | 'PROCEDIMENTOS') || 'FAO';
+    const expectedTipo = parseLediLoteTipo(opts.expectedTipo);
     const threshold = lediImportAsyncThreshold();
     if (xmlCount >= threshold) {
       const stored = await this.storage.put(
@@ -173,7 +174,7 @@ export class CareExtraController {
   ) {
     return this.faoBatches.create({
       name,
-      expectedTipo: (expectedTipo as 'FAO' | 'FAI' | 'PROCEDIMENTOS') || 'FAO',
+      expectedTipo: parseLediLoteTipo(expectedTipo),
       files: mapUploadedXmls(files),
     });
   }

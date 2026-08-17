@@ -121,6 +121,20 @@ describe('POST /v1/dental/ledi/batches/upload-zip/chunk', () => {
     expect(payload.payload.expectedTipo).toBe('FAI');
   });
 
+  it('enfileira CADASTRO_INDIVIDUAL sem colapsar em FAO', async () => {
+    const buf = await zipBuf();
+    const uploadId = '33333333-4444-4555-8666-777777777777';
+    const q = (index: number) =>
+      `/v1/dental/ledi/batches/upload-zip/chunk?uploadId=${uploadId}&index=${index}&total=1&fileName=cad-ind.zip&expectedTipo=CADASTRO_INDIVIDUAL&name=cad-ind&totalBytes=${buf.length}`;
+    const res = await request(app.getHttpServer())
+      .post(q(0))
+      .set('Content-Type', 'application/octet-stream')
+      .send(buf);
+    expect(res.status).toBe(202);
+    const payload = enqueue.mock.calls[0]![0] as { payload: { expectedTipo: string } };
+    expect(payload.payload.expectedTipo).toBe('CADASTRO_INDIVIDUAL');
+  });
+
   it('monta buffer sintético ~8 MB em fatias de 512 KiB e enfileira (sem ZIP de paciente)', async () => {
     const totalBytes = 8 * 1024 * 1024;
     const chunk = LEDI_ZIP_CHUNK_BYTES;

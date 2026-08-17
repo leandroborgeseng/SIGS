@@ -57,9 +57,28 @@ describe('LediZipChunkService', () => {
     const assembled = await svc.readAssembled(second.assembledPath);
     expect(assembled.equals(Buffer.concat([a, b]))).toBe(true);
     expect(assembled.subarray(0, 2).toString()).toBe('PK');
+    expect(second.expectedTipo).toBe('FAI');
 
     await svc.cleanup(uploadId);
     await expect(svc.readAssembled(second.assembledPath)).rejects.toThrow();
+  });
+
+  it('preserva expectedTipo CADASTRO_INDIVIDUAL (não colapsa em FAO)', async () => {
+    const uploadId = 'cccccccc-dddd-4eee-8fff-000000000000';
+    const a = Buffer.from('PK\x03\x04CI');
+    const done = await svc.acceptChunk({
+      uploadId,
+      index: 0,
+      total: 1,
+      body: a,
+      fileName: 'cad-ind.zip',
+      expectedTipo: 'CADASTRO_INDIVIDUAL',
+      name: 'cad-ind',
+      totalBytes: a.length,
+    });
+    expect(done.complete).toBe(true);
+    if (!done.complete) return;
+    expect(done.expectedTipo).toBe('CADASTRO_INDIVIDUAL');
   });
 
   it('rejeita uploadId com path traversal', async () => {

@@ -44,7 +44,34 @@ const TELA: Record<LediLoteTipo, { href: string; label: string }> = {
   AD: { href: '/faturamento/lote/ad', label: 'Lote Atenção Domiciliar' },
 };
 
+export const LEDI_TIPO_CODE: Record<LediLoteTipo, number> = {
+  CADASTRO_INDIVIDUAL: 2,
+  CADASTRO_DOMICILIAR: 3,
+  FAI: 4,
+  FAO: 5,
+  COLETIVO: 6,
+  PROCEDIMENTOS: 7,
+  VISITA_ACS: 8,
+  AD: 10,
+};
+
 const LOTE_IDS = new Set<string>(Object.keys(TELA));
+
+export function isLediLoteTipo(v: string): v is LediLoteTipo {
+  return LOTE_IDS.has(v);
+}
+
+export function parseLediLoteTipo(raw?: string | null, fallback: LediLoteTipo = 'FAO'): LediLoteTipo {
+  const t = String(raw || '').trim().toUpperCase();
+  if (t === 'PROC') return 'PROCEDIMENTOS';
+  if (isLediLoteTipo(t)) return t;
+  return fallback;
+}
+
+export function lediTelaAcceptCopy(tipo: LediLoteTipo): string {
+  const short = TELA[tipo].label.replace(/^Lote (LEDI )?/, '');
+  return `Esta tela aceita só ${short} (tipo ${LEDI_TIPO_CODE[tipo]}).`;
+}
 
 export class LediTipoMismatchError extends Error {
   readonly code = 'LEDI_TIPO_MISMATCH' as const;
@@ -54,13 +81,15 @@ export class LediTipoMismatchError extends Error {
 
   constructor(opts: { expectedTipo: LediLoteTipo; detectedTipo: string }) {
     const dest = TELA[opts.detectedTipo as LediLoteTipo];
+    const expected = TELA[opts.expectedTipo];
+    const detectedLabel = dest?.label || opts.detectedTipo;
     const where = dest
       ? `${dest.label} (${dest.href})`
       : 'a tela correspondente ao tipo da ficha';
     const vacinaHint =
       opts.detectedTipo === 'VACINA' ? ' Lote ZIP vacina (14) ainda não está nesta onda.' : '';
     super(
-      `Este arquivo é ${opts.detectedTipo}, não ${opts.expectedTipo}. ` +
+      `Este arquivo é ${detectedLabel}, não ${expected.label}. ` +
         `Abra ${where} e envie de lá.${vacinaHint} Separe os tipos — não analisamos este arquivo.`,
     );
     this.name = 'LediTipoMismatchError';
@@ -221,9 +250,7 @@ export function parseLediTipoMismatchFromJob(job: {
 }
 
 function parseExpectedTipo(raw: unknown): LediLoteTipo {
-  const s = String(raw || '');
-  if (LOTE_IDS.has(s)) return s as LediLoteTipo;
-  return 'FAI';
+  return parseLediLoteTipo(String(raw || ''), 'FAO');
 }
 
 function parseMismatchPayload(raw: unknown): LediTipoMismatchError | null {
@@ -236,20 +263,31 @@ function parseMismatchPayload(raw: unknown): LediTipoMismatchError | null {
   });
 }
 
+function tipoFromMessageFragment(msg: string, prefix: 'é' | 'não'): string | null {
+  const entries = Object.entries(TELA) as Array<[LediLoteTipo, { href: string; label: string }]>;
+  for (const [id, t] of entries) {
+    if (new RegExp(`${prefix} ${id}\\b`, 'i').test(msg)) return id;
+    if (new RegExp(`${prefix} ${t.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(msg)) {
+      return id;
+    }
+  }
+  if (prefix === 'é') {
+    if (/Cadastro Individual/i.test(msg)) return 'CADASTRO_INDIVIDUAL';
+    if (/Cadastro Domiciliar|domiciliar/i.test(msg)) return 'CADASTRO_DOMICILIAR';
+    if (/Procedimentos/i.test(msg)) return 'PROCEDIMENTOS';
+    if (/Coletiva|coletivo/i.test(msg)) return 'COLETIVO';
+    if (/Visita ACS/i.test(msg)) return 'VISITA_ACS';
+    if (/Atenção Domiciliar|\bé AD\b/i.test(msg)) return 'AD';
+    if (/Lote LEDI FAO|\bé FAO\b/i.test(msg)) return 'FAO';
+    if (/Lote LEDI FAI|\bé FAI\b/i.test(msg)) return 'FAI';
+  }
+  return null;
+}
+
 function mismatchFromMessage(msg: string): LediTipoMismatchError {
-  let detected = 'UNKNOWN';
-  if (/Lote LEDI FAO|é FAO/i.test(msg)) detected = 'FAO';
-  else if (/Lote LEDI FAI|é FAI/i.test(msg)) detected = 'FAI';
-  else if (/Procedimentos/i.test(msg)) detected = 'PROCEDIMENTOS';
-  else if (/Cadastro Individual/i.test(msg)) detected = 'CADASTRO_INDIVIDUAL';
-  else if (/Cadastro Domiciliar|domiciliar/i.test(msg)) detected = 'CADASTRO_DOMICILIAR';
-  else if (/Coletiva|coletivo/i.test(msg)) detected = 'COLETIVO';
-  else if (/Visita ACS/i.test(msg)) detected = 'VISITA_ACS';
-  else if (/Atenção Domiciliar|é AD/i.test(msg)) detected = 'AD';
-  let expected: LediLoteTipo = 'FAI';
-  if (/não FAI/i.test(msg)) expected = 'FAI';
-  else if (/não FAO/i.test(msg)) expected = 'FAO';
-  else if (/não Procedimentos/i.test(msg)) expected = 'PROCEDIMENTOS';
+  const detected = tipoFromMessageFragment(msg, 'é') || 'UNKNOWN';
+  const expectedRaw = tipoFromMessageFragment(msg, 'não');
+  const expected = parseLediLoteTipo(expectedRaw, 'FAO');
   return new LediTipoMismatchError({ expectedTipo: expected, detectedTipo: detected });
 }
 

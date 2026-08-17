@@ -12,6 +12,11 @@ const FAI_XML = `<dadoTransporteTransportXml>
 <fichaAtendimentoIndividualMasterTransport></fichaAtendimentoIndividualMasterTransport>
 </dadoTransporteTransportXml>`;
 
+const CI_XML = `<dadoTransporteTransportXml>
+<tipoDadoSerializado>2</tipoDadoSerializado>
+<cadastroIndividualTransport></cadastroIndividualTransport>
+</dadoTransporteTransportXml>`;
+
 describe('LediFaoBatchService gate de tipo (fail-closed)', () => {
   const create = jest.fn();
   const svc = new LediFaoBatchService(
@@ -60,6 +65,46 @@ describe('LediFaoBatchService gate de tipo (fail-closed)', () => {
     }
     expect(caught).toBeInstanceOf(BadRequestException);
     expect((caught as BadRequestException).getStatus()).toBe(400);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('tipo 2 na tela cadastro-individual passa o gate (não persiste só por falta de Prisma completo)', async () => {
+    let gateError: unknown;
+    try {
+      await svc.create({
+        expectedTipo: 'CADASTRO_INDIVIDUAL',
+        files: [{ name: 'ci.xml', xml: CI_XML }],
+      });
+    } catch (e) {
+      gateError = e;
+    }
+    expect((gateError as { getResponse?: () => { code?: string } })?.getResponse?.()?.code).not.toBe(
+      LEDI_TIPO_MISMATCH,
+    );
+  });
+
+  it('FAO na tela cadastro-individual → 400 apontando FAO e não persiste', async () => {
+    try {
+      await svc.create({
+        expectedTipo: 'CADASTRO_INDIVIDUAL',
+        files: [{ name: 'odonto.xml', xml: FAO_XML }],
+      });
+      fail('expected throw');
+    } catch (e) {
+      const body = (e as BadRequestException).getResponse() as {
+        code?: string;
+        href?: string;
+        expectedTipo?: string;
+        detectedTipo?: string;
+        message?: string;
+      };
+      expect(body.code).toBe(LEDI_TIPO_MISMATCH);
+      expect(body.detectedTipo).toBe('FAO');
+      expect(body.expectedTipo).toBe('CADASTRO_INDIVIDUAL');
+      expect(body.href).toBe('/faturamento/lote/fao');
+      expect(body.message).toMatch(/Lote LEDI FAO/);
+      expect(body.message).not.toMatch(/não FAO\./);
+    }
     expect(create).not.toHaveBeenCalled();
   });
 });

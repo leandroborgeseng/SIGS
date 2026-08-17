@@ -7,6 +7,7 @@ import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile, appendFi
 import os from 'os';
 import path from 'path';
 import { LEDI_ZIP_MAX_BYTES, LEDI_ZIP_MAX_CHUNKS } from './ledi-zip.limits';
+import { parseLediLoteTipo, type LediLoteTipo } from './ledi-ficha-tipo';
 
 export const LEDI_CHUNK_OPTIONS = 'LEDI_CHUNK_OPTIONS';
 
@@ -35,7 +36,7 @@ export type LediZipChunkMeta = {
   total: number;
   totalBytes: number;
   fileName: string;
-  expectedTipo: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+  expectedTipo: LediLoteTipo;
   name?: string;
 };
 
@@ -54,15 +55,14 @@ export type LediZipChunkComplete = {
   total: number;
   assembledPath: string;
   name?: string;
-  expectedTipo: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+  expectedTipo: LediLoteTipo;
   fileName: string;
 };
 
 export type LediZipChunkResult = LediZipChunkProgress | LediZipChunkComplete;
 
-function asTipo(v?: string): 'FAO' | 'FAI' | 'PROCEDIMENTOS' {
-  if (v === 'FAI' || v === 'PROCEDIMENTOS') return v;
-  return 'FAO';
+function asTipo(v?: string): LediLoteTipo {
+  return parseLediLoteTipo(v);
 }
 
 @Injectable()

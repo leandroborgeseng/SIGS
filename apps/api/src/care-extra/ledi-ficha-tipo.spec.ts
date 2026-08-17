@@ -6,6 +6,7 @@ import {
   LediTipoMismatchError,
   LEDI_TIPO_MISMATCH,
   LOTE_TELA,
+  parseLediLoteTipo,
 } from './ledi-ficha-tipo';
 
 describe('ledi-ficha-tipo', () => {
@@ -117,6 +118,11 @@ const DOM_XML = `<dadoTransporteTransportXml>
 <cadastroDomiciliarTransport></cadastroDomiciliarTransport>
 </dadoTransporteTransportXml>`;
 
+const CI_XML = `<dadoTransporteTransportXml>
+<tipoDadoSerializado>2</tipoDadoSerializado>
+<cadastroIndividualTransport></cadastroIndividualTransport>
+</dadoTransporteTransportXml>`;
+
 describe('assertLoteTipoMatch (gate P0)', () => {
   it('aceita lote homogêneo do tipo da tela', () => {
     expect(() =>
@@ -137,6 +143,39 @@ describe('assertLoteTipoMatch (gate P0)', () => {
         files: [{ name: 'd.xml', xml: DOM_XML }],
       }),
     ).not.toThrow();
+    expect(() =>
+      assertLoteTipoMatch({
+        expectedTipo: 'CADASTRO_INDIVIDUAL',
+        files: [{ name: 'ci.xml', xml: CI_XML }],
+      }),
+    ).not.toThrow();
+  });
+
+  it('não recusa Cadastro Individual (tipo 2) na tela cadastro-individual', () => {
+    expect(() =>
+      assertLoteTipoMatch({
+        expectedTipo: 'CADASTRO_INDIVIDUAL',
+        files: [{ name: 'ci.xml', xml: CI_XML }],
+      }),
+    ).not.toThrow();
+  });
+
+  it('FAO na tela cadastro-individual aponta Lote FAO', () => {
+    try {
+      assertLoteTipoMatch({
+        expectedTipo: 'CADASTRO_INDIVIDUAL',
+        files: [{ name: 'odonto.xml', xml: FAO_XML }],
+      });
+      fail('expected throw');
+    } catch (e) {
+      const err = e as LediTipoMismatchError;
+      expect(err.detectedTipo).toBe('FAO');
+      expect(err.expectedTipo).toBe('CADASTRO_INDIVIDUAL');
+      expect(err.href).toBe('/faturamento/lote/fao');
+      expect(err.message).toMatch(/Lote LEDI FAO/);
+      expect(err.message).toMatch(/Lote Cadastro Individual/);
+      expect(err.message).not.toMatch(/não FAO/);
+    }
   });
 
   it('recusa FAO na tela FAI sem seguir análise', () => {
@@ -217,5 +256,25 @@ describe('assertLoteTipoMatch (gate P0)', () => {
       expect(err.detectedTipo).toBe('AD');
       expect(err.href).toBe(LOTE_TELA.AD.href);
     }
+  });
+});
+
+describe('parseLediLoteTipo', () => {
+  it('preserva CDS (não colapsa em FAO)', () => {
+    expect(parseLediLoteTipo('CADASTRO_INDIVIDUAL')).toBe('CADASTRO_INDIVIDUAL');
+    expect(parseLediLoteTipo('CADASTRO_DOMICILIAR')).toBe('CADASTRO_DOMICILIAR');
+    expect(parseLediLoteTipo('COLETIVO')).toBe('COLETIVO');
+    expect(parseLediLoteTipo('VISITA_ACS')).toBe('VISITA_ACS');
+    expect(parseLediLoteTipo('AD')).toBe('AD');
+    expect(parseLediLoteTipo('FAI')).toBe('FAI');
+    expect(parseLediLoteTipo('FAO')).toBe('FAO');
+    expect(parseLediLoteTipo('PROCEDIMENTOS')).toBe('PROCEDIMENTOS');
+    expect(parseLediLoteTipo('PROC')).toBe('PROCEDIMENTOS');
+  });
+
+  it('fallback FAO só quando o valor é vazio ou desconhecido', () => {
+    expect(parseLediLoteTipo(undefined)).toBe('FAO');
+    expect(parseLediLoteTipo('')).toBe('FAO');
+    expect(parseLediLoteTipo('VACINA')).toBe('FAO');
   });
 });

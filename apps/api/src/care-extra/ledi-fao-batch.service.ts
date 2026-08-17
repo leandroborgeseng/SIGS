@@ -19,9 +19,9 @@ import {
 import {
   assertLoteTipoMatch,
   detectLediFichaTipo,
-  isLediLoteTipo,
   LediTipoMismatchError,
   LOTE_TELA,
+  parseLediLoteTipo,
   type LediLoteTipo,
 } from './ledi-ficha-tipo';
 import {
@@ -157,10 +157,7 @@ export class LediFaoBatchService {
   }
 
   private normalizeExpectedTipo(raw?: string): LediLoteTipo {
-    const t = (raw || 'FAO').toUpperCase();
-    if (t === 'PROC') return 'PROCEDIMENTOS';
-    if (isLediLoteTipo(t)) return t;
-    return 'FAO';
+    return parseLediLoteTipo(raw);
   }
 
   /** Cadastro mestre municipal (CNES · PF · INE) para cruzamentos no lote. */

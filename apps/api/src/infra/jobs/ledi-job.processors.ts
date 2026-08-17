@@ -5,7 +5,7 @@ import { JOB_NAMES, QueueService } from '../queue/queue.service';
 import { LediFaoBatchService } from '../../care-extra/ledi-fao-batch.service';
 import { StorageService } from '../storage/storage.service';
 import { extractXmlFilesFromZipBuffer, extractXmlFilesFromZipPath } from '../../care-extra/ledi-zip.extract';
-import { extractTipoMismatch } from '../../care-extra/ledi-ficha-tipo';
+import { extractTipoMismatch, parseLediLoteTipo } from '../../care-extra/ledi-ficha-tipo';
 import type { AutoFixLediFaoBatchDto } from '../../care-extra/dto';
 import {
   lediFichaProgressMessage,
@@ -140,10 +140,9 @@ export class LediJobProcessors {
     const jobRunId = String(payload.jobRunId);
     const objectKey = String(payload.objectKey || '');
     const name = typeof payload.name === 'string' ? payload.name : undefined;
-    const expectedTipo =
-      payload.expectedTipo === 'FAI' || payload.expectedTipo === 'PROCEDIMENTOS'
-        ? payload.expectedTipo
-        : 'FAO';
+    const expectedTipo = parseLediLoteTipo(
+      typeof payload.expectedTipo === 'string' ? payload.expectedTipo : undefined,
+    );
     const xmlCount = typeof payload.xmlCount === 'number' ? payload.xmlCount : undefined;
     await this.jobs.markActive(jobRunId);
     await this.jobs.markProgress(

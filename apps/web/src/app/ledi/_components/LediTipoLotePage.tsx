@@ -45,6 +45,7 @@ import {
 import { isLediCondutaOdontoId } from '@/app/faturamento/lote/fao/condutas-odonto';
 import {
   isLediTipoMismatchError,
+  lediTelaAcceptCopy,
   parseLediTipoMismatch,
   type LediLoteTipo,
   type LediTipoMismatchError,
@@ -551,6 +552,15 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
       await loadBatch(created.id);
     } catch (err) {
       const mismatch = parseLediTipoMismatch(err) || (isLediTipoMismatchError(err) ? err : null);
+      if (mismatch && mismatch.detectedTipo === expectedTipo) {
+        setError(
+          `O ZIP é ${meta.label} (tipo desta tela), mas o envio falhou. Tente novamente.`,
+        );
+        setTipoRecusa(null);
+        setBusy(false);
+        setUploadProgress('');
+        return;
+      }
       if (mismatch) {
         setTipoRecusa(mismatch);
         setWizardStep('recusado');
@@ -1173,7 +1183,10 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
 
       {wizardStep === 'recusado' && tipoRecusa ? (
         <div className="card" style={{ marginBottom: 16, borderColor: 'var(--danger)' }}>
-          <h3 style={{ marginTop: 0 }}>Este ZIP não é {meta.label}</h3>
+          <h3 style={{ marginTop: 0 }}>
+            Este ZIP é {META[tipoRecusa.detectedTipo as LoteTipo]?.label || tipoRecusa.detectedTipo}, não{' '}
+            {meta.label}
+          </h3>
           <p>{tipoRecusa.message}</p>
           <p className="muted" style={{ fontSize: 13 }}>
             Nenhuma ficha foi analisada e nenhum lote foi gravado. Separe os tipos e envie na tela certa.
@@ -1211,21 +1224,23 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
           </li>
         </ul>
         <p className="muted" style={{ fontSize: 13 }}>
+          {lediTelaAcceptCopy(expectedTipo)}{' '}
           {expectedTipo === 'FAI' ? (
             <>
-              Esta tela aceita só FAI (tipo 4). FAO vai em <Link href="/faturamento/lote/fao">Lote FAO</Link>.
-              Produção nativa APS: <Link href="/faturamento/aps">fila APS</Link>.
+              FAO vai em <Link href="/faturamento/lote/fao">Lote FAO</Link>. Produção nativa APS:{' '}
+              <Link href="/faturamento/aps">fila APS</Link>.
             </>
           ) : expectedTipo === 'FAO' ? (
             <>
-              Esta tela aceita só FAO (tipo 5). FAI vai em <Link href="/faturamento/lote/fai">Lote FAI</Link>.
-              Produção nativa odonto: <Link href="/faturamento/odonto">fila odonto</Link>.
+              FAI vai em <Link href="/faturamento/lote/fai">Lote FAI</Link>. Produção nativa odonto:{' '}
+              <Link href="/faturamento/odonto">fila odonto</Link>.
+            </>
+          ) : expectedTipo === 'PROCEDIMENTOS' ? (
+            <>
+              FAI vai em <Link href="/faturamento/lote/fai">Lote FAI</Link>.
             </>
           ) : (
-            <>
-              Esta tela aceita só Procedimentos (tipo 7). FAI vai em{' '}
-              <Link href="/faturamento/lote/fai">Lote FAI</Link>.
-            </>
+            <>ZIP de outro tipo deve ir para a tela correspondente ao tipoDadoSerializado.</>
           )}
         </p>
         <div className="field">
