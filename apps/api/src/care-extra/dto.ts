@@ -173,10 +173,10 @@ export class LediFaoBatchFileDto {
 export class CreateLediFaoBatchDto {
   @IsOptional() @IsString() name?: string;
   /**
-   * Canal do lote: FAO (odonto) | FAI (individual) | PROCEDIMENTOS.
+   * Canal do lote LEDI (TipoDadoTranspEnum id).
    * Default FAO para compatibilidade com /faturamento/lote/fao.
    */
-  @IsOptional() @IsString() expectedTipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+  @IsOptional() @IsString() expectedTipo?: string;
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => LediFaoBatchFileDto)
@@ -193,7 +193,7 @@ export class AppendLediFaoBatchDto {
 /** ZIP em base64 — fallback legado; preferir POST multipart /upload-zip. */
 export class CreateLediFaoBatchFromZipDto {
   @IsOptional() @IsString() name?: string;
-  @IsOptional() @IsString() expectedTipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+  @IsOptional() @IsString() expectedTipo?: string;
   @IsString() zipBase64!: string;
 }
 
@@ -225,7 +225,7 @@ export class LediZipChunkQueryDto {
   total?: number;
 
   @IsOptional() @IsString() fileName?: string;
-  @IsOptional() @IsIn(['FAO', 'FAI', 'PROCEDIMENTOS']) expectedTipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+  @IsOptional() @IsString() expectedTipo?: string;
   @IsOptional() @IsString() name?: string;
 
   @IsOptional()

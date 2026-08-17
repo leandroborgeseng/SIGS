@@ -5,6 +5,7 @@ import {
   isLediTipoMismatchError,
   LediTipoMismatchError,
   LEDI_TIPO_MISMATCH,
+  LOTE_TELA,
 } from './ledi-ficha-tipo';
 
 describe('ledi-ficha-tipo', () => {
@@ -43,7 +44,7 @@ describe('ledi-ficha-tipo', () => {
     expect(t.loteXmlLive).toBe(true);
   });
 
-  it('detecta Cadastro Domiciliar tipo 3 (stub)', () => {
+  it('detecta Cadastro Domiciliar tipo 3 (live)', () => {
     const xml = `<dadoTransporteTransportXml>
 <tipoDadoSerializado>3</tipoDadoSerializado>
 <cadastroDomiciliarTransport></cadastroDomiciliarTransport>
@@ -51,21 +52,21 @@ describe('ledi-ficha-tipo', () => {
     const t = detectLediFichaTipo(xml);
     expect(t.id).toBe('CADASTRO_DOMICILIAR');
     expect(t.code).toBe(3);
-    expect(t.loteXmlLive).toBe(false);
+    expect(t.loteXmlLive).toBe(true);
     expect(t.masterTag).toBe('cadastroDomiciliarTransport');
   });
 
-  it('detecta Visita ACS tipo 8 por tag', () => {
+  it('detecta Visita ACS tipo 8 por tag (live)', () => {
     const xml = `<dadoTransporteTransportXml>
 <fichaVisitaDomiciliarMasterTransport></fichaVisitaDomiciliarMasterTransport>
 </dadoTransporteTransportXml>`;
     const t = detectLediFichaTipo(xml);
     expect(t.id).toBe('VISITA_ACS');
     expect(t.code).toBe(8);
-    expect(t.loteXmlLive).toBe(false);
+    expect(t.loteXmlLive).toBe(true);
   });
 
-  it('detecta AD tipo 10', () => {
+  it('detecta AD tipo 10 (live)', () => {
     const xml = `<dadoTransporteTransportXml>
 <tipoDadoSerializado>10</tipoDadoSerializado>
 <fichaAtendimentoDomiciliarMasterTransport></fichaAtendimentoDomiciliarMasterTransport>
@@ -73,7 +74,7 @@ describe('ledi-ficha-tipo', () => {
     const t = detectLediFichaTipo(xml);
     expect(t.id).toBe('AD');
     expect(t.code).toBe(10);
-    expect(t.loteXmlLive).toBe(false);
+    expect(t.loteXmlLive).toBe(true);
   });
 
   it('alinha vacina ao código 14 (não 2)', () => {
@@ -82,6 +83,7 @@ describe('ledi-ficha-tipo', () => {
     );
     expect(byCode.id).toBe('VACINA');
     expect(byCode.code).toBe(14);
+    expect(byCode.loteXmlLive).toBe(false);
     const byTag = detectLediFichaTipo(
       `<dadoTransporteTransportXml><fichaVacinacaoMasterTransport/></dadoTransporteTransportXml>`,
     );
@@ -91,6 +93,7 @@ describe('ledi-ficha-tipo', () => {
       `<dadoTransporteTransportXml><tipoDadoSerializado>2</tipoDadoSerializado></dadoTransporteTransportXml>`,
     );
     expect(individual.id).toBe('CADASTRO_INDIVIDUAL');
+    expect(individual.loteXmlLive).toBe(true);
   });
 });
 
@@ -126,6 +129,12 @@ describe('assertLoteTipoMatch (gate P0)', () => {
       assertLoteTipoMatch({
         expectedTipo: 'PROCEDIMENTOS',
         files: [{ name: 'c.xml', xml: PROC_XML }],
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertLoteTipoMatch({
+        expectedTipo: 'CADASTRO_DOMICILIAR',
+        files: [{ name: 'd.xml', xml: DOM_XML }],
       }),
     ).not.toThrow();
   });
@@ -169,19 +178,20 @@ describe('assertLoteTipoMatch (gate P0)', () => {
     ).toThrow(/Lote Procedimentos/);
   });
 
-  it('recusa CDS domicílio na tela FAI apontando stub', () => {
+  it('recusa CDS domicílio na tela FAI apontando wizard live', () => {
     try {
       assertLoteTipoMatch({ expectedTipo: 'FAI', files: [{ name: 'dom.xml', xml: DOM_XML }] });
       fail('expected throw');
     } catch (e) {
       const err = e as LediTipoMismatchError;
       expect(err.detectedTipo).toBe('CADASTRO_DOMICILIAR');
+      expect(err.href).toBe(LOTE_TELA.CADASTRO_DOMICILIAR.href);
       expect(err.href).toBe(CDS_LOTE_STUB.CADASTRO_DOMICILIAR.href);
-      expect(err.message).toMatch(/stub/);
+      expect(err.message).not.toMatch(/stub/);
     }
   });
 
-  it('recusa visita ACS e AD nas telas live apontando stubs corretos', () => {
+  it('recusa visita ACS e AD nas telas live apontando rotas corretas', () => {
     const visita = `<dadoTransporteTransportXml>
 <tipoDadoSerializado>8</tipoDadoSerializado>
 <fichaVisitaDomiciliarMasterTransport></fichaVisitaDomiciliarMasterTransport>
@@ -196,8 +206,8 @@ describe('assertLoteTipoMatch (gate P0)', () => {
     } catch (e) {
       const err = e as LediTipoMismatchError;
       expect(err.detectedTipo).toBe('VISITA_ACS');
-      expect(err.href).toBe(CDS_LOTE_STUB.VISITA_ACS.href);
-      expect(err.message).toMatch(/stub/);
+      expect(err.href).toBe(LOTE_TELA.VISITA_ACS.href);
+      expect(err.message).not.toMatch(/stub/);
     }
     try {
       assertLoteTipoMatch({ expectedTipo: 'PROCEDIMENTOS', files: [{ name: 'ad.xml', xml: ad }] });
@@ -205,7 +215,7 @@ describe('assertLoteTipoMatch (gate P0)', () => {
     } catch (e) {
       const err = e as LediTipoMismatchError;
       expect(err.detectedTipo).toBe('AD');
-      expect(err.href).toBe(CDS_LOTE_STUB.AD.href);
+      expect(err.href).toBe(LOTE_TELA.AD.href);
     }
   });
 });

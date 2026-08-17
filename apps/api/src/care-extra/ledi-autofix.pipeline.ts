@@ -49,8 +49,16 @@ export type AutoFixPipelineInput = {
   justificativaNaoPossuiCpf?: number;
   justificativaCpfUnexpected?: 'remove' | 'force_st';
   regenerateUuidFicha?: boolean;
-  /** Canal do lote — FAI não aplica CIAP/CBO/vigilância odonto. */
-  fichaTipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+  /** Canal do lote — FAI/CDS não aplica CIAP/CBO/vigilância odonto. */
+  fichaTipo?:
+    | 'FAO'
+    | 'FAI'
+    | 'PROCEDIMENTOS'
+    | 'CADASTRO_INDIVIDUAL'
+    | 'CADASTRO_DOMICILIAR'
+    | 'COLETIVO'
+    | 'VISITA_ACS'
+    | 'AD';
   condutas?: number[];
   tipoAtendimento?: number;
 };
@@ -68,7 +76,15 @@ export function runAutoFixPipeline(
   dto: AutoFixPipelineInput,
   previneGaps: string[] = [],
 ): AutoFixPipelineResult {
-  if (dto.fichaTipo === 'FAI') {
+  const cdsLike =
+    dto.fichaTipo === 'FAI' ||
+    dto.fichaTipo === 'PROCEDIMENTOS' ||
+    dto.fichaTipo === 'CADASTRO_INDIVIDUAL' ||
+    dto.fichaTipo === 'CADASTRO_DOMICILIAR' ||
+    dto.fichaTipo === 'COLETIVO' ||
+    dto.fichaTipo === 'VISITA_ACS' ||
+    dto.fichaTipo === 'AD';
+  if (cdsLike) {
     return runFaiAutoFixPipeline(xml, findings, dto);
   }
 

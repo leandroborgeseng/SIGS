@@ -1,11 +1,20 @@
 import { validateFaoXml, type FaoFinding } from '../care-extra/ledi-fao.validator';
 import { validateFaiXml } from '../care-extra/ledi-fai.validator';
 import { validateProcXml } from '../care-extra/ledi-proc.validator';
+import {
+  validateAdXml,
+  validateCadastroDomiciliarXml,
+  validateCadastroIndividualXml,
+  validateColetivoXml,
+  validateVisitaAcsXml,
+} from '../care-extra/ledi-cds-extra.validator';
+import type { LediMunicipalCrossCtx } from '../care-extra/ledi-cds-common';
 import type { PrevineXray } from '../care-extra/ledi-fao-previne-xray';
 import type { RulesEngineResult, RulesFinding, SigsComposition } from './sigs-fhir.types';
 import { lediXmlToComposition } from './adapters/ledi-xml.adapter';
+import type { LediLoteTipo } from '../care-extra/ledi-ficha-tipo';
 
-export type LediRulePack = 'FAO' | 'FAI' | 'PROCEDIMENTOS';
+export type LediRulePack = LediLoteTipo;
 
 export type RulesEngineInput = {
   xml?: string;
@@ -14,6 +23,8 @@ export type RulesEngineInput = {
   rulePack?: LediRulePack;
   /** Anexa Previne em `previneXray` (não mistura em findings LEDI) */
   includePrevine?: boolean;
+  /** Cruzamento CNES/PF/INE (cadastro mestre municipal). */
+  municipal?: LediMunicipalCrossCtx | null;
 };
 
 export type RulesEngineOutput = RulesEngineResult & {
@@ -25,7 +36,15 @@ export type RulesEngineOutput = RulesEngineResult & {
 };
 
 function mapFindings(
-  list: Array<{ code: string; severity: string; message: string; path?: string; hint?: string; field?: string; rule?: string }>,
+  list: Array<{
+    code: string;
+    severity: string;
+    message: string;
+    path?: string;
+    hint?: string;
+    field?: string;
+    rule?: string;
+  }>,
 ): FaoFinding[] {
   return list.map((f) => ({
     code: f.code,
@@ -40,8 +59,18 @@ function mapFindings(
 
 function resolvePack(input: RulesEngineInput, composition: SigsComposition): LediRulePack | 'UNKNOWN' {
   if (input.rulePack) return input.rulePack;
-  if (composition.fichaTipo === 'FAO' || composition.fichaTipo === 'FAI' || composition.fichaTipo === 'PROCEDIMENTOS') {
-    return composition.fichaTipo;
+  const t = composition.fichaTipo;
+  if (
+    t === 'FAO' ||
+    t === 'FAI' ||
+    t === 'PROCEDIMENTOS' ||
+    t === 'CADASTRO_INDIVIDUAL' ||
+    t === 'CADASTRO_DOMICILIAR' ||
+    t === 'COLETIVO' ||
+    t === 'VISITA_ACS' ||
+    t === 'AD'
+  ) {
+    return t;
   }
   return 'UNKNOWN';
 }
@@ -95,6 +124,7 @@ export function runRulesEngine(input: RulesEngineInput): RulesEngineOutput {
   let previneXray: PrevineXray | undefined;
   let siapsReady = false;
   let previneReady = true;
+  const municipal = input.municipal;
 
   if (rulePack === 'FAO') {
     const report = validateFaoXml(xml);
@@ -111,6 +141,31 @@ export function runRulesEngine(input: RulesEngineInput): RulesEngineOutput {
     previneReady = report.previneReady;
   } else if (rulePack === 'PROCEDIMENTOS') {
     const report = validateProcXml(xml);
+    findings = mapFindings(report.findings);
+    siapsReady = report.siapsReady;
+    previneReady = report.previneReady;
+  } else if (rulePack === 'CADASTRO_INDIVIDUAL') {
+    const report = validateCadastroIndividualXml(xml, municipal);
+    findings = mapFindings(report.findings);
+    siapsReady = report.siapsReady;
+    previneReady = report.previneReady;
+  } else if (rulePack === 'CADASTRO_DOMICILIAR') {
+    const report = validateCadastroDomiciliarXml(xml, municipal);
+    findings = mapFindings(report.findings);
+    siapsReady = report.siapsReady;
+    previneReady = report.previneReady;
+  } else if (rulePack === 'COLETIVO') {
+    const report = validateColetivoXml(xml, municipal);
+    findings = mapFindings(report.findings);
+    siapsReady = report.siapsReady;
+    previneReady = report.previneReady;
+  } else if (rulePack === 'VISITA_ACS') {
+    const report = validateVisitaAcsXml(xml, municipal);
+    findings = mapFindings(report.findings);
+    siapsReady = report.siapsReady;
+    previneReady = report.previneReady;
+  } else if (rulePack === 'AD') {
+    const report = validateAdXml(xml, municipal);
     findings = mapFindings(report.findings);
     siapsReady = report.siapsReady;
     previneReady = report.previneReady;

@@ -19,8 +19,16 @@ import {
 import {
   assertLoteTipoMatch,
   detectLediFichaTipo,
+  isLediLoteTipo,
   LediTipoMismatchError,
+  LOTE_TELA,
+  type LediLoteTipo,
 } from './ledi-ficha-tipo';
+import {
+  appendMunicipalCrossChecks,
+  extractCdsHeader,
+  type LediMunicipalCrossCtx,
+} from './ledi-cds-common';
 import { runRulesEngine } from '../clinical-core/rules-engine';
 import {
   classifyAutoFixable,
@@ -104,8 +112,6 @@ type ItemSummary = {
   fichaTipoLabel?: string | null;
 };
 
-type LediLoteTipo = 'FAO' | 'FAI' | 'PROCEDIMENTOS';
-
 type UnifiedReport = {
   findings: FaoFinding[];
   siapsReady: boolean;
@@ -113,6 +119,10 @@ type UnifiedReport = {
   readyForFinalSend: boolean;
   previneXray?: PrevineXray;
 };
+
+function loteLabel(tipo: LediLoteTipo): string {
+  return LOTE_TELA[tipo]?.label || tipo;
+}
 
 @Injectable()
 export class LediFaoBatchService {
@@ -142,18 +152,77 @@ export class LediFaoBatchService {
 
   private normalizeExpectedTipo(raw?: string): LediLoteTipo {
     const t = (raw || 'FAO').toUpperCase();
-    if (t === 'FAI') return 'FAI';
-    if (t === 'PROCEDIMENTOS' || t === 'PROC') return 'PROCEDIMENTOS';
+    if (t === 'PROC') return 'PROCEDIMENTOS';
+    if (isLediLoteTipo(t)) return t;
     return 'FAO';
   }
 
-  private reportFromXml(xml: string, expectedTipo: LediLoteTipo = 'FAO'): UnifiedReport {
-    const engine = runRulesEngine({ xml, rulePack: expectedTipo, includePrevine: true });
+  /** Cadastro mestre municipal (CNES · PF · INE) para cruzamentos no lote. */
+  private async loadMunicipalCrossCtx(): Promise<LediMunicipalCrossCtx | null> {
+    try {
+      const facilities = await this.prisma.facility.findMany({
+        where: { municipalNetwork: true },
+        select: {
+          cnes: true,
+          teams: { where: { active: true }, select: { ine: true } },
+        },
+        take: 400,
+      });
+      if (!facilities.length) return null;
+      const municipalCnes = new Set(facilities.map((f) => f.cnes));
+      const ineByCnes = new Map<string, Set<string>>();
+      for (const f of facilities) {
+        const set = new Set<string>();
+        for (const t of f.teams) {
+          if (t.ine) set.add(t.ine.replace(/\D/g, '') || t.ine);
+        }
+        if (set.size) ineByCnes.set(f.cnes, set);
+      }
+      const pros = await this.prisma.professional.findMany({
+        where: {
+          cns: { not: null },
+          assignments: {
+            some: { active: true, facility: { municipalNetwork: true } },
+          },
+        },
+        select: { cns: true },
+        take: 8000,
+      });
+      const municipalCnsProf = new Set(
+        pros.map((p) => (p.cns || '').replace(/\D/g, '')).filter((c) => c.length === 15),
+      );
+      return { municipalCnes, municipalCnsProf, ineByCnes };
+    } catch {
+      return null;
+    }
+  }
+
+  private reportFromXml(
+    xml: string,
+    expectedTipo: LediLoteTipo = 'FAO',
+    municipal?: LediMunicipalCrossCtx | null,
+  ): UnifiedReport {
+    const engine = runRulesEngine({
+      xml,
+      rulePack: expectedTipo,
+      includePrevine: true,
+      municipal,
+    });
+    const findings = [...(engine.findings as FaoFinding[])];
+    // Reforço: FAI/FAO/PROC também cruzam cadastro mestre quando disponível
+    if (
+      municipal &&
+      (expectedTipo === 'FAI' || expectedTipo === 'FAO' || expectedTipo === 'PROCEDIMENTOS')
+    ) {
+      appendMunicipalCrossChecks(findings, extractCdsHeader(xml), municipal);
+    }
+    const siapsReady = !findings.some((f) => f.severity === 'BLOCKER');
+    const moneyOk = !findings.some((f) => f.severity === 'MONEY_RISK');
     return {
-      findings: engine.findings as FaoFinding[],
-      siapsReady: engine.siapsReady,
-      previneReady: engine.previneReady,
-      readyForFinalSend: engine.readyForFinalSend,
+      findings,
+      siapsReady,
+      previneReady: engine.previneReady && moneyOk,
+      readyForFinalSend: siapsReady && engine.previneReady && moneyOk,
       previneXray: engine.previneXray,
     };
   }
@@ -288,20 +357,16 @@ export class LediFaoBatchService {
     expectedTipo: LediLoteTipo,
     batchIdForKeys?: string,
   ) {
-    const label =
-      expectedTipo === 'FAI'
-        ? 'FAI'
-        : expectedTipo === 'PROCEDIMENTOS'
-          ? 'Procedimentos'
-          : 'FAO';
+    const label = loteLabel(expectedTipo);
 
     const scope = batchIdForKeys || 'pending';
+    const municipal = await this.loadMunicipalCrossCtx();
     const out = [];
     for (const f of files) {
       const xml = f.xml?.trim();
       if (!xml) throw new BadRequestException(`Arquivo sem conteúdo: ${f.name}`);
       const tipo = detectLediFichaTipo(xml);
-      const report = this.reportFromXml(xml, expectedTipo);
+      const report = this.reportFromXml(xml, expectedTipo, municipal);
       const findings = [...report.findings];
       if (!this.tipoMatchOk(tipo.id, expectedTipo)) {
         findings.unshift({
@@ -313,7 +378,7 @@ export class LediFaoBatchService {
           rule: 'LEDI-tipo',
         });
       }
-      const auto = classifyAutoFixable(findings, expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo);
+      const auto = classifyAutoFixable(findings, expectedTipo);
       let masterJson: string | null = null;
       if (expectedTipo === 'FAO') {
         try {
@@ -399,12 +464,7 @@ export class LediFaoBatchService {
       }
       throw err;
     }
-    const label =
-      expectedTipo === 'FAI'
-        ? 'FAI'
-        : expectedTipo === 'PROCEDIMENTOS'
-          ? 'Procedimentos'
-          : 'FAO';
+    const label = loteLabel(expectedTipo);
 
     // Cria lote vazio primeiro para namespacing de object keys
     const batchStub = await this.prisma.lediFaoBatch.create({
@@ -882,7 +942,7 @@ export class LediFaoBatchService {
         const result = runAutoFixPipeline(
           xml,
           findings,
-          { ...dto, fichaTipo: expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo },
+          { ...dto, fichaTipo: expectedTipo },
           previneGapCodes(item.previneJson),
         );
         if (!result.changed) continue;
@@ -988,7 +1048,7 @@ export class LediFaoBatchService {
         const result = runAutoFixPipeline(
           await this.resolveCurrentXml(item),
           findings,
-          { ...dto, fichaTipo: expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo },
+          { ...dto, fichaTipo: expectedTipo },
           previneGapCodes(item.previneJson),
         );
         if (!result.changed) {
@@ -1497,10 +1557,10 @@ export class LediFaoBatchService {
     expectedVersion?: number,
   ) {
     const tipo = detectLediFichaTipo(xml);
-    const report = this.reportFromXml(xml, expectedTipo);
+    const municipal = await this.loadMunicipalCrossCtx();
+    const report = this.reportFromXml(xml, expectedTipo, municipal);
     const findings = [...report.findings];
-    const label =
-      expectedTipo === 'FAI' ? 'FAI' : expectedTipo === 'PROCEDIMENTOS' ? 'Procedimentos' : 'FAO';
+    const label = loteLabel(expectedTipo);
     if (!this.tipoMatchOk(tipo.id, expectedTipo)) {
       findings.unshift({
         severity: 'BLOCKER',
@@ -1511,10 +1571,7 @@ export class LediFaoBatchService {
         rule: 'LEDI-tipo',
       });
     }
-    const auto = classifyAutoFixable(
-      findings,
-      expectedTipo === 'PROCEDIMENTOS' ? undefined : expectedTipo,
-    );
+    const auto = classifyAutoFixable(findings, expectedTipo);
     const status = this.findingsStatus(findings);
 
     let masterJson: string | null = null;

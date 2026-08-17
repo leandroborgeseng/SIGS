@@ -78,11 +78,18 @@ function hasCitizenId(body: string): boolean {
   return /<cpfCidadao>\s*\d/i.test(body) || /<cnsCidadao>\s*\d/i.test(body);
 }
 
-/** Injeta stNaoPossuiCpf em blocos de atendimento FAO / FAI / Procedimentos. */
+/** Injeta stNaoPossuiCpf em blocos de atendimento FAO / FAI / PROC / CDS. */
 const ST_CPF_BLOCKS = [
   'atendimentosOdontologicos',
   'atendimentosIndividuais',
   'atendProcedimentos',
+  'atendimentosDomiciliares',
+  'visitasDomiciliares',
+  'visitasDomiliciares',
+  'fichaVisitaDomiciliarChild',
+  'cadastroIndividualTransport',
+  'fichaCadastroIndividualChild',
+  'cadastroIndividualChild',
 ] as const;
 
 export function fixStNaoPossuiCpf(
@@ -866,34 +873,47 @@ export function escapeXml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** Códigos seguros compartilhados FAI + CDS 2/3/6/7/8/10 (sem clínica FAO). */
+export const CDS_SAFE_AUTO_FIXABLE_CODES = new Set([
+  'ST_NAO_POSSUI_CPF',
+  'JUSTIFICATIVA_CPF_MISSING',
+  'INE_MISSING',
+  'TURNO',
+  'LOCAL_ATENDIMENTO',
+  'CNES_MISSING',
+  'CNES_FORMAT',
+  'IBGE_MISSING',
+  'IBGE_FORMAT',
+  'TP_CDS_ORIGEM_MISSING',
+  'TP_CDS_ORIGEM_NOT_3',
+  'PROC_QTD',
+  'CONDUTAS_MAX',
+  'UUID_FICHA_LENGTH',
+  'UUID_FICHA_CASE',
+  'XML_ENCODING',
+  'CNS_FORMAT',
+  'CPF_FORMAT',
+  'CIAP_FORMAT',
+  'CID_FORMAT',
+]);
+
 export function classifyAutoFixable(
   findings: FaoFinding[],
-  tipo?: 'FAO' | 'FAI' | 'PROCEDIMENTOS',
+  tipo?: string,
 ): string[] {
   const codes = new Set<string>();
-  const faiOnly = new Set([
-    'ST_NAO_POSSUI_CPF',
-    'JUSTIFICATIVA_CPF_MISSING',
-    'INE_MISSING',
-    'TURNO',
-    'LOCAL_ATENDIMENTO',
-    'CNES_MISSING',
-    'CNES_FORMAT',
-    'IBGE_MISSING',
-    'IBGE_FORMAT',
-    'TP_CDS_ORIGEM_MISSING',
-    'TP_CDS_ORIGEM_NOT_3',
-    'PROC_QTD',
-    'CONDUTAS_MAX',
-    'UUID_FICHA_LENGTH',
-    'UUID_FICHA_CASE',
-    'XML_ENCODING',
-    'CNS_FORMAT',
-    'CPF_FORMAT',
-    'CIAP_FORMAT',
-    'CID_FORMAT',
-  ]);
-  const allow = tipo === 'FAI' ? faiOnly : AUTO_FIXABLE_CODES;
+  const allow =
+    tipo === 'FAO' || !tipo
+      ? AUTO_FIXABLE_CODES
+      : tipo === 'FAI' ||
+          tipo === 'PROCEDIMENTOS' ||
+          tipo === 'CADASTRO_INDIVIDUAL' ||
+          tipo === 'CADASTRO_DOMICILIAR' ||
+          tipo === 'COLETIVO' ||
+          tipo === 'VISITA_ACS' ||
+          tipo === 'AD'
+        ? CDS_SAFE_AUTO_FIXABLE_CODES
+        : AUTO_FIXABLE_CODES;
   for (const f of findings) {
     if (allow.has(f.code)) codes.add(f.code);
   }

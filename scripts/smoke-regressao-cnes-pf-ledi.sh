@@ -11,7 +11,7 @@ fi
 
 cd "$ROOT/apps/api"
 
-PATTERN='cnes\.filter|cnes-audit|cnes\.professionals|cnes\.loader|cnes\.parser|cnes-teams|team-type-catalog|faturamento-audit|ledi-ficha-tipo|ledi-cds-lote'
+PATTERN='cnes\.filter|cnes-audit|cnes\.professionals|cnes\.loader|cnes\.parser|cnes-teams|team-type-catalog|faturamento-audit|ledi-ficha-tipo|ledi-cds-lote|ledi-cds-extra'
 
 echo "==> Smoke regressão: ${PATTERN}"
 npx jest --config jest.config.js --testPathPattern="${PATTERN}" --ci --colors=false
