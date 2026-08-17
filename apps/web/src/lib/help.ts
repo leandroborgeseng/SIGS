@@ -400,6 +400,15 @@ Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturament
     body: `Em /sigtap: busque códigos, valide listas, importe ZIP oficial (TB_PROCEDIMENTO) ou TXT/CSV — o site DATASUS costuma cair. Coloque o arquivo em data/sigtap/ e use “Importar pasta local” ou npm run sync:sigtap. Sem ZIP: Sincronizar seed (~27 códigos APS) ou fixture sample. ABPG no lote PROC bloqueia; preencha abpg-map-piloto.json e informe SIGTAP no repair. Manual: docs/manuais/usuario/integracao/sigtap.md · fontes data/sigtap/README.md.`,
   },
   {
+    id: 'pacientes.migracao-zip',
+    title: 'Migração ZIP → Paciente Mestre',
+    module: 'Pacientes',
+    version: '0.1.0',
+    updatedAt: '2026-08-17',
+    summary: 'Dry-run ou persistência de XMLs LEDI em ProductionRecord + Paciente Mestre.',
+    body: `Em /pacientes/migracao envie um ZIP LEDI. Default = dry-run (só relatório de findings, sem PHI). Marque Persistir para gravar ProductionRecord e criar/vincular pacientes. CLI: npm run migrate:ledi-zip -- --file=lote.zip [--persist]. API POST /v1/clinical-core/migrate-zip. Não substitui o wizard de correção de lotes.`,
+  },
+  {
     id: 'admin.usuarios',
     title: 'Usuários',
     module: 'Administração',

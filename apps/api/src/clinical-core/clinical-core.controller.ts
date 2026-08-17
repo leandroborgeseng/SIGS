@@ -1,8 +1,24 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClinicalCoreService } from './clinical-core.service';
+
+const MIGRATE_ZIP_UPLOAD = FileInterceptor('file', {
+  limits: { fileSize: 80 * 1024 * 1024, fieldSize: 1024 * 1024, fields: 8, files: 1 },
+});
 
 class NormalizeLediDto {
   @IsString() xml!: string;
@@ -65,6 +81,27 @@ export class ClinicalCoreController {
   @Post('migrate')
   migratePersist(@Body() dto: MigratePersistDto) {
     return this.core.migrateXmlPersist(dto.xml, { fileName: dto.fileName, force: dto.force });
+  }
+
+  /**
+   * ZIP LEDI → dry-run (default) ou persist Paciente Mestre + ProductionRecord.
+   * Multipart: file · form dryRun=1|0 · force=0|1
+   */
+  @Post('migrate-zip')
+  @UseInterceptors(MIGRATE_ZIP_UPLOAD)
+  migrateZip(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('dryRun') dryRun?: string,
+    @Body('force') force?: string,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Envie o ZIP no campo multipart "file".');
+    }
+    const isDry = dryRun === undefined || dryRun === '' || dryRun === '1' || dryRun === 'true';
+    return this.core.migrateZipBuffer(file.buffer, {
+      dryRun: isDry,
+      force: force === '1' || force === 'true',
+    });
   }
 
   @Post('match')

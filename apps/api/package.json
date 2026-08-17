@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "sync:cnes": "ts-node --transpile-only src/cnes/cli-sync.ts",
-    "sync:sigtap": "ts-node --transpile-only src/sigtap/cli-sync.ts"
+    "sync:sigtap": "ts-node --transpile-only src/sigtap/cli-sync.ts",
+    "migrate:ledi-zip": "ts-node --transpile-only src/clinical-core/cli-migrate-zip.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1109.0",

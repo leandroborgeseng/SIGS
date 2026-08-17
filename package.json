@@ -16,6 +16,7 @@
     "sync:ledi-errors": "node scripts/sync-ledi-error-registry.mjs",
     "sync:cnes": "npm run sync:cnes --workspace=@sigs/api --",
     "sync:sigtap": "npm run sync:sigtap --workspace=@sigs/api --",
+    "migrate:ledi-zip": "npm run migrate:ledi-zip --workspace=@sigs/api --",
     "smoke:cnes-pf-ledi": "bash scripts/smoke-regressao-cnes-pf-ledi.sh",
     "db:migrate": "npm run db:migrate --workspace=@sigs/api",
     "db:generate": "npm run db:generate --workspace=@sigs/api"

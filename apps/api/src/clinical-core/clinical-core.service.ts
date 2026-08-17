@@ -496,4 +496,83 @@ export class ClinicalCoreService {
       })),
     };
   }
+
+  /**
+   * Migração em lote a partir de ZIP LEDI (dry-run ou persist).
+   * Sem PHI no relatório — só contagens e códigos de finding.
+   */
+  async migrateZipBuffer(
+    buf: Buffer,
+    opts?: { dryRun?: boolean; force?: boolean; maxFiles?: number; actorId?: string },
+  ) {
+    const { extractXmlFilesFromZipBuffer } = await import('../care-extra/ledi-zip.extract');
+    const files = await extractXmlFilesFromZipBuffer(buf);
+    const max = opts?.maxFiles ?? 500;
+    const slice = files.slice(0, max);
+    const dryRun = opts?.dryRun !== false;
+
+    let ok = 0;
+    let rejected = 0;
+    let persistedRecords = 0;
+    const byCode: Record<string, number> = {};
+    const samples: Array<{ fileName: string; blockers: string[] }> = [];
+
+    for (const f of slice) {
+      try {
+        if (dryRun) {
+          const engine = await this.migrateXmlDryRun(f.xml, f.name);
+          const blockers = engine.findings
+            .filter((x) => x.severity === 'BLOCKER')
+            .map((x) => x.code);
+          for (const c of engine.findings.map((x) => x.code)) {
+            byCode[c] = (byCode[c] || 0) + 1;
+          }
+          if (blockers.length) {
+            rejected += 1;
+            if (samples.length < 20) samples.push({ fileName: f.name, blockers });
+          } else {
+            ok += 1;
+          }
+        } else {
+          const result = await this.migrateXmlPersist(f.xml, {
+            fileName: f.name,
+            force: opts?.force,
+            actorId: opts?.actorId,
+          });
+          if (result.persisted) {
+            ok += 1;
+            persistedRecords += result.records.length;
+          } else {
+            rejected += 1;
+            if (samples.length < 20) {
+              samples.push({ fileName: f.name, blockers: result.blockers || [] });
+            }
+          }
+          for (const c of result.engine.findings.map((x) => x.code)) {
+            byCode[c] = (byCode[c] || 0) + 1;
+          }
+        }
+      } catch (e) {
+        rejected += 1;
+        if (samples.length < 20) {
+          samples.push({
+            fileName: f.name,
+            blockers: [(e as Error).message.slice(0, 120)],
+          });
+        }
+      }
+    }
+
+    return {
+      dryRun,
+      filesInZip: files.length,
+      processed: slice.length,
+      truncated: files.length > max,
+      ok,
+      rejected,
+      persistedRecords,
+      byCode,
+      samples,
+    };
+  }
 }

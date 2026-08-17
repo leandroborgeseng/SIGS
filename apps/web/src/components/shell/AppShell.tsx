@@ -74,6 +74,7 @@ const NAV: Array<{ id: NavGroupId; group: string; items: readonly NavItem[] }> =
     group: 'Cadastros',
     items: [
       { href: '/pacientes', label: 'Pacientes' },
+      { href: '/pacientes/migracao', label: 'Migração ZIP' },
       { href: '/unidades', label: 'Unidades' },
       { href: '/equipes', label: 'Equipes' },
       { href: '/territorio', label: 'Território' },
