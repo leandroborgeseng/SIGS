@@ -83,6 +83,7 @@ describe('CnesAuditService', () => {
         active: true,
         facilityId: 'f-ok',
         facility: facilities[2],
+        _count: { assignments: 2 },
       },
       {
         id: 't2',
@@ -92,6 +93,7 @@ describe('CnesAuditService', () => {
         active: true,
         facilityId: 'f-ok',
         facility: facilities[2],
+        _count: { assignments: 0 },
       },
     ];
     const prisma = {
@@ -109,6 +111,7 @@ describe('CnesAuditService', () => {
     expect(codes.has('FACILITY_WITHOUT_TEAM')).toBe(true);
     expect(codes.has('INE_DUPLICATE')).toBe(true);
     expect(codes.has('TEAM_FACILITY_TYPE_MISMATCH')).toBe(true);
+    expect(codes.has('TEAM_WITHOUT_MEMBERS')).toBe(true);
     expect(report.counts.findings).toBeGreaterThan(0);
     expect(report.needsSync).toBe(false);
     expect(report.gestao).toBe('municipal');

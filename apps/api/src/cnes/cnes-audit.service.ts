@@ -15,6 +15,7 @@ export type CnesAuditSeverity = 'error' | 'warn' | 'info';
 
 export type CnesAuditCode =
   | 'TEAM_WITHOUT_FACILITY'
+  | 'TEAM_WITHOUT_MEMBERS'
   | 'FACILITY_WITHOUT_TEAM'
   | 'INE_DUPLICATE'
   | 'INE_CNES_OTHER_IBGE'
@@ -141,7 +142,10 @@ export class CnesAuditService {
       include: { _count: { select: { teams: true } } },
     });
     const teams = await this.prisma.team.findMany({
-      include: { facility: true },
+      include: {
+        facility: true,
+        _count: { select: { assignments: { where: { active: true } } } },
+      },
     });
 
     // Escopo: com gestao=municipal, só CNES presentes no snapshot filtrado (rede Prefeitura).
@@ -296,6 +300,33 @@ export class CnesAuditService {
               'Equipes APS (70/71/72/73/74/76) não devem estar em consultório isolado (tipo 22)',
           },
         });
+      }
+
+      // Equipe ativa sem profissionais lotados (após sync PF)
+      if (t.active && (t._count?.assignments ?? 0) === 0) {
+        const inScope =
+          gestao === 'municipal'
+            ? snapByCnes.size === 0
+              ? !t.facility.ibgeCode || t.facility.ibgeCode === ibgeCode
+              : snapByCnes.has(normalizeCnes(t.facility.cnes) || t.facility.cnes) ||
+                (!!t.ine && snapByIne.has(normalizeIne(t.ine) || t.ine))
+            : true;
+        if (inScope) {
+          findings.push({
+            code: 'TEAM_WITHOUT_MEMBERS',
+            severity: 'info',
+            message: `Equipe ativa sem profissionais lotados`,
+            entityType: 'team',
+            entityId: t.id,
+            cnes: t.facility.cnes,
+            ine: t.ine,
+            details: {
+              name: t.name,
+              teamTypeId: t.teamTypeId,
+              hint: 'Importe PF via POST /v1/cnes/sync-professionals ou veja /equipes',
+            },
+          });
+        }
       }
 
       // inativo no snapshot, ativo no SIGS
@@ -516,6 +547,7 @@ export class CnesAuditService {
         active: t.active,
         typeId: t.teamTypeId,
         facilityName: t.facility.name,
+        teamCount: t._count?.assignments ?? 0,
       }));
 
     return {
