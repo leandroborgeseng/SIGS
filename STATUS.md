@@ -55,7 +55,7 @@
 | `f6cfecd` | Lista `/unidades` default **Rede Prefeitura** (~59) + CNPJ mantenedora |
 | `dcf3756` | APIs `cnes/teams` · multi-team · network-export · catálogo 76=EAP · `TEAM_WITHOUT_MEMBERS` |
 | `2da5b68` | UI `/equipes` + `/equipes/[id]` · polish `/lotacoes` · manuais RF-2.61 |
-| `d672789` | Glossário + deep-links findings auditoria CNES |
+| `d5d56fb` | Glossário + deep-links findings auditoria CNES |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC (**live** — não quebrar)
