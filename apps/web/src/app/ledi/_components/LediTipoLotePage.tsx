@@ -28,6 +28,7 @@ import type { TreatmentProgress } from '@/app/faturamento/lote/fao/treatment-typ
 import { ErrorGuideModal } from '@/app/faturamento/lote/fao/ErrorGuideModal';
 import { FichaFixModal } from '@/app/faturamento/lote/fao/FichaFixModal';
 import { LoteQualityPanel } from '@/app/faturamento/lote/fao/LoteQualityPanel';
+import { PrevinePreSendPanel } from '@/app/faturamento/lote/fao/PrevinePreSendPanel';
 import { baselineFromTreatment } from '@/app/faturamento/lote/fao/ModalQualityMiniDash';
 import {
   bodyForRepairUi,
@@ -77,11 +78,21 @@ type BatchSummary = {
       sample: string;
     }>;
     indicatorGaps: Array<{ id: string; filesWithGap: number; pct: number }>;
+    indicators?: Array<{
+      id: string;
+      title: string;
+      withSignal: number;
+      withGap: number;
+      status: 'ok' | 'gap' | 'partial' | 'n/a';
+      note: string;
+    }>;
     signalRates: {
       withFirstConsulta: number;
       withConclusao: number;
       withPreventive: number;
+      withExodontia?: number;
       withArt: number;
+      withRestorative?: number;
       withIne: number;
       vigilancia99: number;
     };
@@ -1733,46 +1744,83 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
           </div>
 
           {expectedTipo === 'FAO' && batch.summary.previne ? (
-            <div className="card" style={{ marginBottom: 16 }}>
-              <h3 style={{ marginTop: 0 }}>Raio-x Previne (qualidade / indicadores)</h3>
-              <p className="muted" style={{ marginTop: 0 }}>
-                Sem R$. B1 1ª consulta · B2 conclusão · B3 extração · B5 prevenção · B6 ART. Clique numa
-                barra de alerta acima para filtrar.
-              </p>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3,minmax(0,1fr))',
-                  gap: 8,
-                  fontSize: 13,
-                }}
-              >
-                <div>
-                  <div className="muted">1ª consulta</div>
-                  <strong>{batch.summary.previne.signalRates.withFirstConsulta}</strong>
-                </div>
-                <div>
-                  <div className="muted">Conclusão</div>
-                  <strong>{batch.summary.previne.signalRates.withConclusao}</strong>
-                </div>
-                <div>
-                  <div className="muted">Preventivo</div>
-                  <strong>{batch.summary.previne.signalRates.withPreventive}</strong>
-                </div>
-                <div>
-                  <div className="muted">ART</div>
-                  <strong>{batch.summary.previne.signalRates.withArt}</strong>
-                </div>
-                <div>
-                  <div className="muted">c/ INE</div>
-                  <strong>{batch.summary.previne.signalRates.withIne}</strong>
-                </div>
-                <div>
-                  <div className="muted">só vig. 99</div>
-                  <strong>{batch.summary.previne.signalRates.vigilancia99}</strong>
-                </div>
-              </div>
-            </div>
+            <PrevinePreSendPanel
+              files={batch.summary.previne.files || batch.summary.total}
+              indicators={
+                batch.summary.previne.indicators?.length
+                  ? batch.summary.previne.indicators
+                  : [
+                      {
+                        id: 'B1',
+                        title: '1ª consulta programada',
+                        withSignal: batch.summary.previne.signalRates.withFirstConsulta,
+                        withGap:
+                          batch.summary.previne.indicatorGaps.find((g) => g.id === 'B1')
+                            ?.filesWithGap || 0,
+                        status: 'partial',
+                        note: 'Fallback: API sem slice indicators — use sinal/gap locais.',
+                      },
+                      {
+                        id: 'B2',
+                        title: 'Tratamento concluído',
+                        withSignal: batch.summary.previne.signalRates.withConclusao,
+                        withGap:
+                          batch.summary.previne.indicatorGaps.find((g) => g.id === 'B2')
+                            ?.filesWithGap || 0,
+                        status: 'partial',
+                        note: 'Fallback legado.',
+                      },
+                      {
+                        id: 'B3',
+                        title: 'Proporção de exodontia',
+                        withSignal: batch.summary.previne.signalRates.withExodontia || 0,
+                        withGap:
+                          batch.summary.previne.indicatorGaps.find((g) => g.id === 'B3')
+                            ?.filesWithGap || 0,
+                        status: 'partial',
+                        note: 'Fallback legado.',
+                      },
+                      {
+                        id: 'B4',
+                        title: 'Escovação supervisionada',
+                        withSignal: 0,
+                        withGap: 0,
+                        status: 'n/a',
+                        note: 'B4 não entra na FAO — lote Coletivo (tipo 6).',
+                      },
+                      {
+                        id: 'B5',
+                        title: 'Procedimentos preventivos',
+                        withSignal: batch.summary.previne.signalRates.withPreventive,
+                        withGap:
+                          batch.summary.previne.indicatorGaps.find((g) => g.id === 'B5')
+                            ?.filesWithGap || 0,
+                        status: 'partial',
+                        note: 'Fallback legado.',
+                      },
+                      {
+                        id: 'B6',
+                        title: 'ART / TRA',
+                        withSignal: batch.summary.previne.signalRates.withArt,
+                        withGap:
+                          batch.summary.previne.indicatorGaps.find((g) => g.id === 'B6')
+                            ?.filesWithGap || 0,
+                        status: 'partial',
+                        note: 'Fallback legado.',
+                      },
+                    ]
+              }
+              signalRates={batch.summary.previne.signalRates}
+              topGapCodes={batch.summary.previne.codeCounts
+                .filter((c) => c.severity !== 'INFO')
+                .slice(0, 8)
+                .map((c) => ({ code: c.code, files: c.files, indicator: c.indicator }))}
+              onFilterCode={(code) => {
+                setCodeFilter(code);
+                setTreatBucket('');
+                if (batch?.id) void loadItems(batch.id, code);
+              }}
+            />
           ) : null}
 
           <PendingReportPanel

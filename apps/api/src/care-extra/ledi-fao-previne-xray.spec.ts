@@ -1,4 +1,4 @@
-import { analyzePrevineEsbXray, normSigtap } from './ledi-fao-previne-xray';
+import { analyzePrevineEsbXray, aggregatePrevineXrays, normSigtap } from './ledi-fao-previne-xray';
 import { validateFaoXml } from './ledi-fao.validator';
 
 describe('ledi-fao-previne-xray', () => {
@@ -40,6 +40,13 @@ describe('ledi-fao-previne-xray', () => {
     expect(xray.gaps.some((g) => g.code === 'PREVINE_B6_NO_ART')).toBe(true);
     expect(xray.gaps.some((g) => g.code === 'PREVINE_VIGILANCIA_99')).toBe(true);
     expect(xray.summary.moneyRisks).toBeGreaterThan(0);
+
+    const agg = aggregatePrevineXrays([{ fileName: 'a.xml', xray }]);
+    expect(agg.files).toBe(1);
+    expect(agg.indicators).toHaveLength(6);
+    expect(agg.indicators.find((i) => i.id === 'B4')?.status).toBe('n/a');
+    expect(agg.indicators.find((i) => i.id === 'B1')?.withGap).toBeGreaterThan(0);
+    expect(agg.signalRates.withExodontia).toBe(0);
   });
 
   it('validateFaoXml inclui previneXray e flags de envio', () => {

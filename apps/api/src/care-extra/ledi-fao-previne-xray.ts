@@ -484,6 +484,18 @@ function slice(
   };
 }
 
+export type PrevineBatchIndicator = {
+  id: 'B1' | 'B2' | 'B3' | 'B4' | 'B5' | 'B6';
+  title: string;
+  /** Fichas com sinal positivo local (proxy — não é denominador oficial Previne). */
+  withSignal: number;
+  /** Fichas com gap não-INFO neste indicador. */
+  withGap: number;
+  /** Status honesto do lote. */
+  status: 'ok' | 'gap' | 'partial' | 'n/a';
+  note: string;
+};
+
 /** Agrega raio-x de vários itens de lote. */
 export function aggregatePrevineXrays(
   items: Array<{ fileName: string; xray: PrevineXray }>,
@@ -491,11 +503,15 @@ export function aggregatePrevineXrays(
   files: number;
   codeCounts: Array<{ code: string; indicator: string; files: number; severity: string; sample: string }>;
   indicatorGaps: Array<{ id: string; filesWithGap: number; pct: number }>;
+  /** Contagens honestas B1–B6 (proxy por ficha; B4 = n/a na FAO). */
+  indicators: PrevineBatchIndicator[];
   signalRates: {
     withFirstConsulta: number;
     withConclusao: number;
     withPreventive: number;
+    withExodontia: number;
     withArt: number;
+    withRestorative: number;
     withIne: number;
     vigilancia99: number;
   };
@@ -505,7 +521,9 @@ export function aggregatePrevineXrays(
   let withFirstConsulta = 0;
   let withConclusao = 0;
   let withPreventive = 0;
+  let withExodontia = 0;
   let withArt = 0;
+  let withRestorative = 0;
   let withIne = 0;
   let vigilancia99 = 0;
 
@@ -514,7 +532,9 @@ export function aggregatePrevineXrays(
     if (s.hasFirstConsultaProgramada) withFirstConsulta += 1;
     if (s.hasTratamentoConcluido) withConclusao += 1;
     if (s.preventiveCount > 0) withPreventive += 1;
+    if (s.exodontiaCount > 0) withExodontia += 1;
     if (s.artCount > 0) withArt += 1;
+    if (s.restorativeCount > 0) withRestorative += 1;
     if (s.inePresent) withIne += 1;
     if (s.vigilanciaOnly99) vigilancia99 += 1;
 
@@ -536,6 +556,65 @@ export function aggregatePrevineXrays(
   }
 
   const n = items.length || 1;
+  const gapOf = (id: string) => indGap.get(id) || 0;
+  const statusOf = (withGap: number, withSignal: number): PrevineBatchIndicator['status'] => {
+    if (!items.length) return 'n/a';
+    if (withGap === 0) return 'ok';
+    if (withSignal > 0 && withGap < items.length) return 'partial';
+    return 'gap';
+  };
+
+  const indicators: PrevineBatchIndicator[] = [
+    {
+      id: 'B1',
+      title: '1ª consulta programada',
+      withSignal: withFirstConsulta,
+      withGap: gapOf('B1'),
+      status: statusOf(gapOf('B1'), withFirstConsulta),
+      note: 'Proxy: fichas com SIGTAP 0301010153. Não é o denominador municipal Previne.',
+    },
+    {
+      id: 'B2',
+      title: 'Tratamento concluído',
+      withSignal: withConclusao,
+      withGap: gapOf('B2'),
+      status: statusOf(gapOf('B2'), withConclusao),
+      note: 'Proxy: conduta 15 neste XML. B2 oficial = concluídos ÷ 1ªs consultas no período.',
+    },
+    {
+      id: 'B3',
+      title: 'Proporção de exodontia',
+      withSignal: withExodontia,
+      withGap: gapOf('B3'),
+      status: statusOf(gapOf('B3'), withExodontia),
+      note: 'Proxy local por ficha (mix do XML). Taxa oficial é do período da equipe.',
+    },
+    {
+      id: 'B4',
+      title: 'Escovação supervisionada',
+      withSignal: 0,
+      withGap: 0,
+      status: 'n/a',
+      note: 'B4 não entra na FAO — registrar no lote Coletivo (tipo 6).',
+    },
+    {
+      id: 'B5',
+      title: 'Procedimentos preventivos',
+      withSignal: withPreventive,
+      withGap: gapOf('B5'),
+      status: statusOf(gapOf('B5'), withPreventive),
+      note: 'Proxy: preventivos elegíveis neste atendimento. Meta oficial é mix do período.',
+    },
+    {
+      id: 'B6',
+      title: 'ART / TRA',
+      withSignal: withArt,
+      withGap: gapOf('B6'),
+      status: statusOf(gapOf('B6'), withArt),
+      note: `Proxy: ART 0307010074. Restaurações sem ART neste lote: ${Math.max(0, withRestorative - withArt)}.`,
+    },
+  ];
+
   return {
     files: items.length,
     codeCounts: [...codeMap.entries()]
@@ -548,11 +627,14 @@ export function aggregatePrevineXrays(
         pct: Math.round((filesWithGap / n) * 1000) / 10,
       }))
       .sort((a, b) => b.filesWithGap - a.filesWithGap),
+    indicators,
     signalRates: {
       withFirstConsulta,
       withConclusao,
       withPreventive,
+      withExodontia,
       withArt,
+      withRestorative,
       withIne,
       vigilancia99,
     },
