@@ -9,7 +9,7 @@ Base de conhecimento para construção do **Sistema Municipal de Gestão em Saú
 | [conhecimento/](conhecimento/) | O que já aprendemos sobre o e-SUS, LEDI/faturamento, **SAMU (`12-…`)** e **[Indicadores APS / Previne (`14-…`)](conhecimento/14-indicadores-aps-previne-brasil.md)** |
 | [requisitos/](requisitos/) | Requisitos funcionais oficiais do edital/TR |
 | [manuais/](manuais/) | Política + templates de manuais técnico e usuário (DoD) |
-| [planejamento/](planejamento/) | Plano MVP + **estratégia de reescrita** + [**arquitetura FHIR/motor/paciente mestre**](planejamento/arquitetura-fhir-motor-paciente-mestre.md) + [deploy](planejamento/deploy-railway-coolify.md) + [**wizard lote LEDI**](planejamento/fluxo-lote-ledi-wizard.md) |
+| [planejamento/](planejamento/) | Plano MVP + **estratégia de reescrita** + [**arquitetura FHIR/motor/paciente mestre**](planejamento/arquitetura-fhir-motor-paciente-mestre.md) + [deploy](planejamento/deploy-railway-coolify.md) + [**wizard lote LEDI**](planejamento/fluxo-lote-ledi-wizard.md) + [**MVP correção dados APS**](planejamento/mvp-correcao-dados-aps.md) |
 | [rastreabilidade/](rastreabilidade/) | Cobertura RF + [**cobertura LEDI erros (P0)**](rastreabilidade/cobertura-ledi-erros.md) |
 | [design/](design/) | Prompt Claude Design + entregas de UI (**fase 2**) |
 | [pipeline/](pipeline/) | Como rodar análise e decompilação |

@@ -25,6 +25,8 @@
 
 ## Retomar daqui — domingo 16/08/2026
 
+**Análise APS/LEDI (correção pré-Siaps):** [docs/planejamento/mvp-correcao-dados-aps.md](docs/planejamento/mvp-correcao-dados-aps.md) — veredito 4/5/7 ok; gap = CDS/vacina/vínculo/Previne; roadmap 1–8.
+
 ### Commits / ondas do dia (confirmados `git log`)
 
 | Commit | Onda |
