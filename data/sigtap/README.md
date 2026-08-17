@@ -8,9 +8,9 @@ O site `sigtap.datasus.gov.br` cai com frequência. O SIGS **não depende** dele
 |---|---|
 | `TabelaUnificada_YYYYMM.zip` (oficial) | Preferido — contém `TB_PROCEDIMENTO.txt` |
 | `TB_PROCEDIMENTO.txt` | Layout largura fixa DATASUS |
-| `fixture-tb-procedimento-sample.txt` | Fixture sintética (~7 códigos APS) para smoke |
+| `fixture-tb-procedimento-sample.txt` | Fixture sintética APS + códigos do mapa ABPG para smoke |
 | `piloto-franca.json` | Stub JSON legado |
-| `abpg-map-piloto.json` | Template ABPG→SIGTAP (preencher `sigtap`) |
+| `abpg-map-piloto.json` | ABPG→SIGTAP (enum e-SUS 5.5.24; códigos na fixture/seed) |
 
 **Não commitar** ZIPs oficiais completos (`*.zip` ignorado). Fixtures/README/JSON piloto ok.
 
@@ -53,5 +53,7 @@ API:
 
 - Catálogo `sigtap_procedures` (código 10 dígitos, nome, competência, `source`: seed\|import\|ms)
 - Auditoria: `SIGTAP_UNKNOWN` / `SIGTAP_INACTIVE` / `SIGTAP_COMPETENCIA`
-- Lote PROC (tipo 7): `PROC_CODE_ABPG` se vier `ABPGxxx` — use o mapa + repair na ficha
+- Lote PROC (tipo 7): `PROC_CODE_ABPG` se vier `ABPGxxx` — hint lê o mapa (`sigtap` preenchido) + repair na ficha
 - BPA: `enrichProcedureCodes` marca known/unknown
+
+Mapa piloto atual (Franca tipo 7): ABPG007/018/028/029/041 → SIGTAP do `ProcedimentoDbEnum`; ABPG035 permanece `null` (ausente no enum 5.5.24).

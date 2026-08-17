@@ -82,4 +82,12 @@ describe('ledi-fai / ledi-proc validators', () => {
     const after = validateProcXml(fixed.xml);
     expect(after.findings.some((f) => f.code === 'ST_NAO_POSSUI_CPF')).toBe(false);
   });
+
+  it('PROC: hint ABPG028 lê abpg-map-piloto (SIGTAP da fixture)', () => {
+    const withAbpg = PROC_SAMPLE.replace('0301100039', 'ABPG028');
+    const abpg = validateProcXml(withAbpg);
+    const finding = abpg.findings.find((f) => f.code === 'PROC_CODE_ABPG');
+    expect(finding).toBeTruthy();
+    expect(finding?.hint || '').toMatch(/0301100209/);
+  });
 });

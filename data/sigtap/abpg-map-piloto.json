@@ -2,14 +2,38 @@
   "competencia": "202608",
   "municipio": "Franca/SP",
   "ibge": "3516200",
-  "fonte": "piloto-local — preencher equivalências oficiais antes de autofix em massa",
-  "nota": "Códigos ABPG vistos no lote Franca (tipo 7). sigtap=null até o município confirmar o SIGTAP 10 dígitos na competência. Não inventar mapeamento oficial.",
+  "fonte": "e-SUS CDS ProcedimentoDbEnum 5.5.24 → códigos espelhados em data/sigtap/fixture-tb-procedimento-sample.txt + seed",
+  "nota": "Equivalências ABPG→SIGTAP do enum e-SUS (não inventadas). ABPG035 aparece no lote Franca mas não existe no enum 5.5.24 — permanece null até confirmação municipal. Use só como hint de repair; confirme na competência oficial antes de autofix em massa.",
   "mappings": [
-    { "abpg": "ABPG007", "sigtap": null, "label": "confirmar na competência" },
-    { "abpg": "ABPG018", "sigtap": null, "label": "confirmar na competência" },
-    { "abpg": "ABPG028", "sigtap": null, "label": "confirmar na competência" },
-    { "abpg": "ABPG029", "sigtap": null, "label": "confirmar na competência" },
-    { "abpg": "ABPG035", "sigtap": null, "label": "confirmar na competência" },
-    { "abpg": "ABPG041", "sigtap": null, "label": "confirmar na competência" }
+    {
+      "abpg": "ABPG007",
+      "sigtap": "0301100276",
+      "label": "Curativo especial"
+    },
+    {
+      "abpg": "ABPG018",
+      "sigtap": "0301100152",
+      "label": "Retirada de pontos de cirurgias (por paciente)"
+    },
+    {
+      "abpg": "ABPG028",
+      "sigtap": "0301100209",
+      "label": "Administração intramuscular"
+    },
+    {
+      "abpg": "ABPG029",
+      "sigtap": "0301100195",
+      "label": "Administração endovenosa"
+    },
+    {
+      "abpg": "ABPG035",
+      "sigtap": null,
+      "label": "ausente no ProcedimentoDbEnum e-SUS 5.5.24 — confirmar na competência"
+    },
+    {
+      "abpg": "ABPG041",
+      "sigtap": "0301100225",
+      "label": "Administração subcutânea (SC)"
+    }
   ]
 }
