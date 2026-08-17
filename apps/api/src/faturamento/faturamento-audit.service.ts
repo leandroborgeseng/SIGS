@@ -13,8 +13,9 @@ import { applyGestaoFilter, CNES_GESTAO_CRITERION } from '../cnes/cnes.filter';
 import { loadProfessionalsSnapshot } from '../cnes/cnes.professionals.snapshot';
 import type { CnesSyncGestao } from '../cnes/cnes.types';
 import {
-  appendCidadaoMasterCrossChecks,
-  extractCidadaoIdsFromPayload,
+  appendCidadaoMasterCrossChecksMany,
+  extractAllCidadaoIdsFromPayload,
+  type CidadaoIds,
   type LediCidadaoMasterCtx,
 } from '../care-extra/ledi-cidadao-master';
 import {
@@ -26,6 +27,15 @@ import {
   appendCadastroCompletudeFindings,
   type CadastroPatientSnap,
 } from '../care-extra/ledi-cadastro-completude';
+import {
+  appendCadastroSemDomicilio,
+  appendVisitaHouseholdFindings,
+  type TerritorioHouseholdCtx,
+} from '../care-extra/ledi-territorio-cruzamentos';
+import {
+  appendColetivoB4FaixaChecks,
+  hasB4Escovacao,
+} from '../care-extra/ledi-coletivo-b4';
 import type { FaoFinding } from '../care-extra/ledi-fao.validator';
 
 export type FatAuditSeverity = 'blocker' | 'quality';
@@ -54,6 +64,10 @@ export type FatAuditCode =
   | 'VISITA_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
   | 'VACINA_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
   | 'COLETIVO_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
+  | 'COLETIVO_PARTICIPANTE_NOT_IN_CADASTRO'
+  | 'COLETIVO_B4_SEM_FAIXA_6_12'
+  | 'CADASTRO_SEM_DOMICILIO'
+  | 'VISITA_HOUSEHOLD_NOT_FOUND'
   | 'PROD_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
   | 'PRODUCAO_SEM_VINCULO_EQUIPE'
   | 'PRODUCAO_INE_NEQ_VINCULO'
@@ -64,7 +78,7 @@ export type FatAuditFinding = {
   code: FatAuditCode;
   severity: FatAuditSeverity;
   message: string;
-  sourceType: 'batch' | 'production_record' | 'encounter';
+  sourceType: 'batch' | 'production_record' | 'encounter' | 'acs_visit';
   sourceId: string;
   fichaTipo?: string | null;
   cnes?: string | null;
@@ -89,7 +103,12 @@ export type FatAuditReport = {
     findings: number;
     bySeverity: Record<FatAuditSeverity, number>;
     byCode: Partial<Record<FatAuditCode, number>>;
-    sources: { batches: number; productionRecords: number; encounters: number };
+    sources: {
+      batches: number;
+      productionRecords: number;
+      encounters: number;
+      acsVisits: number;
+    };
     cnesMunicipal?: number;
     cnesCity?: number;
     teamsMunicipal?: number;
@@ -104,6 +123,13 @@ export type FatAuditReport = {
       note: string | null;
     };
     cadastroIncompleto?: { siaps: number; previne: number; patientsEvaluated: number };
+    territorio?: {
+      householdsActive: number;
+      patientsWithHousehold: number;
+      semDomicilio: number;
+      visitaHouseholdMissing: number;
+      note: string | null;
+    };
   };
   findings: FatAuditFinding[];
   rfIds: string[];
@@ -113,6 +139,7 @@ type PatientMasterBundle = {
   cidadao: LediCidadaoMasterCtx | null;
   vinculo: LediVinculoNt30Ctx | null;
   patientsById: Map<string, CadastroPatientSnap>;
+  territorio: TerritorioHouseholdCtx | null;
 };
 
 type CadastroIndex = {
@@ -143,6 +170,10 @@ type ProdUnit = {
   href?: string;
   cidadaoCns?: string;
   cidadaoCpf?: string;
+  /** Todos os cidadãos da ficha (AD multi / coletivo / visita) */
+  cidadaoList?: CidadaoIds[];
+  householdId?: string | null;
+  heldAt?: Date | null;
 };
 
 /** Mapa kind/ficha → rota de lote ou fila. */
@@ -153,6 +184,12 @@ export function resolveFatAuditHref(opts: {
   patientId?: string | null;
 }): string {
   const tipo = String(opts.fichaTipo || '').toLowerCase();
+  if (opts.sourceType === 'acs_visit') {
+    const base = '/territorio';
+    return opts.patientId
+      ? `${base}?paciente=${encodeURIComponent(opts.patientId)}`
+      : `${base}?visita=${encodeURIComponent(opts.sourceId)}`;
+  }
   if (opts.sourceType === 'encounter') {
     const odonto = /fao|dental|odonto/.test(tipo);
     const base = odonto ? '/faturamento/odonto' : '/faturamento/aps';
@@ -356,7 +393,8 @@ function unitFromBatch(row: {
   );
   const cbo = str(header.cboCodigo_2002 || header.cbo || lotacao.cboCodigo_2002 || payload.cbo);
   const conduta = extractConduta(payload, row.kind);
-  const cidadao = extractCidadaoIdsFromPayload(payload);
+  const cidadaoList = extractAllCidadaoIdsFromPayload(payload);
+  const cidadao = cidadaoList[0] || { cns: '', cpf: '' };
   const unit: ProdUnit = {
     sourceType: 'batch',
     sourceId: row.id,
@@ -371,6 +409,7 @@ function unitFromBatch(row: {
     condutaOk: conduta.ok,
     cidadaoCns: cidadao.cns,
     cidadaoCpf: cidadao.cpf,
+    cidadaoList,
   };
   unit.href = resolveFatAuditHref(unit);
   return unit;
@@ -403,7 +442,8 @@ function unitFromProductionRecord(row: {
           ? 'home_care'
           : row.fichaTipo;
   const conduta = extractConduta(payload, kindHint);
-  const cidadao = extractCidadaoIdsFromPayload(payload);
+  const cidadaoList = extractAllCidadaoIdsFromPayload(payload);
+  const cidadao = cidadaoList[0] || { cns: '', cpf: '' };
   const unit: ProdUnit = {
     sourceType: 'production_record',
     sourceId: row.id,
@@ -419,6 +459,7 @@ function unitFromProductionRecord(row: {
     patientId: row.patientId,
     cidadaoCns: cidadao.cns,
     cidadaoCpf: cidadao.cpf,
+    cidadaoList,
   };
   unit.href = resolveFatAuditHref(unit);
   return unit;
@@ -533,6 +574,45 @@ export class FaturamentoAuditService {
       units.push(unit);
     }
 
+    const acsVisits = await this.prisma.acsHomeVisit.findMany({
+      where: {
+        visitedAt: { gte: comp.start, lt: comp.end },
+        status: { not: 'VOID' },
+      },
+      include: {
+        facility: { select: { cnes: true } },
+        team: { select: { ine: true } },
+        professional: { select: { cns: true } },
+        patient: { select: { id: true, cns: true, cpf: true } },
+      },
+      take: 2000,
+    });
+    for (const v of acsVisits) {
+      const cns = (v.patient?.cns || '').replace(/\D/g, '');
+      const cpf = (v.patient?.cpf || '').replace(/\D/g, '');
+      const unit: ProdUnit = {
+        sourceType: 'acs_visit',
+        sourceId: v.id,
+        fichaTipo: 'visita_acs',
+        cnes: v.facility?.cnes || '',
+        ine: v.team?.ine || '',
+        professionalCns: v.professional?.cns || '',
+        cbo: '',
+        procedureCodes: [],
+        ciaps: [],
+        hasCondutaField: false,
+        condutaOk: true,
+        patientId: v.patientId || undefined,
+        householdId: v.householdId,
+        heldAt: v.visitedAt,
+        cidadaoCns: cns,
+        cidadaoCpf: cpf,
+        cidadaoList: cns || cpf ? [{ cns, cpf }] : [],
+      };
+      unit.href = resolveFatAuditHref(unit);
+      units.push(unit);
+    }
+
     const allProcCodes = [...new Set(units.flatMap((u) => u.procedureCodes))];
     const sigtapMap = await this.sigtap.enrichProcedureCodes(allProcCodes);
     const sigtapRows = await this.prisma.sigtapProcedure.findMany({
@@ -581,6 +661,16 @@ export class FaturamentoAuditService {
       previne: byCode.CADASTRO_INCOMPLETO_PREVINE || 0,
       patientsEvaluated: patientsSeenForCompletude.size,
     };
+    const territorioStats = master.territorio;
+    const territorioBlock = {
+      householdsActive: territorioStats?.activeHouseholdIds.size || 0,
+      patientsWithHousehold: territorioStats?.patientIdsWithHousehold.size || 0,
+      semDomicilio: byCode.CADASTRO_SEM_DOMICILIO || 0,
+      visitaHouseholdMissing: byCode.VISITA_HOUSEHOLD_NOT_FOUND || 0,
+      note: !territorioStats?.householdsPresent
+        ? 'Nenhum domicílio ativo no território — CADASTRO_SEM_DOMICILIO / VISITA_HOUSEHOLD_NOT_FOUND não emitidos (evita falso positivo).'
+        : null,
+    };
 
     await this.prisma.audit(
       'audit',
@@ -594,6 +684,7 @@ export class FaturamentoAuditService {
         blockers: bySeverity.blocker,
         vinculo: vinculoBlock,
         cadastroIncompleto,
+        territorio: territorioBlock,
       },
     );
 
@@ -612,6 +703,7 @@ export class FaturamentoAuditService {
           batches: batches.length,
           productionRecords: records.length,
           encounters: encounters.length,
+          acsVisits: acsVisits.length,
         },
         cnesMunicipal: cadastro.scope.after.establishments,
         cnesCity: cadastro.scope.before.establishments,
@@ -619,6 +711,7 @@ export class FaturamentoAuditService {
         teamsCity: cadastro.scope.before.teams,
         vinculo: vinculoBlock,
         cadastroIncompleto,
+        territorio: territorioBlock,
       },
       findings,
       rfIds: [RF.FATURAMENTO_AUDIT.id, RF.PROD.id, RF.SIGTAP_VALIDATE.id, RF.CNES_AUDIT.id],
@@ -759,6 +852,7 @@ export class FaturamentoAuditService {
       cidadao: null,
       vinculo: null,
       patientsById: new Map(),
+      territorio: null,
     };
     try {
       const knownCns = new Set<string>();
@@ -903,10 +997,66 @@ export class FaturamentoAuditService {
         },
       };
 
-      const cidadao: LediCidadaoMasterCtx | null =
-        knownCns.size || knownCpf.size ? { knownCns, knownCpf } : null;
+      const birthDateByCns = new Map<string, Date>();
+      const birthDateByCpf = new Map<string, Date>();
+      for (const p of patients) {
+        if (!p.birthDate) continue;
+        const cns = (p.cns || '').replace(/\D/g, '');
+        const cpf = (p.cpf || '').replace(/\D/g, '');
+        if (cns.length === 15) birthDateByCns.set(cns, p.birthDate);
+        if (cpf.length === 11) birthDateByCpf.set(cpf, p.birthDate);
+      }
+      for (const row of ids) {
+        const snap = patientsById.get(row.patientId);
+        if (!snap?.birthDate) continue;
+        const bd =
+          snap.birthDate instanceof Date ? snap.birthDate : new Date(snap.birthDate);
+        if (Number.isNaN(bd.getTime())) continue;
+        const v = (row.value || '').replace(/\D/g, '');
+        if (row.system === 'cns' && v.length === 15 && !birthDateByCns.has(v)) {
+          birthDateByCns.set(v, bd);
+        }
+        if (row.system === 'cpf' && v.length === 11 && !birthDateByCpf.has(v)) {
+          birthDateByCpf.set(v, bd);
+        }
+      }
 
-      return { cidadao, vinculo, patientsById };
+      const cidadao: LediCidadaoMasterCtx | null =
+        knownCns.size || knownCpf.size
+          ? { knownCns, knownCpf, birthDateByCns, birthDateByCpf }
+          : null;
+
+      const patientIdsWithHousehold = new Set<string>();
+      const activeHouseholdIds = new Set<string>();
+      const households = await this.prisma.household.findMany({
+        where: { active: true },
+        select: { id: true },
+        take: 20_000,
+      });
+      for (const h of households) activeHouseholdIds.add(h.id);
+
+      if (activeHouseholdIds.size) {
+        const families = await this.prisma.householdFamily.findMany({
+          where: { active: true, householdId: { in: [...activeHouseholdIds] } },
+          select: {
+            responsiblePatientId: true,
+            members: { where: { active: true }, select: { patientId: true } },
+          },
+          take: 40_000,
+        });
+        for (const f of families) {
+          if (f.responsiblePatientId) patientIdsWithHousehold.add(f.responsiblePatientId);
+          for (const m of f.members) patientIdsWithHousehold.add(m.patientId);
+        }
+      }
+
+      const territorio: TerritorioHouseholdCtx = {
+        patientIdsWithHousehold,
+        activeHouseholdIds,
+        householdsPresent: activeHouseholdIds.size > 0,
+      };
+
+      return { cidadao, vinculo, patientsById, territorio };
     } catch {
       return empty;
     }
@@ -1142,14 +1292,56 @@ export class FaturamentoAuditService {
       });
     }
 
-    // P×2 — cidadão × Paciente Mestre (não aplica a encounter nativo já vinculado)
+    // P×2 — cidadão(ões) × Paciente Mestre (não aplica a encounter nativo já vinculado)
     if (u.sourceType !== 'encounter' && master?.cidadao) {
       const tmp: FaoFinding[] = [];
-      appendCidadaoMasterCrossChecks(
+      const list =
+        u.cidadaoList?.length
+          ? u.cidadaoList
+          : [{ cns: u.cidadaoCns || '', cpf: u.cidadaoCpf || '' }];
+      appendCidadaoMasterCrossChecksMany(tmp, list, u.fichaTipo, master.cidadao);
+      for (const f of tmp) {
+        findings.push({
+          ...base,
+          code: f.code as FatAuditCode,
+          severity: 'quality',
+          message: f.message,
+          details: { hint: f.hint, rule: f.rule },
+        });
+      }
+    }
+
+    // Coletivo × B4 faixa 6–12 (só se houver participantes com idade resolúvel)
+    if (
+      master?.cidadao &&
+      hasB4Escovacao(u.procedureCodes) &&
+      /colet|collective/i.test(u.fichaTipo)
+    ) {
+      const tmp: FaoFinding[] = [];
+      appendColetivoB4FaixaChecks(tmp, {
+        procedureCodes: u.procedureCodes,
+        participants: u.cidadaoList || [],
+        referenceDate: u.heldAt || null,
+        master: master.cidadao,
+      });
+      for (const f of tmp) {
+        findings.push({
+          ...base,
+          code: f.code as FatAuditCode,
+          severity: 'quality',
+          message: f.message,
+          details: { hint: f.hint, rule: f.rule },
+        });
+      }
+    }
+
+    // 8×3 — visita ACS × domicílio
+    if (u.sourceType === 'acs_visit' || /visita/i.test(u.fichaTipo)) {
+      const tmp: FaoFinding[] = [];
+      appendVisitaHouseholdFindings(
         tmp,
-        { cns: u.cidadaoCns || '', cpf: u.cidadaoCpf || '' },
-        u.fichaTipo,
-        master.cidadao,
+        { householdId: u.householdId, patientId: u.patientId },
+        master?.territorio,
       );
       for (const f of tmp) {
         findings.push({
@@ -1157,6 +1349,9 @@ export class FaturamentoAuditService {
           code: f.code as FatAuditCode,
           severity: 'quality',
           message: f.message,
+          href: u.patientId
+            ? `/territorio?paciente=${encodeURIComponent(u.patientId)}`
+            : base.href,
           details: { hint: f.hint, rule: f.rule },
         });
       }
@@ -1194,7 +1389,7 @@ export class FaturamentoAuditService {
       }
     }
 
-    // Completude tipo 2 / Paciente Mestre (dedupe por paciente na competência)
+    // Completude tipo 2 / Paciente Mestre + 2×3 domicílio (dedupe por paciente na competência)
     if (master && opts?.patientsSeenForCompletude) {
       const patientId = this.resolvePatientId(u, master);
       if (patientId && !opts.patientsSeenForCompletude.has(patientId)) {
@@ -1203,13 +1398,17 @@ export class FaturamentoAuditService {
           opts.patientsSeenForCompletude.add(patientId);
           const tmp: FaoFinding[] = [];
           appendCadastroCompletudeFindings(tmp, snap);
+          appendCadastroSemDomicilio(tmp, patientId, master.territorio);
           for (const f of tmp) {
             const sev: FatAuditSeverity =
               f.code === 'CADASTRO_INCOMPLETO_SIAPS' ? 'blocker' : 'quality';
             findings.push({
               ...base,
               patientId,
-              href: `/pacientes/${encodeURIComponent(patientId)}`,
+              href:
+                f.code === 'CADASTRO_SEM_DOMICILIO'
+                  ? `/territorio?paciente=${encodeURIComponent(patientId)}`
+                  : `/pacientes/${encodeURIComponent(patientId)}`,
               code: f.code as FatAuditCode,
               severity: sev,
               message: f.message,

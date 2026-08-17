@@ -30,10 +30,11 @@ import {
   type LediMunicipalCrossCtx,
 } from './ledi-cds-common';
 import {
-  appendCidadaoMasterCrossChecks,
-  extractCidadaoIdsFromXml,
+  appendCidadaoMasterCrossChecksMany,
+  extractAllCidadaoIdsFromXml,
   type LediCidadaoMasterCtx,
 } from './ledi-cidadao-master';
+import { appendColetivoB4FaixaChecks } from './ledi-coletivo-b4';
 import { runRulesEngine } from '../clinical-core/rules-engine';
 import {
   classifyAutoFixable,
@@ -202,34 +203,50 @@ export class LediFaoBatchService {
     }
   }
 
-  /** Paciente Mestre (CNS/CPF) para cruzamento P×2. */
+  /** Paciente Mestre (CNS/CPF) para cruzamento P×2 (+ DN para B4). */
   private async loadCidadaoMasterCtx(): Promise<LediCidadaoMasterCtx | null> {
     try {
       const knownCns = new Set<string>();
       const knownCpf = new Set<string>();
+      const birthDateByCns = new Map<string, Date>();
+      const birthDateByCpf = new Map<string, Date>();
       const patients = await this.prisma.patient.findMany({
         where: { OR: [{ cns: { not: null } }, { cpf: { not: null } }] },
-        select: { cns: true, cpf: true },
+        select: { id: true, cns: true, cpf: true, birthDate: true },
         take: 20_000,
       });
+      const birthByPatient = new Map<string, Date>();
       for (const p of patients) {
         const cns = (p.cns || '').replace(/\D/g, '');
         const cpf = (p.cpf || '').replace(/\D/g, '');
         if (cns.length === 15) knownCns.add(cns);
         if (cpf.length === 11) knownCpf.add(cpf);
+        if (p.birthDate) {
+          birthByPatient.set(p.id, p.birthDate);
+          if (cns.length === 15) birthDateByCns.set(cns, p.birthDate);
+          if (cpf.length === 11) birthDateByCpf.set(cpf, p.birthDate);
+        }
       }
       const ids = await this.prisma.patientIdentifier.findMany({
         where: { system: { in: ['cns', 'cpf'] } },
-        select: { system: true, value: true },
+        select: { system: true, value: true, patientId: true },
         take: 40_000,
       });
       for (const row of ids) {
         const v = (row.value || '').replace(/\D/g, '');
-        if (row.system === 'cns' && v.length === 15) knownCns.add(v);
-        if (row.system === 'cpf' && v.length === 11) knownCpf.add(v);
+        if (row.system === 'cns' && v.length === 15) {
+          knownCns.add(v);
+          const bd = birthByPatient.get(row.patientId);
+          if (bd && !birthDateByCns.has(v)) birthDateByCns.set(v, bd);
+        }
+        if (row.system === 'cpf' && v.length === 11) {
+          knownCpf.add(v);
+          const bd = birthByPatient.get(row.patientId);
+          if (bd && !birthDateByCpf.has(v)) birthDateByCpf.set(v, bd);
+        }
       }
       if (!knownCns.size && !knownCpf.size) return null;
-      return { knownCns, knownCpf };
+      return { knownCns, knownCpf, birthDateByCns, birthDateByCpf };
     } catch {
       return null;
     }
@@ -256,12 +273,20 @@ export class LediFaoBatchService {
       appendMunicipalCrossChecks(findings, extractCdsHeader(xml), municipal);
     }
     if (cidadao) {
-      appendCidadaoMasterCrossChecks(
-        findings,
-        extractCidadaoIdsFromXml(xml),
-        expectedTipo,
-        cidadao,
-      );
+      const list = extractAllCidadaoIdsFromXml(xml);
+      appendCidadaoMasterCrossChecksMany(findings, list, expectedTipo, cidadao);
+      if (expectedTipo === 'COLETIVO') {
+        const procCodes = [
+          ...xml.matchAll(/<(?:coMsProcedimento|procedimentos|procedimento)>\s*([^<]+)/gi),
+        ]
+          .map((m) => m[1]!.replace(/\D/g, ''))
+          .filter((c) => c.length === 10);
+        appendColetivoB4FaixaChecks(findings, {
+          procedureCodes: procCodes,
+          participants: list,
+          master: cidadao,
+        });
+      }
     }
     const siapsReady = !findings.some((f) => f.severity === 'BLOCKER');
     const moneyOk = !findings.some((f) => f.severity === 'MONEY_RISK');

@@ -29,6 +29,15 @@ describe('faturamento audit helpers', () => {
 });
 
 describe('FaturamentoAuditService', () => {
+  const masterEmpty = {
+    patient: { findMany: jest.fn().mockResolvedValue([]) },
+    patientIdentifier: { findMany: jest.fn().mockResolvedValue([]) },
+    patientTeamLink: { findMany: jest.fn().mockResolvedValue([]) },
+    acsHomeVisit: { findMany: jest.fn().mockResolvedValue([]) },
+    household: { findMany: jest.fn().mockResolvedValue([]) },
+    householdFamily: { findMany: jest.fn().mockResolvedValue([]) },
+  };
+
   it('marca CNES inativo, INE divergente, SIGTAP desconhecido e CIAP inválido', async () => {
     const payload = {
       uuidFicha: 'x',
@@ -90,6 +99,7 @@ describe('FaturamentoAuditService', () => {
         ]),
       },
       audit: jest.fn().mockResolvedValue(undefined),
+      ...masterEmpty,
     };
 
     const sigtap = {
@@ -151,6 +161,7 @@ describe('FaturamentoAuditService', () => {
         ]),
       },
       audit: jest.fn().mockResolvedValue(undefined),
+      ...masterEmpty,
     };
     const sigtap = {
       enrichProcedureCodes: jest.fn().mockResolvedValue({
@@ -204,6 +215,7 @@ describe('FaturamentoAuditService', () => {
         ]),
       },
       audit: jest.fn().mockResolvedValue(undefined),
+      ...masterEmpty,
     };
     const sigtap = {
       enrichProcedureCodes: jest.fn().mockResolvedValue({
@@ -275,6 +287,7 @@ describe('FaturamentoAuditService', () => {
         ]),
       },
       audit: jest.fn().mockResolvedValue(undefined),
+      ...masterEmpty,
     };
     const sigtap = {
       enrichProcedureCodes: jest.fn().mockResolvedValue({
@@ -401,6 +414,9 @@ describe('FaturamentoAuditService', () => {
         ]),
       },
       audit: jest.fn().mockResolvedValue(undefined),
+      acsHomeVisit: { findMany: jest.fn().mockResolvedValue([]) },
+      household: { findMany: jest.fn().mockResolvedValue([]) },
+      householdFamily: { findMany: jest.fn().mockResolvedValue([]) },
     };
     const sigtap = {
       enrichProcedureCodes: jest.fn().mockResolvedValue({

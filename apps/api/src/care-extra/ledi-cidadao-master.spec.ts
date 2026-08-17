@@ -8,7 +8,7 @@ import type { FaoFinding } from './ledi-fao.validator';
 describe('ledi-cidadao-master P×2', () => {
   it('extrai CNS/CPF do XML', () => {
     const ids = extractCidadaoIdsFromXml(
-      '<atend><cnsCidadao>898001234567890</cnsCidadao><cpfCidadao>529.982.247-25</cpfCidadao></atend>',
+      '<atendimentosDomiciliares><cnsCidadao>898001234567890</cnsCidadao><cpfCidadao>529.982.247-25</cpfCidadao></atendimentosDomiciliares>',
     );
     expect(ids.cns).toBe('898001234567890');
     expect(ids.cpf).toBe('52998224725');
@@ -40,5 +40,6 @@ describe('ledi-cidadao-master P×2', () => {
   it('mapeia códigos por tipo', () => {
     expect(findingCodeForTipo('PROCEDIMENTOS')).toBe('PROC_CNS_NOT_IN_CADASTRO_INDIVIDUAL');
     expect(findingCodeForTipo('dental_encounter')).toBe('FAO_CNS_NOT_IN_CADASTRO_INDIVIDUAL');
+    expect(findingCodeForTipo('COLETIVO')).toBe('COLETIVO_PARTICIPANTE_NOT_IN_CADASTRO');
   });
 });
