@@ -52,7 +52,16 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '0.3.0',
     updatedAt: '2026-08-16',
     summary: 'Checks Facility/Team vs snapshot CNES — escopo rede municipal (Prefeitura).',
-    body: `Em /cadastros/cnes-auditoria: «Sincronizar rede municipal» (POST /v1/cnes/sync?gestao=municipal) se o escopo estiver 0/0; depois «Importar profissionais lotados» (POST /v1/cnes/sync-professionals). Critério unidades: natureza jurídica 1244 (+ CNPJ mantenedora 47970769000104 enriquecido). PF: nome+CNS+CBO+INE (público CNES). Contagens cidade vs filtrado no painel. Export CSV. Sem PHI. Railway: CNES_SYNC_ON_BOOT=1 (+ CNES_SYNC_PROFESSIONALS_ON_BOOT=1 opcional).`,
+    body: `Em /cadastros/cnes-auditoria: «Sincronizar rede municipal» (POST /v1/cnes/sync?gestao=municipal) se o escopo estiver 0/0; depois «Importar profissionais lotados» (POST /v1/cnes/sync-professionals). Critério unidades: natureza jurídica 1244 (+ CNPJ mantenedora 47970769000104 enriquecido). PF: nome+CNS+CBO+INE (público CNES). Contagens cidade vs filtrado no painel. Export CSV. Sem PHI. Railway: CNES_SYNC_ON_BOOT=1 (+ CNES_SYNC_PROFESSIONALS_ON_BOOT=1 opcional). Membros por equipe: /equipes.`,
+  },
+  {
+    id: 'cadastros.equipes',
+    title: 'Equipes e membros CNES',
+    module: 'Cadastros',
+    version: '0.1.0',
+    updatedAt: '2026-08-16',
+    summary: 'Lista equipes municipais, membros e profissionais em mais de uma equipe.',
+    body: `Em /equipes: clique na equipe para ver membros (nome, CNS, CBO/função). Painel «Em mais de uma equipe» cruza lotações ativas. Tipos CNES com label (76 = EAP — Equipe de Atenção Primária). APIs: GET /v1/cnes/teams, /v1/cnes/teams/:id, /v1/cnes/multi-team, /v1/cnes/team-types. Pré-requisito: sync unidades/equipes + sync-professionals.`,
   },
   {
     id: 'cadastros.lotacao',
@@ -61,7 +70,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '0.2.0',
     updatedAt: '2026-08-10',
     summary: 'Vínculo profissional × unidade × CBO (obrigatório para produção).',
-    body: `Em Lotações, vincule um profissional à unidade atual com CBO (4–6 dígitos) e função. Equipe é opcional e deve pertencer à mesma unidade. Sem lotação ativa, finalizar consulta ou registrar vacina é bloqueado (produção LEDI exige CNS+CBO+CNES+INE).`,
+    body: `Em Lotações, vincule um profissional à unidade atual com CBO (4–6 dígitos) e função. Equipe é opcional e deve pertencer à mesma unidade. Sem lotação ativa, finalizar consulta ou registrar vacina é bloqueado (produção LEDI exige CNS+CBO+CNES+INE). Para ver composição das equipes CNES: /equipes.`,
   },
   {
     id: 'agenda.slots',

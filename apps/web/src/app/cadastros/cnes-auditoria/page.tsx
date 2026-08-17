@@ -214,6 +214,9 @@ export default function CnesAuditoriaPage() {
         actions={
           <>
             <HelpLink id="cadastros.cnes-auditoria" />
+            <Link className="btn btn-secondary" href="/equipes">
+              Equipes e membros
+            </Link>
             <Link className="btn btn-secondary" href="/unidades">
               Unidades
             </Link>
@@ -408,6 +411,7 @@ export default function CnesAuditoriaPage() {
                 <th>Equipe</th>
                 <th>INE</th>
                 <th>Tipo</th>
+                <th>Membros</th>
                 <th>CNES</th>
                 <th>Unidade</th>
                 <th>Ativa</th>
@@ -416,9 +420,12 @@ export default function CnesAuditoriaPage() {
             <tbody>
               {(report?.inventory?.teams || []).map((t) => (
                 <tr key={t.id}>
-                  <td>{t.name}</td>
+                  <td>
+                    <Link href={`/equipes/${t.id}`}>{t.name}</Link>
+                  </td>
                   <td className="mono">{t.ine || '—'}</td>
                   <td className="mono">{t.typeId || '—'}</td>
+                  <td className="mono">{t.teamCount ?? '—'}</td>
                   <td className="mono">{t.cnes || '—'}</td>
                   <td>{t.facilityName || '—'}</td>
                   <td>{t.active ? 'sim' : 'não'}</td>
@@ -426,7 +433,7 @@ export default function CnesAuditoriaPage() {
               ))}
               {!(report?.inventory?.teams || []).length ? (
                 <TableStateRow
-                  colSpan={6}
+                  colSpan={7}
                   loading={loading}
                   empty={
                     emptyCadastro
@@ -437,12 +444,12 @@ export default function CnesAuditoriaPage() {
               ) : null}
             </tbody>
           </table>
-          {report && report.counts.teamsInScope > (report.inventory?.teams.length || 0) ? (
-            <p className="muted" style={{ marginTop: 8 }}>
-              Mostrando {report.inventory?.teams.length} de {report.counts.teamsInScope} equipes (ordenado por
-              nome).
-            </p>
-          ) : null}
+          <p className="muted" style={{ marginTop: 8 }}>
+            Amostra de auditoria (até 40).{' '}
+            <Link href="/equipes">Ver todas as equipes e membros</Link>
+            {' · '}
+            <Link href="/equipes?tab=multi">Multi-equipe</Link>.
+          </p>
         </div>
       ) : null}
 

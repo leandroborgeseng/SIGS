@@ -145,6 +145,9 @@ export default function UnidadesPage() {
         actions={
           <>
             <HelpLink id="cadastros.unidades" />
+            <Link className="btn btn-secondary" href="/equipes">
+              Equipes
+            </Link>
             <Link className="btn btn-secondary" href="/cadastros/cnes-auditoria">
               Auditoria CNES
             </Link>

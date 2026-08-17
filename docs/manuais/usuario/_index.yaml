@@ -67,6 +67,10 @@ articles:
     path: cadastros/cnes-pf.md
     version: 0.1.0
     status: stub
+  - id: cadastros.equipes-cnes
+    path: cadastros/equipes-cnes.md
+    version: 0.1.0
+    status: stub
   - id: cadastros.pacientes-territorio
     path: cadastros/pacientes-territorio.md
     version: 0.1.0

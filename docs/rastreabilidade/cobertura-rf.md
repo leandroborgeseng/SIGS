@@ -27,8 +27,9 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-1.14 | Obr | parcial | n/a | `apps/api/.../audit + auth` |
 | RF-2.2 | Obr | parcial | n/a | `apps/api/src/organization#professionals` + **import PF CNES** (`POST /v1/cnes/sync-professionals`, snapshot `franca-*-professionals.json`) |
 | RF-2.17 | Obr | parcial | n/a | `GET/POST /v1/appointments` · `day-grid` · `itemType` CONSULTA/ENCAIXE · `careLine` APS/ODONTO |
-| RF-2.19 | Obr | parcial | n/a | `apps/api/src/organization#teams` + **import CNES** (`POST /v1/cnes/sync`, INE unique) |
+| RF-2.19 | Obr | parcial | n/a | `apps/api/src/organization#teams` + **import CNES** + **explorer** `GET /v1/cnes/teams` · UI `/equipes` (membros + labels tipo) |
 | RF-2.27 | Obr | parcial | n/a | `apps/api/src/patients` (+ PATCH + UI) |
+| RF-2.28 | Obr | parcial | n/a | sync CNES equipes + catálogo tipo (`team-type-catalog`) + UI `/equipes` |
 | RF-2.29 | Obr | parcial | n/a | território + microáreas/vínculos + **Household/Family CDS** (`/v1/households`, catálogo LEDI, UI `/territorio` FieldHint) — lote XML tipo 3 = **stub** (`/faturamento/lote/domicilio`, sem ZIP) |
 | RF-17.11 | Obr | parcial | n/a | visita ACS `AcsHomeVisit` · UI `/territorio` · lote XML tipo 8 = **stub** (`/faturamento/lote/visita-acs`) |
 | RF-17.12 | Obr | parcial | n/a | lat/long opcional na visita + `mapUrl` OpenStreetMap externo (sem Leaflet/Mapbox) · badge Previne na UI |
@@ -95,6 +96,7 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-13.4 | Obr | parcial | n/a | fila `/regulacao` |
 | RF-13.8 | Obr | parcial | n/a | authorize/deny/return/close |
 | RF-2.60 | Obr | parcial | n/a | `assignments` + UI `/lotacoes` + header LEDI + **sync PF** CNS+CBO+CNES+INE |
+| RF-2.61 | Obr | parcial | n/a | `GET /v1/cnes/teams` · `/equipes` + `/equipes/[id]` · multi-team · `network-export` CSV · finding `TEAM_WITHOUT_MEMBERS` |
 | RF-5.* | Obr/Des | não iniciado | n/a | backlog SAMU — `Samu/` · doc 12 |
 | RF-16.1 | Obr | parcial | n/a | `apps/api/src/reports` |
 | RF-16.7 | Obr | parcial | n/a | `apps/api/src/reports#vaccinations` |

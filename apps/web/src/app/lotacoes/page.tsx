@@ -1,14 +1,20 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, OkBox, PageHeader, TableStateRow } from '@/components/ui/PageHeader';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { displayPatientName, formatDate } from '@/lib/labels';
 
-type Professional = { id: string; civilName: string; socialName?: string | null };
-type Team = { id: string; name: string };
+type Professional = {
+  id: string;
+  civilName: string;
+  socialName?: string | null;
+  cns?: string | null;
+};
+type Team = { id: string; name: string; ine?: string | null; teamTypeId?: string };
 type Assignment = {
   id: string;
   cbo: string;
@@ -17,8 +23,8 @@ type Assignment = {
   startedAt: string;
   endedAt?: string | null;
   professional: Professional;
-  facility: { name: string };
-  team?: { name: string } | null;
+  facility: { name: string; cnes?: string | null };
+  team?: { id?: string; name: string; ine?: string | null } | null;
 };
 
 export default function LotacoesPage() {
@@ -34,6 +40,7 @@ export default function LotacoesPage() {
   const [ok, setOk] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeOnly, setActiveOnly] = useState(true);
+  const [syncingPf, setSyncingPf] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -99,16 +106,72 @@ export default function LotacoesPage() {
     }
   }
 
+  async function importPf() {
+    setSyncingPf(true);
+    setError(null);
+    setOk(null);
+    try {
+      const res = await api<{
+        professionals: { created: number; updated: number };
+        assignments: { created: number; updated: number };
+      }>('/v1/cnes/sync-professionals?ibge=3516200', { method: 'POST' });
+      setOk(
+        `PF importados: +${res.professionals.created}/~${res.professionals.updated} · lotações +${res.assignments.created}/~${res.assignments.updated}`,
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Falha ao importar profissionais CNES');
+    } finally {
+      setSyncingPf(false);
+    }
+  }
+
+  const empty = !loading && rows.length === 0;
+
   return (
     <AppShell helpId="cadastros.lotacao">
       <PageHeader
         title="Lotações"
         eyebrow="Cadastros"
-        description="Vínculo profissional × unidade × CBO (RF-2.60)."
-        actions={<HelpLink id="cadastros.lotacao" />}
+        description="Vínculo profissional × unidade × CBO (RF-2.60). Dados CNES: CNS, INE e função."
+        actions={
+          <>
+            <HelpLink id="cadastros.lotacao" />
+            <Link className="btn btn-secondary" href="/equipes">
+              Equipes
+            </Link>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={syncingPf}
+              onClick={() => void importPf()}
+            >
+              {syncingPf ? 'Importando PF…' : 'Importar PF CNES'}
+            </button>
+          </>
+        }
       />
       <ErrorBox message={error} />
       <OkBox message={ok} />
+
+      {empty ? (
+        <div className="card" style={{ marginBottom: 16, borderColor: 'var(--warn, #b45309)' }}>
+          <p style={{ margin: 0, fontWeight: 600 }}>Nenhuma lotação nesta unidade</p>
+          <p className="muted" style={{ margin: '8px 0 0' }}>
+            Importe profissionais lotados do CNES (rede Prefeitura) ou cadastre manualmente abaixo.
+            Composição das equipes em <Link href="/equipes">/equipes</Link>.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ marginTop: 12 }}
+            disabled={syncingPf}
+            onClick={() => void importPf()}
+          >
+            {syncingPf ? 'Importando…' : 'Sincronizar profissionais CNES'}
+          </button>
+        </div>
+      ) : null}
 
       <form className="card" onSubmit={onCreate} style={{ marginBottom: 16 }}>
         <div className="section-label">Nova lotação na unidade atual</div>
@@ -119,6 +182,7 @@ export default function LotacoesPage() {
               {professionals.map((p) => (
                 <option key={p.id} value={p.id}>
                   {displayPatientName(p)}
+                  {p.cns ? ` · CNS ${p.cns}` : ''}
                 </option>
               ))}
             </select>
@@ -130,6 +194,7 @@ export default function LotacoesPage() {
               {teams.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
+                  {t.ine ? ` · INE ${t.ine}` : ''}
                 </option>
               ))}
             </select>
@@ -139,7 +204,7 @@ export default function LotacoesPage() {
             <input className="mono" required value={cbo} onChange={(e) => setCbo(e.target.value)} maxLength={6} />
           </div>
           <div className="field">
-            <label>Função</label>
+            <label>Função (label CBO)</label>
             <input value={roleLabel} onChange={(e) => setRoleLabel(e.target.value)} />
           </div>
         </div>
@@ -163,9 +228,10 @@ export default function LotacoesPage() {
           <thead>
             <tr>
               <th>Profissional</th>
-              <th>CBO</th>
-              <th>Função</th>
-              <th>Equipe</th>
+              <th>CNS</th>
+              <th>CBO / função</th>
+              <th>Equipe / INE</th>
+              <th>CNES</th>
               <th>Início</th>
               <th>Status</th>
               <th />
@@ -175,9 +241,43 @@ export default function LotacoesPage() {
             {rows.map((r) => (
               <tr key={r.id}>
                 <td>{displayPatientName(r.professional)}</td>
-                <td className="mono">{r.cbo}</td>
-                <td>{r.roleLabel || '—'}</td>
-                <td>{r.team?.name || '—'}</td>
+                <td className="mono">{r.professional.cns || '—'}</td>
+                <td>
+                  {r.roleLabel || `CBO ${r.cbo}`}
+                  <div className="muted mono" style={{ fontSize: 12 }}>
+                    {r.cbo}
+                  </div>
+                </td>
+                <td>
+                  {r.team?.id ? (
+                    <Link href={`/equipes/${r.team.id}`}>{r.team.name}</Link>
+                  ) : (
+                    r.team?.name || '—'
+                  )}
+                  {r.team?.ine ? (
+                    <div className="muted mono" style={{ fontSize: 12 }}>
+                      INE {r.team.ine}
+                    </div>
+                  ) : null}
+                </td>
+                <td>
+                  {r.facility.cnes ? (
+                    <span
+                      className="mono"
+                      style={{
+                        display: 'inline-block',
+                        padding: '2px 6px',
+                        borderRadius: 4,
+                        background: 'rgba(40,100,160,0.12)',
+                        fontSize: 12,
+                      }}
+                    >
+                      CNES {r.facility.cnes}
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </td>
                 <td className="mono">{formatDate(r.startedAt)}</td>
                 <td>{r.active ? 'Ativa' : `Encerrada ${r.endedAt ? formatDate(r.endedAt) : ''}`}</td>
                 <td>
@@ -190,7 +290,7 @@ export default function LotacoesPage() {
               </tr>
             ))}
             {!rows.length ? (
-              <TableStateRow colSpan={7} loading={loading} empty="Nenhuma lotação nesta unidade." />
+              <TableStateRow colSpan={8} loading={loading} empty="Nenhuma lotação nesta unidade." />
             ) : null}
           </tbody>
         </table>

@@ -15,6 +15,10 @@ articles:
     path: cadastros/cnes-import.md
     version: 0.4.0
     status: draft
+  - id: cadastros.equipes-cnes
+    path: cadastros/equipes-cnes.md
+    version: 0.1.0
+    status: stub
   - id: faturamento.auditoria
     path: faturamento/auditoria-faturamento.md
     version: 0.1.0

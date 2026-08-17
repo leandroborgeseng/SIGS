@@ -69,7 +69,7 @@ Snapshot `data/cnes/franca-3516200-professionals.json` (503 profissionais / 742 
 npm run sync:cnes -- --professionals --ibge=3516200
 ```
 
-UI: **Importar profissionais lotados** em `/cadastros/cnes-auditoria`.
+UI: **Importar profissionais lotados** em `/cadastros/cnes-auditoria`. Composição das equipes (membros + multi-equipe): **`/equipes`** (`GET /v1/cnes/teams`, `/v1/cnes/teams/:id`, `/v1/cnes/multi-team`).
 
 Variáveis: `CNES_SYNC_ON_BOOT=1` · `CNES_SYNC_GESTAO=municipal|todos` · `CNES_SNAPSHOT_PATH` · `CNES_DATA_DIR` · `MUNICIPIO_IBGE=3516200`.
 

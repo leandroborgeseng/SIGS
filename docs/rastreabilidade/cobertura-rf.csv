@@ -66,7 +66,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 2,Módulo de Cadastros,16,RF-2.16,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de vínculo do profissional aos plantões disponíveis.
 2,Módulo de Cadastros,17,RF-2.17,Obrigatório,ambos,parcial,P0-P6,apps/api/src/appointments (day-grid + itemType + careLine),n/a,Cadastro de agendas profissionais com tipos de atendimento por agenda. (MVP: CONSULTA/ENCAIXE; sem cadastro livre)
 2,Módulo de Cadastros,18,RF-2.18,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de procedimentos agendáveis.
-2,Módulo de Cadastros,19,RF-2.19,Obrigatório,ambos,parcial,P0-P6,apps/api/.../organization.py#teams,n/a,Cadastro de equipes de saúde vinculadas às regras do SUS e da gestão.
+2,Módulo de Cadastros,19,RF-2.19,Obrigatório,ambos,parcial,P0-P6,organization#teams + cnes/teams + /equipes,n/a,Cadastro de equipes de saúde vinculadas às regras do SUS e da gestão.
 2,Módulo de Cadastros,20,RF-2.20,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de vacinas.
 2,Módulo de Cadastros,21,RF-2.21,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de estratégias das doses de vacinas.
 2,Módulo de Cadastros,22,RF-2.22,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de doses de vacinas.
@@ -74,7 +74,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 2,Módulo de Cadastros,24,RF-2.24,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de ficha de exames: nome, natureza, forma de exibição, sigilo, procedimento, agrupamento, CBOs permitidos, modelo de impressão com variáveis, permissão"
 2,Módulo de Cadastros,26,RF-2.26,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro de scripts de resultado de exames.
 2,Módulo de Cadastros,27,RF-2.27,Obrigatório,ambos,parcial,P0-P6,apps/api/.../patients.py,n/a,"Cadastro de pacientes: nome, mãe, data de nascimento, CPF, CNS, endereço completo, contatos, raça/cor, deficiência, naturalidade, nacionalidade, vínculo com uni"
-2,Módulo de Cadastros,28,RF-2.28,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Cadastro das equipes de saúde conforme exigências do SUS.
+2,Módulo de Cadastros,28,RF-2.28,Obrigatório,ambos,parcial,P0-P6,cnes sync + team-type-catalog + /equipes,n/a,Cadastro das equipes de saúde conforme exigências do SUS.
 2,Módulo de Cadastros,29,RF-2.29,Obrigatório,ambos,parcial,P0-P6,households+families+/territorio,n/a,Cadastro domiciliar e territorial conforme regras da APS (sem GIS/lote XML).
 2,Módulo de Cadastros,30,RF-2.30,Obrigatório,ambos,parcial,P0-P6,patients CDS + territory links + /pacientes/[id],n/a,Cadastro individual conforme regras da APS.
 2,Módulo de Cadastros,31,RF-2.31,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Cadastro de protocolos de acesso por grupo, subgrupo, forma de organização ou procedimento, apoiando decisão da regulação."
@@ -107,7 +107,7 @@ modulo,modulo_nome,rf,id,tipo,fonte,status,onda,codigo,teste_faturamento,resumo
 2,Módulo de Cadastros,58,RF-2.58,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Digitalização e anexo de arquivos digitais por paciente.
 2,Módulo de Cadastros,59,RF-2.59,Obrigatório,ambos,não iniciado,P0-P6,,n/a,Emissão de plantões de saúde.
 2,Módulo de Cadastros,60,RF-2.60,Obrigatório,ambos,parcial,P0-P6,apps/api/.../assignments + ledi header,n/a,Listagem de profissionais por unidade de saúde.
-2,Módulo de Cadastros,61,RF-2.61,Obrigatório,ambos,não iniciado,P0-P6,,n/a,"Listagem das equipes de saúde com filtros de unidade, equipe e tipo."
+2,Módulo de Cadastros,61,RF-2.61,Obrigatório,ambos,parcial,P0-P6,"GET /v1/cnes/teams + multi-team + network-export + UI /equipes/[id]",n/a,"Listagem das equipes de saúde com filtros de unidade, equipe e tipo."
 3,Módulo Ambulatorial,1,RF-3.1,Obrigatório,ambos,parcial,P0-P6,apps/api/src/encounters + UI /aps + CodeSearchSelect /atendimento,automatizado,"Registro de entrada de pacientes com pesquisa em única tela (nome, data de nascimento, nome da mãe, CPF, CNS, cartão cidadão)."
 3,Módulo Ambulatorial,2,RF-3.2,Obrigatório,ambos,não iniciado,P0-P6,,previsto,Definição de serviço a ser executado no ato da entrada do paciente.
 3,Módulo Ambulatorial,3,RF-3.3,Obrigatório,ambos,não iniciado,P0-P6,,previsto,"Identificação do responsável pelo paciente, vinculado ao cadastro de pacientes."
