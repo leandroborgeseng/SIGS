@@ -22,6 +22,7 @@ Documentos gerados a partir da análise do e-SUS APS **5.5.24** e das decisões 
 | 16 | [16-tres-tipos-ficha-ledi-franca.md](16-tres-tipos-ficha-ledi-franca.md) | **FAI (4) × FAO (5) × Procedimentos (7): como identificar e onde corrigir** |
 | 17 | [17-catalogo-erros-parser-ledi-fao.md](17-catalogo-erros-parser-ledi-fao.md) | **Catálogo completo: por quê e como corrigir cada código do parser** |
 | 18 | [18-amostra-novas-fichas-exemplo.md](18-amostra-novas-fichas-exemplo.md) | Amostra mista FAO/FAI/PROC → telas `/odonto/lote`, `/aps/lote`, `/procedimentos/lote` |
+| 19 | [19-nomenclatura-cofinanciamento-aps-2026.md](19-nomenclatura-cofinanciamento-aps-2026.md) | **Previne encerrado (3.493/2024); C\*/B\* já são o modelo novo; Siaps × pagamento** |
 
 - raiz: `01-manifest.json` … `10-gaps.md`
 - `data/esus/5.5.24/reports/`
