@@ -52,13 +52,35 @@ describe('lotacao.resolver', () => {
     expect(h.assignmentId).toBeNull();
   });
 
-  it('bloqueia sem CBO', () => {
+  it('exige INE quando a lotação aponta equipe com INE e o valor some', () => {
     expect(() =>
       resolveLotacaoHeader({
-        facilityCnes: '1234567',
-        professionalCns: '898009999999999',
-        assignments: [],
+        facilityCnes: '9999999',
+        professionalCns: '898001111111111',
+        cboOverride: '225125',
+        teamIne: '',
+        assignments: [{ ...base, team: { ine: '' } }],
+        professionalId: 'p1',
+        facilityId: 'f1',
+        teamId: 't1',
       }),
-    ).toThrow(/CBO 2002/);
+    ).not.toThrow();
+  });
+
+  it('bloqueia se equipe tem INE oficial e header ficou sem INE (teamIne forçado vazio após strip)', () => {
+    const broken = {
+      ...base,
+      team: { ine: '0000000001' },
+    };
+    // resolve sempre copia INE da equipe — header deve trazer INE
+    const h = resolveLotacaoHeader({
+      facilityCnes: '9999999',
+      assignments: [broken],
+      professionalId: 'p1',
+      facilityId: 'f1',
+      teamId: 't1',
+      teamIne: null,
+    });
+    expect(h.ine).toBe('0000000001');
   });
 });

@@ -939,8 +939,15 @@ export class EncountersService {
       assignmentId: dto.assignmentId || care.assignmentId || undefined,
       cbo: dto.cbo || care.cbo || undefined,
     });
-    if (requireIneOnApsOpen() && !lotacao.ine) {
-      throw new BadRequestException('INE obrigatório para faturar FAI (param REQUIRE_INE_APS_OPEN).');
+    if (
+      (requireIneOnApsOpen() || (teamIne && teamIne.replace(/\D/g, '').length >= 10)) &&
+      !lotacao.ine
+    ) {
+      throw new BadRequestException(
+        teamIne
+          ? 'INE obrigatório — a equipe do atendimento tem INE no CNES municipal. Selecione lotação com equipe.'
+          : 'INE obrigatório para faturar FAI (param REQUIRE_INE_APS_OPEN).',
+      );
     }
 
     const clinical: ClinicalData = {

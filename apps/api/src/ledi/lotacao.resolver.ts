@@ -92,11 +92,23 @@ export function resolveLotacaoHeader(input: ResolveLotacaoInput): LotacaoHeader 
     );
   }
 
+  // Equipe municipal com INE no CNES → INE obrigatório no header LEDI
+  const teamHasIne = Boolean(
+    (assignment?.team?.ine && String(assignment.team.ine).replace(/\D/g, '').length >= 10) ||
+      (input.teamIne && String(input.teamIne).replace(/\D/g, '').length >= 10),
+  );
+  const ineDigits = (ine || '').replace(/\D/g, '');
+  if (teamHasIne && ineDigits.length < 10) {
+    throw new Error(
+      'INE obrigatório — a equipe da lotação tem INE no CNES municipal. Selecione a lotação com equipe em /lotacoes.',
+    );
+  }
+
   return {
     profissionalCNS: cns,
     cboCodigo_2002: cbo,
     cnes,
-    ine,
+    ine: ineDigits || ine,
     assignmentId: assignment?.id ?? null,
   };
 }

@@ -1050,6 +1050,19 @@ export class CareExtraService {
 
     const assignmentId = dto.assignmentId || care.assignmentId || row.assignmentId;
     const cbo = dto.cbo || care.cbo || undefined;
+    let teamIne: string | null = null;
+    const teamIdForLotacao = assignmentId
+      ? (
+          await this.prisma.professionalAssignment.findUnique({
+            where: { id: assignmentId },
+            select: { teamId: true, team: { select: { ine: true } } },
+          })
+        )?.teamId || null
+      : null;
+    if (teamIdForLotacao) {
+      const team = await this.prisma.team.findUnique({ where: { id: teamIdForLotacao } });
+      teamIne = team?.ine ?? null;
+    }
     const lotacao = await this.resolveLotacao({
       professionalId: row.professionalId,
       facilityId: row.facilityId,
@@ -1057,9 +1070,18 @@ export class CareExtraService {
       professionalCns: row.professional?.cns,
       assignmentId: assignmentId || undefined,
       cbo: cbo || FRANCA_LEDI_DEFAULTS.cboOdontoPadrao,
+      teamId: teamIdForLotacao || undefined,
+      teamIne,
     });
-    if (requireIneOnDentalOpen() && !lotacao.ine) {
-      throw new BadRequestException('INE obrigatório para faturar (param REQUIRE_INE_DENTAL_OPEN).');
+    if (
+      (requireIneOnDentalOpen() || (teamIne && teamIne.replace(/\D/g, '').length >= 10)) &&
+      !lotacao.ine
+    ) {
+      throw new BadRequestException(
+        teamIne
+          ? 'INE obrigatório — a equipe da lotação tem INE no CNES municipal. Selecione lotação com equipe.'
+          : 'INE obrigatório para faturar (param REQUIRE_INE_DENTAL_OPEN).',
+      );
     }
 
     const tipoAtendimento = dto.tipoAtendimento ?? care.tipoAtendimento ?? 5;
