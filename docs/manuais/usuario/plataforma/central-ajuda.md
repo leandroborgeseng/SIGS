@@ -46,3 +46,12 @@ Estar logado.
 
 **P: Os manuais substituem o treinamento?**  
 **R:** Complementam. Em caso de dúvida clínica/operacional, confirme com a coordenação da UBS.
+
+## Índice — regras internas do faturamento
+
+| Artigo | Id |
+|---|---|
+| Funil pré-envio | `faturamento.funil-pre-envio` |
+| Checagens por tipo | `faturamento.regras-por-tipo` |
+| Cruzamentos | `faturamento.cruzamentos` |
+| Siaps × Previne | `faturamento.siaps-vs-previne` |

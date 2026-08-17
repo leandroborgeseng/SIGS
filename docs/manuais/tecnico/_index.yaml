@@ -23,6 +23,10 @@ articles:
     path: faturamento/auditoria-faturamento.md
     version: 0.1.0
     status: draft
+  - id: faturamento.regras-internas
+    path: faturamento/regras-internas.md
+    version: 1.0.0
+    status: stub
   - id: faturamento.lote-cds-stub
     path: faturamento/lote-cds-stubs.md
     version: 0.1.0

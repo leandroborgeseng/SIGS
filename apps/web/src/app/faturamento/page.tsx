@@ -83,6 +83,29 @@ const EXTRA = [
   },
 ];
 
+const HELP_REGRAS = [
+  {
+    href: '/ajuda?artigo=faturamento.funil-pre-envio',
+    title: 'Funil pré-envio',
+    desc: 'Upload → crítica → autofix → aptos/pendentes → governo.',
+  },
+  {
+    href: '/ajuda?artigo=faturamento.regras-por-tipo',
+    title: 'Checagens por tipo de ficha',
+    desc: 'Tipos 2, 3, 4, 5, 6, 7, 8, 10 e 14 — o que o sistema olha.',
+  },
+  {
+    href: '/ajuda?artigo=faturamento.cruzamentos',
+    title: 'Cruzamentos',
+    desc: 'Produção × cadastro × CNES × equipe.',
+  },
+  {
+    href: '/ajuda?artigo=faturamento.siaps-vs-previne',
+    title: 'Siaps × Previne',
+    desc: 'Envio legal (vermelho) vs financiamento (laranja).',
+  },
+];
+
 export default function FaturamentoHubPage() {
   return (
     <AppShell helpId="faturamento.hub">
@@ -91,6 +114,27 @@ export default function FaturamentoHubPage() {
         description="Filas odonto/APS e tratamento de lotes LEDI (tipos 2–8 e 10) — separado do atendimento clínico."
         actions={<HelpLink id="faturamento.hub" />}
       />
+
+      <section style={{ marginBottom: 20, maxWidth: 720 }}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>
+          Regras internas (ajuda)
+        </h3>
+        <p className="muted" style={{ margin: '0 0 10px', fontSize: 13 }}>
+          Visível a todos os usuários na Central de Ajuda — funil, checagens por tipo, cruzamentos e
+          Siaps × Previne.
+        </p>
+        <div className="stack" style={{ gap: 10 }}>
+          {HELP_REGRAS.map((item) => (
+            <Link key={item.href} href={item.href} className="unit-card" style={{ textAlign: 'left' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 600 }}>{item.title}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>{item.desc}</div>
+              </div>
+              <span style={{ color: 'var(--ink-4)' }}>›</span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <section style={{ marginBottom: 20, maxWidth: 720 }}>
         <h3 style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>

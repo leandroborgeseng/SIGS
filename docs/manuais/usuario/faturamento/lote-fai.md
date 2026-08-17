@@ -32,4 +32,6 @@ authors: [SIGS]
 
 Safari / ZIP grande: fatias 512 KiB no rodapé da etapa 1 (não monta o ZIP na RAM).
 
+**Regras:** `faturamento.funil-pre-envio` · `faturamento.regras-por-tipo` · `faturamento.cruzamentos` · `faturamento.siaps-vs-previne`.
+
 Produção nativa (não XML): fila `/faturamento/aps`.

@@ -195,19 +195,121 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'faturamento.hub',
     title: 'Faturamento & Validação',
     module: 'Faturamento',
-    version: '0.7.0',
+    version: '0.8.0',
     updatedAt: '2026-08-16',
-    summary: 'Hub: filas odonto/APS + lotes LEDI 2–8/10 + auditoria + BPA.',
-    body: `Em /faturamento: (1) Filas odonto/APS; (2) Lotes LEDI live — tipos 2,3,4,5,6,7,8,10 no mesmo wizard (upload→gate→críticas→autofix→2 ZIPs). Dump Franca só 4/5/7; demais schema sintético. Vacina 14 = stub. (3) Auditoria; (4) Produção/BPA. API: GET /v1/faturamento/ledi-cds-lotes.`,
+    summary: 'Hub: filas, lotes LEDI 2–8/10, auditoria e regras internas do funil.',
+    body: `Em /faturamento: (1) Filas odonto/APS; (2) Lotes LEDI live — tipos 2,3,4,5,6,7,8,10 no mesmo wizard (upload→gate→críticas→autofix→2 ZIPs). Vacina 14 = stub. (3) Auditoria; (4) Produção/BPA.
+
+Regras internas (todos os usuários) — abra na Central de Ajuda:
+• Funil pré-envio — faturamento.funil-pre-envio
+• O que é checado por tipo — faturamento.regras-por-tipo
+• Cruzamentos produção×cadastro×CNES — faturamento.cruzamentos
+• Siaps (envio) × Previne (financiamento) — faturamento.siaps-vs-previne
+
+No hub há atalhos para esses artigos. API: GET /v1/faturamento/ledi-cds-lotes.`,
+  },
+  {
+    id: 'faturamento.funil-pre-envio',
+    title: 'Funil pré-envio — passo a passo',
+    module: 'Faturamento',
+    version: '1.0.0',
+    updatedAt: '2026-08-16',
+    summary: 'Upload → gate de tipo → crítica → autofix → aptos/pendentes → governo.',
+    body: `O SIGS não envia sozinho ao Ministério. Ele abre o ZIP, critica, corrige o que for seguro e separa o que já pode ir.
+
+Passo a passo:
+1. Upload — escolha o lote do tipo certo em /faturamento e solte o ZIP.
+2. Gate de tipo — ZIP de outro tipo é recusado e a análise não roda. Abra a tela correta.
+3. Análise — quantidade, já podem enviar (Pronto Siaps), erros, correção em lote vs individual.
+4. Problema a problema — do mais grave ao menos; corrija em lote quando o botão permitir.
+5. Fechamento — gráfico antes×depois. Pronto Siaps = pode enviar; Pronto Previne = qualidade/indicador; 100% OK = os dois.
+6. Dois ZIPs — aptos para envio e ainda precisam correção.
+7. Ficha a ficha — o que restou de correção manual.
+
+Pré-requisito: sincronizar rede municipal em Cadastros → Auditoria CNES.
+
+Relacionados: faturamento.regras-por-tipo · faturamento.cruzamentos · faturamento.siaps-vs-previne.`,
+  },
+  {
+    id: 'faturamento.regras-por-tipo',
+    title: 'O que é checado por tipo de ficha',
+    module: 'Faturamento',
+    version: '1.0.0',
+    updatedAt: '2026-08-16',
+    summary: 'Tipos 2,3,4,5,6,7,8,10,14 — Siaps vs qualidade/Previne.',
+    body: `Em toda ficha o sistema olha o cabeçalho: CNES, equipe (INE), CNS e CBO do profissional, município, UUID.
+
+Tipo 2 Cadastro Individual — nome, DN, sexo, mãe, CPF/CNS (Siaps); nacionalidade/raça/NIS e vínculo com equipe (Previne). Lote: /faturamento/lote/cadastro-individual.
+
+Tipo 3 Domiciliar — imóvel, responsável, equipe (Siaps); microárea e família para visitas (Previne). Lote: /domicilio.
+
+Tipo 4 FAI — stNaoPossuiCpf, CIAP/CID, condutas (Siaps); INE, turno, gestante, antropometria (Previne). Lote: /lote/fai.
+
+Tipo 5 FAO — stNaoPossuiCpf e CIAP/CID (Siaps); INE eSB, procedimentos e conclusão (Previne B1–B6). A FAO pode ser aceita no Siaps sem ficha tipo 2 no ZIP; Previne precisa da pessoa vinculada. Lote: /lote/fao.
+
+Tipo 6 Coletivo — participantes e quantidade (Siaps); escovação B4 fora da FAO (Previne). Lote: /coletivo.
+
+Tipo 7 Procedimentos — identidade e CNES (Siaps); código SIGTAP (não ABPG). Lote: /lote/proc.
+
+Tipo 8 Visita ACS — paciente/domicílio, desfecho, motivos (Siaps); janelas de visita (Previne). Lote: /visita-acs.
+
+Tipo 10 AD — cidadãos, modalidade, procedimento (Siaps); continuidade e CIAP (qualidade). Lote: /ad.
+
+Tipo 14 Vacina — campos Siaps na tela /vacinacao; lote ZIP ainda não nesta onda.
+
+Relacionados: faturamento.funil-pre-envio · faturamento.cruzamentos · faturamento.siaps-vs-previne.`,
+  },
+  {
+    id: 'faturamento.cruzamentos',
+    title: 'Cruzamentos entre fichas e CNES',
+    module: 'Faturamento',
+    version: '1.0.0',
+    updatedAt: '2026-08-16',
+    summary: 'Produção × cadastro individual × domicílio × CNES/equipe.',
+    body: `O Siaps olha cada ficha quase sozinha. O Previne e a qualidade municipal pedem o grafo: pessoa ↔ equipe ↔ domicílio ↔ produção.
+
+O que o SIGS cruza:
+• Produção × rede — CNES ativo na Prefeitura; CNS lotado + CBO; INE da equipe no CNES; profissional multi-equipe sem INE claro.
+• Produção × Cadastro Individual (tipo 2) — cidadão existe (CNS/CPF); vínculo com a equipe do cabeçalho; sexo/DN coerentes.
+• Tipo 2 × Domicílio (tipo 3) — pessoa membro/responsável; domicílio com responsável válido.
+• Visita ACS × domicílio × pessoa — visita aponta para cadastros existentes.
+• Coletivo × B4 e PROC × SIGTAP — escovação no coletivo; ABPG deve virar SIGTAP.
+
+Onde agir: /cadastros/cnes-auditoria · /equipes · /pacientes · /territorio · /faturamento/auditoria · wizard do lote.
+
+Mensagem: corrigir só stNaoPossuiCpf + CIAP abre a porta do envio; sem cadastro/vínculo/procedimento certo o indicador continua baixo.
+
+Relacionados: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.siaps-vs-previne.`,
+  },
+  {
+    id: 'faturamento.siaps-vs-previne',
+    title: 'Siaps (envio) × Previne (financiamento)',
+    module: 'Faturamento',
+    version: '1.0.0',
+    updatedAt: '2026-08-16',
+    summary: 'Vermelho = envio legal; laranja = indicador. Pronto Siaps ≠ Pronto Previne.',
+    body: `Dois eixos:
+• Siaps / envio LEDI — ficha aceita no Siaps/SISAB. Se falhar: rejeição, produção não conta.
+• Previne Brasil — scores sobre produção já aceita + cadastro e vínculo. Se falhar: indicador baixo e impacto no repasse.
+
+Na tela: badge vermelho Siaps = obrigatório para enviar; laranja Previne = qualidade (não bloqueia se Siaps ok). No lote: Pronto Siaps · Pronto Previne · 100% OK.
+
+Cadastro individual — mínimo Siaps: nome, DN, sexo, mãe (ou Desconhece), CPF ou CNS. Completude Previne: nacionalidade, raça, NIS, vínculo equipe/INE, domicílio, condições clínicas, sem duplicata.
+
+Exemplos: FAO sem CIAP bloqueia Siaps; FAO ok sem cadastro/vínculo passa Siaps mas prejudica Previne; escovação B4 é no coletivo (tipo 6), não na FAO.
+
+Relacionados: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.cruzamentos · cadastros.pacientes.`,
   },
   {
     id: 'faturamento.lote-cds',
     title: 'Lote LEDI CDS (2/3/6/8/10)',
     module: 'Faturamento',
-    version: '0.2.0',
+    version: '0.3.0',
     updatedAt: '2026-08-16',
     summary: 'Wizard ZIP CDS com críticas Siaps/header e cruzamento municipal.',
-    body: `Rotas /faturamento/lote/{cadastro-individual,domicilio,coletivo,visita-acs,ad}. Mesmo shell LediTipoLotePage dos lotes 4/5/7. Sem amostra XML real no dump Franca — regras por enum/tag + fixtures sintéticas. Autofix seguro (stNaoPossuiCpf, CNES/IBGE/tpCdsOrigem). Cruzamento CNS×CNES×INE quando cadastro mestre sincronizado.`,
+    body: `Rotas /faturamento/lote/{cadastro-individual,domicilio,coletivo,visita-acs,ad}. Mesmo shell dos lotes 4/5/7. Sem amostra XML real no dump Franca — regras por cabeçalho/identidade + mínimas por tipo. Autofix seguro (stNaoPossuiCpf, CNES/IBGE…). Cruzamento CNS×CNES×INE com cadastro mestre sincronizado.
+
+Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.cruzamentos · faturamento.siaps-vs-previne. Vacina 14 fora desta onda.`,
   },
   {
     id: 'faturamento.lote-cds-stub',
@@ -216,7 +318,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '0.2.0',
     updatedAt: '2026-08-16',
     summary: 'Substituído pelo wizard live — ver faturamento.lote-cds.',
-    body: `Tipos 3/8/10 agora usam o wizard live (help faturamento.lote-cds). Vacina 14 permanece fora desta onda.`,
+    body: `Tipos 2/3/6/8/10 usam o wizard live (help faturamento.lote-cds). Vacina 14 permanece fora desta onda. Regras: faturamento.funil-pre-envio.`,
   },
   {
     id: 'faturamento.auditoria',
@@ -225,7 +327,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     version: '0.2.0',
     updatedAt: '2026-08-16',
     summary: 'Cruzamento produção × rede municipal CNES/INE/CNS/CBO/SIGTAP por competência.',
-    body: `Em /faturamento/auditoria escolha a competência (YYYY-MM). Escopo default = rede municipal (Prefeitura; natureza jurídica 1244). API GET /v1/faturamento/audit?competencia=&ibge=3516200&gestao=municipal analisa lotes nativos, ProductionRecord e encounters. Severidade blocker bloqueia envio; quality é qualidade/Previne. Checks: CNES ativo na rede municipal, INE, CNS/CBO vs lotação, SIGTAP, CIAP, conduta. Contagens mostram municipal vs cidade. gestao=todos usa todos os CNES do município. Export CSV. Sem PHI. Não altera o wizard LEDI.`,
+    body: `Em /faturamento/auditoria escolha a competência (YYYY-MM). Escopo default = rede municipal (Prefeitura; natureza jurídica 1244). Severidade blocker bloqueia envio; quality é qualidade/Previne. Checks: CNES ativo, INE, CNS/CBO vs lotação, SIGTAP, CIAP, conduta. Export CSV. Sem PHI. Não altera o wizard LEDI.
+
+Ver também: faturamento.cruzamentos · faturamento.siaps-vs-previne.`,
   },
   {
     id: 'faturamento.fila-aps',
@@ -240,28 +344,34 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'odonto.lote-ledi',
     title: 'Lote LEDI FAO — validar e corrigir XMLs',
     module: 'Odontologia',
-    version: '1.2.0',
-    updatedAt: '2026-08-12',
+    version: '1.3.0',
+    updatedAt: '2026-08-16',
     summary: 'Upload de XMLs odonto, inconsistências, auto-correção e download ZIP.',
-    body: `Em Faturamento → Tratamento de lotes LEDI → Lote FAO (/faturamento/lote/fao): wizard único (upload → gate de tipo → análise com gráfico → problema a problema → fechamento antes×depois → dois ZIPs: aptos para envio e ainda precisam correção → ficha a ficha). Pronto Siaps ≠ Pronto Previne ≠ 100% OK. ZIP do tipo errado é recusado e não analisa. Alias: /odonto/lote. Irmãos: FAI e Procedimentos.`,
+    body: `Em Faturamento → Lote FAO (/faturamento/lote/fao): wizard único (upload → gate → análise → problema a problema → fechamento → dois ZIPs → ficha a ficha). Pronto Siaps ≠ Pronto Previne ≠ 100% OK. ZIP do tipo errado é recusado.
+
+Regras do funil: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.cruzamentos · faturamento.siaps-vs-previne. Alias: /odonto/lote.`,
   },
   {
     id: 'faturamento.lote-fai',
     title: 'Lote LEDI FAI — atendimento individual',
     module: 'Faturamento',
-    version: '0.2.1',
-    updatedAt: '2026-08-14',
+    version: '0.3.0',
+    updatedAt: '2026-08-16',
     summary: 'Upload/validação de XMLs FAI (tipo 4), correção e export ZIP.',
-    body: `Em /faturamento/lote/fai: wizard de lote FAI tipo 4 (não é odonto). (1) Envie o ZIP — o sistema abre ficha a ficha; auto vs pessoa; Pronto Siaps ≠ Pronto Previne ≠ 100% OK. (2) Se o ZIP for FAO/PROC, a tela recusa e volta ao início (não analisa). (3) Análise: quantidade, já podem enviar, erros, corrigem em lote vs individuais. (4) Modal sequencial problema a problema. (5) Fechamento: campos corrigidos + gráfico antes×depois. (6) Dois ZIPs: aptos-envio e pendentes. (7) Residual ficha a ficha. Safari: fatias 512 KiB no rodapé da etapa 1; não monta o ZIP na RAM. Fila nativa: /faturamento/aps. Alias: /aps/lote.`,
+    body: `Em /faturamento/lote/fai: wizard FAI tipo 4. Upload → gate → análise → problema a problema → fechamento → dois ZIPs → ficha a ficha. Pronto Siaps ≠ Pronto Previne ≠ 100% OK. ZIP FAO/PROC nesta tela é recusado.
+
+Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.cruzamentos · faturamento.siaps-vs-previne. Fila nativa: /faturamento/aps. Alias: /aps/lote.`,
   },
   {
     id: 'faturamento.lote-proc',
     title: 'Lote LEDI Procedimentos',
     module: 'Faturamento',
-    version: '0.1.0',
-    updatedAt: '2026-08-12',
+    version: '0.2.0',
+    updatedAt: '2026-08-16',
     summary: 'Upload/validação de XMLs de Procedimentos (tipo 7) e export ZIP.',
-    body: `Em /faturamento/lote/proc: mesmo wizard das telas FAI/FAO (upload → gate de tipo 7 → análise → problema a problema → dois ZIPs aptos/pendentes → ficha a ficha). Priorize CPF/CNS, turno e CNES; ABPG/SIGTAP na ficha. Alias: /procedimentos/lote. Hub: /faturamento.`,
+    body: `Em /faturamento/lote/proc: mesmo wizard FAI/FAO (gate tipo 7 → análise → dois ZIPs). Priorize CPF/CNS, turno e CNES; ABPG/SIGTAP na ficha.
+
+Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.cruzamentos · faturamento.siaps-vs-previne. Alias: /procedimentos/lote.`,
   },
   {
     id: 'ad.stub',
@@ -271,8 +381,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     updatedAt: '2026-08-16',
     summary: 'Visita AD1/AD2/AD3 com campos Siaps/Previne e produção LEDI v2.',
     body: `Em /ad: cidadãos (≥1), modalidade AD e procedimento têm badge Siaps (vermelho). Turno, tipo, desfecho e CIAP/CID são Indicador (laranja — QUALITY_WARN no preflight). Use Preflight antes de Finalizar — lote home_care com N atendimentosDomiciliares. Manual: docs/manuais/usuario/ambulatorial/atencao-domiciliar.md.`,
-  },
-  {
+  },  {
     id: 'producao.ledi',
     title: 'Produção e lotes LEDI',
     module: 'Produção',

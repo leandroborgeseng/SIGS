@@ -22,4 +22,6 @@ authors: [SIGS]
 
 Mesmo wizard FAI/FAO. Priorize CPF/CNS, turno e CNES; ABPG/SIGTAP na ficha. ZIP de outro tipo é recusado (não analisa). Dois ZIPs: aptos para envio e pendentes.
 
+**Regras:** `faturamento.funil-pre-envio` · `faturamento.regras-por-tipo` · `faturamento.cruzamentos` · `faturamento.siaps-vs-previne`.
+
 Hub: `/faturamento`.

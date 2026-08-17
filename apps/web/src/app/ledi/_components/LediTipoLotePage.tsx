@@ -1100,6 +1100,10 @@ export function LediTipoLotePage({ expectedTipo }: { expectedTipo: LoteTipo }) {
         actions={
           <>
             <HelpLink id={meta.helpId} />
+            <HelpLink id="faturamento.funil-pre-envio" label="Funil" />
+            <HelpLink id="faturamento.regras-por-tipo" label="Por tipo" />
+            <HelpLink id="faturamento.cruzamentos" label="Cruzamentos" />
+            <HelpLink id="faturamento.siaps-vs-previne" label="Siaps × Previne" />
             <Link className="btn btn-secondary" href="/faturamento">
               Hub faturamento
             </Link>

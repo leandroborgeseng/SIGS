@@ -25,6 +25,8 @@ Regra de produto: **Pronto Siaps ≠ Pronto Previne**. O painel LEDI e o wizard 
 
 Não alterar o wizard LEDI (`/faturamento/lote/*`) nesta convenção — ele já tem funil Siaps/Previne próprio.
 
+**Ajuda in-app (todos os usuários):** `faturamento.siaps-vs-previne` · funil `faturamento.funil-pre-envio` · por tipo `faturamento.regras-por-tipo` · cruzamentos `faturamento.cruzamentos`.
+
 ---
 
 ## 3. Manual do usuário por tela
@@ -66,3 +68,4 @@ Checklist DoD (além de `docs/manuais/README.md`):
 | `/coletivo` | `usuario/ambulatorial/atividade-coletiva.md` | `coletivo.stub` |
 | `/pacientes/novo` · `/pacientes/[id]` | `usuario/cadastros/pacientes-territorio.md` | `cadastros.pacientes` |
 | `/territorio` | `usuario/cadastros/pacientes-territorio.md` | `cadastros.territorio` |
+| `/faturamento` (regras) | `usuario/faturamento/funil-pre-envio.md` (+ regras-por-tipo, cruzamentos, siaps-vs-previne) | `faturamento.funil-pre-envio` · `regras-por-tipo` · `cruzamentos` · `siaps-vs-previne` |

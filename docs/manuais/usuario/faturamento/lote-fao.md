@@ -24,4 +24,6 @@ Mesmo wizard das telas FAI/PROC: upload → gate de tipo → análise + gráfico
 
 Pronto Siaps ≠ Pronto Previne (ESB B1–B6) ≠ 100% OK. ZIP FAI nesta tela é recusado e não analisa.
 
+**Regras:** `faturamento.funil-pre-envio` · `faturamento.regras-por-tipo` · `faturamento.cruzamentos` · `faturamento.siaps-vs-previne`.
+
 Produção nativa: `/faturamento/odonto`.

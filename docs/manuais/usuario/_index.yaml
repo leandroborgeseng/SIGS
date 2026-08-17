@@ -37,8 +37,24 @@ articles:
     status: stub
   - id: faturamento.hub
     path: faturamento/hub.md
-    version: 0.3.0
+    version: 0.4.0
     status: draft
+  - id: faturamento.funil-pre-envio
+    path: faturamento/funil-pre-envio.md
+    version: 1.0.0
+    status: published
+  - id: faturamento.regras-por-tipo
+    path: faturamento/regras-por-tipo.md
+    version: 1.0.0
+    status: published
+  - id: faturamento.cruzamentos
+    path: faturamento/cruzamentos.md
+    version: 1.0.0
+    status: published
+  - id: faturamento.siaps-vs-previne
+    path: faturamento/siaps-vs-previne.md
+    version: 1.0.0
+    status: published
   - id: faturamento.fila-aps
     path: faturamento/fila-aps.md
     version: 0.1.0
@@ -55,10 +71,14 @@ articles:
     path: faturamento/lote-proc.md
     version: 0.1.0
     status: draft
+  - id: faturamento.lote-cds
+    path: faturamento/lote-cds.md
+    version: 0.3.0
+    status: draft
   - id: faturamento.lote-cds-stub
     path: faturamento/lote-cds-stubs.md
-    version: 0.1.0
-    status: stub
+    version: 0.2.0
+    status: deprecated
   - id: faturamento.auditoria
     path: faturamento/auditoria.md
     version: 0.1.0

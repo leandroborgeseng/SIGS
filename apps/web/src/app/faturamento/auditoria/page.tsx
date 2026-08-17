@@ -153,6 +153,8 @@ export default function FaturamentoAuditoriaPage() {
         actions={
           <>
             <HelpLink id="faturamento.auditoria" />
+            <HelpLink id="faturamento.cruzamentos" label="Cruzamentos" />
+            <HelpLink id="faturamento.siaps-vs-previne" label="Siaps × Previne" />
             <button type="button" className="btn btn-secondary" onClick={() => void load()} disabled={loading}>
               Recarregar
             </button>

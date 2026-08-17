@@ -95,6 +95,8 @@ Nas fichas de produção (APS, odonto, vacina, AD, coletivo e lotes LEDI quando 
 
 Detalhe e checklist: [`campos-siaps-previne.md`](./campos-siaps-previne.md). Componente: `FieldHint` / `LabeledField` (`apps/web/src/components/ui/FieldHint.tsx`).
 
+**Central de Ajuda — regras internas do funil:** `faturamento.funil-pre-envio` · `faturamento.regras-por-tipo` · `faturamento.cruzamentos` · `faturamento.siaps-vs-previne` (espelho em `apps/web/src/lib/help.ts`).
+
 No software (futuro):
 
 ```text
