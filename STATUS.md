@@ -51,7 +51,8 @@
 | `6302a33` | Regressão CNES/PF/audit/LEDI + smoke `smoke:cnes-pf-ledi` |
 | `bdf966c` | Manuais stubs CDS/auditoria + RF-10.21 no CSV + handoff STATUS |
 | `f6cfecd` | Lista `/unidades` default **Rede Prefeitura** (~59) + CNPJ mantenedora |
-| *(próximo)* | Explorer **`/equipes`** · `/equipes/[id]` · multi-team · CSV rede · `TEAM_WITHOUT_MEMBERS` · polish lotações |
+| `dcf3756` | APIs `cnes/teams` · multi-team · network-export · catálogo 76=EAP · `TEAM_WITHOUT_MEMBERS` |
+| `2da5b68` | UI `/equipes` + `/equipes/[id]` · polish `/lotacoes` · manuais RF-2.61 |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC (**live** — não quebrar)
