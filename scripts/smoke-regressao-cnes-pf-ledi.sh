@@ -11,9 +11,9 @@ fi
 
 cd "$ROOT/apps/api"
 
-PATTERN='cnes\.filter|cnes-audit|cnes\.professionals|cnes\.loader|cnes\.parser|cnes-teams|team-type-catalog|faturamento-audit|ledi-ficha-tipo|ledi-cds-lote|ledi-cds-extra|ledi-fai-proc|ledi-cidadao-master|ledi-vinculo-completude|ledi-fao-previne|sigtap\.seed|local-file\.loader|ms-procedimento'
+PATTERN='cnes\.filter|cnes-audit|cnes\.professionals|cnes\.loader|cnes\.parser|cnes-teams|team-type-catalog|faturamento-audit|ledi-ficha-tipo|ledi-cds-lote|ledi-cds-extra|ledi-fai-proc|ledi-cidadao-master|ledi-vinculo-completude|ledi-onda4-cruzamentos|ledi-fao-previne|sigtap\.seed|local-file\.loader|ms-procedimento'
 
 echo "==> Smoke regressão ampliado: ${PATTERN}"
 npx jest --config jest.config.js --testPathPattern="${PATTERN}" --ci --colors=false
 
-echo "==> OK — CNES/PF/audit/LEDI/SIGTAP/P×2/NT30/Previne/deep-link"
+echo "==> OK — CNES/PF/audit/LEDI/SIGTAP/P×2/NT30/Onda4-territorio/Previne/deep-link"

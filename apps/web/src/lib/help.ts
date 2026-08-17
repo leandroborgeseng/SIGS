@@ -263,24 +263,25 @@ Relacionados: faturamento.funil-pre-envio · faturamento.cruzamentos · faturame
     id: 'faturamento.cruzamentos',
     title: 'Cruzamentos entre fichas e CNES',
     module: 'Faturamento',
-    version: '1.2.0',
+    version: '1.3.0',
     updatedAt: '2026-08-17',
-    summary: 'Produção × cadastro × vínculo NT 30 × CNES × Paciente Mestre.',
+    summary: 'Produção × cadastro × vínculo NT 30 × território × coletivo/AD/visita × Paciente Mestre.',
     body: `O Siaps olha cada ficha quase sozinha. O Previne e a qualidade municipal pedem o grafo: pessoa ↔ equipe ↔ domicílio ↔ produção.
 
 O que o SIGS cruza:
 • Produção × rede — CNES ativo na Prefeitura; CNS lotado + CBO; INE da equipe no CNES; profissional multi-equipe sem INE claro.
 • Produção × Cadastro Individual (tipo 2) — cidadão existe (CNS/CPF); sexo/DN coerentes.
-• P×2 — produção × Paciente Mestre: *_CNS_NOT_IN_CADASTRO_INDIVIDUAL se CNS/CPF fora do mestre.
-• P×2c / NT 30 — PRODUCAO_SEM_VINCULO_EQUIPE (cidadão conhecido sem patient-team-link ativo) e PRODUCAO_INE_NEQ_VINCULO (INE do cabeçalho ≠ vínculo). Cobertura honesta na auditoria (nota se poucos links).
-• Completude tipo 2 — CADASTRO_INCOMPLETO_SIAPS (ID mínimo) e CADASTRO_INCOMPLETO_PREVINE (nacionalidade/raça/IBGE/vínculo) ao avaliar pacientes da produção.
-• Tipo 2 × Domicílio (tipo 3) — pessoa membro/responsável; domicílio com responsável válido (domínio /territorio; sem ZIP tipo 3).
-• Visita ACS × domicílio × pessoa — visita aponta para cadastros existentes.
-• Coletivo × B4 e PROC × SIGTAP — escovação no coletivo; ABPG → SIGTAP.
+• P×2 — produção × Paciente Mestre: *_CNS_NOT_IN_CADASTRO_INDIVIDUAL / COLETIVO_PARTICIPANTE_NOT_IN_CADASTRO (AD multi-child e lista nominal).
+• P×2c / NT 30 — PRODUCAO_SEM_VINCULO_EQUIPE e PRODUCAO_INE_NEQ_VINCULO.
+• Completude tipo 2 — CADASTRO_INCOMPLETO_SIAPS / CADASTRO_INCOMPLETO_PREVINE.
+• Tipo 2 × Domicílio — CADASTRO_SEM_DOMICILIO (quando há households no território).
+• Visita ACS × domicílio — VISITA_HOUSEHOLD_NOT_FOUND + VISITA_CNS_NOT_IN_CADASTRO_INDIVIDUAL (domínio /territorio + lote).
+• Coletivo × B4 — COLETIVO_B4_SEM_FAIXA_6_12 só com lista CNS + DN; domínio /coletivo só com contagem = gap honesto (não inventa participantes).
+• PROC × SIGTAP — ABPG → SIGTAP.
 
-Onde agir: /cadastros/cnes-auditoria · /equipes · /pacientes · /pacientes/migracao · /territorio · /faturamento/auditoria (seção vínculo/cadastro + CSV) · wizard do lote.
+Onde agir: /cadastros/cnes-auditoria · /equipes · /pacientes · /territorio · /coletivo · /ad · /faturamento/auditoria (seções vínculo + território P2 + CSVs).
 
-Mensagem: corrigir só stNaoPossuiCpf + CIAP abre a porta do envio; sem cadastro/vínculo/procedimento certo o indicador continua baixo.
+Mensagem: corrigir só stNaoPossuiCpf + CIAP abre a porta do envio; sem cadastro/vínculo/domicílio/procedimento certo o indicador continua baixo.
 
 Relacionados: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturamento.siaps-vs-previne · faturamento.auditoria · pacientes.migracao-zip.`,
   },
@@ -327,21 +328,18 @@ Regras: faturamento.funil-pre-envio · faturamento.regras-por-tipo · faturament
     id: 'faturamento.auditoria',
     title: 'Auditoria de faturamento',
     module: 'Faturamento',
-    version: '0.4.0',
+    version: '0.5.0',
     updatedAt: '2026-08-17',
-    summary: 'Rede × SIGTAP × P×2 × vínculo NT 30 × completude cadastro; CSV e deep-link.',
+    summary: 'Rede × SIGTAP × P×2 × NT 30 × território/visita/AD/coletivo B4; CSVs e deep-link.',
     body: `Em /faturamento/auditoria escolha a competência (YYYY-MM). Escopo default = rede municipal (Prefeitura; natureza jurídica 1244). Severidade blocker bloqueia envio; quality é qualidade/Previne.
 
-Checks: CNES ativo, INE, CNS/CBO vs lotação, SIGTAP, CIAP, conduta, P×2 (*_CNS_NOT_IN_CADASTRO_INDIVIDUAL), P×2c (PRODUCAO_SEM_VINCULO_EQUIPE · PRODUCAO_INE_NEQ_VINCULO), completude (CADASTRO_INCOMPLETO_SIAPS · CADASTRO_INCOMPLETO_PREVINE).
+Checks: CNES ativo, INE, CNS/CBO vs lotação, SIGTAP, CIAP, conduta, P×2 (multi-CNS em AD/visita/coletivo), P×2c (vínculo NT 30), completude tipo 2, CADASTRO_SEM_DOMICILIO, VISITA_HOUSEHOLD_NOT_FOUND, COLETIVO_B4_SEM_FAIXA_6_12 (só com idade resolúvel).
 
-Seção «Sem vínculo / cadastro incompleto» — contagens honestas de patient-team-links + nota se cobertura fraca; filtro rápido e botão «CSV vínculo/cadastro».
+Seções: «Sem vínculo / cadastro incompleto» e «Território / visita / coletivo / AD (Onda 4)» — filtros + CSV vínculo/cadastro + CSV território P2. Fontes incluem visitas ACS do domínio.
 
-Deep-link — coluna Abrir:
-• encounter → fila APS/odonto com ?encounterId=
-• production_record / findings de vínculo·cadastro → /pacientes/[id]
-• batch → wizard do lote com ?batchId=
+Deep-link — coluna Abrir: encounter → fila; production_record → paciente; acs_visit → /territorio; batch → wizard do lote.
 
-Export CSV (filtrado ou só vínculo/cadastro). Sem PHI. Não altera o wizard LEDI.
+Gap honesto: /coletivo nativo só tem nº de participantes (sem lista CNS) → não emite participante/B4 inventado. ZIP tipo 3 ainda sintético.
 
 Ver também: faturamento.cruzamentos · faturamento.siaps-vs-previne · pacientes.migracao-zip.`,
   },

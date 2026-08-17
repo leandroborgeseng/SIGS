@@ -66,9 +66,9 @@ Severidade: **BLOCKER** = Siaps/envio · **MONEY_RISK** = Previne/financiamento 
 | **P×2** | **4/5/7/6/8/10/14** | **Cad. Individual (2)** | CNS ou CPF | Cidadão da produção existe no mestre / tipo 2 | MONEY_RISK | Não (criar/vincular cadastro) | **Não** (só Paciente Mestre em migrate nativo) |
 | P×2b | Produção | Tipo 2 | CNS/CPF + DN | Identidade coerente (sexo/DN vs gestante/idade) | QUALITY / MONEY_RISK | Semi | Parcial — `GESTANTE_SEXO_MASC` · `DT_NASCIMENTO_*` (intra-ficha) |
 | P×2c | Produção | Tipo 2 + vínculo | CNS/CPF → INE | Pessoa vinculada à equipe do header (NT 30) | MONEY_RISK | Não | **Sim** — `PRODUCAO_SEM_VINCULO_EQUIPE` · `PRODUCAO_INE_NEQ_VINCULO` (audit + cobertura honesta) |
-| **2×3** | Cad. Individual (2) | Domicílio (3) | CNS/CPF · uuid família/membro | Pessoa é membro/responsável de domicílio ativo na microárea | MONEY_RISK (C2–C6) | Não | Domínio UI `/territorio`; **sem** cruzamento LEDI |
+| **2×3** | Cad. Individual (2) | Domicílio (3) | CNS/CPF · uuid família/membro | Pessoa é membro/responsável de domicílio ativo na microárea | MONEY_RISK (C2–C6) | Não | **Sim** auditoria — `CADASTRO_SEM_DOMICILIO` (se há households); domínio `/territorio`; **sem** ZIP tipo 3 |
 | 2×3b | Tipo 2 | Tipo 3 | responsável familiar | Todo domicílio com responsável válido no tipo 2 | BLOCKER (CDS) / QUALITY | Não | Validação serviço household; sem ZIP tipo 3 |
-| **8×3×2** | Visita ACS (8) | Dom. (3) + Ind. (2) | patientId / household · CNS | Visita aponta paciente **e/ou** domicílio existentes; motivos/desfecho | BLOCKER CDS / MONEY_RISK Previne | Não | Domínio + FieldHint; lote **stub** |
+| **8×3×2** | Visita ACS (8) | Dom. (3) + Ind. (2) | patientId / household · CNS | Visita aponta paciente **e/ou** domicílio existentes; motivos/desfecho | BLOCKER CDS / MONEY_RISK Previne | Não | **Sim** auditoria — `VISITA_CNS_NOT_IN_CADASTRO_INDIVIDUAL` · `VISITA_HOUSEHOLD_NOT_FOUND` (domínio AcsHomeVisit); lote ZIP ainda sintético |
 | 8×VD | Visita (8) | Ind. (2) + condições | CNS + datas | ≥2 VD intervalo ≥30d (C4/C5/C6); 1ª ≤30d (C2); gestante (C3) | MONEY_RISK | Não | **Não** (motor Previne ausente) |
 | **5×2** | FAO (5) | Ind. (2) | CNS/CPF | Pessoa contável + vínculo eSB/eSF | MONEY_RISK B* | Não | Não (cruzamento) |
 | 5×cond | FAO | Ind. / CIAP-CID | `problemasCondicoes` | ≥1 CIAP/CID; gestante (C3.K / bucal gestante) | BLOCKER + MONEY_RISK | Semi (CIAP genérico perigoso) | Sim intra-FAO — `PROBLEMAS_MISSING` · `PREVINE_*` · `GESTANTE_*` |
@@ -78,9 +78,9 @@ Severidade: **BLOCKER** = Siaps/envio · **MONEY_RISK** = Previne/financiamento 
 | 4×C | FAI | Cond. clínicas | CIAP/CID + tipo demanda + antro/PA | C1 demanda; C3–C5 condições; C2/C6 antro | MONEY_RISK | Não (clínico) | Parcial — `PROBLEMAS_MISSING` FAI · FieldHint Previne |
 | **7×2** | PROC (7) | Ind. (2) | CNS/CPF | Pessoa identificada | MONEY_RISK | Não | Não (cruzamento) |
 | 7×SIGTAP | PROC | Catálogo | código 10 dig | Rejeitar ABPG; SIGTAP ativo/competência | BLOCKER / MONEY_RISK | Semi mapa ABPG→SIGTAP | Sim — `PROC_CODE_ABPG` · audit `SIGTAP_*` |
-| **6×2** | Coletivo (6) | Participantes → Ind. (2) | lista CNS/CPF | Cada participante existe + idade 6–12 p/ B4 | MONEY_RISK B4 / M* | Não | Domínio `/coletivo`; **sem** ZIP; B4 fora FAO |
+| **6×2** | Coletivo (6) | Participantes → Ind. (2) | lista CNS/CPF | Cada participante existe + idade 6–12 p/ B4 | MONEY_RISK B4 / M* | Não | **Parcial** — `COLETIVO_PARTICIPANTE_NOT_IN_CADASTRO` + `COLETIVO_B4_SEM_FAIXA_6_12` se XML/lista+DN; domínio `/coletivo` só contagem = **gap** (não inventa) |
 | 6×SIGTAP | Coletivo | Proc B4 | `01.01.02.003-1` | Escovação supervisionada no coletivo (não na FAO) | MONEY_RISK | Não | FieldHint Previne coletivo |
-| **10×2** | AD (10) | Ind. (2) | CNS/CPF (N cidadãos) | Cidadãos ≥1 existem; continuidade AD1/2/3 | BLOCKER / QUALITY | Não | Preflight AD; lote stub |
+| **10×2** | AD (10) | Ind. (2) | CNS/CPF (N cidadãos) | Cidadãos ≥1 existem; continuidade AD1/2/3 | BLOCKER / QUALITY | Não | **Sim** — P×2 multi-child `AD_CNS_NOT_IN_CADASTRO_INDIVIDUAL`; preflight AD; lote stub |
 | 10×cond | AD | CIAP/CID | problemas | Qualidade clínica AD | QUALITY | Não | `AD_PROBLEMAS_MISSING` (preflight) |
 | **14×2** | Vacina (14) | Ind. (2) | CNS/CPF + DN | Pessoa + idade coerente com faixa PNI | MONEY_RISK C2/C3/C6/C7 | Não | Domínio vacina; **sem** ZIP 14 |
 | 14×faixa | Vacina | Catálogo faixa | imuno + dose + idade | Faixa oficial (`TB_FAIXA` quando houver dump) | MONEY_RISK / BLOCKER local | Não | Seed 54 ≠ dump (`officialDumpPresent=false`) |
@@ -186,6 +186,8 @@ Prefixo: origem × destino. Não colidir com registry atual (`PROBLEMAS_MISSING`
 | Audit produção | `apps/api/src/faturamento/faturamento-audit.service.ts` |
 | Vínculo NT 30 (P×2c) | `apps/api/src/care-extra/ledi-vinculo-nt30.ts` |
 | Completude tipo 2 | `apps/api/src/care-extra/ledi-cadastro-completude.ts` |
+| Território 2×3 / 8×3 | `apps/api/src/care-extra/ledi-territorio-cruzamentos.ts` |
+| Coletivo B4 faixa | `apps/api/src/care-extra/ledi-coletivo-b4.ts` |
 | Audit CNES/equipes | `apps/api/src/cnes/cnes-audit.service.ts` |
 | Detector tipos | `apps/api/src/care-extra/ledi-ficha-tipo.ts` |
 

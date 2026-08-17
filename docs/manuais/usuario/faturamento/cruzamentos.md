@@ -66,6 +66,8 @@ Produção (4 FAI · 5 FAO · 6 coletivo · 7 PROC · 8 visita · 10 AD · 14 va
 
 Códigos na auditoria (`/faturamento/auditoria`): `PRODUCAO_SEM_VINCULO_EQUIPE`, `PRODUCAO_INE_NEQ_VINCULO`, `CADASTRO_INCOMPLETO_SIAPS`, `CADASTRO_INCOMPLETO_PREVINE` — seção e CSV «vínculo/cadastro».
 
+Onda 4 (território / visita / AD / coletivo): `CADASTRO_SEM_DOMICILIO`, `VISITA_HOUSEHOLD_NOT_FOUND`, `VISITA_CNS_NOT_IN_CADASTRO_INDIVIDUAL`, `AD_CNS_NOT_IN_CADASTRO_INDIVIDUAL` (multi-child), `COLETIVO_PARTICIPANTE_NOT_IN_CADASTRO`, `COLETIVO_B4_SEM_FAIXA_6_12` — seção e CSV «território P2». Coletivo nativo só com contagem de participantes: gap honesto (sem finding inventado).
+
 ### 3. Cadastro Individual × Domicílio (2 × 3)
 
 | Cruzamento | Por quê |

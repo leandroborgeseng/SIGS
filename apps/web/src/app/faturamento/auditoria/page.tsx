@@ -35,7 +35,7 @@ type AuditReport = {
     findings: number;
     bySeverity: Record<Severity, number>;
     byCode: Record<string, number>;
-    sources: { batches: number; productionRecords: number; encounters: number };
+    sources: { batches: number; productionRecords: number; encounters: number; acsVisits?: number };
     cnesMunicipal?: number;
     cnesCity?: number;
     teamsMunicipal?: number;
@@ -50,6 +50,13 @@ type AuditReport = {
       note: string | null;
     };
     cadastroIncompleto?: { siaps: number; previne: number; patientsEvaluated: number };
+    territorio?: {
+      householdsActive: number;
+      patientsWithHousehold: number;
+      semDomicilio: number;
+      visitaHouseholdMissing: number;
+      note: string | null;
+    };
   };
   findings: Finding[];
 };
@@ -66,6 +73,16 @@ const VINCULO_CADASTRO_CODES = [
   'CADASTRO_INCOMPLETO_PREVINE',
 ] as const;
 
+const TERRITORIO_CODES = [
+  'CADASTRO_SEM_DOMICILIO',
+  'VISITA_HOUSEHOLD_NOT_FOUND',
+  'VISITA_CNS_NOT_IN_CADASTRO_INDIVIDUAL',
+  'AD_CNS_NOT_IN_CADASTRO_INDIVIDUAL',
+  'COLETIVO_PARTICIPANTE_NOT_IN_CADASTRO',
+  'COLETIVO_CNS_NOT_IN_CADASTRO_INDIVIDUAL',
+  'COLETIVO_B4_SEM_FAIXA_6_12',
+] as const;
+
 function defaultCompetencia() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -80,6 +97,7 @@ export default function FaturamentoAuditoriaPage() {
   const [code, setCode] = useState('');
   const [q, setQ] = useState('');
   const [focusVinculoCadastro, setFocusVinculoCadastro] = useState(false);
+  const [focusTerritorio, setFocusTerritorio] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,6 +132,9 @@ export default function FaturamentoAuditoriaPage() {
       if (focusVinculoCadastro && !VINCULO_CADASTRO_CODES.includes(f.code as (typeof VINCULO_CADASTRO_CODES)[number])) {
         return false;
       }
+      if (focusTerritorio && !TERRITORIO_CODES.includes(f.code as (typeof TERRITORIO_CODES)[number])) {
+        return false;
+      }
       if (severity && f.severity !== severity) return false;
       if (code && f.code !== code) return false;
       if (!q.trim()) return true;
@@ -121,7 +142,7 @@ export default function FaturamentoAuditoriaPage() {
         `${f.code} ${f.message} ${f.cnes || ''} ${f.ine || ''} ${f.fichaTipo || ''} ${f.procedureCode || ''}`.toLowerCase();
       return hay.includes(q.trim().toLowerCase());
     });
-  }, [report, severity, code, q, focusVinculoCadastro]);
+  }, [report, severity, code, q, focusVinculoCadastro, focusTerritorio]);
 
   const vinculoCadastroCount = useMemo(() => {
     if (!report) return 0;
@@ -130,15 +151,26 @@ export default function FaturamentoAuditoriaPage() {
     ).length;
   }, [report]);
 
-  function exportCsv(scope: 'filtered' | 'vinculo-cadastro' = 'filtered') {
+  const territorioCount = useMemo(() => {
+    if (!report) return 0;
+    return report.findings.filter((f) =>
+      TERRITORIO_CODES.includes(f.code as (typeof TERRITORIO_CODES)[number]),
+    ).length;
+  }, [report]);
+
+  function exportCsv(scope: 'filtered' | 'vinculo-cadastro' | 'territorio' = 'filtered') {
     const rows =
       scope === 'vinculo-cadastro'
         ? (report?.findings || []).filter((f) =>
             VINCULO_CADASTRO_CODES.includes(f.code as (typeof VINCULO_CADASTRO_CODES)[number]),
           )
-        : filtered.length
-          ? filtered
-          : report?.findings || [];
+        : scope === 'territorio'
+          ? (report?.findings || []).filter((f) =>
+              TERRITORIO_CODES.includes(f.code as (typeof TERRITORIO_CODES)[number]),
+            )
+          : filtered.length
+            ? filtered
+            : report?.findings || [];
     const header = [
       'severity',
       'code',
@@ -181,7 +213,12 @@ export default function FaturamentoAuditoriaPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const suffix = scope === 'vinculo-cadastro' ? 'vinculo-cadastro' : 'full';
+    const suffix =
+      scope === 'vinculo-cadastro'
+        ? 'vinculo-cadastro'
+        : scope === 'territorio'
+          ? 'territorio-p2'
+          : 'full';
     a.download = `faturamento-auditoria-${suffix}-${competencia}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
@@ -212,6 +249,15 @@ export default function FaturamentoAuditoriaPage() {
               title="Só PRODUCAO_* vínculo e CADASTRO_INCOMPLETO_*"
             >
               CSV vínculo/cadastro
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => exportCsv('territorio')}
+              disabled={!territorioCount}
+              title="Visita/AD/coletivo × mestre · domicílio · B4"
+            >
+              CSV território P2
             </button>
           </>
         }
@@ -253,6 +299,9 @@ export default function FaturamentoAuditoriaPage() {
             <span className="muted">
               Fontes: {report.counts.sources.batches} lotes · {report.counts.sources.productionRecords}{' '}
               registros · {report.counts.sources.encounters} encounters
+              {report.counts.sources.acsVisits != null
+                ? ` · ${report.counts.sources.acsVisits} visitas ACS`
+                : ''}
             </span>
           </div>
           {report.gestaoCriterion ? (
@@ -273,7 +322,10 @@ export default function FaturamentoAuditoriaPage() {
               style={{ fontSize: 12, padding: '4px 10px' }}
               onClick={() => {
                 setFocusVinculoCadastro((v) => !v);
-                if (!focusVinculoCadastro) setCode('');
+                if (!focusVinculoCadastro) {
+                  setFocusTerritorio(false);
+                  setCode('');
+                }
               }}
             >
               {focusVinculoCadastro ? 'Mostrando só estes' : `Filtrar (${vinculoCadastroCount})`}
@@ -323,6 +375,58 @@ export default function FaturamentoAuditoriaPage() {
               {report.counts.vinculo.note}
             </p>
           ) : null}
+        </div>
+      ) : null}
+
+      {report?.counts.territorio ? (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+            <strong style={{ fontSize: 14 }}>Território / visita / coletivo / AD (Onda 4)</strong>
+            <button
+              type="button"
+              className={`btn ${focusTerritorio ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: 12, padding: '4px 10px' }}
+              onClick={() => {
+                setFocusTerritorio((v) => !v);
+                if (!focusTerritorio) {
+                  setFocusVinculoCadastro(false);
+                  setCode('');
+                }
+              }}
+            >
+              {focusTerritorio ? 'Mostrando só estes' : `Filtrar (${territorioCount})`}
+            </button>
+            <Link href="/territorio" className="btn ghost" style={{ fontSize: 12, padding: '4px 8px' }}>
+              /territorio
+            </Link>
+            <Link href="/coletivo" className="btn ghost" style={{ fontSize: 12, padding: '4px 8px' }}>
+              /coletivo
+            </Link>
+            <Link href="/ad" className="btn ghost" style={{ fontSize: 12, padding: '4px 8px' }}>
+              /ad
+            </Link>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 13 }}>
+            <span>
+              Domicílios ativos: <strong>{report.counts.territorio.householdsActive}</strong>
+              {' · '}
+              pacientes c/ domicílio: {report.counts.territorio.patientsWithHousehold}
+            </span>
+            <span style={{ color: 'var(--warn, #b45309)' }}>
+              sem domicílio: {report.counts.territorio.semDomicilio}
+              {' · '}
+              visita×domicílio: {report.counts.territorio.visitaHouseholdMissing}
+            </span>
+          </div>
+          {report.counts.territorio.note ? (
+            <p className="muted" style={{ margin: '10px 0 0', fontSize: 12.5 }}>
+              {report.counts.territorio.note}
+            </p>
+          ) : (
+            <p className="muted" style={{ margin: '10px 0 0', fontSize: 12.5 }}>
+              Coletivo B4 (faixa 6–12) só quando há lista CNS + DN; domínio /coletivo com só contagem não inventa participantes.
+            </p>
+          )}
         </div>
       ) : null}
 
@@ -404,7 +508,9 @@ export default function FaturamentoAuditoriaPage() {
                         ? 'Fila'
                         : f.sourceType === 'production_record'
                           ? 'Paciente'
-                          : 'Lote'}
+                          : f.sourceType === 'acs_visit'
+                            ? 'Território'
+                            : 'Lote'}
                     </Link>
                   ) : (
                     '—'
