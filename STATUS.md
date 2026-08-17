@@ -39,4 +39,4 @@
 - Sem dados reais de pacientes
 - SHAs onda 1: `f295ac1` · `8b622a1` · `0f190e0` · `be4f3a5` · `6090fd7`
 - SHAs onda 2: `47719f3` · `1a910d4` · `0266126` · `b6b012c` · `407ae17` · `2af0930`
-- SHAs onda 3: `0e93126` NT30/completude API · `c0871a3` UI/Ajuda/smoke · HEAD (STATUS)
+- SHAs onda 3: `0e93126` NT30/completude API · `c0871a3` UI/Ajuda/smoke · `13567e0` STATUS
