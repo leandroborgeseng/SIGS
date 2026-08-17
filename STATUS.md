@@ -38,4 +38,4 @@
 - Não commitar `data/esus`, ZIPs SIGTAP oficiais, `sus_intelligence`, `tools/*-home`, `contexts/`
 - Sem dados reais de pacientes
 - SHAs onda 1: `f295ac1` SIGTAP · `8b622a1` deep-link · `0f190e0` P×2 · `be4f3a5` INE · `6090fd7` migrate
-- SHAs onda 2: `47719f3` ABPG map · `1a910d4` Previne B1–B6 · (Ajuda/smoke/STATUS neste push)
+- SHAs onda 2: `47719f3` ABPG map · `1a910d4` Previne B1–B6 · `0266126` Ajuda · `b6b012c` smoke/UI/STATUS
