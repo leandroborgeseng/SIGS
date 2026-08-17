@@ -17,6 +17,15 @@ import {
   extractCidadaoIdsFromPayload,
   type LediCidadaoMasterCtx,
 } from '../care-extra/ledi-cidadao-master';
+import {
+  appendVinculoNt30CrossChecks,
+  vinculoCoverageNote,
+  type LediVinculoNt30Ctx,
+} from '../care-extra/ledi-vinculo-nt30';
+import {
+  appendCadastroCompletudeFindings,
+  type CadastroPatientSnap,
+} from '../care-extra/ledi-cadastro-completude';
 import type { FaoFinding } from '../care-extra/ledi-fao.validator';
 
 export type FatAuditSeverity = 'blocker' | 'quality';
@@ -45,7 +54,11 @@ export type FatAuditCode =
   | 'VISITA_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
   | 'VACINA_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
   | 'COLETIVO_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
-  | 'PROD_CNS_NOT_IN_CADASTRO_INDIVIDUAL';
+  | 'PROD_CNS_NOT_IN_CADASTRO_INDIVIDUAL'
+  | 'PRODUCAO_SEM_VINCULO_EQUIPE'
+  | 'PRODUCAO_INE_NEQ_VINCULO'
+  | 'CADASTRO_INCOMPLETO_SIAPS'
+  | 'CADASTRO_INCOMPLETO_PREVINE';
 
 export type FatAuditFinding = {
   code: FatAuditCode;
@@ -81,9 +94,25 @@ export type FatAuditReport = {
     cnesCity?: number;
     teamsMunicipal?: number;
     teamsCity?: number;
+    vinculo?: {
+      activeLinks: number;
+      patientsWithActiveLink: number;
+      patientsIndexed: number;
+      unitsChecked: number;
+      semVinculo: number;
+      ineNeq: number;
+      note: string | null;
+    };
+    cadastroIncompleto?: { siaps: number; previne: number; patientsEvaluated: number };
   };
   findings: FatAuditFinding[];
   rfIds: string[];
+};
+
+type PatientMasterBundle = {
+  cidadao: LediCidadaoMasterCtx | null;
+  vinculo: LediVinculoNt30Ctx | null;
+  patientsById: Map<string, CadastroPatientSnap>;
 };
 
 type CadastroIndex = {
@@ -411,7 +440,7 @@ export class FaturamentoAuditService {
     const comp = parseCompetencia(opts.competencia);
 
     const cadastro = await this.buildCadastroIndex(ibgeCode, gestao);
-    const cidadaoMaster = await this.loadCidadaoMasterCtx();
+    const master = await this.loadPatientMasterBundle();
     const units: ProdUnit[] = [];
 
     const batches = await this.prisma.productionBatch.findMany({
@@ -513,8 +542,15 @@ export class FaturamentoAuditService {
     const sigtapComp = new Map(sigtapRows.map((r) => [r.code, r]));
 
     const findings: FatAuditFinding[] = [];
+    const patientsSeenForCompletude = new Set<string>();
+    let unitsVinculoChecked = 0;
     for (const u of units) {
-      this.auditUnit(u, cadastro, sigtapMap, sigtapComp, comp.ym, findings, cidadaoMaster);
+      this.auditUnit(u, cadastro, sigtapMap, sigtapComp, comp.ym, findings, master, {
+        patientsSeenForCompletude,
+        onVinculoChecked: () => {
+          unitsVinculoChecked += 1;
+        },
+      });
     }
 
     const bySeverity: Record<FatAuditSeverity, number> = { blocker: 0, quality: 0 };
@@ -528,6 +564,24 @@ export class FaturamentoAuditService {
       (a, b) => rank[a.severity] - rank[b.severity] || a.code.localeCompare(b.code),
     );
 
+    const vinculoStats = master.vinculo?.stats || {
+      activeLinks: 0,
+      patientsWithActiveLink: 0,
+      patientsIndexed: 0,
+    };
+    const vinculoBlock = {
+      ...vinculoStats,
+      unitsChecked: unitsVinculoChecked,
+      semVinculo: byCode.PRODUCAO_SEM_VINCULO_EQUIPE || 0,
+      ineNeq: byCode.PRODUCAO_INE_NEQ_VINCULO || 0,
+      note: vinculoCoverageNote(vinculoStats),
+    };
+    const cadastroIncompleto = {
+      siaps: byCode.CADASTRO_INCOMPLETO_SIAPS || 0,
+      previne: byCode.CADASTRO_INCOMPLETO_PREVINE || 0,
+      patientsEvaluated: patientsSeenForCompletude.size,
+    };
+
     await this.prisma.audit(
       'audit',
       'faturamento',
@@ -538,6 +592,8 @@ export class FaturamentoAuditService {
         gestao,
         findings: findings.length,
         blockers: bySeverity.blocker,
+        vinculo: vinculoBlock,
+        cadastroIncompleto,
       },
     );
 
@@ -561,6 +617,8 @@ export class FaturamentoAuditService {
         cnesCity: cadastro.scope.before.establishments,
         teamsMunicipal: cadastro.scope.after.teams,
         teamsCity: cadastro.scope.before.teams,
+        vinculo: vinculoBlock,
+        cadastroIncompleto,
       },
       findings,
       rfIds: [RF.FATURAMENTO_AUDIT.id, RF.PROD.id, RF.SIGTAP_VALIDATE.id, RF.CNES_AUDIT.id],
@@ -696,36 +754,188 @@ export class FaturamentoAuditService {
     return { facilityByCnes, teamByIne, assignmentsByCns, municipalCnsFromPf, scope };
   }
 
-  private async loadCidadaoMasterCtx(): Promise<LediCidadaoMasterCtx | null> {
+  private async loadPatientMasterBundle(): Promise<PatientMasterBundle> {
+    const empty: PatientMasterBundle = {
+      cidadao: null,
+      vinculo: null,
+      patientsById: new Map(),
+    };
     try {
       const knownCns = new Set<string>();
       const knownCpf = new Set<string>();
+      const knownPatientIds = new Set<string>();
+      const patientsById = new Map<string, CadastroPatientSnap>();
+      const byPatientId = new Map<string, { patientId: string; ines: string[] }>();
+      const byCns = new Map<string, { patientId: string; ines: string[] }>();
+      const byCpf = new Map<string, { patientId: string; ines: string[] }>();
+
       const patients = await this.prisma.patient.findMany({
-        where: { OR: [{ cns: { not: null } }, { cpf: { not: null } }] },
-        select: { cns: true, cpf: true },
+        where: { active: true },
+        select: {
+          id: true,
+          civilName: true,
+          birthDate: true,
+          sex: true,
+          motherName: true,
+          motherNameUnknown: true,
+          cpf: true,
+          cns: true,
+          nationality: true,
+          birthMunicipalityIbge: true,
+          raceColor: true,
+          ethnicity: true,
+          active: true,
+        },
         take: 20_000,
       });
+
       for (const p of patients) {
+        knownPatientIds.add(p.id);
         const cns = (p.cns || '').replace(/\D/g, '');
         const cpf = (p.cpf || '').replace(/\D/g, '');
         if (cns.length === 15) knownCns.add(cns);
         if (cpf.length === 11) knownCpf.add(cpf);
+        patientsById.set(p.id, {
+          id: p.id,
+          civilName: p.civilName,
+          birthDate: p.birthDate,
+          sex: p.sex,
+          motherName: p.motherName,
+          motherNameUnknown: p.motherNameUnknown,
+          cpf: p.cpf,
+          cns: p.cns,
+          nationality: p.nationality,
+          birthMunicipalityIbge: p.birthMunicipalityIbge,
+          raceColor: p.raceColor,
+          ethnicity: p.ethnicity,
+          hasActiveTeamLink: false,
+          active: p.active,
+        });
       }
+
       const ids = await this.prisma.patientIdentifier.findMany({
         where: { system: { in: ['cns', 'cpf'] } },
-        select: { system: true, value: true },
+        select: { system: true, value: true, patientId: true },
         take: 40_000,
       });
       for (const row of ids) {
         const v = (row.value || '').replace(/\D/g, '');
-        if (row.system === 'cns' && v.length === 15) knownCns.add(v);
-        if (row.system === 'cpf' && v.length === 11) knownCpf.add(v);
+        if (row.system === 'cns' && v.length === 15) {
+          knownCns.add(v);
+          knownPatientIds.add(row.patientId);
+        }
+        if (row.system === 'cpf' && v.length === 11) {
+          knownCpf.add(v);
+          knownPatientIds.add(row.patientId);
+        }
       }
-      if (!knownCns.size && !knownCpf.size) return null;
-      return { knownCns, knownCpf };
+
+      const links = await this.prisma.patientTeamLink.findMany({
+        where: { active: true },
+        select: {
+          patientId: true,
+          patient: { select: { cns: true, cpf: true } },
+          team: { select: { ine: true } },
+        },
+        take: 40_000,
+      });
+
+      const inesByPatient = new Map<string, Set<string>>();
+      const patientIdsFromLinks = new Map<string, { cns: string | null; cpf: string | null }>();
+      for (const link of links) {
+        const ine = normalizeIne(link.team?.ine || '') || (link.team?.ine || '').trim();
+        if (!ine) continue;
+        const set = inesByPatient.get(link.patientId) || new Set<string>();
+        set.add(ine);
+        inesByPatient.set(link.patientId, set);
+        if (!patientIdsFromLinks.has(link.patientId)) {
+          patientIdsFromLinks.set(link.patientId, {
+            cns: link.patient?.cns ?? null,
+            cpf: link.patient?.cpf ?? null,
+          });
+        }
+      }
+
+      for (const [patientId, ineSet] of inesByPatient) {
+        const ref = { patientId, ines: [...ineSet] };
+        byPatientId.set(patientId, ref);
+        const snap = patientsById.get(patientId);
+        if (snap) snap.hasActiveTeamLink = true;
+        const fromLink = patientIdsFromLinks.get(patientId);
+        const cns = ((snap?.cns || fromLink?.cns || '') as string).replace(/\D/g, '');
+        const cpf = ((snap?.cpf || fromLink?.cpf || '') as string).replace(/\D/g, '');
+        if (cns.length === 15) byCns.set(cns, ref);
+        if (cpf.length === 11) byCpf.set(cpf, ref);
+      }
+
+      // Map identifiers → vínculo ref when patient has links
+      for (const row of ids) {
+        const ref = byPatientId.get(row.patientId);
+        if (!ref) continue;
+        const v = (row.value || '').replace(/\D/g, '');
+        if (row.system === 'cns' && v.length === 15) byCns.set(v, ref);
+        if (row.system === 'cpf' && v.length === 11) byCpf.set(v, ref);
+      }
+
+      // Patients known without active link still need empty refs for SEM_VINCULO resolution via CNS
+      for (const p of patients) {
+        if (byPatientId.has(p.id)) continue;
+        const emptyRef = { patientId: p.id, ines: [] as string[] };
+        byPatientId.set(p.id, emptyRef);
+        const cns = (p.cns || '').replace(/\D/g, '');
+        const cpf = (p.cpf || '').replace(/\D/g, '');
+        if (cns.length === 15 && !byCns.has(cns)) byCns.set(cns, emptyRef);
+        if (cpf.length === 11 && !byCpf.has(cpf)) byCpf.set(cpf, emptyRef);
+      }
+
+      const patientsIndexed = knownPatientIds.size || patients.length;
+      const vinculo: LediVinculoNt30Ctx = {
+        byPatientId,
+        byCns,
+        byCpf,
+        knownPatientIds,
+        knownCns,
+        knownCpf,
+        stats: {
+          activeLinks: links.length,
+          patientsWithActiveLink: inesByPatient.size,
+          patientsIndexed,
+        },
+      };
+
+      const cidadao: LediCidadaoMasterCtx | null =
+        knownCns.size || knownCpf.size ? { knownCns, knownCpf } : null;
+
+      return { cidadao, vinculo, patientsById };
     } catch {
-      return null;
+      return empty;
     }
+  }
+
+  private resolvePatientId(
+    u: ProdUnit,
+    master: PatientMasterBundle,
+  ): string | null {
+    if (u.patientId && master.patientsById.has(u.patientId)) return u.patientId;
+    if (u.patientId && master.vinculo?.knownPatientIds.has(u.patientId)) return u.patientId;
+    const cns = (u.cidadaoCns || '').replace(/\D/g, '');
+    if (cns.length === 15) {
+      const ref = master.vinculo?.byCns.get(cns);
+      if (ref) return ref.patientId;
+      // identifier-only: scan patientsById
+      for (const [id, p] of master.patientsById) {
+        if ((p.cns || '').replace(/\D/g, '') === cns) return id;
+      }
+    }
+    const cpf = (u.cidadaoCpf || '').replace(/\D/g, '');
+    if (cpf.length === 11) {
+      const ref = master.vinculo?.byCpf.get(cpf);
+      if (ref) return ref.patientId;
+      for (const [id, p] of master.patientsById) {
+        if ((p.cpf || '').replace(/\D/g, '') === cpf) return id;
+      }
+    }
+    return u.patientId || null;
   }
 
   private auditUnit(
@@ -735,7 +945,11 @@ export class FaturamentoAuditService {
     sigtapComp: Map<string, { code: string; active: boolean; competencia: string | null }>,
     competenciaYm: string,
     findings: FatAuditFinding[],
-    cidadaoMaster?: LediCidadaoMasterCtx | null,
+    master?: PatientMasterBundle | null,
+    opts?: {
+      patientsSeenForCompletude: Set<string>;
+      onVinculoChecked?: () => void;
+    },
   ) {
     const base = {
       sourceType: u.sourceType,
@@ -929,13 +1143,13 @@ export class FaturamentoAuditService {
     }
 
     // P×2 — cidadão × Paciente Mestre (não aplica a encounter nativo já vinculado)
-    if (u.sourceType !== 'encounter' && cidadaoMaster) {
+    if (u.sourceType !== 'encounter' && master?.cidadao) {
       const tmp: FaoFinding[] = [];
       appendCidadaoMasterCrossChecks(
         tmp,
         { cns: u.cidadaoCns || '', cpf: u.cidadaoCpf || '' },
         u.fichaTipo,
-        cidadaoMaster,
+        master.cidadao,
       );
       for (const f of tmp) {
         findings.push({
@@ -945,6 +1159,64 @@ export class FaturamentoAuditService {
           message: f.message,
           details: { hint: f.hint, rule: f.rule },
         });
+      }
+    }
+
+    // P×2c — vínculo NT 30 (produção × patient-team-links × INE header)
+    if (master?.vinculo) {
+      const tmp: FaoFinding[] = [];
+      appendVinculoNt30CrossChecks(
+        tmp,
+        {
+          patientId: u.patientId,
+          cns: u.cidadaoCns,
+          cpf: u.cidadaoCpf,
+          headerIne: u.ine,
+        },
+        master.vinculo,
+      );
+      const known =
+        (!!u.patientId && master.vinculo.knownPatientIds.has(u.patientId)) ||
+        master.vinculo.knownCns.has((u.cidadaoCns || '').replace(/\D/g, '')) ||
+        master.vinculo.knownCpf.has((u.cidadaoCpf || '').replace(/\D/g, ''));
+      if (known) opts?.onVinculoChecked?.();
+      for (const f of tmp) {
+        const patientId = this.resolvePatientId(u, master) || base.patientId;
+        findings.push({
+          ...base,
+          patientId,
+          href: patientId ? `/pacientes/${encodeURIComponent(patientId)}` : base.href,
+          code: f.code as FatAuditCode,
+          severity: 'quality',
+          message: f.message,
+          details: { hint: f.hint, rule: f.rule },
+        });
+      }
+    }
+
+    // Completude tipo 2 / Paciente Mestre (dedupe por paciente na competência)
+    if (master && opts?.patientsSeenForCompletude) {
+      const patientId = this.resolvePatientId(u, master);
+      if (patientId && !opts.patientsSeenForCompletude.has(patientId)) {
+        const snap = master.patientsById.get(patientId);
+        if (snap) {
+          opts.patientsSeenForCompletude.add(patientId);
+          const tmp: FaoFinding[] = [];
+          appendCadastroCompletudeFindings(tmp, snap);
+          for (const f of tmp) {
+            const sev: FatAuditSeverity =
+              f.code === 'CADASTRO_INCOMPLETO_SIAPS' ? 'blocker' : 'quality';
+            findings.push({
+              ...base,
+              patientId,
+              href: `/pacientes/${encodeURIComponent(patientId)}`,
+              code: f.code as FatAuditCode,
+              severity: sev,
+              message: f.message,
+              details: { hint: f.hint, rule: f.rule, missing: f.message },
+            });
+          }
+        }
       }
     }
   }

@@ -289,4 +289,133 @@ describe('FaturamentoAuditService', () => {
     });
     expect(report.findings.some((f) => f.code === 'CNS_NOT_IN_MUNICIPAL_CNES')).toBe(false);
   });
+
+  it('emite PRODUCAO_SEM_VINCULO / INE_NEQ e CADASTRO_INCOMPLETO_*', async () => {
+    const payloadOk = {
+      headerTransport: {
+        cnes: '9647198',
+        ine: '0001667653',
+        profissionalCNS: '980016296836967',
+        cboCodigo_2002: '225125',
+      },
+      cnsCidadao: '898001111111111',
+      atendimentosIndividuais: [{ condutas: [1], problemaCondicaoAvaliada: { ciaps: ['A98'] } }],
+    };
+    const payloadNeq = {
+      ...payloadOk,
+      cnsCidadao: '898002222222222',
+      headerTransport: { ...payloadOk.headerTransport, ine: '9999999999' },
+    };
+    const prisma = {
+      facility: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'f1', cnes: '9647198', active: true, ibgeCode: '3516200', name: 'UBS' },
+        ]),
+      },
+      team: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 't1',
+            ine: '0001667653',
+            active: true,
+            name: 'eSF',
+            facility: { cnes: '9647198' },
+          },
+          {
+            id: 't2',
+            ine: '9999999999',
+            active: true,
+            name: 'outra',
+            facility: { cnes: '9647198' },
+          },
+        ]),
+      },
+      professionalAssignment: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            active: true,
+            cbo: '225125',
+            facilityId: 'f1',
+            teamId: 't1',
+            professional: { cns: '980016296836967' },
+            facility: { cnes: '9647198' },
+            team: { ine: '0001667653' },
+          },
+        ]),
+      },
+      patient: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'p-sem-link',
+            civilName: 'Sem Link',
+            birthDate: new Date('1990-01-01'),
+            sex: 'F',
+            motherName: 'Mae',
+            motherNameUnknown: false,
+            cpf: null,
+            cns: '898001111111111',
+            nationality: null,
+            birthMunicipalityIbge: null,
+            raceColor: null,
+            ethnicity: null,
+            active: true,
+          },
+          {
+            id: 'p-ine-neq',
+            civilName: 'Ine Neq',
+            birthDate: new Date('1990-01-01'),
+            sex: 'M',
+            motherName: 'Pai',
+            motherNameUnknown: false,
+            cpf: '12345678901',
+            cns: '898002222222222',
+            nationality: 'BRASILEIRA',
+            birthMunicipalityIbge: '3516200',
+            raceColor: 'PARDA',
+            ethnicity: null,
+            active: true,
+          },
+        ]),
+      },
+      patientIdentifier: { findMany: jest.fn().mockResolvedValue([]) },
+      patientTeamLink: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            patientId: 'p-ine-neq',
+            patient: { cns: '898002222222222', cpf: '12345678901' },
+            team: { ine: '0001667653' },
+          },
+        ]),
+      },
+      productionBatch: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'b-sem', kind: 'FAO', payloadJson: JSON.stringify(payloadOk) },
+          { id: 'b-neq', kind: 'FAO', payloadJson: JSON.stringify(payloadNeq) },
+        ]),
+      },
+      productionRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      encounter: { findMany: jest.fn().mockResolvedValue([]) },
+      sigtapProcedure: {
+        findMany: jest.fn().mockResolvedValue([
+          { code: '0101020010', active: true, competencia: '202608' },
+        ]),
+      },
+      audit: jest.fn().mockResolvedValue(undefined),
+    };
+    const sigtap = {
+      enrichProcedureCodes: jest.fn().mockResolvedValue({
+        '0101020010': { code: '0101020010', known: true, name: 'Consulta odonto', active: true },
+      }),
+    };
+    const service = new FaturamentoAuditService(prisma as never, sigtap as never);
+    const report = await service.audit({ competencia: '2026-08', ibge: '3516200' });
+    const codes = new Set(report.findings.map((f) => f.code));
+    expect(codes.has('PRODUCAO_SEM_VINCULO_EQUIPE')).toBe(true);
+    expect(codes.has('PRODUCAO_INE_NEQ_VINCULO')).toBe(true);
+    expect(codes.has('CADASTRO_INCOMPLETO_PREVINE')).toBe(true);
+    expect(report.counts.vinculo?.semVinculo).toBeGreaterThan(0);
+    expect(report.counts.vinculo?.ineNeq).toBeGreaterThan(0);
+    expect(report.counts.vinculo?.activeLinks).toBe(1);
+    expect(report.counts.cadastroIncompleto?.patientsEvaluated).toBeGreaterThan(0);
+  });
 });
