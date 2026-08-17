@@ -2,6 +2,8 @@
  * Validador estrutural LEDI — Ficha de Procedimentos (tipo 7).
  */
 
+import { existsSync, readFileSync } from 'fs';
+import { join, resolve } from 'path';
 import { isValidCns, isValidCpf, type FaoFinding, type FaoSeverity } from './ledi-fao.validator';
 import { detectLediFichaTipo } from './ledi-ficha-tipo';
 
@@ -34,9 +36,38 @@ function eachAtendimento(xml: string): string[] {
   return blocks;
 }
 
+/** Carrega mapa piloto ABPG→SIGTAP (só entradas preenchidas). */
+function loadAbpgHintMap(): Map<string, string> {
+  const map = new Map<string, string>();
+  const candidates = [
+    process.env.SIGTAP_ABPG_MAP,
+    join(process.cwd(), 'data', 'sigtap', 'abpg-map-piloto.json'),
+    join(process.cwd(), '..', '..', 'data', 'sigtap', 'abpg-map-piloto.json'),
+  ].filter(Boolean) as string[];
+  for (const p of candidates) {
+    try {
+      const abs = resolve(p);
+      if (!existsSync(abs)) continue;
+      const raw = JSON.parse(readFileSync(abs, 'utf8')) as {
+        mappings?: Array<{ abpg?: string; sigtap?: string | null }>;
+      };
+      for (const m of raw.mappings || []) {
+        const abpg = String(m.abpg || '').toUpperCase();
+        const sigtap = m.sigtap ? String(m.sigtap).replace(/\D/g, '') : '';
+        if (abpg && /^\d{10}$/.test(sigtap)) map.set(abpg, sigtap);
+      }
+      if (map.size) break;
+    } catch {
+      /* ignore */
+    }
+  }
+  return map;
+}
+
 export function validateProcXml(xml: string): ProcValidationReport {
   const findings: FaoFinding[] = [];
   const tipo = detectLediFichaTipo(xml);
+  const abpgHints = loadAbpgHintMap();
 
   if (tipo.id !== 'PROCEDIMENTOS') {
     findings.push({
@@ -169,13 +200,16 @@ export function validateProcXml(xml: string): ProcValidationReport {
     }
     for (const code of procCodes) {
       if (/^ABPG/i.test(code)) {
+        const mapped = abpgHints.get(code.toUpperCase());
         findings.push({
           severity: 'BLOCKER',
           code: 'PROC_CODE_ABPG',
           message: `Código ABPG (${code}) — LEDI espera SIGTAP 10 dígitos em <procedimentos>.`,
           field: 'procedimentos',
           rule: 'LEDI-PROC',
-          hint: 'Mapear ABPG → SIGTAP oficial.',
+          hint: mapped
+            ? `Mapa piloto sugere SIGTAP ${mapped} — confirmar e aplicar no repair da ficha.`
+            : 'Preencha data/sigtap/abpg-map-piloto.json ou informe SIGTAP 10 dígitos no repair.',
         });
       } else if (!/^\d{10}$/.test(code.replace(/\D/g, '')) && code.replace(/\D/g, '').length !== 10) {
         const digits = code.replace(/\D/g, '');

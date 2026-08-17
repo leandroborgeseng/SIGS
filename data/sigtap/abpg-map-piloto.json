@@ -1,0 +1,15 @@
+{
+  "competencia": "202608",
+  "municipio": "Franca/SP",
+  "ibge": "3516200",
+  "fonte": "piloto-local — preencher equivalências oficiais antes de autofix em massa",
+  "nota": "Códigos ABPG vistos no lote Franca (tipo 7). sigtap=null até o município confirmar o SIGTAP 10 dígitos na competência. Não inventar mapeamento oficial.",
+  "mappings": [
+    { "abpg": "ABPG007", "sigtap": null, "label": "confirmar na competência" },
+    { "abpg": "ABPG018", "sigtap": null, "label": "confirmar na competência" },
+    { "abpg": "ABPG028", "sigtap": null, "label": "confirmar na competência" },
+    { "abpg": "ABPG029", "sigtap": null, "label": "confirmar na competência" },
+    { "abpg": "ABPG035", "sigtap": null, "label": "confirmar na competência" },
+    { "abpg": "ABPG041", "sigtap": null, "label": "confirmar na competência" }
+  ]
+}

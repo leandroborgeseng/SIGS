@@ -80,8 +80,8 @@ Estratégia: [estrategia-reescrita-fase1.md](../planejamento/estrategia-reescrit
 | RF-3.53 | Obr | parcial | automatizado | `ledi-collective-v2` + UI `/coletivo` · lote XML tipo 6 = **wizard live** `/faturamento/lote/coletivo` (schema sintético) |
 | RF-9.2 | Obr | parcial | previsto | BPA stub via produção |
 | RF-10.4 | Obr | parcial | automatizado | `bpa-stub.mapper` + `/production/bpa/export` |
-| RF-10.1 | Obr | parcial | previsto | seed expandido (~27) + `/sigtap` + `import-ms` |
-| RF-9.1 | Obr | parcial | automatizado | `POST /sigtap/import` + `import-ms` (TB_PROCEDIMENTO) |
+| RF-10.1 | Obr | parcial | automatizado | seed (~27) + `/sigtap` + `import-ms` + `import-file`/`import-local` + `npm run sync:sigtap` (data/sigtap/) |
+| RF-9.1 | Obr | parcial | automatizado | `POST /sigtap/import` + `import-ms` + multipart ZIP/TXT + CLI offline |
 | RF-9.5 | Obr | parcial | automatizado | validate + enrich BPA |
 | RF-3.10 | Obr | parcial | n/a | `queue` painel + UI `/painel` |
 | RF-3.11 | Obr | parcial | n/a | totem emit + UI `/totem` |

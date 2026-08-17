@@ -41,6 +41,15 @@ Samu/
 Handoff\ Cursor/
 Handoff Cursor/
 
+# SIGTAP oficial completo (fixtures/README/JSON piloto versionados)
+data/sigtap/*.zip
+data/sigtap/TabelaUnificada*
+data/sigtap/TB_PROCEDIMENTO.txt
+!data/sigtap/fixture-tb-procedimento-sample.txt
+!data/sigtap/README.md
+!data/sigtap/piloto-franca.json
+!data/sigtap/abpg-map-piloto.json
+
 # Inventário e-SUS pesado
 01-manifest.json
 02-all-jars.txt

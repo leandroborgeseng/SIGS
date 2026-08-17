@@ -37,6 +37,7 @@ export default function SigtapPage() {
   const [validation, setValidation] = useState<ValidateOut | null>(null);
   const [msCompetencia, setMsCompetencia] = useState('202608');
   const [msBusy, setMsBusy] = useState(false);
+  const [offlineHint, setOfflineHint] = useState<string | null>(null);
   const [importJson, setImportJson] = useState(
     JSON.stringify(
       {
@@ -70,6 +71,15 @@ export default function SigtapPage() {
 
   useEffect(() => {
     void search('');
+    void api<{ hint?: string; discoveredFile?: string | null }>('/v1/sigtap/offline-status')
+      .then((s) => {
+        setOfflineHint(
+          s.discoveredFile
+            ? `Arquivo local: ${s.discoveredFile}`
+            : s.hint || 'Coloque ZIP/TXT em data/sigtap/',
+        );
+      })
+      .catch(() => undefined);
   }, []);
 
   async function onSearch(e: FormEvent) {
@@ -136,8 +146,59 @@ export default function SigtapPage() {
 
   async function onMsFile(file: File | null) {
     if (!file) return;
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.zip') || lower.endsWith('.csv') || file.type === 'application/zip') {
+      setMsBusy(true);
+      setError(null);
+      setOk(null);
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        if (msCompetencia) fd.append('competencia', msCompetencia);
+        const res = await api<{
+          upserted: number;
+          skipped?: number;
+          competencia: string;
+          format: string;
+        }>('/v1/sigtap/import-file', { method: 'POST', body: fd });
+        setOk(
+          `${res.format}: ${res.upserted} upsert(s) · competência ${res.competencia}` +
+            (res.skipped ? ` · ${res.skipped} ignorada(s)` : ''),
+        );
+        await search('');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Falha no upload ZIP/CSV');
+      } finally {
+        setMsBusy(false);
+      }
+      return;
+    }
     const text = await file.text();
     await importMsContent(text);
+  }
+
+  async function importLocalFolder() {
+    setMsBusy(true);
+    setError(null);
+    setOk(null);
+    try {
+      const qs = msCompetencia ? `?competencia=${encodeURIComponent(msCompetencia)}` : '';
+      const res = await api<{
+        upserted: number;
+        competencia?: string;
+        file?: string;
+        kind?: string;
+        format?: string;
+      }>(`/v1/sigtap/import-local${qs}`, { method: 'POST' });
+      setOk(
+        `Local ${res.kind || res.format || ''}: ${res.upserted} · ${res.file || 'data/sigtap/'} · competência ${res.competencia || '—'}`,
+      );
+      await search('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha no import local');
+    } finally {
+      setMsBusy(false);
+    }
   }
 
   async function syncSeed() {
@@ -164,14 +225,24 @@ export default function SigtapPage() {
       <PageHeader
         title="SIGTAP"
         eyebrow="Faturamento"
-        description="Catálogo local expandido (piloto APS) · JSON · TB_PROCEDIMENTO MS (quando disponível). Download DATASUS pode estar offline."
+        description="Catálogo local APS · import offline ZIP/TXT/CSV (data/sigtap/) · seed piloto. Sem depender do site DATASUS."
         actions={
           <>
             <HelpLink id="sigtap.catalogo" />
             {canImport ? (
-              <button type="button" className="btn btn-secondary" onClick={() => void syncSeed()}>
-                Sincronizar seed
-              </button>
+              <>
+                <button type="button" className="btn btn-secondary" onClick={() => void syncSeed()}>
+                  Sincronizar seed
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={msBusy}
+                  onClick={() => void importLocalFolder()}
+                >
+                  Importar pasta local
+                </button>
+              </>
             ) : null}
             <Link className="btn btn-secondary" href="/producao">
               Produção
@@ -181,7 +252,9 @@ export default function SigtapPage() {
       />
       <ErrorBox message={error} />
       <OkBox message={ok} />
-
+      {offlineHint ? (
+        <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 0 }}>{offlineHint}</p>
+      ) : null}
       <form className="card row" onSubmit={onSearch} style={{ marginBottom: 16 }}>
         <input
           style={{ flex: 1, minHeight: 38, padding: '0 12px', borderRadius: 10, border: '1px solid var(--line)' }}
@@ -251,13 +324,11 @@ export default function SigtapPage() {
 
         {canImport ? (
           <div className="card">
-            <div className="section-label">Importar SIGTAP MS (TB_PROCEDIMENTO.txt)</div>
+            <div className="section-label">Importar SIGTAP (ZIP / TXT / CSV)</div>
             <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 0 }}>
-              Baixe o zip da competência em{' '}
-              <a href="http://sigtap.datasus.gov.br" target="_blank" rel="noreferrer">
-                sigtap.datasus.gov.br
-              </a>{' '}
-              e envie o arquivo <span className="mono">TB_PROCEDIMENTO.txt</span> (layout largura fixa).
+              Preferência: ZIP oficial da competência com <span className="mono">TB_PROCEDIMENTO.txt</span>.
+              Site DATASUS costuma cair — veja fontes em <span className="mono">data/sigtap/README.md</span> ou
+              use a fixture / seed.
             </p>
             <div className="field">
               <label>Competência fallback (YYYYMM)</label>
@@ -267,7 +338,7 @@ export default function SigtapPage() {
               <label>Arquivo</label>
               <input
                 type="file"
-                accept=".txt,text/plain"
+                accept=".zip,.txt,.csv,application/zip,text/plain,text/csv"
                 disabled={msBusy}
                 onChange={(e) => void onMsFile(e.target.files?.[0] || null)}
               />
