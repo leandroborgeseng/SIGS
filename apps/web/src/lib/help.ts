@@ -49,10 +49,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     id: 'cadastros.cnes-auditoria',
     title: 'Auditoria cadastro CNES',
     module: 'Cadastros',
-    version: '0.3.0',
+    version: '0.4.0',
     updatedAt: '2026-08-16',
-    summary: 'Checks Facility/Team vs snapshot CNES — escopo rede municipal (Prefeitura).',
-    body: `Em /cadastros/cnes-auditoria: «Sincronizar rede municipal» (POST /v1/cnes/sync?gestao=municipal) se o escopo estiver 0/0; depois «Importar profissionais lotados» (POST /v1/cnes/sync-professionals). Critério unidades: natureza jurídica 1244 (+ CNPJ mantenedora 47970769000104 enriquecido). PF: nome+CNS+CBO+INE (público CNES). Contagens cidade vs filtrado no painel. Export CSV. Sem PHI. Railway: CNES_SYNC_ON_BOOT=1 (+ CNES_SYNC_PROFESSIONALS_ON_BOOT=1 opcional). Membros por equipe: /equipes.`,
+    summary: 'Checks Facility/Team vs snapshot CNES — glossário, deep-links e seed demo.',
+    body: `Em /cadastros/cnes-auditoria: glossário de colunas/códigos/severidades; clique em CNES → /unidades?cnes=; INE → /equipes/[id] ou ?ine=; assignment → /lotacoes?assignmentId=. Badge «demo» em CNES 9999999 / INE 0000000001. Sync: «Sincronizar rede municipal» + «Importar profissionais lotados». Critério: natureza 1244. Export CSV. Sem PHI. Membros: /equipes.`,
   },
   {
     id: 'cadastros.equipes',

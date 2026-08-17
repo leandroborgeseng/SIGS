@@ -1,7 +1,8 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, OkBox, PageHeader } from '@/components/ui/PageHeader';
 import { api } from '@/lib/api';
@@ -42,7 +43,10 @@ type SyncResult = {
 /** Escopo da lista: rede Prefeitura (default) vs todos CNES do IBGE. */
 type ListaEscopo = 'municipal' | 'todos';
 
-export default function UnidadesPage() {
+function UnidadesPageInner() {
+  const searchParams = useSearchParams();
+  const focusCnes = searchParams.get('cnes')?.replace(/\D/g, '') || '';
+  const focusId = searchParams.get('id') || '';
   const { facilityId } = useAuth();
   const [rows, setRows] = useState<Facility[]>([]);
   const [selected, setSelected] = useState<Facility | null>(null);
@@ -54,6 +58,7 @@ export default function UnidadesPage() {
   const [ok, setOk] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [deepLinkTried, setDeepLinkTried] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -65,11 +70,29 @@ export default function UnidadesPage() {
       qs.set('gestao', escopo);
       const list = await api<Facility[]>(`/v1/facilities?${qs.toString()}`);
       setRows(list);
-      const current = list.find((f) => f.id === facilityId) || list[0] || null;
+      const byDeep =
+        (focusId && list.find((f) => f.id === focusId)) ||
+        (focusCnes && list.find((f) => f.cnes.replace(/\D/g, '') === focusCnes)) ||
+        null;
+      const current = byDeep || list.find((f) => f.id === facilityId) || list[0] || null;
       setSelected(current);
       if (current) {
         setIbgeCode(current.ibgeCode || '');
         setName(current.name);
+      }
+      if ((focusCnes || focusId) && !byDeep && !deepLinkTried) {
+        // Deep-link pode estar fora do escopo municipal — tenta «todos»
+        if (escopo === 'municipal') {
+          setEscopo('todos');
+          setDeepLinkTried(true);
+        } else if (!byDeep) {
+          setOk(
+            `CNES/id da URL não encontrado nesta lista${focusCnes ? ` (${focusCnes})` : ''}.`,
+          );
+          setDeepLinkTried(true);
+        }
+      } else if (byDeep && (focusCnes || focusId)) {
+        setOk(`Unidade selecionada via auditoria: ${byDeep.name} (CNES ${byDeep.cnes}).`);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha ao carregar unidades');
@@ -80,7 +103,8 @@ export default function UnidadesPage() {
 
   useEffect(() => {
     void load();
-  }, [facilityId, activeOnly, escopo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when filters / deep-link change
+  }, [facilityId, activeOnly, escopo, focusCnes, focusId]);
 
   function pick(f: Facility) {
     setSelected(f);
@@ -205,6 +229,12 @@ export default function UnidadesPage() {
             {escopoLabel}
             {activeOnly ? ' · ativas' : ''} · IBGE 3516200 · {rows.length} unidade(s)
             {escopo === 'municipal' ? ' (esperado ~59 ativas / ~66 total)' : ' (cidade ~545 ativas)'}
+            {focusCnes ? (
+              <>
+                {' '}
+                · foco CNES <span className="mono">{focusCnes}</span>
+              </>
+            ) : null}
           </p>
           <table>
             <thead>
@@ -284,5 +314,13 @@ export default function UnidadesPage() {
         </form>
       </div>
     </AppShell>
+  );
+}
+
+export default function UnidadesPage() {
+  return (
+    <Suspense fallback={<AppShell><p className="muted">Carregando unidades…</p></AppShell>}>
+      <UnidadesPageInner />
+    </Suspense>
   );
 }

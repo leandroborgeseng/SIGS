@@ -27,6 +27,18 @@ export type CnesAuditCode =
   | 'ASSIGNMENT_INE_MISSING'
   | 'LEDI_CNES_INE_ALERT';
 
+/** Seed de demonstração (demo-seed.service) — não é rede municipal real. */
+export const DEMO_FACILITY_CNES = '9999999';
+export const DEMO_TEAM_INE = '0000000001';
+
+export function isDemoCnesSeed(cnes?: string | null): boolean {
+  return (normalizeCnes(cnes || '') || cnes || '') === DEMO_FACILITY_CNES;
+}
+
+export function isDemoIneSeed(ine?: string | null): boolean {
+  return (normalizeIne(ine || '') || ine || '') === DEMO_TEAM_INE;
+}
+
 export type CnesAuditFinding = {
   code: CnesAuditCode;
   severity: CnesAuditSeverity;
@@ -37,7 +49,45 @@ export type CnesAuditFinding = {
   ine?: string | null;
   ibgeCode?: string | null;
   details?: Record<string, unknown>;
+  /** Nome da unidade (quando resolvido) */
+  facilityName?: string | null;
+  /** Nome da equipe (quando resolvido) */
+  teamName?: string | null;
+  /** Deep-link relativo para a UI web */
+  entityHref?: string | null;
+  /** true se CNES/INE bate com seed de demo (9999999 / 0000000001) */
+  demoSeed?: boolean;
 };
+
+export function resolveFindingEntityHref(f: {
+  entityType: CnesAuditFinding['entityType'];
+  entityId?: string | null;
+  cnes?: string | null;
+  ine?: string | null;
+}): string | null {
+  switch (f.entityType) {
+    case 'facility':
+      if (f.cnes) return `/unidades?cnes=${encodeURIComponent(f.cnes)}`;
+      if (f.entityId) return `/unidades?id=${encodeURIComponent(f.entityId)}`;
+      return '/unidades';
+    case 'team':
+      if (f.entityId) return `/equipes/${encodeURIComponent(f.entityId)}`;
+      if (f.ine) return `/equipes?ine=${encodeURIComponent(f.ine)}`;
+      return '/equipes';
+    case 'assignment':
+      if (f.entityId) return `/lotacoes?assignmentId=${encodeURIComponent(f.entityId)}`;
+      return '/lotacoes';
+    case 'patient_team_link':
+      if (f.ine) return `/equipes?ine=${encodeURIComponent(f.ine)}`;
+      return '/equipes';
+    case 'production':
+      return '/faturamento/auditoria';
+    default:
+      if (f.cnes) return `/unidades?cnes=${encodeURIComponent(f.cnes)}`;
+      if (f.ine) return `/equipes?ine=${encodeURIComponent(f.ine)}`;
+      return null;
+  }
+}
 
 export type CnesAuditInventoryRow = {
   id: string;
@@ -521,6 +571,46 @@ export class CnesAuditService {
       (a, b) =>
         severityRank[a.severity] - severityRank[b.severity] || a.code.localeCompare(b.code),
     );
+
+    const facilityById = new Map(facilities.map((f) => [f.id, f]));
+    const teamById = new Map(teams.map((t) => [t.id, t]));
+    const facilityByCnes = new Map(
+      facilities.map((f) => [normalizeCnes(f.cnes) || f.cnes, f] as const),
+    );
+    const teamByIne = new Map(
+      teams
+        .filter((t) => t.ine)
+        .map((t) => [normalizeIne(t.ine!) || t.ine!, t] as const),
+    );
+
+    for (const f of findings) {
+      if (!f.facilityName) {
+        if (f.entityType === 'facility' && f.entityId) {
+          f.facilityName = facilityById.get(f.entityId)?.name ?? null;
+        } else if (typeof f.details?.name === 'string' && f.entityType === 'facility') {
+          f.facilityName = f.details.name;
+        } else if (f.cnes) {
+          f.facilityName = facilityByCnes.get(normalizeCnes(f.cnes) || f.cnes)?.name ?? null;
+        }
+      }
+      if (!f.teamName) {
+        if (f.entityType === 'team' && f.entityId) {
+          f.teamName = teamById.get(f.entityId)?.name ?? null;
+        } else if (typeof f.details?.name === 'string' && f.entityType === 'team') {
+          f.teamName = f.details.name;
+        } else if (f.ine) {
+          f.teamName = teamByIne.get(normalizeIne(f.ine) || f.ine)?.name ?? null;
+        }
+      }
+      if (f.entityType === 'assignment' && f.entityId) {
+        // teamName/facility já podem vir de cnes/ine; completa via maps
+        if (!f.teamName && f.ine) {
+          f.teamName = teamByIne.get(normalizeIne(f.ine) || f.ine)?.name ?? null;
+        }
+      }
+      f.demoSeed = isDemoCnesSeed(f.cnes) || isDemoIneSeed(f.ine);
+      f.entityHref = resolveFindingEntityHref(f);
+    }
 
     const inventoryFacilities: CnesAuditInventoryRow[] = facilitiesInScope
       .slice()

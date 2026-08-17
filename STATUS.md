@@ -1,12 +1,12 @@
 # STATUS — SIGS
 
-- **etapa_atual:** Domingo APS — **equipes CNES com membros + multi-equipe** (`/equipes`) + regressão CNES/PF/audit/LEDI; P0 desbloqueado esgotado sem amostra XML / TB_FAIXA
-- **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI + fila APS + LEDI P1 + wizard lote + Ondas domingo 2026-08-16 + frio/almox + visita ACS + AD polish + CNES municipal + PF + auditoria faturamento + FieldHint cadastros + stubs CDS lote + regressão/handoff + explorer equipes):**
+- **etapa_atual:** Domingo APS — **UX auditoria CNES** (glossário + deep-links findings) + equipes/membros; P0 desbloqueado esgotado sem amostra XML / TB_FAIXA
+- **entregue (A–F + odontograma + agenda grade + RF-12.13 + RF-12.11 + APS FAI + fila APS + LEDI P1 + wizard lote + Ondas domingo 2026-08-16 + frio/almox + visita ACS + AD polish + CNES municipal + PF + auditoria faturamento + FieldHint cadastros + stubs CDS lote + regressão/handoff + explorer equipes + glossário findings):**
   - Área `/faturamento` (hub · filas · lotes LEDI live 4/5/7 · **stubs 3/8/10** · **`/faturamento/auditoria`**)
   - **APS FAI Onda A:** `/aps/[id]` com SOAP + antropometria → mapper · RF-3.24/3.55 parciais
   - **Vacinação:** catálogo LEDI **v3 (99 imunos)** + 54 faixas seed PNI · **sem dump** `TB_FAIXA_ETARIA_VACINACAO` · void · PDF · UI `/vacinacao` · **estoque/frio beyond-MVP**
   - **RF-2.30 / RF-2.29 / RF-17.11–12 / RF-3.54** (CDS · domicílio · visita ACS · AD) + **FieldHint Siaps/Previne**
-  - **CNES (RF-10.2 / RF-9.6 / RF-2.2 / RF-2.19 / RF-2.61):** snapshot cidade + **filtro `gestao=municipal`** · **PF** · auditoria `CNS_NOT_IN_MUNICIPAL_CNES` · **UI `/equipes`** (membros · multi-equipe · labels tipo ex. **76=EAP**)
+  - **CNES (RF-10.2 / RF-9.6 / RF-2.2 / RF-2.19 / RF-2.61):** snapshot cidade + **filtro `gestao=municipal`** · **PF** · auditoria `CNS_NOT_IN_MUNICIPAL_CNES` · **UI `/equipes`** (membros · multi-equipe · labels tipo ex. **76=EAP**) · **findings com glossário + links CNES/INE/lotação**
   - **Auditoria faturamento (RF-10.21):** `GET /v1/faturamento/audit?competencia=&ibge=3516200&gestao=municipal`
   - **Stubs lote CDS:** detecção tipos **3 / 8 / 10** · telas `/faturamento/lote/{domicilio,visita-acs,ad}` · `GET /v1/faturamento/ledi-cds-lotes` — **sem** wizard ZIP
   - **Regressão:** `npm run smoke:cnes-pf-ledi` (CNES 66 municipal · PF fixture · gate CDS · `CNS_NOT_IN_MUNICIPAL_CNES`)
@@ -14,8 +14,8 @@
   1. **Sincronizar rede municipal** em `/cadastros/cnes-auditoria` ou `/unidades`
   2. **Importar profissionais lotados** (mesmo tela ou `/equipes`) — ou `npm run sync:cnes -- --professionals`
   3. **`/equipes`** — clicar equipe → membros; painel «Em mais de uma equipe»
-  4. `/cadastros/cnes-auditoria` · `/faturamento/auditoria?competencia=YYYY-MM`
-  5. API: `POST /v1/cnes/sync?gestao=municipal` · `POST /v1/cnes/sync-professionals` · `GET /v1/cnes/teams` · `GET /v1/cnes/teams/:id` · `GET /v1/cnes/multi-team` · `GET /v1/cnes/team-types`
+  4. `/cadastros/cnes-auditoria` — glossário + clicar CNES/INE/entidade · `/faturamento/auditoria?competencia=YYYY-MM`
+  5. API: `POST /v1/cnes/sync?gestao=municipal` · `POST /v1/cnes/sync-professionals` · `GET /v1/cnes/teams` · `GET /v1/cnes/teams/:id` · `GET /v1/cnes/multi-team` · `GET /v1/cnes/team-types` · audit findings com `entityHref`/`demoSeed`
   6. Cadastro: `/pacientes/novo` · `/pacientes/[id]` · `/territorio`
   7. Lotes ZIP live: `/faturamento/lote/{fai,fao,proc}` · stubs CDS: `/faturamento/lote/{domicilio,visita-acs,ad}`
   8. Smoke: `npm run smoke:cnes-pf-ledi`
@@ -55,6 +55,7 @@
 | `f6cfecd` | Lista `/unidades` default **Rede Prefeitura** (~59) + CNPJ mantenedora |
 | `dcf3756` | APIs `cnes/teams` · multi-team · network-export · catálogo 76=EAP · `TEAM_WITHOUT_MEMBERS` |
 | `2da5b68` | UI `/equipes` + `/equipes/[id]` · polish `/lotacoes` · manuais RF-2.61 |
+| `d672789` | Glossário + deep-links findings auditoria CNES |
 
 ### Já fechado (não reabrir nesta fase)
 - Wizard lote LEDI FAI / FAO / PROC (**live** — não quebrar)

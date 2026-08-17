@@ -1,7 +1,8 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, OkBox, PageHeader, TableStateRow } from '@/components/ui/PageHeader';
 import { api } from '@/lib/api';
@@ -27,7 +28,9 @@ type Assignment = {
   team?: { id?: string; name: string; ine?: string | null } | null;
 };
 
-export default function LotacoesPage() {
+function LotacoesPageInner() {
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get('assignmentId') || '';
   const { facilityId } = useAuth();
   const [rows, setRows] = useState<Assignment[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
@@ -41,6 +44,7 @@ export default function LotacoesPage() {
   const [loading, setLoading] = useState(true);
   const [activeOnly, setActiveOnly] = useState(true);
   const [syncingPf, setSyncingPf] = useState(false);
+  const highlightRef = useRef<HTMLTableRowElement | null>(null);
 
   async function load() {
     setLoading(true);
@@ -58,6 +62,18 @@ export default function LotacoesPage() {
       setProfessionals(pros);
       setTeams(tms);
       if (!professionalId && pros[0]) setProfessionalId(pros[0].id);
+      if (highlightId) {
+        const hit = list.find((r) => r.id === highlightId);
+        if (hit) {
+          setOk(
+            `Lotação destacada da auditoria: ${displayPatientName(hit.professional)} · ${hit.facility.name}.`,
+          );
+        } else {
+          setOk(
+            `Lotação ${highlightId.slice(0, 8)}… não está na unidade atual — troque a unidade de trabalho ou veja todas as lotações.`,
+          );
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha ao carregar');
     } finally {
@@ -67,7 +83,14 @@ export default function LotacoesPage() {
 
   useEffect(() => {
     void load();
-  }, [facilityId, activeOnly]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facilityId, activeOnly, highlightId]);
+
+  useEffect(() => {
+    if (!loading && highlightId && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [loading, highlightId, rows]);
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -139,6 +162,9 @@ export default function LotacoesPage() {
             <HelpLink id="cadastros.lotacao" />
             <Link className="btn btn-secondary" href="/equipes">
               Equipes
+            </Link>
+            <Link className="btn btn-secondary" href="/cadastros/cnes-auditoria">
+              Auditoria CNES
             </Link>
             <button
               type="button"
@@ -238,57 +264,69 @@ export default function LotacoesPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td>{displayPatientName(r.professional)}</td>
-                <td className="mono">{r.professional.cns || '—'}</td>
-                <td>
-                  {r.roleLabel || `CBO ${r.cbo}`}
-                  <div className="muted mono" style={{ fontSize: 12 }}>
-                    {r.cbo}
-                  </div>
-                </td>
-                <td>
-                  {r.team?.id ? (
-                    <Link href={`/equipes/${r.team.id}`}>{r.team.name}</Link>
-                  ) : (
-                    r.team?.name || '—'
-                  )}
-                  {r.team?.ine ? (
+            {rows.map((r) => {
+              const isHit = !!highlightId && r.id === highlightId;
+              return (
+                <tr
+                  key={r.id}
+                  ref={isHit ? highlightRef : undefined}
+                  style={
+                    isHit
+                      ? { background: 'rgba(40, 100, 160, 0.14)', outline: '2px solid rgba(40,100,160,0.45)' }
+                      : undefined
+                  }
+                >
+                  <td>{displayPatientName(r.professional)}</td>
+                  <td className="mono">{r.professional.cns || '—'}</td>
+                  <td>
+                    {r.roleLabel || `CBO ${r.cbo}`}
                     <div className="muted mono" style={{ fontSize: 12 }}>
-                      INE {r.team.ine}
+                      {r.cbo}
                     </div>
-                  ) : null}
-                </td>
-                <td>
-                  {r.facility.cnes ? (
-                    <span
-                      className="mono"
-                      style={{
-                        display: 'inline-block',
-                        padding: '2px 6px',
-                        borderRadius: 4,
-                        background: 'rgba(40,100,160,0.12)',
-                        fontSize: 12,
-                      }}
-                    >
-                      CNES {r.facility.cnes}
-                    </span>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-                <td className="mono">{formatDate(r.startedAt)}</td>
-                <td>{r.active ? 'Ativa' : `Encerrada ${r.endedAt ? formatDate(r.endedAt) : ''}`}</td>
-                <td>
-                  {r.active ? (
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => void endOne(r.id)}>
-                      Encerrar
-                    </button>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    {r.team?.id ? (
+                      <Link href={`/equipes/${r.team.id}`}>{r.team.name}</Link>
+                    ) : (
+                      r.team?.name || '—'
+                    )}
+                    {r.team?.ine ? (
+                      <div className="muted mono" style={{ fontSize: 12 }}>
+                        INE {r.team.ine}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>
+                    {r.facility.cnes ? (
+                      <Link
+                        href={`/unidades?cnes=${encodeURIComponent(r.facility.cnes)}`}
+                        className="mono"
+                        style={{
+                          display: 'inline-block',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          background: 'rgba(40,100,160,0.12)',
+                          fontSize: 12,
+                        }}
+                      >
+                        CNES {r.facility.cnes}
+                      </Link>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="mono">{formatDate(r.startedAt)}</td>
+                  <td>{r.active ? 'Ativa' : `Encerrada ${r.endedAt ? formatDate(r.endedAt) : ''}`}</td>
+                  <td>
+                    {r.active ? (
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => void endOne(r.id)}>
+                        Encerrar
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              );
+            })}
             {!rows.length ? (
               <TableStateRow colSpan={8} loading={loading} empty="Nenhuma lotação nesta unidade." />
             ) : null}
@@ -296,5 +334,13 @@ export default function LotacoesPage() {
         </table>
       </div>
     </AppShell>
+  );
+}
+
+export default function LotacoesPage() {
+  return (
+    <Suspense fallback={<AppShell><p className="muted">Carregando lotações…</p></AppShell>}>
+      <LotacoesPageInner />
+    </Suspense>
   );
 }

@@ -17,7 +17,7 @@
 2. Ou abra **Cadastros → CNES / auditoria** (`/cadastros/cnes-auditoria`).
 3. Clique em **Sincronizar rede municipal**. Aguarde o resumo (ex.: 66 estabelecimentos / 123 equipes).
 4. Em seguida **Importar profissionais lotados** (PF). Ordem importa: unidades/equipes **antes** de profissionais.
-5. Revise findings; exporte CSV se precisar.
+5. Revise findings (glossário na tela explica códigos como `FACILITY_WITHOUT_TEAM`, `ASSIGNMENT_INE_MISSING`, `TEAM_WITHOUT_MEMBERS`). Clique no **CNES** ou **INE** para abrir o cadastro. Badge **demo** = seed `9999999` / `0000000001`.
 6. No faturamento: `/faturamento/auditoria?competencia=YYYY-MM`.
 
 Toggle em Unidades: **Todos IBGE** mostra a cidade inteira (só para inspeção).

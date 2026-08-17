@@ -5,8 +5,18 @@ import Link from 'next/link';
 import { AppShell } from '@/components/shell/AppShell';
 import { ErrorBox, HelpLink, OkBox, PageHeader, TableStateRow } from '@/components/ui/PageHeader';
 import { api } from '@/lib/api';
+import {
+  COLUMN_HELP,
+  FINDING_CODE_HELP,
+  SEVERITY_HELP,
+  entityCadastroHref,
+  facilityHref,
+  isDemoSeed,
+  teamHref,
+  type FindingSeverity,
+} from '@/lib/cnes-audit-glossary';
 
-type Severity = 'error' | 'warn' | 'info';
+type Severity = FindingSeverity;
 
 type Finding = {
   code: string;
@@ -18,6 +28,10 @@ type Finding = {
   ine?: string | null;
   ibgeCode?: string | null;
   details?: Record<string, unknown>;
+  facilityName?: string | null;
+  teamName?: string | null;
+  entityHref?: string | null;
+  demoSeed?: boolean;
 };
 
 type InventoryRow = {
@@ -78,11 +92,43 @@ type SyncResult = {
   };
 };
 
-const SEV_LABEL: Record<Severity, string> = {
-  error: 'Erro',
-  warn: 'Alerta',
-  info: 'Info',
-};
+function CodeCell({ code }: { code: string }) {
+  const help = FINDING_CODE_HELP[code];
+  const title = help
+    ? `${help.title}\n\n${help.meaning}\n\nO que fazer: ${help.action}`
+    : code;
+  return (
+    <td className="mono" title={title} style={{ cursor: help ? 'help' : undefined }}>
+      <span style={{ borderBottom: help ? '1px dotted var(--ink-3)' : undefined }}>{code}</span>
+      {help ? (
+        <div className="muted" style={{ fontSize: 11, fontFamily: 'inherit', marginTop: 2, maxWidth: 220 }}>
+          {help.title}
+        </div>
+      ) : null}
+    </td>
+  );
+}
+
+function DemoBadge() {
+  return (
+    <span
+      title="CNES 9999999 / INE 0000000001 — seed de demonstração do ambiente, não é rede municipal real"
+      style={{
+        marginLeft: 6,
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: 0.02,
+        padding: '1px 6px',
+        borderRadius: 4,
+        background: 'rgba(180, 83, 9, 0.15)',
+        color: 'var(--warn, #b45309)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      demo
+    </span>
+  );
+}
 
 export default function CnesAuditoriaPage() {
   const [report, setReport] = useState<AuditReport | null>(null);
@@ -95,6 +141,7 @@ export default function CnesAuditoriaPage() {
   const [code, setCode] = useState('');
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<'findings' | 'equipes' | 'unidades'>('findings');
+  const [showGlossary, setShowGlossary] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -175,19 +222,44 @@ export default function CnesAuditoriaPage() {
       if (severity && f.severity !== severity) return false;
       if (code && f.code !== code) return false;
       if (!q.trim()) return true;
-      const hay = `${f.code} ${f.message} ${f.cnes || ''} ${f.ine || ''} ${f.entityType}`.toLowerCase();
+      const hay =
+        `${f.code} ${f.message} ${f.cnes || ''} ${f.ine || ''} ${f.entityType} ${f.facilityName || ''} ${f.teamName || ''}`.toLowerCase();
       return hay.includes(q.trim().toLowerCase());
     });
   }, [report, severity, code, q]);
 
   function exportCsv() {
     const rows = filtered.length ? filtered : report?.findings || [];
-    const header = ['severity', 'code', 'message', 'entityType', 'entityId', 'cnes', 'ine', 'ibgeCode'];
+    const header = [
+      'severity',
+      'code',
+      'message',
+      'entityType',
+      'entityId',
+      'cnes',
+      'ine',
+      'facilityName',
+      'teamName',
+      'demoSeed',
+      'ibgeCode',
+    ];
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = [
       header.join(','),
       ...rows.map((f) =>
-        [f.severity, f.code, f.message, f.entityType, f.entityId, f.cnes, f.ine, f.ibgeCode]
+        [
+          f.severity,
+          f.code,
+          f.message,
+          f.entityType,
+          f.entityId,
+          f.cnes,
+          f.ine,
+          f.facilityName,
+          f.teamName,
+          f.demoSeed ? '1' : '',
+          f.ibgeCode,
+        ]
           .map(esc)
           .join(','),
       ),
@@ -204,6 +276,11 @@ export default function CnesAuditoriaPage() {
   const emptyCadastro =
     !!report?.needsSync ||
     (!!report && report.counts.facilitiesInScope === 0 && report.counts.teamsInScope === 0);
+
+  const codesInReport = useMemo(() => {
+    if (!report) return [];
+    return Object.keys(report.counts.byCode || {}).sort();
+  }, [report]);
 
   return (
     <AppShell helpId="cadastros.cnes-auditoria">
@@ -306,10 +383,79 @@ export default function CnesAuditoriaPage() {
             {label}
           </button>
         ))}
+        {tab === 'findings' ? (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowGlossary((v) => !v)}
+          >
+            {showGlossary ? 'Ocultar glossário' : 'Mostrar glossário'}
+          </button>
+        ) : null}
       </div>
 
       {tab === 'findings' ? (
         <>
+          {showGlossary ? (
+            <div className="card" style={{ marginBottom: 12 }}>
+              <div className="section-label">Como ler esta tabela</div>
+              <div style={{ display: 'grid', gap: 10, fontSize: 13, maxWidth: 900 }}>
+                <div>
+                  <strong>Severidade</strong>
+                  <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                    {(Object.keys(SEVERITY_HELP) as Severity[]).map((s) => (
+                      <li key={s}>
+                        <span style={{ fontWeight: 600, color: SEVERITY_HELP[s].color }}>
+                          {SEVERITY_HELP[s].label}
+                        </span>
+                        {' — '}
+                        {SEVERITY_HELP[s].short}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <strong>Colunas</strong>
+                  <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                    {COLUMN_HELP.map((c) => (
+                      <li key={c.col}>
+                        <strong>{c.col}</strong> — {c.meaning}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {codesInReport.length ? (
+                  <div>
+                    <strong>Códigos nesta auditoria</strong>
+                    <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                      {codesInReport.map((c) => {
+                        const h = FINDING_CODE_HELP[c];
+                        return (
+                          <li key={c} style={{ marginBottom: 6 }}>
+                            <span className="mono">{c}</span>
+                            {h ? (
+                              <>
+                                {' '}
+                                — {h.meaning}{' '}
+                                <span className="muted">O que fazer: {h.action}</span>
+                              </>
+                            ) : (
+                              <span className="muted"> — sem glossário detalhado</span>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : null}
+                <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>
+                  CNES <span className="mono">9999999</span> / INE <span className="mono">0000000001</span>{' '}
+                  = dado de demonstração (seed). Clique em CNES, INE ou entidade para abrir o cadastro.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="card" style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <select
               className="field-input"
@@ -338,7 +484,7 @@ export default function CnesAuditoriaPage() {
             <input
               className="field-input"
               style={{ flex: 1, minWidth: 180, minHeight: 40, padding: '8px 10px' }}
-              placeholder="Filtrar mensagem, CNES, INE…"
+              placeholder="Filtrar mensagem, CNES, INE, nome…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -348,42 +494,89 @@ export default function CnesAuditoriaPage() {
             <table className="data">
               <thead>
                 <tr>
-                  <th>Severidade</th>
-                  <th>Código</th>
-                  <th>Mensagem</th>
-                  <th>CNES</th>
-                  <th>INE</th>
-                  <th>Entidade</th>
+                  <th title={COLUMN_HELP[0].meaning}>Severidade</th>
+                  <th title={COLUMN_HELP[1].meaning}>Código</th>
+                  <th title={COLUMN_HELP[2].meaning}>Mensagem</th>
+                  <th title={COLUMN_HELP[3].meaning}>CNES</th>
+                  <th title={COLUMN_HELP[4].meaning}>INE</th>
+                  <th title={COLUMN_HELP[5].meaning}>Entidade</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((f, i) => (
-                  <tr key={`${f.code}-${f.entityId || i}-${f.cnes || ''}-${f.ine || ''}`}>
-                    <td>
-                      <span
-                        style={{
-                          fontWeight: 600,
-                          color:
-                            f.severity === 'error'
-                              ? 'var(--danger, #b91c1c)'
-                              : f.severity === 'warn'
-                                ? 'var(--warn, #b45309)'
-                                : 'var(--ink-3)',
-                        }}
-                      >
-                        {SEV_LABEL[f.severity]}
-                      </span>
-                    </td>
-                    <td className="mono">{f.code}</td>
-                    <td>{f.message}</td>
-                    <td className="mono">{f.cnes || '—'}</td>
-                    <td className="mono">{f.ine || '—'}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>
-                      {f.entityType}
-                      {f.entityId ? ` · ${f.entityId.slice(0, 8)}` : ''}
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((f, i) => {
+                  const demo = f.demoSeed || isDemoSeed(f.cnes, f.ine);
+                  const facLink = f.cnes
+                    ? facilityHref(f.cnes, f.entityType === 'facility' ? f.entityId : null)
+                    : null;
+                  const ineLink = f.ine
+                    ? teamHref({
+                        entityType: f.entityType,
+                        entityId: f.entityType === 'team' ? f.entityId : null,
+                        ine: f.ine,
+                      })
+                    : null;
+                  const entLink = entityCadastroHref(f);
+                  return (
+                    <tr
+                      key={`${f.code}-${f.entityId || i}-${f.cnes || ''}-${f.ine || ''}`}
+                      style={demo ? { background: 'rgba(180, 83, 9, 0.06)' } : undefined}
+                    >
+                      <td>
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            color: SEVERITY_HELP[f.severity]?.color || 'var(--ink-3)',
+                          }}
+                          title={SEVERITY_HELP[f.severity]?.short}
+                        >
+                          {SEVERITY_HELP[f.severity]?.label || f.severity}
+                        </span>
+                      </td>
+                      <CodeCell code={f.code} />
+                      <td>
+                        {f.message}
+                        {f.facilityName || f.teamName ? (
+                          <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                            {[f.facilityName, f.teamName].filter(Boolean).join(' · ')}
+                          </div>
+                        ) : null}
+                        {demo ? <DemoBadge /> : null}
+                      </td>
+                      <td className="mono">
+                        {facLink && f.cnes ? (
+                          <Link href={facLink} title={f.facilityName || `Abrir unidade CNES ${f.cnes}`}>
+                            {f.cnes}
+                          </Link>
+                        ) : (
+                          f.cnes || '—'
+                        )}
+                        {demo && f.cnes ? <DemoBadge /> : null}
+                      </td>
+                      <td className="mono">
+                        {ineLink && f.ine ? (
+                          <Link href={ineLink} title={f.teamName || `Abrir equipe INE ${f.ine}`}>
+                            {f.ine}
+                          </Link>
+                        ) : (
+                          f.ine || '—'
+                        )}
+                      </td>
+                      <td className="mono" style={{ fontSize: 12 }}>
+                        {entLink ? (
+                          <Link href={entLink} title="Abrir cadastro correspondente">
+                            {f.entityType}
+                            {f.entityId ? ` · ${f.entityId.slice(0, 8)}` : ''}
+                          </Link>
+                        ) : (
+                          <>
+                            {f.entityType}
+                            {f.entityId ? ` · ${f.entityId.slice(0, 8)}` : ''}
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {!filtered.length ? (
                   <TableStateRow
                     colSpan={6}
@@ -423,10 +616,14 @@ export default function CnesAuditoriaPage() {
                   <td>
                     <Link href={`/equipes/${t.id}`}>{t.name}</Link>
                   </td>
-                  <td className="mono">{t.ine || '—'}</td>
+                  <td className="mono">
+                    {t.ine ? <Link href={`/equipes/${t.id}`}>{t.ine}</Link> : '—'}
+                  </td>
                   <td className="mono">{t.typeId || '—'}</td>
                   <td className="mono">{t.teamCount ?? '—'}</td>
-                  <td className="mono">{t.cnes || '—'}</td>
+                  <td className="mono">
+                    {t.cnes ? <Link href={facilityHref(t.cnes)}>{t.cnes}</Link> : '—'}
+                  </td>
                   <td>{t.facilityName || '—'}</td>
                   <td>{t.active ? 'sim' : 'não'}</td>
                 </tr>
@@ -468,8 +665,12 @@ export default function CnesAuditoriaPage() {
             <tbody>
               {(report?.inventory?.facilities || []).map((f) => (
                 <tr key={f.id}>
-                  <td>{f.name}</td>
-                  <td className="mono">{f.cnes || '—'}</td>
+                  <td>
+                    <Link href={facilityHref(f.cnes, f.id)}>{f.name}</Link>
+                  </td>
+                  <td className="mono">
+                    {f.cnes ? <Link href={facilityHref(f.cnes, f.id)}>{f.cnes}</Link> : '—'}
+                  </td>
                   <td className="mono">{f.typeId || '—'}</td>
                   <td className="mono">{f.teamCount ?? '—'}</td>
                   <td>{f.active ? 'sim' : 'não'}</td>

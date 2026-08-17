@@ -86,14 +86,20 @@ Reexecutar o sync atualiza diferenças e não duplica. Equipes cujo CNES não es
 
 Default `gestao=municipal`: snapshot e findings usam só a rede Prefeitura. Retorna `gestao`, `gestaoCriterion`, contagens filtradas vs cidade.
 
+Cada finding inclui (quando resolvido): `facilityName`, `teamName`, `entityHref` (deep-link UI), `demoSeed` (CNES `9999999` / INE `0000000001`).
+
+UI `/cadastros/cnes-auditoria`: glossário de colunas/códigos; links CNES→`/unidades?cnes=`, INE→`/equipes/[id]` ou `?ine=`, assignment→`/lotacoes?assignmentId=`.
+
 ## Auditoria faturamento (`GET /v1/faturamento/audit`)
 
 Default `gestao=municipal`: índice CNES/INE só da rede Prefeitura (produção de particular não “passa” como CNES municipal válido).
 
 ## UI
 
-- `/unidades` — default **Rede Prefeitura (mantenedora)** (~59 ativas); toggle **Todos IBGE**; sync municipal; contagens filtradas
-- `/cadastros/cnes-auditoria` — escopo Prefeitura + snapshot filtrado vs cidade
+- `/unidades` — default **Rede Prefeitura (mantenedora)** (~59 ativas); toggle **Todos IBGE**; sync municipal; deep-link `?cnes=` / `?id=`
+- `/cadastros/cnes-auditoria` — escopo Prefeitura + glossário + deep-links findings
+- `/equipes` — deep-link `?ine=` / `?q=`; detalhe `/equipes/[id]`
+- `/lotacoes` — highlight `?assignmentId=`
 - `/faturamento/auditoria` — escopo CNES municipal no cabeçalho
 
 ## Endpoints

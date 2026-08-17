@@ -56,11 +56,12 @@ type Tab = 'equipes' | 'multi';
 function EquipesPageInner() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') === 'multi' ? 'multi' : 'equipes';
+  const initialQ = searchParams.get('ine') || searchParams.get('q') || '';
   const [tab, setTab] = useState<Tab>(initialTab);
   const [list, setList] = useState<TeamsResponse | null>(null);
   const [multi, setMulti] = useState<MultiTeamResponse | null>(null);
   const [types, setTypes] = useState<TeamTypeRow[]>([]);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(initialQ);
   const [teamTypeId, setTeamTypeId] = useState('');
   const [onlyWithMembers, setOnlyWithMembers] = useState(false);
   const [onlyWithoutMembers, setOnlyWithoutMembers] = useState(false);
@@ -69,6 +70,13 @@ function EquipesPageInner() {
   const [loading, setLoading] = useState(true);
   const [syncingPf, setSyncingPf] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    const next = searchParams.get('ine') || searchParams.get('q') || '';
+    if (next && next !== q) setQ(next);
+    if (searchParams.get('tab') === 'multi') setTab('multi');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync URL → filtro
+  }, [searchParams]);
 
   const load = useCallback(async () => {
     setLoading(true);

@@ -5,7 +5,7 @@ import {
   loadBundledSnapshot,
   FRANCA_IBGE,
 } from './cnes.snapshot';
-import { CnesAuditService } from './cnes-audit.service';
+import { CnesAuditService, resolveFindingEntityHref } from './cnes-audit.service';
 
 describe('cnes.snapshot helpers', () => {
   it('valida CNES 7 dígitos', () => {
@@ -122,6 +122,13 @@ describe('CnesAuditService', () => {
     expect(report.inventory.facilities.length).toBeGreaterThan(0);
     expect(report.inventory.teams.length).toBeGreaterThan(0);
     expect(report.heuristics.teamFacilityType).toMatch(/consultório isolado/);
+    const withoutTeam = report.findings.find((f) => f.code === 'FACILITY_WITHOUT_TEAM');
+    expect(withoutTeam?.facilityName).toBeTruthy();
+    expect(withoutTeam?.entityHref).toMatch(/^\/unidades\?cnes=/);
+    expect(withoutTeam?.demoSeed).toBe(false);
+    const withoutMembers = report.findings.find((f) => f.code === 'TEAM_WITHOUT_MEMBERS');
+    expect(withoutMembers?.teamName).toBe('eSF B');
+    expect(withoutMembers?.entityHref).toMatch(/^\/equipes\//);
   });
 
   it('marca needsSync quando cadastro municipal está vazio', async () => {
@@ -162,5 +169,75 @@ describe('CnesAuditService', () => {
     const service = new CnesAuditService(prisma as never);
     const report = await service.audit({ ibgeCode: '3516200', includeLedi: false });
     expect(report.findings.some((f) => f.code === 'PATIENT_TEAM_LINK_ORPHAN')).toBe(true);
+  });
+
+  it('marca demoSeed e href de assignment', async () => {
+    const facilities = [
+      {
+        id: 'f-demo',
+        cnes: '9999999',
+        name: 'UBS Demo',
+        active: true,
+        ibgeCode: '3516200',
+        typeId: '2',
+        _count: { teams: 1 },
+      },
+    ];
+    const teams = [
+      {
+        id: 't-demo',
+        name: 'Equipe Demo',
+        ine: '0000000001',
+        teamTypeId: '70',
+        active: true,
+        facilityId: 'f-demo',
+        facility: facilities[0],
+        _count: { assignments: 1 },
+      },
+    ];
+    const prisma = {
+      facility: { findMany: jest.fn().mockResolvedValue(facilities) },
+      team: { findMany: jest.fn().mockResolvedValue(teams) },
+      patientTeamLink: { findMany: jest.fn().mockResolvedValue([]) },
+      professionalAssignment: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'a1',
+            teamId: 't-demo',
+            team: teams[0],
+            facility: facilities[0],
+            active: true,
+          },
+        ]),
+      },
+      productionRecord: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new CnesAuditService(prisma as never);
+    const report = await service.audit({
+      ibgeCode: '3516200',
+      includeLedi: false,
+      gestao: 'todos',
+    });
+    const anyDemo = report.findings.find((f) => f.demoSeed);
+    expect(anyDemo).toBeTruthy();
+    expect(anyDemo?.cnes === '9999999' || anyDemo?.ine === '0000000001').toBe(true);
+    const assignmentFinding = report.findings.find((f) => f.code === 'ASSIGNMENT_INE_MISSING');
+    if (assignmentFinding) {
+      expect(assignmentFinding.entityHref).toContain('/lotacoes?assignmentId=');
+      expect(assignmentFinding.facilityName).toBe('UBS Demo');
+    }
+  });
+
+  it('resolveFindingEntityHref cobre facility/team/assignment', () => {
+    expect(
+      resolveFindingEntityHref({ entityType: 'facility', cnes: '9647198' }),
+    ).toBe('/unidades?cnes=9647198');
+    expect(resolveFindingEntityHref({ entityType: 'team', entityId: 'abc' })).toBe('/equipes/abc');
+    expect(resolveFindingEntityHref({ entityType: 'team', ine: '0001667653' })).toBe(
+      '/equipes?ine=0001667653',
+    );
+    expect(resolveFindingEntityHref({ entityType: 'assignment', entityId: 'a1' })).toBe(
+      '/lotacoes?assignmentId=a1',
+    );
   });
 });
